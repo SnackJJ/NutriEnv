@@ -22,4 +22,8 @@ def load_catalog(path: Path | None = None) -> dict:
     foods = payload.get("foods")
     if not isinstance(foods, dict) or not foods:
         return demo_catalog()
-    return {str(fid): dict(entry) for fid, entry in foods.items()}
+    merged = demo_catalog()
+    for fid, entry in foods.items():
+        if isinstance(entry, dict):
+            merged[str(fid)] = dict(entry)
+    return merged

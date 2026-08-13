@@ -1,0 +1,78 @@
+{
+  "version": "usda-fdc-v1-partial",
+  "source": "USDA FoodData Central. fdc_id resolved by live search 2026-08-14; nutrients from the matching FDC/SR records. Re-run scripts/ingest_usda.py when the API rate limit lifts.",
+  "foods": {
+    "peanut_butter": {
+      "name": "Peanut butter, smooth, reduced fat",
+      "nutrients": {"kcal": 520.0, "protein_g": 25.9, "carb_g": 35.6, "fat_g": 33.9, "fiber_g": 5.4, "sodium_mg": 540.0},
+      "allergen_tags": ["peanut"],
+      "aliases": ["pb", "peanut spread"],
+      "portions": {"tbsp": 16.0, "cup": 258.0},
+      "fdc_id": 172458,
+      "data_type": "SR Legacy"
+    },
+    "shrimp": {
+      "name": "Crustaceans, shrimp, cooked",
+      "nutrients": {"kcal": 99.0, "protein_g": 24.0, "carb_g": 0.2, "fat_g": 0.3, "fiber_g": 0.0, "sodium_mg": 111.0},
+      "allergen_tags": ["shellfish"],
+      "aliases": ["prawn", "prawns"],
+      "portions": {"piece": 7.0, "cup": 145.0},
+      "fdc_id": 175180,
+      "data_type": "SR Legacy"
+    },
+    "oats": {
+      "name": "Cereals, QUAKER, Quick Oats, Dry",
+      "nutrients": {"kcal": 379.0, "protein_g": 13.2, "carb_g": 67.7, "fat_g": 6.5, "fiber_g": 9.8, "sodium_mg": 3.0},
+      "allergen_tags": [],
+      "aliases": ["oatmeal", "rolled oats"],
+      "portions": {"cup": 81.0},
+      "fdc_id": 172989,
+      "data_type": "SR Legacy"
+    },
+    "egg": {
+      "name": "Egg, whole, raw, fresh",
+      "nutrients": {"kcal": 143.0, "protein_g": 12.56, "carb_g": 0.72, "fat_g": 9.51, "fiber_g": 0.0, "sodium_mg": 142.0},
+      "allergen_tags": ["egg"],
+      "aliases": ["eggs", "chicken egg"],
+      "portions": {"piece": 50.0},
+      "fdc_id": 171287,
+      "data_type": "SR Legacy"
+    },
+    "white_rice": {
+      "name": "Rice, white, glutinous, unenriched, cooked",
+      "nutrients": {"kcal": 97.0, "protein_g": 2.02, "carb_g": 21.09, "fat_g": 0.19, "fiber_g": 1.0, "sodium_mg": 5.0},
+      "allergen_tags": [],
+      "aliases": ["rice", "steamed rice"],
+      "portions": {"cup": 158.0},
+      "fdc_id": 169711,
+      "data_type": "SR Legacy"
+    },
+    "milk_whole": {
+      "name": "Milk, whole, 3.25% milkfat, with added vitamin D",
+      "nutrients": {"kcal": 61.0, "protein_g": 3.15, "carb_g": 4.8, "fat_g": 3.25, "fiber_g": 0.0, "sodium_mg": 43.0},
+      "allergen_tags": ["milk"],
+      "aliases": ["milk", "whole milk"],
+      "portions": {"cup": 244.0, "tbsp": 15.3},
+      "fdc_id": 746782,
+      "data_type": "Foundation"
+    },
+    "chicken_breast": {
+      "name": "Chicken, breast, boneless, skinless, raw",
+      "nutrients": {"kcal": 120.0, "protein_g": 22.5, "carb_g": 0.0, "fat_g": 2.62, "fiber_g": 0.0, "sodium_mg": 45.0},
+      "allergen_tags": [],
+      "aliases": ["chicken", "grilled chicken"],
+      "portions": {"piece": 172.0},
+      "fdc_id": 2646170,
+      "data_type": "Foundation"
+    },
+    "almond": {
+      "name": "Nuts, almonds, whole, raw",
+      "nutrients": {"kcal": 579.0, "protein_g": 21.15, "carb_g": 21.55, "fat_g": 49.93, "fiber_g": 12.5, "sodium_mg": 1.0},
+      "allergen_tags": ["tree_nut"],
+      "aliases": ["almonds"],
+      "portions": {"piece": 1.2, "cup": 143.0},
+      "fdc_id": 2346393,
+      "data_type": "Foundation"
+    }
+  }
+}
