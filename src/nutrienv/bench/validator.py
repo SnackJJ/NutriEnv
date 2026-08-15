@@ -337,6 +337,13 @@ def _windows_unsatisfiable(windows: dict, catalog, allergies: tuple[str, ...] = 
         if protein <= 0:
             continue
         if kcal <= 0:
+            # A zero-kcal food has an unbounded protein-per-kcal ratio, so on
+            # paper it satisfies any low-kcal window. The catalog holds 14 such
+            # entries -- all decaf coffee at 0.1 g protein per 100 g -- and
+            # reaching a 56 g protein floor from them means drinking 56 kg.
+            # Anything at or above 1 g per 100 g is a real protein source and
+            # does make the window satisfiable; below that the "solution" is
+            # not food, so it does not count as one.
             if protein >= 1.0:
                 return False
             continue

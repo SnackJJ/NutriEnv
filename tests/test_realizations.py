@@ -51,7 +51,7 @@ def test_update_constrain_evaluate_tables_have_unique_keys():
     assert len(UPDATE_ROWS) >= 22
     assert len(CONSTRAIN_ROWS) >= 19
     assert {row.kind for row in CONSTRAIN_ROWS} == {"condition", "conflict"}
-    assert len(EVALUATE_ROWS) >= 11
+    assert len(EVALUATE_ROWS) >= 55
     assert_update_rows(catalog)
     assert_constrain_rows(catalog)
     assert_evaluate_rows(catalog)
@@ -105,6 +105,64 @@ def test_leftover_seeds_change_semantic_key():
         for seed in range(20)
     }
     assert len(keys) > 1
+
+
+def test_evaluate_rows_cover_tiers_and_resolve():
+    import re
+    from collections import Counter
+
+    catalog = load_catalog()
+    assert len(EVALUATE_ROWS) >= 55
+    counts = Counter(row.tier for row in EVALUATE_ROWS)
+    assert counts["single"] >= 7
+    assert counts["pair"] >= 12
+    assert counts["triple"] >= 12
+    assert counts["long"] >= 6
+    assert counts["forced_grams"] >= 4
+    assert counts["synonym"] >= 3
+    assert_evaluate_rows(catalog)
+    banned = {("whole_wheat_bread", "a slice"), ("broccoli", "a piece")}
+    for row in EVALUATE_ROWS:
+        for food_id, phrase in row.items:
+            assert (food_id, phrase) not in banned, row.seed_id
+            assert resolve_portion(food_id, phrase, catalog) is not None, (
+                row.seed_id,
+                food_id,
+                phrase,
+            )
+
+    generator = Generator()
+    knobs = generator._difficulty(None)
+    base = generator._make_s0(0, knobs)
+    keys = []
+    for row in EVALUATE_ROWS:
+        s0 = _fresh_s0(base)
+        query, oracle = generator._evaluate_from_row(s0, row)
+        task = Task("draft", "evaluate", query, s0, oracle)
+        assert validate_draft(task) == [], (row.seed_id, validate_draft(task))
+        keys.append(semantic_key(task))
+    assert len(keys) == len(EVALUATE_ROWS)
+    assert len(set(keys)) == len(EVALUATE_ROWS)
+
+    for row in EVALUATE_ROWS:
+        if row.tier != "forced_grams":
+            continue
+        for food_id, _phrase in row.items:
+            assert not (catalog[food_id].get("portions") or {}), (row.seed_id, food_id)
+        assert re.search(r"\d+\s*g", row.query, re.I), row.seed_id
+
+    synonym_targets = {"shrimp", "oats", "greek_yogurt"}
+    seen_hidden: set[str] = set()
+    for row in EVALUATE_ROWS:
+        if row.tier != "synonym":
+            continue
+        hidden = [food_id for food_id, _phrase in row.items if food_id not in row.query.lower()]
+        assert hidden, row.seed_id
+        assert set(hidden) & synonym_targets, (row.seed_id, hidden)
+        seen_hidden.update(set(hidden) & synonym_targets)
+        for food_id, phrase in row.items:
+            assert resolve_portion(food_id, phrase, catalog) is not None
+    assert seen_hidden == synonym_targets
 
 
 def test_all_update_rows_have_distinct_semantic_keys():
