@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NutriEnv v0.3 增量进展报告</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-subtle: #f1f5f9;
+      --border: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --text: #0f172a;
+      --text-muted: #475569;
+      --text-dim: #64748b;
+      --primary: #1e40af;
+      --primary-subtle: #dbeafe;
+      --accent: #0284c7;
+      --danger: #b91c1c;
+      --danger-subtle: #fee2e2;
+      --warning: #b45309;
+      --warning-subtle: #fef3c7;
+      --success: #15803d;
+      --success-subtle: #dcfce7;
+      --code-bg: #f1f5f9;
+      --code-border: #e2e8f0;
+      --bar-bg: #e2e8f0;
+      --bar-fill: #2563eb;
+      --bar-success: #16a34a;
+      --bar-lag: #dc2626;
+      --bar-prev: #94a3b8;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #090d16;
+        --surface: #111827;
+        --surface-subtle: #1f2937;
+        --border: #374151;
+        --border-strong: #4b5563;
+        --text: #f3f4f6;
+        --text-muted: #cbd5e1;
+        --text-dim: #9ca3af;
+        --primary: #3b82f6;
+        --primary-subtle: #1e3a8a;
+        --accent: #38bdf8;
+        --danger: #ef4444;
+        --danger-subtle: #450a0a;
+        --warning: #f59e0b;
+        --warning-subtle: #451a03;
+        --success: #22c55e;
+        --success-subtle: #052e16;
+        --code-bg: #1e293b;
+        --code-border: #334155;
+        --bar-bg: #374151;
+        --bar-fill: #3b82f6;
+        --bar-success: #22c55e;
+        --bar-lag: #ef4444;
+        --bar-prev: #64748b;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      font-size: 0.9375rem;
+      padding: 2rem 1rem;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    header {
+      border-bottom: 2px solid var(--border-strong);
+      padding-bottom: 1.25rem;
+    }
+
+    .report-title {
+      font-size: 1.625rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+
+    .meta-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.5rem;
+      font-size: 0.8125rem;
+      color: var(--text-dim);
+    }
+
+    .meta-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .meta-label {
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    code, .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.84em;
+    }
+
+    code {
+      background-color: var(--code-bg);
+      border: 1px solid var(--code-border);
+      padding: 0.12em 0.35em;
+      border-radius: 3px;
+      word-break: break-all;
+    }
+
+    .section-card {
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.5rem;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .section-title {
+      font-size: 1.125rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text);
+    }
+
+    .section-desc {
+      font-size: 0.8125rem;
+      color: var(--text-dim);
+    }
+
+    /* Headline KPI Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .kpi-card {
+      background-color: var(--surface-subtle);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1rem;
+    }
+
+    .kpi-card.highlight {
+      border-color: var(--success);
+      background-color: var(--success-subtle);
+    }
+
+    .kpi-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-bottom: 0.25rem;
+    }
+
+    .kpi-card.highlight .kpi-label {
+      color: var(--success);
+    }
+
+    .kpi-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: baseline;
+      gap: 0.35rem;
+    }
+
+    .kpi-card.highlight .kpi-value {
+      color: var(--success);
+    }
+
+    .kpi-sub {
+      font-size: 0.8125rem;
+      font-weight: normal;
+      color: var(--text-muted);
+    }
+
+    .kpi-note {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.35rem;
+    }
+
+    /* Progress Bars */
+    .progress-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1.15rem;
+    }
+
+    .progress-item {
+      display: grid;
+      grid-template-columns: 110px 1fr 170px;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    @media (max-width: 640px) {
+      .progress-item {
+        grid-template-columns: 1fr;
+        gap: 0.35rem;
+      }
+    }
+
+    .progress-name {
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .progress-track-wrapper {
+      width: 100%;
+    }
+
+    .progress-track {
+      background-color: var(--bar-bg);
+      border-radius: 4px;
+      height: 14px;
+      overflow: hidden;
+      display: flex;
+      width: 100%;
+      position: relative;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background-color: var(--bar-fill);
+      transition: width 0.3s ease;
+    }
+
+    .progress-fill.success {
+      background-color: var(--bar-success);
+    }
+
+    .progress-fill.lag {
+      background-color: var(--bar-lag);
+    }
+
+    .progress-fill-prev {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      background-color: var(--bar-prev);
+      opacity: 0.5;
+    }
+
+    .progress-stats {
+      font-size: 0.8125rem;
+      text-align: right;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .progress-stats .pct {
+      font-weight: 700;
+      color: var(--text);
+      margin-left: 0.4rem;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      padding: 0.15rem 0.45rem;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .badge-success {
+      background-color: var(--success-subtle);
+      color: var(--success);
+      border: 1px solid var(--success);
+    }
+
+    .badge-lag {
+      background-color: var(--danger-subtle);
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    .badge-warn {
+      background-color: var(--warning-subtle);
+      color: var(--warning);
+      border: 1px solid var(--warning);
+    }
+
+    .badge-subtle {
+      background-color: var(--surface-subtle);
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+    }
+
+    /* Tables */
+    .table-container {
+      overflow-x: auto;
+      margin-top: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84375rem;
+      text-align: left;
+    }
+
+    th {
+      background-color: var(--surface-subtle);
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 0.65rem 0.85rem;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 0.6rem 0.85rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:nth-child(even) td {
+      background-color: rgba(128, 128, 128, 0.02);
+    }
+
+    .num-col {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    th.num-col {
+      text-align: right;
+    }
+
+    .total-row td {
+      font-weight: 700;
+      background-color: var(--surface-subtle);
+      border-top: 2px solid var(--border-strong);
+    }
+
+    /* Prose / Callout blocks */
+    .prose-list {
+      list-style-type: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .prose-item {
+      border-left: 3px solid var(--border-strong);
+      padding-left: 0.85rem;
+    }
+
+    .prose-item.warn {
+      border-left-color: var(--warning);
+    }
+
+    .prose-item.danger {
+      border-left-color: var(--danger);
+    }
+
+    .prose-item.info {
+      border-left-color: var(--accent);
+    }
+
+    .prose-item.success {
+      border-left-color: var(--success);
+    }
+
+    .prose-item-title {
+      font-weight: 700;
+      margin-bottom: 0.2rem;
+      color: var(--text);
+      font-size: 0.875rem;
+    }
+
+    .prose-item-body {
+      font-size: 0.84375rem;
+      color: var(--text-muted);
+    }
+
+    .note-box {
+      background-color: var(--surface-subtle);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.85rem 1rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-top: 1rem;
+    }
+
+    .contrast-banner {
+      background-color: var(--surface-subtle);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--success);
+      padding: 0.85rem 1rem;
+      border-radius: 4px;
+      margin-top: 1rem;
+      font-size: 0.84375rem;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding-top: 1rem;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <header>
+    <h1 class="report-title">NutriEnv v0.3 增量进展报告</h1>
+    <div class="meta-bar">
+      <div class="meta-item"><span class="meta-label">版本:</span> <code>v0.3-gold</code></div>
+      <div class="meta-item"><span class="meta-label">父版本:</span> <code>v0.2-gold</code></div>
+      <div class="meta-item"><span class="meta-label">测试集文件:</span> <code>data/splits/v0.3-gold.json</code></div>
+      <div class="meta-item"><span class="meta-label">Catalog:</span> <code>data/fdc/catalog.sqlite</code></div>
+    </div>
+  </header>
+
+  <!-- 1. HEADLINE -->
+  <section class="section-card">
+    <div class="section-header">
+      <h2 class="section-title">1. 核心指标概览 (Headline)</h2>
+      <span class="section-desc">增量规模、回归验证与首个家族配额达成里程碑</span>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">测试集题目规模</div>
+        <div class="kpi-value">156 <span class="kpi-sub">/ 240</span></div>
+        <div class="kpi-note">较 v0.2 (100 题) 净增 +56 题</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Pytest 测试用例</div>
+        <div class="kpi-value">137 <span class="kpi-sub">passed</span></div>
+        <div class="kpi-note">v0.2 时为 130 passed（增量前基线 108）</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">历史题目一致性</div>
+        <div class="kpi-value">100 <span class="kpi-sub">KEEP</span></div>
+        <div class="kpi-note">前 100 项与 v0.2 完全字节一致</div>
+      </div>
+      <div class="kpi-card highlight">
+        <div class="kpi-label">里程碑: evaluate 满配</div>
+        <div class="kpi-value">48 / 48 <span class="kpi-sub">100%</span></div>
+        <div class="kpi-note">完成 ADR 0009 规定的全部配额</div>
+      </div>
+    </div>
+
+    <div class="contrast-banner">
+      <strong>核心反差与里程碑进展:</strong> 在 v0.2 报告中，<code>evaluate</code> 曾以 <strong>7/48 (15%)</strong> 被列为全项目最严重的进度短板；本轮增量通过引入六个难度层的表驱动架构，单轮新增 <strong>+41 题</strong>，直接将 <code>evaluate</code> 推进至 <strong>48/48 (100%)</strong>，成为 NutriEnv 五大家族中首个达成 ADR 0009 全部冻结配额的家族。
+    </div>
+
+    <div class="note-box">
+      <strong>数据校验签名:</strong> Catalog SQLite SHA-256 为 <code>e1ffbb1a594a99a404c9a34dadfe09409bebaf702cb65173686e30caf3fdcbf7</code>，底层事实库无漂移。
+    </div>
+  </section>
+
+  <!-- 2. FAMILY PROGRESS (240-ITEM DESTINATION) -->
+  <section class="section-card">
+    <div class="section-header">
+      <h2 class="section-title">2. 家族进度与 240 目标差距 (v0.2 &rarr; v0.3)</h2>
+      <span class="section-desc">各 family 推进动量与当前滞后家族识别</span>
+    </div>
+
+    <div class="progress-list">
+      <div class="progress-item">
+        <div class="progress-name">evaluate</div>
+        <div class="progress-track-wrapper">
+          <div class="progress-track">
+            <div class="progress-fill success" style="width: 100%;"></div>
+          </div>
+        </div>
+        <div class="progress-stats">
+          <span class="badge badge-success">已满配</span> 48 / 48 (+41) <span class="pct" style="color: var(--success);">100%</span>
+        </div>
+      </div>
+
+      <div class="progress-item">
+        <div class="progress-name">update</div>
+        <div class="progress-track-wrapper">
+          <div class="progress-track">
+            <div class="progress-fill" style="width: 61%;"></div>
+          </div>
+        </div>
+        <div class="progress-stats">
+          22 / 36 (+8) <span class="pct">61%</span>
+        </div>
+      </div>
+
+      <div class="progress-item">
+        <div class="progress-name">log</div>
+        <div class="progress-track-wrapper">
+          <div class="progress-track">
+            <div class="progress-fill" style="width: 60%;"></div>
+          </div>
+        </div>
+        <div class="progress-stats">
+          29 / 48 (+2) <span class="pct">60%</span>
+        </div>
+      </div>
+
+      <div class="progress-item">
+        <div class="progress-name">recommend</div>
+        <div class="progress-track-wrapper">
+          <div class="progress-track">
+            <div class="progress-fill" style="width: 57%;"></div>
+          </div>
+        </div>
+        <div class="progress-stats">
+          <span class="badge badge-warn">滞后</span> 41 / 72 (+0) <span class="pct">57%</span>
+        </div>
+      </div>
+
+      <div class="progress-item">
+        <div class="progress-name">constrain</div>
+        <div class="progress-track-wrapper">
+          <div class="progress-track">
+            <div class="progress-fill lag" style="width: 44%;"></div>
+          </div>
+        </div>
+        <div class="progress-stats">
+          <span class="badge badge-lag">严重滞后</span> 16 / 36 (+5) <span class="pct" style="color: var(--danger);">44%</span>
+        </div>
+      </div>
+
+      <div class="progress-item" style="border-top: 1px solid var(--border); padding-top: 0.75rem;">
+        <div class="progress-name" style="font-weight: 700;">合计</div>
+        <div class="progress-track-wrapper">
+          <div class="progress-track">
+            <div class="progress-fill" style="width: 65%;"></div>
+          </div>
+        </div>
+        <div class="progress-stats" style="font-weight: 700;">
+          156 / 240 (+56) <span class="pct">65%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>family</th>
+            <th class="num-col">v0.2</th>
+            <th class="num-col">v0.3 (现在)</th>
+            <th class="num-col">240 目标</th>
+            <th class="num-col">完成度</th>
+            <th class="num-col">本轮新增</th>
+            <th>状态说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background-color: var(--success-subtle);">
+            <td><code>evaluate</code></td>
+            <td class="num-col">7</td>
+            <td class="num-col" style="font-weight: 700; color: var(--success);">48</td>
+            <td class="num-col">48</td>
+            <td class="num-col" style="font-weight: 700; color: var(--success);">100%</td>
+            <td class="num-col">+41</td>
+            <td><strong>达成 100% 配额</strong>（从 15% 跃升，完成全部目标）</td>
+          </tr>
+          <tr>
+            <td><code>update</code></td>
+            <td class="num-col">14</td>
+            <td class="num-col">22</td>
+            <td class="num-col">36</td>
+            <td class="num-col">61%</td>
+            <td class="num-col">+8</td>
+            <td>进度突破六成，表驱动稳定产出</td>
+          </tr>
+          <tr>
+            <td><code>log</code></td>
+            <td class="num-col">27</td>
+            <td class="num-col">29</td>
+            <td class="num-col">48</td>
+            <td class="num-col">60%</td>
+            <td class="num-col">+2</td>
+            <td>补充 2 条 fuzzy log 题目，稳步推进</td>
+          </tr>
+          <tr style="background-color: var(--warning-subtle);">
+            <td><code>recommend</code></td>
+            <td class="num-col">41</td>
+            <td class="num-col">41</td>
+            <td class="num-col">72</td>
+            <td class="num-col">57%</td>
+            <td class="num-col">+0</td>
+            <td><strong>转为新滞后项</strong>：本轮未新增，距 72 目标尚缺 31 题</td>
+          </tr>
+          <tr style="background-color: var(--danger-subtle);">
+            <td><code>constrain</code></td>
+            <td class="num-col">11</td>
+            <td class="num-col" style="font-weight: 700; color: var(--danger);">16</td>
+            <td class="num-col">36</td>
+            <td class="num-col" style="font-weight: 700; color: var(--danger);">44%</td>
+            <td class="num-col">+5</td>
+            <td><strong>完成度最低</strong>：虽补 5 题，但 44% 仍是全场最慢环节</td>
+          </tr>
+          <tr class="total-row">
+            <td>合计</td>
+            <td class="num-col">100</td>
+            <td class="num-col">156</td>
+            <td class="num-col">240</td>
+            <td class="num-col">65%</td>
+            <td class="num-col">+56</td>
+            <td>整体进度由 42% 提升至 65%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 3. NEW 56 ITEMS BREAKDOWN & EVALUATE TIERS -->
+  <section class="section-card">
+    <div class="section-header">
+      <h2 class="section-title">3. 本轮新增 56 项构成与 evaluate 六个难度层</h2>
+      <span class="section-desc">增量 slice 分布及评测难度梯度</span>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>slice</th>
+            <th class="num-col">新增数量 (n)</th>
+            <th>ID 前缀</th>
+            <th>说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>evaluate（六个难度层）</td>
+            <td class="num-col">41</td>
+            <td><code>v03-eval-*</code></td>
+            <td>覆盖 single / pair / triple / long / explicit_grams / synonym</td>
+          </tr>
+          <tr>
+            <td>profile update</td>
+            <td class="num-col">8</td>
+            <td><code>v03-upd-*</code></td>
+            <td>用户画像修改（过敏原变更、热量/蛋白质窗口调整）</td>
+          </tr>
+          <tr>
+            <td>constrain / condition</td>
+            <td class="num-col">2</td>
+            <td><code>v03-cond-*</code></td>
+            <td>食物违背过敏原约束检查</td>
+          </tr>
+          <tr>
+            <td>constrain / 贴边 conflict</td>
+            <td class="num-col">3</td>
+            <td><code>v03-conf-*</code></td>
+            <td>极限贴边不可行窗口约束</td>
+          </tr>
+          <tr>
+            <td>fuzzy log</td>
+            <td class="num-col">2</td>
+            <td><code>v03-log-fz-*</code></td>
+            <td>模糊分量日常口语记录</td>
+          </tr>
+          <tr class="total-row">
+            <td>合计</td>
+            <td class="num-col">56</td>
+            <td>-</td>
+            <td>全部通过物化器可达性检查与 validator 门禁</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top: 1.5rem;">
+      <h3 style="font-size: 0.9375rem; font-weight: 700; margin-bottom: 0.5rem;">evaluate 的六个难度层 (Difficulty Tiers)</h3>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>tier (难度层)</th>
+              <th class="num-col">本轮收录 (n)</th>
+              <th>考查核心能力与设定</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>pair</code></td>
+              <td class="num-col">11</td>
+              <td>两项，份量说法混搭</td>
+            </tr>
+            <tr>
+              <td><code>triple</code></td>
+              <td class="num-col">11</td>
+              <td>三项</td>
+            </tr>
+            <tr>
+              <td><code>single</code></td>
+              <td class="num-col">7</td>
+              <td>单品，七种份量说法各一次</td>
+            </tr>
+            <tr>
+              <td><code>long</code></td>
+              <td class="num-col">5</td>
+              <td>四到五项，长列表不漏项</td>
+            </tr>
+            <tr>
+              <td><code>explicit_grams</code></td>
+              <td class="num-col">4</td>
+              <td>目录里无 portion 的食物，必须给克数（对照组）</td>
+            </tr>
+            <tr>
+              <td><code>synonym</code></td>
+              <td class="num-col">3</td>
+              <td>口语名与 slug 不同（prawns / oatmeal / plain yogurt）</td>
+            </tr>
+            <tr class="total-row">
+              <td>合计</td>
+              <td class="num-col">41</td>
+              <td>结合历史 7 题构成完整的 48 题 evaluate 题库</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. STATISTICAL HONESTY & CI TABLE -->
+  <section class="section-card">
+    <div class="section-header">
+      <h2 class="section-title">4. 统计诚实性分析 (Statistical Honesty)</h2>
+      <span class="section-desc">二项分布置信区间半宽与细分 slice 稀疏度</span>
+    </div>
+
+    <p style="margin-bottom: 0.85rem; font-size: 0.875rem; color: var(--text-muted);">
+      与此前保持一致的统计事实：终点 <strong>240 题总分</strong> 将支持一个统计上高度稳健的总体准确率指标（95% CI 半宽为 <strong>±6.3pp</strong>，worst-case <em>p=0.5</em>）。
+      但家族级别的单元格（如 36 题的 update/constrain 目标为 ±16.3pp，当前 constrain 16 题现状达 ±24.5pp）统计功效较弱，而细分 slice 单元格更为单薄，仍有多处 <em>n=1</em> 的孤点。
+    </p>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th class="num-col">样本量 (n)</th>
+            <th class="num-col">95% CI 半宽 (p=0.5)</th>
+            <th>层级与说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background-color: var(--success-subtle);">
+            <td class="num-col">240</td>
+            <td class="num-col"><strong>±6.3pp</strong></td>
+            <td><strong>240 目标总分</strong>（强统计功效，稳固的 headline 数据）</td>
+          </tr>
+          <tr>
+            <td class="num-col">156</td>
+            <td class="num-col">±7.8pp</td>
+            <td>v0.3 现状总分（较 v0.2 的 ±9.8pp 显著收窄）</td>
+          </tr>
+          <tr>
+            <td class="num-col">72</td>
+            <td class="num-col">±11.5pp</td>
+            <td>recommend 目标</td>
+          </tr>
+          <tr style="background-color: var(--success-subtle);">
+            <td class="num-col">48</td>
+            <td class="num-col">±14.1pp</td>
+            <td><strong>evaluate 现状 = 目标</strong> / log 目标</td>
+          </tr>
+          <tr>
+            <td class="num-col">41</td>
+            <td class="num-col">±15.3pp</td>
+            <td>recommend 现状</td>
+          </tr>
+          <tr style="background-color: var(--warning-subtle);">
+            <td class="num-col">36</td>
+            <td class="num-col">±16.3pp</td>
+            <td>update / constrain 目标</td>
+          </tr>
+          <tr>
+            <td class="num-col">29</td>
+            <td class="num-col">±18.2pp</td>
+            <td>log 现状</td>
+          </tr>
+          <tr>
+            <td class="num-col">22</td>
+            <td class="num-col">±20.9pp</td>
+            <td>update 现状</td>
+          </tr>
+          <tr style="background-color: var(--danger-subtle);">
+            <td class="num-col">16</td>
+            <td class="num-col">±24.5pp</td>
+            <td>constrain 现状（统计功效依然薄弱）</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top: 1.5rem;">
+      <h3 style="font-size: 0.9375rem; font-weight: 700; margin-bottom: 0.5rem;">Slice 格子分布 (family × persona × situation)</h3>
+      <p style="font-size: 0.8125rem; color: var(--text-dim); margin-bottom: 0.75rem;">
+        已填充格子数: <strong>17</strong>，其中 <strong>n=1</strong> 的格子有 <strong>5</strong> 个（仅供定性探索分析，不可单独推断统计优劣）。
+      </p>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th class="num-col">样本量 (n)</th>
+              <th>family</th>
+              <th>persona</th>
+              <th>situation</th>
+              <th>状态标注</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num-col">48</td>
+              <td><code>evaluate</code></td>
+              <td><code>everyday</code></td>
+              <td>-</td>
+              <td><span class="badge badge-success">配额达成</span></td>
+            </tr>
+            <tr>
+              <td class="num-col">27</td>
+              <td><code>recommend</code></td>
+              <td><code>leftover</code></td>
+              <td>-</td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td class="num-col">23</td>
+              <td><code>log</code></td>
+              <td><code>everyday</code></td>
+              <td><code>fuzzy_portion</code></td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td class="num-col">20</td>
+              <td><code>update</code></td>
+              <td><code>everyday</code></td>
+              <td>-</td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td class="num-col">9</td>
+              <td><code>constrain</code></td>
+              <td><code>everyday</code></td>
+              <td><code>condition_suitability</code></td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td class="num-col">7</td>
+              <td><code>constrain</code></td>
+              <td><code>everyday</code></td>
+              <td><code>conflict_windows</code></td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td class="num-col">6</td>
+              <td><code>recommend</code></td>
+              <td><code>everyday</code></td>
+              <td>-</td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td class="num-col">3</td>
+              <td><code>recommend</code></td>
+              <td><code>gym</code></td>
+              <td>-</td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td class="num-col">2</td>
+              <td><code>log</code></td>
+              <td><code>everyday</code></td>
+              <td><code>multi_item_log</code></td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td class="num-col">2</td>
+              <td><code>recommend</code></td>
+              <td><code>cut</code></td>
+              <td>-</td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td class="num-col">2</td>
+              <td><code>recommend</code></td>
+              <td><code>flex</code></td>
+              <td>-</td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td class="num-col">2</td>
+              <td><code>update</code></td>
+              <td><code>cut</code></td>
+              <td>-</td>
+              <td>-</td>
+            </tr>
+            <tr style="background-color: var(--warning-subtle);">
+              <td class="num-col">1</td>
+              <td><code>log</code></td>
+              <td><code>everyday</code></td>
+              <td><code>unit_convert</code></td>
+              <td><span class="badge badge-warn">n=1 孤点</span></td>
+            </tr>
+            <tr style="background-color: var(--warning-subtle);">
+              <td class="num-col">1</td>
+              <td><code>log</code></td>
+              <td><code>everyday</code></td>
+              <td><code>ledger_gap</code></td>
+              <td><span class="badge badge-warn">n=1 孤点</span></td>
+            </tr>
+            <tr style="background-color: var(--warning-subtle);">
+              <td class="num-col">1</td>
+              <td><code>log</code></td>
+              <td><code>everyday</code></td>
+              <td>-</td>
+              <td><span class="badge badge-warn">n=1 孤点</span></td>
+            </tr>
+            <tr style="background-color: var(--warning-subtle);">
+              <td class="num-col">1</td>
+              <td><code>recommend</code></td>
+              <td><code>htn</code></td>
+              <td>-</td>
+              <td><span class="badge badge-warn">n=1 孤点</span></td>
+            </tr>
+            <tr style="background-color: var(--warning-subtle);">
+              <td class="num-col">1</td>
+              <td><code>log</code></td>
+              <td><code>everyday</code></td>
+              <td><code>near_synonym</code></td>
+              <td><span class="badge badge-warn">n=1 孤点</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. FACTORY TABLE SIZES -->
+  <section class="section-card">
+    <div class="section-header">
+      <h2 class="section-title">5. 生成工厂表规模 (Factory Tables)</h2>
+      <span class="section-desc">种子表多样性行数 vs 已收录题目规模</span>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>工厂表 (Table)</th>
+            <th class="num-col">表总行数</th>
+            <th class="num-col">novel 行已收录</th>
+            <th class="num-col">表内剩余</th>
+            <th>对应领域与收录状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>FUZZY_ROWS</code></td>
+            <td class="num-col">24</td>
+            <td class="num-col">18 / 18</td>
+            <td class="num-col">0</td>
+            <td>模糊份量与口语表达解析 — <strong>已见底</strong></td>
+          </tr>
+          <tr>
+            <td><code>LEFTOVER_ROWS</code></td>
+            <td class="num-col">27</td>
+            <td class="num-col">24 / 24</td>
+            <td class="num-col">0</td>
+            <td>多时段账本几何与剩余额度推荐 — <strong>已见底</strong></td>
+          </tr>
+          <tr>
+            <td><code>UPDATE_ROWS</code></td>
+            <td class="num-col">22</td>
+            <td class="num-col">16 / 16</td>
+            <td class="num-col">0</td>
+            <td>画像更新（过敏原、窗口位移）— <strong>已见底</strong></td>
+          </tr>
+          <tr>
+            <td><code>CONSTRAIN_ROWS</code></td>
+            <td class="num-col">22</td>
+            <td class="num-col">13 / 19</td>
+            <td class="num-col">6</td>
+            <td>剩余 6 条是 cf-55-75…cf-85-105 等差行，收录即 padding，ADR 0009 禁止</td>
+          </tr>
+          <tr>
+            <td><code>EVALUATE_ROWS</code></td>
+            <td class="num-col">55</td>
+            <td class="num-col">45 / 52</td>
+            <td class="num-col">7</td>
+            <td>多难度层候选餐转录 — 剩余 7 条为评审替补席</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 6. WHAT CHANGED THIS ROUND -->
+  <section class="section-card">
+    <div class="section-header">
+      <h2 class="section-title">6. 本轮机制与工程变更 (What Changed)</h2>
+      <span class="section-desc">难度分层、可达性防线与物化脚本重构</span>
+    </div>
+
+    <div class="prose-list">
+      <div class="prose-item info">
+        <div class="prose-item-title">1. evaluate 全面采用六个声明难度层表驱动</div>
+        <div class="prose-item-body">
+          不再用单一形态填充配额，而是将 <code>EVALUATE_ROWS</code> 扩展为 55 行，显式划分为 6 个难度层（single、pair、triple、long、explicit_grams、synonym），使候选餐评估能力具有清晰的梯度覆盖。
+        </div>
+      </div>
+
+      <div class="prose-item warn">
+        <div class="prose-item-title">2. 修复 peanut-butter / peanut-allergy 冲突并增加可达性门禁</div>
+        <div class="prose-item-body">
+          排查发现有 4 道题因花生酱冲突导致不可通过：即使 agent 准确提交了题目要求的全部食物，Scorer 仍会因画像中既有的花生过敏原判定扣分。该问题在冻结前由可达性校验器（achievability check）及时捕获，已在物化器中完成修复，并写入 <code>validator.py</code> 作为强制门禁。
+        </div>
+      </div>
+
+      <div class="prose-item warn">
+        <div class="prose-item-title">3. 修正时态语意不符题（吃完记录 vs 计划评估）</div>
+        <div class="prose-item-body">
+          人工审查发现 1 道题的口语 query 包含“I already ate after the gym... submit that as the plan”——过去时态的进食属于 <code>log</code> 任务，导致该句子在语义上并未 entail 被打分的候选餐计划终态。已重写该 query 确保语义与终态严格一致。
+        </div>
+      </div>
+
+      <div class="prose-item success">
+        <div class="prose-item-title">4. 物化脚本重构为统一的参数化流程</div>
+        <div class="prose-item-body">
+          物化器（materializer）已整合重构成单一参数化脚本。通过该脚本可将 v0.2 完全字节一致地重新生成出来，严格验证了本次重构未引入任何非预期变更或历史数据漂移。
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. KNOWN GAPS -->
+  <section class="section-card">
+    <div class="section-header">
+      <h2 class="section-title">7. 已知缺陷与遗留问题 (Known Gaps)</h2>
+      <span class="section-desc">实事求是记录，不粉饰、不回避</span>
+    </div>
+
+    <div class="prose-list">
+      <div class="prose-item danger">
+        <div class="prose-item-title">1. recommend (41/72) 与 constrain (16/36) 成为剩余主要缺口</div>
+        <div class="prose-item-body">
+          在 evaluate 达成满配后，剩下的 84 题缺口主要集中在 recommend（差 31 题）和 constrain（差 20 题），它们将是 v0.4 推进的核心攻坚对象。
+        </div>
+      </div>
+
+      <div class="prose-item warn">
+        <div class="prose-item-title">2. evaluate 难度层实质为同一维度的多级呈现</div>
+        <div class="prose-item-body">
+          single / pair / triple / long 四个层级本质上是同一个维度（列表提取负载 list-extraction load）的不同长度呈现，而 explicit_grams 实质是对照组而非更高难度。它们是诚实的测试槽位，但不应被夸大为四个独立的复杂能力。
+        </div>
+      </div>
+
+      <div class="prose-item warn">
+        <div class="prose-item-title">3. 本轮 56 条新增题目未经人工逐条审核</div>
+        <div class="prose-item-body">
+          新增的 56 项题目全部通过了机器门禁校验与 LLM 自动化复核，但<strong>尚未由人类专家逐题通读核验</strong>。在最终进入 v1 冻结集前，仍需执行全面的人工核准。
+        </div>
+      </div>
+
+      <div class="prose-item warn">
+        <div class="prose-item-title">4. 存在已冻结的重复食物组合 (v0 与 v0.2)</div>
+        <div class="prose-item-body">
+          <code>v0-eval-snack-001</code> 与 <code>v02-eval-yogurt-banana</code> 均为香蕉 + 希腊酸奶的组合。由于两道题在之前版本已分别冻结，为保持字节一致性，该重复项将留待后续主版本跃迁（version bump）时统一清理。
+        </div>
+      </div>
+
+      <div class="prose-item info">
+        <div class="prose-item-title">5. 40 题公开校准集是否计入 240 最终分仍未决</div>
+        <div class="prose-item-body">
+          关于 <code>v0-gold.json</code> 中的 40 道公开校准题目是否计入 240 冻结测试集的最终报告分，目前尚未确定结论（涉及防泄漏与公开集定位），需后续专项 ADR 裁定。
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div>NutriEnv Benchmark &bull; 冻结测试集工程进度追踪</div>
+    <div>报告生成基准: <code>v0.3-gold</code> &bull; 目标规模: <code>240 items</code></div>
+  </footer>
+
+</div>
+
+</body>
+</html>
