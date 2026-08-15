@@ -12,7 +12,7 @@ from nutrienv.world.portions import OUNCE_GRAMS, resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals
 
 from .generator import Task
-from .realizations import EVALUATE_ROWS
+from .realizations import EVALUATE_ROWS, UPDATE_ROWS
 
 __all__ = ["validate_draft", "semantic_key"]
 
@@ -23,6 +23,16 @@ _UP = re.compile(r"\b(up|raise|increase|add|more|higher)\b")
 _DOWN = re.compile(r"\b(down|lower|reduce|less)\b|\bcut|take\s+\S*\s*off")
 _KCAL_WORD = re.compile(r"calorie|kcal|caloric")
 _PROTEIN_WORD = re.compile(r"protein")
+_SPELLED_MAGNITUDE = (
+    ("four hundred", 400.0),
+    ("three hundred", 300.0),
+    ("two hundred", 200.0),
+    ("one hundred", 100.0),
+    ("fifty", 50.0),
+    ("thirty", 30.0),
+    ("twenty", 20.0),
+)
+_NUMBER = re.compile(r"(?<!\d)(\d+(?:\.\d+)?)(?!\d)")
 
 
 def semantic_key(task: Task) -> tuple:
@@ -46,12 +56,23 @@ def semantic_key(task: Task) -> tuple:
         )
         shifted = tuple(
             sorted(
-                key
+                (
+                    key,
+                    round(
+                        task.oracle.profile.windows[key][0]
+                        - task.s0.profile.windows[key][0],
+                        2,
+                    ),
+                )
                 for key, bounds in task.oracle.profile.windows.items()
                 if task.s0.profile.windows.get(key) != bounds
             )
         )
-        return (task.family, added, shifted)
+        goal = None
+        preset = task.s0.profile.plan_preset
+        if isinstance(preset, dict):
+            goal = preset.get("goal")
+        return (task.family, added, shifted, goal)
     if task.family == "constrain":
         kind = "condition" if "condition_suitability" in task.situations else "conflict"
         allergies = tuple(task.s0.profile.allergies)
@@ -134,11 +155,12 @@ def _token_in_query(token: str, query: str) -> bool:
     token = token.strip().lower()
     if len(token) < 3:
         return False
-    return re.search(rf"\b{re.escape(token)}\b", query) is not None
+    return re.search(rf"(?<![\w]){re.escape(token)}(?![\w])", query) is not None
 
 
 def _food_mentions_tag(query: str, tag: str, catalog) -> bool:
-    if _token_in_query(tag.replace("_", " "), query) or tag.replace("_", " ") in query:
+    phrases = {tag, tag.replace("_", " ")}
+    if any(_token_in_query(phrase, query) for phrase in phrases):
         return True
     for entry in catalog.values():
         tags = entry.get("allergen_tags") or []
@@ -151,12 +173,37 @@ def _food_mentions_tag(query: str, tag: str, catalog) -> bool:
     return False
 
 
+def _query_magnitudes(query: str) -> set[float]:
+    found = {float(match.group(1)) for match in _NUMBER.finditer(query)}
+    for phrase, value in _SPELLED_MAGNITUDE:
+        if re.search(rf"(?<![\w]){re.escape(phrase)}(?![\w])", query):
+            found.add(value)
+    return found
+
+
+def _oracle_window_shifts(
+    s0_windows: dict, oracle_windows: dict
+) -> dict[str, float | tuple[float, float]]:
+    actual: dict[str, float | tuple[float, float]] = {}
+    for key, bounds in oracle_windows.items():
+        start = s0_windows.get(key)
+        if start is None or start == bounds:
+            continue
+        dlo = float(bounds[0]) - float(start[0])
+        dhi = float(bounds[1]) - float(start[1])
+        actual[key] = dlo if dlo == dhi else (dlo, dhi)
+    return actual
+
+
 def _validate_update(task: Task, query: str) -> list[str]:
     issues: list[str] = []
     oracle = task.oracle.profile
     s0 = task.s0.profile
     if oracle is None:
         issues.append("update oracle profile is missing")
+    if task.oracle.ledger is None:
+        issues.append("update oracle ledger is missing")
+    if oracle is None:
         return issues
     if oracle == s0:
         issues.append("update oracle profile is unchanged from S0")
@@ -173,6 +220,7 @@ def _validate_update(task: Task, query: str) -> list[str]:
         issues.append("update changed unmentioned plan_preset")
     mentions_kcal = _KCAL_WORD.search(query) is not None
     mentions_protein = _PROTEIN_WORD.search(query) is not None
+    magnitudes = _query_magnitudes(query)
     for key, bounds in oracle.windows.items():
         s0_bounds = s0.windows.get(key)
         if s0_bounds == bounds:
@@ -185,10 +233,14 @@ def _validate_update(task: Task, query: str) -> list[str]:
             continue
         if s0_bounds is None:
             continue
-        delta = bounds[0] - s0_bounds[0]
-        numeral = str(int(abs(delta))) if float(abs(delta)).is_integer() else str(abs(delta))
-        if not re.search(rf"(?<!\d){re.escape(numeral)}(?!\d)", query):
-            issues.append(f"update window delta {numeral} is not in the query")
+        dlo = float(bounds[0]) - float(s0_bounds[0])
+        dhi = float(bounds[1]) - float(s0_bounds[1])
+        if dlo != dhi:
+            issues.append(f"update window {key} shift is asymmetric")
+            continue
+        delta = dlo
+        if magnitudes != {abs(delta)}:
+            issues.append(f"update window delta {abs(delta):g} is not the query magnitude")
         if delta > 0 and _UP.search(query) is None:
             issues.append("update window rose but query has no up-direction word")
         if delta < 0 and _DOWN.search(query) is None:
@@ -205,11 +257,44 @@ def _validate_update(task: Task, query: str) -> list[str]:
     for tag in added:
         if not _food_mentions_tag(query, tag, task.s0.catalog):
             issues.append(f"update allergy {tag} is not evidenced in the query")
+    issues.extend(_validate_update_matches_row(task, added))
+    return issues
+
+
+def _validate_update_matches_row(task: Task, added: set[str]) -> list[str]:
+    issues: list[str] = []
+    row = next((item for item in UPDATE_ROWS if item.query == task.query), None)
+    if row is None or task.oracle.profile is None:
+        return issues
+    declared = set(row.add_allergens)
+    if added != declared:
+        issues.append("update oracle allergens do not match the row")
+    removed = set(task.s0.profile.allergies) - set(task.oracle.profile.allergies)
+    if removed:
+        issues.append("update oracle removed allergies the row did not declare")
+    declared_shifts = dict(row.window_shifts or {})
+    actual = _oracle_window_shifts(task.s0.profile.windows, task.oracle.profile.windows)
+    for key, delta in declared_shifts.items():
+        if float(delta) == 0.0:
+            if key not in actual:
+                issues.append(f"update zero-magnitude {key} shift was skipped")
+            continue
+        if key not in actual:
+            issues.append(f"update row declared {key} shift missing from oracle")
+        elif actual[key] != float(delta):
+            issues.append(f"update oracle {key} shift {actual[key]} != declared {delta}")
+    for key in actual:
+        if key not in declared_shifts:
+            issues.append(f"update oracle shifted undeclared window {key}")
     return issues
 
 
 def _validate_condition(task: Task, query: str) -> list[str]:
     issues: list[str] = []
+    if task.oracle.profile is None:
+        issues.append("condition oracle profile is missing")
+    if task.oracle.ledger is None:
+        issues.append("condition oracle ledger is missing")
     if task.oracle.last_plan != []:
         issues.append("condition last_plan must be an empty list")
     if task.oracle.allow_empty_plan is not False:
@@ -237,11 +322,15 @@ def _validate_condition(task: Task, query: str) -> list[str]:
     return issues
 
 
-def _windows_unsatisfiable(windows: dict, catalog) -> bool:
+def _windows_unsatisfiable(windows: dict, catalog, allergies: tuple[str, ...] = ()) -> bool:
+    banned = set(allergies)
     kcal_hi = float(windows.get("kcal", (0.0, 0.0))[1])
     prot_lo = float(windows.get("protein_g", (0.0, 0.0))[0])
     best = 0.0
     for entry in catalog.values():
+        tags = set(entry.get("allergen_tags") or [])
+        if tags & banned:
+            continue
         nutrients = entry.get("nutrients") or {}
         kcal = float(nutrients.get("kcal") or 0.0)
         protein = float(nutrients.get("protein_g") or 0.0)
@@ -257,19 +346,31 @@ def _windows_unsatisfiable(windows: dict, catalog) -> bool:
 
 def _validate_conflict(task: Task) -> list[str]:
     issues: list[str] = []
+    if task.oracle.profile is None:
+        issues.append("conflict oracle profile is missing")
+    if task.oracle.ledger is None:
+        issues.append("conflict oracle ledger is missing")
     if not task.s0.last_plan:
         issues.append("conflict S0 last_plan must be non-empty")
     if task.oracle.allow_empty_plan is not True:
         issues.append("conflict allow_empty_plan must be True")
+    if task.oracle.plan_must_fit_windows is not True:
+        issues.append("conflict plan_must_fit_windows must be True")
     if task.oracle.last_plan is not None:
         issues.append("conflict oracle last_plan must be None")
-    if not _windows_unsatisfiable(task.s0.profile.windows, task.s0.catalog):
+    if not _windows_unsatisfiable(
+        task.s0.profile.windows, task.s0.catalog, task.s0.profile.allergies
+    ):
         issues.append("conflict windows are satisfiable")
     return issues
 
 
 def _validate_evaluate(task: Task, query: str) -> list[str]:
     issues: list[str] = []
+    if task.oracle.profile is None:
+        issues.append("evaluate oracle profile is missing")
+    if task.oracle.ledger is None:
+        issues.append("evaluate oracle ledger is missing")
     if _INSTEAD.search(query):
         issues.append("evaluate query asks what instead")
     plan = task.oracle.last_plan

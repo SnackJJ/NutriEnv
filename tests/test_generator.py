@@ -1,7 +1,7 @@
 import pytest
 
 from nutrienv.bench import Generator, SITUATIONS, Situation
-from nutrienv.bench.realizations import FUZZY_ROWS
+from nutrienv.bench.realizations import FUZZY_ROWS, UPDATE_ROWS
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals
 
@@ -26,7 +26,17 @@ def test_log_oracle_contains_only_new_rows():
 
 def test_update_oracle_normalizes_and_preserves_unmentioned_fields():
     task = Generator().sample(3, "update")
-    assert task.oracle.profile != task.s0.profile
+    row = next(item for item in UPDATE_ROWS if item.query == task.query)
+    added = set(task.oracle.profile.allergies) - set(task.s0.profile.allergies)
+    assert added == set(row.add_allergens)
+    for key, delta in (row.window_shifts or {}).items():
+        s0_lo, s0_hi = task.s0.profile.windows[key]
+        ora_lo, ora_hi = task.oracle.profile.windows[key]
+        assert (ora_lo, ora_hi) == (s0_lo + delta, s0_hi + delta)
+    for key, bounds in task.s0.profile.windows.items():
+        if key in (row.window_shifts or {}):
+            continue
+        assert task.oracle.profile.windows[key] == bounds
     assert task.oracle.profile.medications == task.s0.profile.medications
     assert task.oracle.profile.version == task.s0.profile.version
     assert task.oracle.profile.user_id == task.s0.profile.user_id

@@ -15,6 +15,7 @@ from nutrienv.bench.realizations import (
 )
 from nutrienv.bench.validator import semantic_key, validate_draft
 from nutrienv.bench import Generator
+from nutrienv.bench.generator import Task
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals
@@ -104,6 +105,19 @@ def test_leftover_seeds_change_semantic_key():
         for seed in range(20)
     }
     assert len(keys) > 1
+
+
+def test_all_update_rows_have_distinct_semantic_keys():
+    generator = Generator()
+    knobs = generator._difficulty(None)
+    base = generator._make_s0(0, knobs)
+    keys = []
+    for row in UPDATE_ROWS:
+        s0 = _fresh_s0(base)
+        query, oracle = generator._update_from_row(s0, row)
+        keys.append(semantic_key(Task("draft", "update", query, s0, oracle)))
+    assert len(keys) == len(UPDATE_ROWS)
+    assert len(set(keys)) == len(UPDATE_ROWS)
 
 
 def test_update_constrain_evaluate_seeds_change_semantic_key():

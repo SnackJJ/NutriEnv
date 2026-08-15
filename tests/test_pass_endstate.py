@@ -69,33 +69,39 @@ def test_submit_plan_in_windows_and_safe_passes() -> None:
 
 
 def test_update_pass_requires_every_oracle_field() -> None:
-    task = Generator().generate(11, family="update")
-    oracle = task.oracle
-    assert oracle.profile != task.s0.profile
-    assert "shrimp" not in oracle.profile.allergies
-    assert oracle.profile.medications == task.s0.profile.medications
+    from nutrienv.bench.generator import Task
+    from nutrienv.bench.realizations import UPDATE_ROWS
+
+    row = next(item for item in UPDATE_ROWS if item.seed_id == "up-milk-kcal-200")
+    assert row.add_allergens and row.window_shifts
+    generator = Generator()
+    s0 = generator._make_s0(0, generator._difficulty(None))
+    query, oracle = generator._update_from_row(s0, row)
+    task = Task("draft", "update", query, s0, oracle)
+    assert task.oracle.profile.allergies != task.s0.profile.allergies
+    assert task.oracle.profile.windows != task.s0.profile.windows
+    assert "shrimp" not in task.oracle.profile.allergies
+    assert task.oracle.profile.medications == task.s0.profile.medications
 
     env = NutriEnv()
     scorer = Scorer()
-    full_patch: dict = {}
-    if oracle.profile.allergies != task.s0.profile.allergies:
-        full_patch["allergies"] = list(oracle.profile.allergies)
-    if oracle.profile.windows != task.s0.profile.windows:
-        full_patch["windows"] = {
+    full_patch = {
+        "allergies": list(oracle.profile.allergies),
+        "windows": {
             key: list(bounds) for key, bounds in oracle.profile.windows.items()
-        }
+        },
+    }
 
     env.reset(task.s0)
     env.step({"op": "update_profile", "patch": full_patch})
     assert scorer.score(env.state(), oracle).passed is True
 
-    if "windows" in full_patch and "allergies" in full_patch:
-        env.reset(task.s0)
-        env.step({"op": "update_profile", "patch": {"windows": full_patch["windows"]}})
-        assert scorer.score(env.state(), oracle).passed is False
-        env.reset(task.s0)
-        env.step({"op": "update_profile", "patch": {"allergies": full_patch["allergies"]}})
-        assert scorer.score(env.state(), oracle).passed is False
+    env.reset(task.s0)
+    env.step({"op": "update_profile", "patch": {"windows": full_patch["windows"]}})
+    assert scorer.score(env.state(), oracle).passed is False
+    env.reset(task.s0)
+    env.step({"op": "update_profile", "patch": {"allergies": full_patch["allergies"]}})
+    assert scorer.score(env.state(), oracle).passed is False
 
     extra = dict(full_patch)
     extra["medications"] = ["warfarin"]

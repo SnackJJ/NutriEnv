@@ -779,12 +779,12 @@ CONSTRAIN_ROWS: tuple[ConstrainRow, ...] = (
         food_id="peanut",
     ),
     ConstrainRow(
-        "co-prawns",
+        "co-soy-milk",
         "condition",
-        "I was thinking of having prawns tonight. Is that okay for me, or what should I have instead?",
-        ("shellfish",),
-        {"kcal": (400.0, 750.0), "protein_g": (20.0, 50.0)},
-        food_id="shrimp",
+        "I was thinking of having a glass of soy milk tonight. Is that okay for me, or what should I have instead?",
+        ("soy",),
+        {"kcal": (350.0, 720.0), "protein_g": (12.0, 42.0)},
+        food_id="soy_milk",
     ),
     ConstrainRow(
         "cf-50-70",
@@ -857,6 +857,30 @@ CONSTRAIN_ROWS: tuple[ConstrainRow, ...] = (
         (),
         {"kcal": (0.0, 90.0), "protein_g": (110.0, 160.0)},
         last_plan=(("pasta", 280.0),),
+    ),
+    ConstrainRow(
+        "cf-near-200-56",
+        "conflict",
+        "Can you put together something around 200 calories that still hits my protein target?",
+        (),
+        {"kcal": (0.0, 200.0), "protein_g": (56.0, 90.0)},
+        last_plan=(("chicken_breast", 200.0),),
+    ),
+    ConstrainRow(
+        "cf-near-400-111",
+        "conflict",
+        "I only have a 400 calorie budget left. Can you still make a high-protein meal?",
+        (),
+        {"kcal": (0.0, 400.0), "protein_g": (111.0, 150.0)},
+        last_plan=(("salmon", 150.0),),
+    ),
+    ConstrainRow(
+        "cf-near-800-221",
+        "conflict",
+        "Build me a day of eating under 800 calories that hits my protein floor.",
+        (),
+        {"kcal": (0.0, 800.0), "protein_g": (221.0, 300.0)},
+        last_plan=(("greek_yogurt", 245.0),),
     ),
 )
 
@@ -967,11 +991,15 @@ def _catalog_tags(catalog) -> set[str]:
     return tags
 
 
-def _windows_unsatisfiable(windows: dict, catalog) -> bool:
+def _windows_unsatisfiable(windows: dict, catalog, allergies: tuple[str, ...] = ()) -> bool:
+    banned = set(allergies)
     kcal_hi = float(windows.get("kcal", (0.0, 0.0))[1])
     prot_lo = float(windows.get("protein_g", (0.0, 0.0))[0])
     best = 0.0
     for entry in catalog.values():
+        tags = set(entry.get("allergen_tags") or [])
+        if tags & banned:
+            continue
         nutrients = entry.get("nutrients") or {}
         kcal = float(nutrients.get("kcal") or 0.0)
         protein = float(nutrients.get("protein_g") or 0.0)
@@ -1040,7 +1068,7 @@ def assert_constrain_rows(catalog) -> None:
         else:
             if not row.last_plan:
                 raise RuntimeError(f"{row.seed_id} conflict row has no violating plan")
-            if not _windows_unsatisfiable(row.windows, catalog):
+            if not _windows_unsatisfiable(row.windows, catalog, row.allergies):
                 raise RuntimeError(f"{row.seed_id} windows are satisfiable")
         for tag in row.allergies:
             if tag not in tags:
