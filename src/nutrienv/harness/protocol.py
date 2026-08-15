@@ -15,3 +15,7 @@ class Harness:
     def act(self, observation: dict, query: str, history: list) -> dict:
         """Return the next Env action for this observation."""
         raise NotImplementedError
+
+    def clone(self) -> "Harness":
+        """Episode-local copy. Override if this instance holds chat state."""
+        return self

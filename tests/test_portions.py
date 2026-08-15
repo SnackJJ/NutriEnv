@@ -27,6 +27,8 @@ CATALOG = demo_catalog()
         ("whole_wheat_bread", "2 slices", 64.0),
         ("oats", "150g", 150.0),                    # gram units need no table entry
         ("oats", "150 grams", 150.0),
+        ("oats", "2 ounces", 56.7),
+        ("oats", "2 oz", 56.7),
     ],
 )
 def test_resolves_household_measures(food_id, phrase, grams):

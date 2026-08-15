@@ -1,7 +1,7 @@
 [project]
 name = "nutrienv"
 version = "0.1.0"
-description = "Nutrition env + bench: steppable world, generator, end-state Pass"
+description = "Nutrition env + bench: steppable world, frozen split, end-state Pass"
 requires-python = ">=3.11"
 dependencies = []
 

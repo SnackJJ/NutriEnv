@@ -1,29 +1,30 @@
-"""Load a frozen USDA snapshot; fall back to the 15-food fixture."""
+"""Load the frozen USDA catalog. Runtime never calls the USDA API."""
 
 from __future__ import annotations
 
-import json
+import copy
 from pathlib import Path
 
+from .catalog import FoodCatalog
 from .catalog_fixture import demo_catalog
 
-__all__ = ["SNAPSHOT_PATH", "load_catalog"]
+__all__ = ["GOLD_CATALOG_PATH", "SNAPSHOT_PATH", "load_catalog"]
 
 _ROOT = Path(__file__).resolve().parents[3]
+GOLD_CATALOG_PATH = _ROOT / "data" / "fdc" / "catalog.sqlite"
+# Legacy 27-staple JSON. Kept so older docs still resolve; load_catalog prefers sqlite.
 SNAPSHOT_PATH = _ROOT / "data" / "catalog-snapshot.json"
 
 
-def load_catalog(path: Path | None = None) -> dict:
-    """Return a catalog dict. Snapshot wins when the file exists and is valid."""
-    target = path or SNAPSHOT_PATH
-    if not target.is_file():
-        return demo_catalog()
-    payload = json.loads(target.read_text(encoding="utf-8"))
-    foods = payload.get("foods")
-    if not isinstance(foods, dict) or not foods:
-        return demo_catalog()
-    merged = demo_catalog()
-    for fid, entry in foods.items():
-        if isinstance(entry, dict):
-            merged[str(fid)] = dict(entry)
-    return merged
+def load_catalog(path: Path | str | None = None) -> FoodCatalog:
+    """Return the episode catalog.
+
+    Prefers the local FDC sqlite snapshot. Falls back to the 15-food fixture
+    when the snapshot has not been built (unit tests, fresh clone).
+    """
+    target = Path(path) if path is not None else GOLD_CATALOG_PATH
+    if target.is_file() and target.suffix == ".sqlite":
+        catalog = FoodCatalog.from_sqlite(target)
+    else:
+        catalog = FoodCatalog.from_mapping(demo_catalog())
+    return copy.deepcopy(catalog)

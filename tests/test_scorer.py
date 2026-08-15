@@ -13,7 +13,7 @@ def test_plan_pass_and_diagnostic_tags():
         allergies=("peanut",),
         windows={"kcal": (120.0, 140.0)},
     )
-    oracle = Oracle(profile=state.profile, last_plan=[])
+    oracle = Oracle(profile=state.profile, last_plan=[], plan_must_fit_windows=True)
 
     state.last_plan = [{"food_id": "white_rice", "grams": 100.0}]
     assert scorer.score(state, oracle) == {"passed": True, "tag": "pass"}

@@ -25,6 +25,7 @@ __all__ = [
     "normalize_grams",
     "profile_view",
     "ledger_view",
+    "ledger_totals",
     "food_view",
 ]
 
@@ -118,9 +119,45 @@ def profile_view(profile: Profile) -> dict:
     return view
 
 
-def ledger_view(rows: list[LedgerRow]) -> list[dict]:
-    """Observation-shaped copy of the ledger."""
-    return [asdict(row) for row in rows]
+def _row_nutrients(row: LedgerRow, catalog: dict) -> dict[str, float]:
+    entry = catalog.get(row.food_id)
+    if not isinstance(entry, dict):
+        return {}
+    nutrients = entry.get("nutrients") or {}
+    if not isinstance(nutrients, dict):
+        return {}
+    out: dict[str, float] = {}
+    for key, amount in nutrients.items():
+        if isinstance(amount, bool) or not isinstance(amount, (int, float)):
+            continue
+        if not math.isfinite(amount):
+            continue
+        out[str(key)] = float(amount) * float(row.grams) / 100.0
+    return out
+
+
+def ledger_view(rows: list[LedgerRow], catalog: dict | None = None) -> list[dict]:
+    """Observation-shaped copy of the ledger.
+
+    When ``catalog`` is given, each row includes ``nutrients`` already scaled
+    to that row's grams so a leftover remainder does not need N ``get_food``s.
+    """
+    view = []
+    for row in rows:
+        item = asdict(row)
+        if catalog is not None:
+            item["nutrients"] = _row_nutrients(row, catalog)
+        view.append(item)
+    return view
+
+
+def ledger_totals(rows: list[LedgerRow], catalog: dict) -> dict[str, float]:
+    """Sum of scaled ledger nutrients. Missing foods contribute nothing."""
+    totals: dict[str, float] = {}
+    for row in rows:
+        for key, amount in _row_nutrients(row, catalog).items():
+            totals[key] = totals.get(key, 0.0) + amount
+    return totals
 
 
 def food_view(catalog: dict, food_id: str) -> dict:

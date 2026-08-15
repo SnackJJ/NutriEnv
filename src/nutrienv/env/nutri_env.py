@@ -12,7 +12,7 @@ import copy
 
 from ..actions.dispatch import DEFAULT_EATEN_AT, dispatch
 from ..actions.schemas import ActionError
-from ..world.types import WorldState, ledger_view, profile_view
+from ..world.types import WorldState, ledger_totals, ledger_view, profile_view
 
 __all__ = ["NutriEnv"]
 
@@ -34,6 +34,10 @@ class NutriEnv:
 
         The Generator's ``s0`` is copied, not adopted, so the caller keeps a
         pristine S0 to build its Oracle against.
+
+        ``catalog_size`` is published. Individual ids are found with
+        ``search_foods``; a USDA-scale catalog is not dumped into the opening
+        observation.
         """
         if not isinstance(s0, WorldState):
             raise TypeError(f"reset expects a WorldState, got {type(s0).__name__}")
@@ -41,7 +45,8 @@ class NutriEnv:
         return {
             "op": "reset",
             "profile": profile_view(self._state.profile),
-            "ledger": ledger_view(self._state.ledger),
+            "ledger": ledger_view(self._state.ledger, self._state.catalog),
+            "ledger_totals": ledger_totals(self._state.ledger, self._state.catalog),
             "last_plan": copy.deepcopy(self._state.last_plan),
             "catalog_size": len(self._state.catalog),
         }

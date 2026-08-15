@@ -28,6 +28,9 @@ env.step(action: dict) -> dict      # {ok, observation, error?, done}
 env.state() -> WorldState           # the live end state, for the scorer
 ```
 
+- `reset` returns `{op, profile, ledger, ledger_totals, last_plan, catalog_size}`.
+  Find foods with `search_foods` (BM25 over the local USDA snapshot). The opening
+  observation does not list every id.
 - `step` on a legal action → `{"ok": True, "observation": {...}, "done": False}`.
 - Illegal action → `{"ok": False, "observation": None, "error": {"code", "message"}, "done": False}`
   and the world is unchanged. Codes: `bad_schema`, `unknown_op`, `unknown_food`.
@@ -39,10 +42,10 @@ env.state() -> WorldState           # the live end state, for the scorer
 
 | op | args | effect |
 |---|---|---|
-| `search_foods` | `q` | substring match over food_id, name, aliases; results sorted by food_id |
+| `search_foods` | `q` | BM25 over name/aliases/food_id; top 25. `q="*"` is empty, not a dump |
 | `get_food` | `food_id` | full catalog entry, including `portions` |
 | `get_profile` | — | profile view |
-| `get_ledger` | — | all rows |
+| `get_ledger` | — | all rows, each with scaled `nutrients`, plus `totals` |
 | `get_dri` | — | static FDA reference table + the profile's own windows |
 | `log_meal` | `food_id`, `grams`, `eaten_at?` | appends a `LedgerRow` |
 | `submit_plan` | `items: [{food_id, grams}]` | replaces `state.last_plan` |

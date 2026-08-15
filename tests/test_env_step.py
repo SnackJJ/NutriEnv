@@ -70,3 +70,31 @@ def test_update_profile_kcal_only_leaves_allergies_unchanged() -> None:
     assert profile.windows["protein_g"] == s0.profile.windows["protein_g"]
     assert profile.plan_preset == s0.profile.plan_preset
     assert profile.version == s0.profile.version
+
+
+def test_foods_are_found_by_search_not_a_full_listing() -> None:
+    env = NutriEnv()
+    s0 = demo_state()
+    s0.ledger = []
+    opening = env.reset(s0)
+
+    assert opening["catalog_size"] == 15
+    assert "catalog_ids" not in opening
+    assert env.step({"op": "search_foods", "q": "*"})["observation"]["results"] == []
+    shrimp = env.step({"op": "search_foods", "q": "prawn"})["observation"]["results"]
+    assert shrimp[0]["food_id"] == "shrimp"
+    assert env.step({"op": "get_food", "food_id": "shrimp"})["ok"]
+
+
+def test_wildcard_is_the_only_match_all_query() -> None:
+    env = NutriEnv()
+    env.reset(demo_state())
+
+    def hits(needle: str) -> int:
+        return len(env.step({"op": "search_foods", "q": needle})["observation"]["results"])
+
+    assert hits("*") == 0
+    assert hits("oats") == 1
+    # A stray character is still a miss, not an accidental catalog dump.
+    assert hits("a") == 0
+    assert hits("**") == 0

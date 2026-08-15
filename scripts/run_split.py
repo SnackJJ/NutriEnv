@@ -20,9 +20,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run a NutriEnv seed split against ScriptHarness (model=script)."
     )
-    parser.add_argument("--seed", type=int, required=True, help="split seed")
-    parser.add_argument("--n", type=int, required=True, help="number of tasks")
+    parser.add_argument(
+        "--split",
+        default=None,
+        help="frozen split JSON (published exam). If omitted, --seed and --n sample.",
+    )
+    parser.add_argument("--seed", type=int, default=None, help="factory split seed")
+    parser.add_argument("--n", type=int, default=None, help="factory split size")
     parser.add_argument("--k", type=int, default=1, help="episodes per task (pass^k)")
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="parallel tasks (default 1; ScriptHarness is local)",
+    )
     parser.add_argument("--family", default=None, help="optional task family")
     parser.add_argument("--situation", default=None, help="optional situation kind")
     return parser
@@ -36,13 +47,16 @@ def main(argv: list[str] | None = None) -> int:
         k=args.k,
         family=args.family,
         situation=args.situation,
+        split_path=args.split,
+        workers=args.workers,
     )
     print(
         f"env={result['env']} harness={result['harness']} model={result['model']}"
     )
     print(f"pass_rate={result['pass_rate']:.4f}")
     if args.k > 1:
-        print(f"pass^k={result['pass_k']:.4f}")
+        print(f"pass@{args.k}={result['pass_at_k']:.4f}")
+        print(f"pass^{args.k}={result['pass_k']:.4f}")
     return 0
 
 

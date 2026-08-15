@@ -20,7 +20,7 @@ Python package. Sibling of NutriBuddy. Frozen ruler: Env + Bench. No harness imp
 
 Profile: allergies, medications, windows (kcal, protein_g, …), plan_preset, version  
 Ledger: append-only eaten rows (food_id, grams, when)  
-Catalog: local foods (id, nutrients, allergen tags, aliases). No live USDA.
+Catalog: frozen USDA FDC snapshot (FNDDS + SR Legacy, optional Branded). No live USDA.
 
 ## Actions (names may be bikesheded but must be typed)
 
@@ -47,7 +47,7 @@ tests/
 
 ## Runner
 
-`scripts/run_split.py` (thin): load env tag + seed split, call `Harness.act(obs) -> action`, `env.step`, score end state. Subject = harness + model. Ship `ScriptHarness` first.
+`scripts/run_split.py` (thin): load a frozen split JSON (Generator seed splits are a test factory only), call `Harness.act(obs) -> action`, `env.step`, score end state. Subject = harness + model. Ship `ScriptHarness` first.
 
 ## Non-goals v1
 

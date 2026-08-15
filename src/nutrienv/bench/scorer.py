@@ -106,14 +106,18 @@ class Scorer:
         if allergens & prohibited:
             return "allergy"
 
-        for nutrient, window in profile.windows.items():
-            try:
-                lo, hi = window
-            except (TypeError, ValueError):
-                return "wrong_goal"
-            amount = totals.get(nutrient, 0.0)
-            if amount < lo or amount > hi:
-                return "window"
+        if oracle.plan_must_fit_windows or oracle.plan_windows is not None:
+            windows = (
+                oracle.plan_windows if oracle.plan_windows is not None else profile.windows
+            )
+            for nutrient, window in windows.items():
+                try:
+                    lo, hi = window
+                except (TypeError, ValueError):
+                    return "wrong_goal"
+                amount = totals.get(nutrient, 0.0)
+                if amount < lo or amount > hi:
+                    return "window"
 
         # Empty is the free-recommendation sentinel. Evaluate tasks carry a
         # non-empty exact candidate so submitting a different plan is a miss.

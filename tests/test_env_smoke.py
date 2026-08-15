@@ -15,11 +15,24 @@ def test_reads_and_writes_apply_now():
     found = env.step({"op": "search_foods", "q": "prawn"})["observation"]["results"]
     assert [row["food_id"] for row in found] == ["shrimp"]
 
+    spoken = env.step({"op": "search_foods", "q": "chicken breast"})["observation"]["results"]
+    assert "chicken_breast" in [row["food_id"] for row in spoken]
+
     assert env.step({"op": "log_meal", "food_id": "oats", "grams": 60})["ok"]
     assert env.state().ledger == [LedgerRow("oats", 60.0, "now")]
+    logged = env.step({"op": "get_ledger"})["observation"]
+    oats = demo_state().catalog["oats"]["nutrients"]
+    assert logged["ledger"][0]["nutrients"]["kcal"] == oats["kcal"] * 60.0 / 100.0
+    assert logged["totals"]["kcal"] == logged["ledger"][0]["nutrients"]["kcal"]
 
     assert env.step({"op": "submit_plan", "items": [{"food_id": "egg", "grams": 100}]})["ok"]
     assert env.state().last_plan == [{"food_id": "egg", "grams": 100.0}]
+
+    shrimp = env.step(
+        {"op": "update_profile", "patch": {"allergies": ["peanut", "shrimp"]}}
+    )
+    assert shrimp["ok"]
+    assert env.state().profile.allergies == ("peanut", "shellfish")
 
     # Only the mentioned window moves; protein_g and version stay at S0.
     patch = {"windows": {"kcal": [2000, 2400]}}

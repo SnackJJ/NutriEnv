@@ -13,9 +13,23 @@ python -m pytest -q
 
 `pyproject.toml` already points pytest at `tests/` and puts `src/` on `pythonpath`.
 
+The default world catalog is `data/fdc/catalog.sqlite` (FNDDS + SR Legacy). Rebuild with:
+
+```bash
+python scripts/download_fdc.py --sets sr_legacy fndds
+python scripts/build_fdc_catalog.py
+```
+
+Branded foods (Lay's, etc.) are optional and large:
+
+```bash
+python scripts/download_fdc.py --sets branded
+python scripts/build_fdc_catalog.py --branded
+```
+
 ## What Pass means
 
-**Pass** is the Bench headline: a binary Hand-in verdict for one Task. After the episode, the scorer compares the world's end state to the Generator's Oracle.
+**Pass** is the Bench headline: a binary Hand-in verdict for one Task. After the episode, the scorer compares the world's end state to the Task Oracle (from the frozen split, or from the Generator factory in tests).
 
 - Writes apply immediately. Pass ⇔ the Task's hard checks hold on that end state.
 - The Oracle is derived from `(S0, query)`. Fields the query asks to change must match; fields it does not mention must stay as S0.

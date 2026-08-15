@@ -1,7 +1,7 @@
 """Situation kinds realized by the local v1 Generator.
 
 These names are literature-inspired problem shapes, not imported benchmark
-items or labels. Their facts always come from NutriEnv's 15-food fixture.
+items or labels. Their facts come from the local catalog.
 """
 
 from __future__ import annotations

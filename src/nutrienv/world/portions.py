@@ -12,11 +12,16 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Mapping
 
-__all__ = ["resolve_portion", "UNIT_SYNONYMS", "GRAM_UNITS"]
+__all__ = ["resolve_portion", "UNIT_SYNONYMS", "GRAM_UNITS", "OUNCE_GRAMS", "OUNCE_UNITS"]
 
 #: Unit words that already mean grams, so they need no per-food entry.
 GRAM_UNITS = frozenset({"g", "gram", "grams", "gm"})
+
+#: Avoirdupois ounce, published by Env so gold unit_convert is not a factory secret.
+OUNCE_GRAMS = 28.35
+OUNCE_UNITS = frozenset({"oz", "ounce", "ounces"})
 
 #: Spoken unit -> the key a food's ``portions`` table uses.
 UNIT_SYNONYMS: dict[str, str] = {
@@ -27,6 +32,7 @@ UNIT_SYNONYMS: dict[str, str] = {
     "piece": "piece", "pieces": "piece", "each": "piece",
     "unit": "piece", "units": "piece",
     "slice": "slice", "slices": "slice",
+    "can": "can", "cans": "can",
 }
 
 _WORD_NUMBERS: dict[str, float] = {
@@ -66,7 +72,7 @@ def resolve_portion(food_id: str, phrase: str, catalog: dict) -> float | None:
     """
     if not isinstance(food_id, str) or not isinstance(phrase, str):
         return None
-    if not isinstance(catalog, dict):
+    if not isinstance(catalog, Mapping):
         return None
     entry = catalog.get(food_id)
     if not isinstance(entry, dict):
@@ -79,6 +85,8 @@ def resolve_portion(food_id: str, phrase: str, catalog: dict) -> float | None:
     for index, token in enumerate(tokens):
         if token in GRAM_UNITS:
             grams_per_unit: object = 1.0
+        elif token in OUNCE_UNITS:
+            grams_per_unit = OUNCE_GRAMS
         else:
             key = UNIT_SYNONYMS.get(token)
             if key is None or key not in portions:

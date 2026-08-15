@@ -9,12 +9,12 @@ The objective nutrition world: catalog, personal state, legal actions, transitio
 _Avoid_: library-only search engine, harness, model
 
 **Bench**:
-A versioned exam over Env: a generator plus seed produces tasks; the scorer reads the finished episode and world state. v1 / v2 are different rulers, not extra points on the same test.
-_Avoid_: leaderboard, product eval, rubric-for-taste
+A versioned exam over Env: a frozen Split of Tasks plus a Scorer that reads the finished episode and world state. v1 / v2 are different rulers, not extra points on the same test.
+_Avoid_: leaderboard, product eval, rubric-for-taste, a newly sampled seed as the published number
 
 **Catalog**:
-The local food fact table: food id, nutrients, allergen tags, aliases. Runtime does not call USDA.
-_Avoid_: USDA live API, knowledge RAG
+A frozen local snapshot of USDA FoodData Central (FNDDS, SR Legacy, optional Branded). Runtime reads sqlite; it does not call the USDA API. `food_id` is the FDC id; staple slugs are aliases.
+_Avoid_: USDA live API, knowledge RAG, dumping the whole id list into the opening observation
 
 **Profile**:
 The authenticated person's structured constraints and nutrient windows (allergies, targets). Not free-text advice.
@@ -48,17 +48,29 @@ _Avoid_: safety gate, task failure
 One exam item: initial world, a user query, and one primary goal. The full Action catalog is always available; which Actions are *necessary* is a property of the Task, not of a hidden tool subset.
 _Avoid_: hidden tool menu, teaching-simplified action space
 
+**Persona**:
+A named S0 flavor used when authoring the Split (everyday, cut, gym, leftover, flex; medical ones stay thin). The judged facts are still windows and allergies, not the name.
+_Avoid_: NGQA tag-count as Pass, diagnosis as rubric, medication tasks in v1
+
 **Pass**:
 Binary Hand-in verdict for a Task. All hard checks hold (allergen, minted ids, the Task's nutrient windows or log/update contract). The Bench headline is how many Tasks Pass, not a taste score.
 _Avoid_: rubric jury, 0–100 quality, mid-episode abort
+
+**pass@k**:
+The chance a Task Passes on at least one of k independent episodes. The usual coding-bench reading of “try k times.”
+_Avoid_: treating a single lucky episode as pass^k
 
 **pass^k**:
 The chance a Task Passes on all of k independent episodes. Used when comparing stochastic agents; pass^1 alone is luck-sensitive.
 _Avoid_: single lucky run as model rank
 
 **Generator**:
-The procedure that, given a seed and difficulty knobs, emits a Task triple: start world S0, user query, and Oracle. Different Tasks have different S0. Env does not invent Task-specific worlds; it only loads what the Generator produced.
-_Avoid_: hand-authored Final-N as the only truth, hidden tools per Task
+An optional factory that can emit a Task triple from a seed. It is not the published exam. Env does not invent Task-specific worlds; it only loads S0 from the Split (or, in tests, from this factory).
+_Avoid_: sampling a new seed split as the reported number, hidden tools per Task
+
+**Split**:
+The frozen list of Tasks that is the exam. Each item is a reviewed (S0, query, Oracle). Quality is controlled by editing this file, not by hoping a template samples well.
+_Avoid_: live generation at eval time, NutriBench/NGQA item drop-in
 
 **Situation**:
 A literature-inspired *kind* of nutrition problem (fuzzy portion, mixed dish, condition-suitability, unit convert, near-synonym). Generator samples Situations; it does not import foreign gold labels or official leaderboard scores.

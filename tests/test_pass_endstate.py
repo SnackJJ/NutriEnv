@@ -75,7 +75,8 @@ def test_tired_shrimp_query_requires_window_and_allergy() -> None:
     assert "shrimp" in query
 
     oracle = task.oracle
-    assert "shrimp" in oracle.profile.allergies
+    assert "shellfish" in oracle.profile.allergies
+    assert "shrimp" not in oracle.profile.allergies
     assert oracle.profile.windows["kcal"] != task.s0.profile.windows["kcal"]
     assert oracle.profile.windows["protein_g"] == task.s0.profile.windows["protein_g"]
     assert oracle.profile.medications == task.s0.profile.medications

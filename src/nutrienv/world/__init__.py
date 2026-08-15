@@ -1,13 +1,15 @@
 """World layer: profile, ledger, catalog."""
 
-from .catalog_store import SNAPSHOT_PATH, load_catalog
+from .catalog import FoodCatalog, SEARCH_LIMIT
+from .catalog_store import GOLD_CATALOG_PATH, SNAPSHOT_PATH, load_catalog
 from .dri import DRI_REFERENCE
-from .portions import GRAM_UNITS, UNIT_SYNONYMS, resolve_portion
+from .portions import GRAM_UNITS, OUNCE_GRAMS, OUNCE_UNITS, UNIT_SYNONYMS, resolve_portion
 from .types import (
     LedgerRow,
     Profile,
     WorldState,
     food_view,
+    ledger_totals,
     ledger_view,
     normalize_grams,
     normalize_tags,
@@ -20,6 +22,9 @@ __all__ = [
     "LedgerRow",
     "WorldState",
     "DRI_REFERENCE",
+    "FoodCatalog",
+    "SEARCH_LIMIT",
+    "GOLD_CATALOG_PATH",
     "SNAPSHOT_PATH",
     "load_catalog",
     "normalize_tags",
@@ -27,8 +32,11 @@ __all__ = [
     "normalize_grams",
     "profile_view",
     "ledger_view",
+    "ledger_totals",
     "food_view",
     "resolve_portion",
     "UNIT_SYNONYMS",
     "GRAM_UNITS",
+    "OUNCE_GRAMS",
+    "OUNCE_UNITS",
 ]

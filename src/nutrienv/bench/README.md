@@ -15,9 +15,14 @@ result = Scorer().score(env.state(), task.oracle)
 
 Generation is deterministic for a seed and uses an isolated RNG. The six task
 families are `lookup`, `log`, `recommend`, `evaluate`, `update`, and
-`constrain`. Every task receives the complete catalog and Env always exposes
-the full action set. `n_constraints`, `ledger_gaps`, and `name_ambiguity` alter
-the query and S0 rather than tool availability.
+`constrain`. Pass `persona=` to flavor S0 (`everyday` default). `leftover` is
+recommend-only: daily windows on the Profile plus `Oracle.plan_windows`
+remainder. Other gold personas are not implemented in the factory yet. Every task
+receives the complete catalog and Env always exposes the full action set.
+`n_constraints`, `ledger_gaps`, and `name_ambiguity` alter the query and S0
+rather than tool availability. Draft oracles follow the gold contract: log pins
+`profile` to S0 and `ledger` to S0+tail; update / recommend / evaluate pin
+`ledger` to S0; household grams come from `resolve_portion`.
 
 Oracle fields are query-scoped. `None` means that portion of state is not
 judged. A ledger oracle contains only rows appended after S0. For plans,
@@ -31,15 +36,18 @@ Scoring returns exactly `{"passed": bool, "tag": str}`. The tags are `pass`,
 ## Situations
 
 Pass `situation="..."` to `Generator.sample` or `generate_split` to request a
-specific query/S0 flavor. Situations use only the bundled 15-food catalog.
+specific query/S0 flavor. Situations use the local USDA FDC catalog (`data/fdc/catalog.sqlite`, built by
+`scripts/download_fdc.py` and `scripts/build_fdc_catalog.py`). The published exam is a frozen split (ADR 0006, ADR 0009). `data/splits/v0-gold.json` is the 40-item calibration set. The destination ruler is 240 sliced items; increments are new files, never an overwrite of v0-gold. Everyday is the majority persona; cut / gym / leftover / flex are reasons people ask; hypertension is one thin item. Lookup is not in the headline split. Leftover recommend tasks show daily windows on the Profile and score the meal against `Oracle.plan_windows` (the remainder; ADR 0007). `scripts/run_react.py` reads v0-gold by default; `--seed/--n` is draft-factory only.
+
+Diversity comes from `realizations.py` tables (fuzzy portions, leftover ledgers). Changing the factory seed picks another table row. `validator.validate_draft` rejects leaks, unresolvable grams, and leftover windows that do not match the remainder.
 
 | Situation | Fixture-backed realization |
 |---|---|
-| `fuzzy_portion` | “Half a cup of milk” resolves through Bench's portion map to 122 g. |
+| `fuzzy_portion` | A table row’s spoken phrase resolves through `resolve_portion` (e.g. half a cup of milk → 122 g). |
 | `multi_item_log` | One query requires three distinct new breakfast ledger rows. |
-| `condition_suitability` | A shellfish-allergic profile asks whether shrimp is suitable; an empty or allergen-safe plan is valid. |
-| `unit_convert` | Two ounces of oats converts through Bench's unit map to 56.7 g. |
-| `near_synonym` | “Prawns” must resolve to the fixture's `shrimp` entry. |
+| `condition_suitability` | A shellfish-allergic profile asks whether shrimp is suitable, or what to eat instead; silence does not pass. |
+| `unit_convert` | Two ounces of oats converts through `resolve_portion` (28.35 g/oz) to 56.7 g. |
+| `near_synonym` | A log of “prawns” must resolve to the fixture's `shrimp` entry. |
 | `conflict_windows` | S0 contains mutually infeasible kcal/protein windows and expects no violating plan. |
 | `ledger_gap` | Breakfast and dinner exist in S0; the query supplies only the missing lunch row. |
 

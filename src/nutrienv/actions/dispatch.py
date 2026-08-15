@@ -10,6 +10,7 @@ Two invariants hold for every handler:
 from __future__ import annotations
 
 import copy
+import re
 from dataclasses import replace
 
 from ..world.dri import BASIS, DRI_REFERENCE
@@ -17,6 +18,7 @@ from ..world.types import (
     LedgerRow,
     WorldState,
     food_view,
+    ledger_totals,
     ledger_view,
     normalize_grams,
     normalize_tags,
@@ -31,11 +33,16 @@ from .schemas import (
     validate_envelope,
 )
 
-__all__ = ["dispatch", "DEFAULT_EATEN_AT", "PROFILE_PATCH_KEYS"]
+__all__ = ["dispatch", "DEFAULT_EATEN_AT", "PROFILE_PATCH_KEYS", "SEARCH_ALL"]
 
 #: Deterministic stand-in for a clock. A wall-clock default would make the
 #: ledger unpredictable, and Pass compares the end state to an Oracle.
 DEFAULT_EATEN_AT = "now"
+
+#: The query that lists the whole catalog. Token-AND matching cannot express
+#: "show me everything", so without it an agent that has seen no food_id yet
+#: has to guess English food words to discover what the world contains.
+SEARCH_ALL = "*"
 
 #: Profile fields an ``update_profile`` patch may touch. ``user_id`` is identity,
 #: not a nutrition field, so it is not patchable.
@@ -56,23 +63,61 @@ def dispatch(
 
 
 def _resolve_food(state: WorldState, value: object) -> str:
-    """A food_id that must already be minted in this episode's catalog."""
+    """A food_id that must already be minted in this episode's catalog.
+
+    Slugs such as ``milk_whole`` resolve to the official FDC id so a search
+    hit and a gold-authored alias write the same ledger/plan identity.
+    """
     food_id = as_nonempty_str(value, "food_id")
     if food_id not in state.catalog:
         raise ActionError("unknown_food", f"no such food_id: {food_id!r}")
+    canonical = getattr(state.catalog, "canonical_id", None)
+    if callable(canonical):
+        return canonical(food_id)
     return food_id
 
 
 # --- reads ------------------------------------------------------------------
 
 
+_TOKEN = re.compile(r"[a-z0-9]+")
+
+
+def _tokens(text: str) -> set[str]:
+    return set(_TOKEN.findall(text.lower().replace("_", " ")))
+
+
+def _search_match(needle: str, food_id: str, entry: dict) -> bool:
+    query = _tokens(needle)
+    if not query:
+        return False
+    bag = set(_tokens(food_id))
+    bag.update(_tokens(str(entry.get("name", ""))))
+    for alias in entry.get("aliases") or []:
+        bag.update(_tokens(str(alias)))
+    return query <= bag
+
+
 def _search_foods(state: WorldState, args: dict, _default_eaten_at: str) -> dict:
-    needle = as_nonempty_str(args["q"], "q").lower()
+    """Ranked search. ``q="*"`` is not a catalog dump; send a food name."""
+    needle = as_nonempty_str(args["q"], "q")
+    catalog = state.catalog
+    search = getattr(catalog, "search", None)
+    if callable(search):
+        results = search(needle)
+    else:
+        results = _search_mapping(catalog, needle.lower())
+    return {"op": "search_foods", "q": needle, "results": results}
+
+
+def _search_mapping(catalog: dict, needle: str) -> list[dict]:
+    if needle == SEARCH_ALL or not needle:
+        return []
     results = []
-    for food_id, entry in state.catalog.items():
-        haystack = [food_id, str(entry.get("name", ""))]
-        haystack += [str(alias) for alias in entry.get("aliases", [])]
-        if any(needle in text.lower() for text in haystack):
+    for food_id, entry in catalog.items():
+        if not isinstance(entry, dict):
+            continue
+        if _search_match(needle, food_id, entry):
             results.append(
                 {
                     "food_id": food_id,
@@ -82,7 +127,7 @@ def _search_foods(state: WorldState, args: dict, _default_eaten_at: str) -> dict
                 }
             )
     results.sort(key=lambda row: row["food_id"])
-    return {"op": "search_foods", "q": needle, "results": results}
+    return results
 
 
 def _get_food(state: WorldState, args: dict, _default_eaten_at: str) -> dict:
@@ -91,11 +136,19 @@ def _get_food(state: WorldState, args: dict, _default_eaten_at: str) -> dict:
 
 
 def _get_profile(state: WorldState, _args: dict, _default_eaten_at: str) -> dict:
-    return {"op": "get_profile", "profile": profile_view(state.profile)}
+    return {
+        "op": "get_profile",
+        "profile": profile_view(state.profile),
+        "last_plan": copy.deepcopy(state.last_plan),
+    }
 
 
 def _get_ledger(state: WorldState, _args: dict, _default_eaten_at: str) -> dict:
-    return {"op": "get_ledger", "ledger": ledger_view(state.ledger)}
+    return {
+        "op": "get_ledger",
+        "ledger": ledger_view(state.ledger, state.catalog),
+        "totals": ledger_totals(state.ledger, state.catalog),
+    }
 
 
 def _get_dri(state: WorldState, _args: dict, _default_eaten_at: str) -> dict:
@@ -153,6 +206,24 @@ def _submit_plan(state: WorldState, args: dict, _default_eaten_at: str) -> dict:
     return {"op": "submit_plan", "items": copy.deepcopy(normalized)}
 
 
+def _expand_food_allergies(state: WorldState, tags: tuple[str, ...]) -> tuple[str, ...]:
+    """A food_id in an allergy patch means that food's allergen tags.
+
+    ``shrimp`` is a catalog id whose tag is ``shellfish``. Writing the food
+    name is a valid way to name the constraint; the stored profile keeps tags.
+    """
+    expanded: list[str] = []
+    for tag in tags:
+        entry = state.catalog.get(tag)
+        if isinstance(entry, dict):
+            food_tags = entry.get("allergen_tags") or []
+            if food_tags:
+                expanded.extend(str(item) for item in food_tags)
+                continue
+        expanded.append(tag)
+    return normalize_tags(expanded)
+
+
 def _update_profile(state: WorldState, args: dict, _default_eaten_at: str) -> dict:
     patch = as_dict(args["patch"], "patch")
     unknown = sorted(patch.keys() - PROFILE_PATCH_KEYS)
@@ -163,9 +234,12 @@ def _update_profile(state: WorldState, args: dict, _default_eaten_at: str) -> di
     for field in ("allergies", "medications"):
         if field in patch:
             try:
-                changes[field] = normalize_tags(patch[field])
+                raw = normalize_tags(patch[field])
             except ValueError as exc:
                 raise ActionError("bad_schema", f"'{field}': {exc}") from exc
+            if field == "allergies":
+                raw = _expand_food_allergies(state, raw)
+            changes[field] = raw
 
     if "windows" in patch:
         incoming = as_dict(patch["windows"], "windows")
