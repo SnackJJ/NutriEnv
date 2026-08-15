@@ -16,7 +16,14 @@ from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, Profile, WorldState, ledger_totals, normalize_tags
 
-from .realizations import FUZZY_ROWS, LEFTOVER_ROWS
+from .realizations import (
+    CONSTRAIN_ROWS,
+    EVALUATE_ROWS,
+    FUZZY_ROWS,
+    LEFTOVER_ROWS,
+    UPDATE_ROWS,
+    evaluate_windows,
+)
 from .situations import SITUATIONS, Situation
 
 __all__ = ["Oracle", "Task", "Generator"]
@@ -116,6 +123,11 @@ class Generator:
             family = rng.choice(FAMILIES)
         if family not in FAMILIES:
             raise ValueError(f"unknown family {family!r}; expected one of {FAMILIES}")
+        if situation_name is None and family == "constrain":
+            picked = CONSTRAIN_ROWS[rng.randrange(len(CONSTRAIN_ROWS))]
+            situation_name = (
+                "condition_suitability" if picked.kind == "condition" else "conflict_windows"
+            )
         knobs = self._difficulty(difficulty)
         s0 = self._make_s0(seed, knobs)
         if situation_name is None and family == "recommend":
@@ -350,10 +362,17 @@ class Generator:
         self, rng: random.Random, s0: WorldState
     ) -> tuple[str, Oracle]:
         row = LEFTOVER_ROWS[rng.randrange(len(LEFTOVER_ROWS))]
+        return self._leftover_from_row(s0, row)
+
+    def _leftover_from_row(self, s0: WorldState, row) -> tuple[str, Oracle]:
+        extras: dict = {}
+        if row.plan_preset is not None:
+            extras["plan_preset"] = dict(row.plan_preset)
         s0.profile = replace(
             s0.profile,
             windows=dict(row.windows),
             allergies=row.allergies or s0.profile.allergies,
+            **extras,
         )
         s0.ledger = [
             LedgerRow(self._food_id(s0, food_id), grams, eaten_at)
@@ -370,43 +389,53 @@ class Generator:
         )
 
     def _build_evaluate(self, rng: random.Random, s0: WorldState, knobs: dict) -> tuple[str, Oracle]:
-        profile = self._profile_for_plan(s0, knobs["n_constraints"])
-        s0.profile = profile
-        items = self._plan_items(s0)
-        text = ", ".join(f"{x['grams']:g} g {x['food_id']}" for x in items)
-        query = f"Evaluate this candidate by submitting it as the plan: {text}."
-        return query, Oracle(
-            profile=copy.deepcopy(profile),
+        row = EVALUATE_ROWS[rng.randrange(len(EVALUATE_ROWS))]
+        return self._evaluate_from_row(s0, row)
+
+    def _evaluate_from_row(self, s0: WorldState, row) -> tuple[str, Oracle]:
+        items = []
+        for food_id, phrase in row.items:
+            grams = self._require_portion(food_id, phrase, s0.catalog)
+            items.append({"food_id": self._food_id(s0, food_id), "grams": grams})
+        windows = evaluate_windows(
+            items,
+            s0.catalog,
+            kcal_margin=row.margin_kcal,
+            protein_margin=row.margin_protein,
+        )
+        s0.profile = replace(s0.profile, windows=windows)
+        return row.query, Oracle(
+            profile=copy.deepcopy(s0.profile),
             last_plan=items,
             plan_must_fit_windows=True,
             ledger=tuple(s0.ledger),
         )
 
     def _build_update(self, rng: random.Random, s0: WorldState, knobs: dict) -> tuple[str, Oracle]:
-        lo, hi = s0.profile.windows.get("kcal", (1800.0, 2200.0))
-        kcal = (float(lo) + 200.0, float(hi) + 200.0)
-        allergies = normalize_tags([*s0.profile.allergies, " SHELLFISH ", "shellfish"])
+        row = UPDATE_ROWS[rng.randrange(len(UPDATE_ROWS))]
+        return self._update_from_row(s0, row)
+
+    def _update_from_row(self, s0: WorldState, row) -> tuple[str, Oracle]:
+        profile = s0.profile
+        if row.s0_allergies is not None:
+            profile = replace(profile, allergies=normalize_tags(row.s0_allergies))
+        if row.s0_plan_preset is not None:
+            profile = replace(profile, plan_preset=dict(row.s0_plan_preset))
+        s0.profile = profile
+        allergies = list(s0.profile.allergies)
+        for tag in row.add_allergens:
+            if tag not in allergies:
+                allergies.append(tag)
         windows = dict(s0.profile.windows)
-        windows["kcal"] = kcal
+        for key, delta in (row.window_shifts or {}).items():
+            lo, hi = windows.get(key, (0.0, 0.0))
+            windows[key] = (float(lo) + float(delta), float(hi) + float(delta))
         expected = replace(
             s0.profile,
-            allergies=allergies,
+            allergies=normalize_tags(allergies),
             windows=windows,
         )
-        query = (
-            "I've been tired. Update my profile now: add shellfish to my allergies "
-            f"(I reacted to shrimp) and raise my kcal window to {kcal[0]:g}-{kcal[1]:g}. "
-            "Leave every other field unchanged."
-        )
-        return query, Oracle(profile=expected, ledger=tuple(s0.ledger))
-
-    def _build_constrain(self, rng: random.Random, s0: WorldState, knobs: dict) -> tuple[str, Oracle]:
-        allergen = rng.choice(("peanut", "milk", "shellfish", "soy"))
-        query = (
-            f"Which catalog foods carry the {allergen} allergen tag? Answer the constraint "
-            "question without changing my state."
-        )
-        return query, Oracle()
+        return row.query, Oracle(profile=expected, ledger=tuple(s0.ledger))
 
     def _build_situation_fuzzy_portion(
         self, rng: random.Random, s0: WorldState, knobs: dict
@@ -435,19 +464,17 @@ class Generator:
     def _build_situation_condition_suitability(
         self, rng: random.Random, s0: WorldState, knobs: dict
     ) -> tuple[str, Oracle]:
-        # Shrimp carries shellfish in the fixture, so the collision is wholly
-        # represented by S0 rather than hidden in prose.
+        rows = [row for row in CONSTRAIN_ROWS if row.kind == "condition"]
+        return self._condition_from_row(s0, rows[rng.randrange(len(rows))])
+
+    def _condition_from_row(self, s0: WorldState, row) -> tuple[str, Oracle]:
         profile = replace(
             s0.profile,
-            allergies=normalize_tags(["shellfish"]),
-            windows={"kcal": (400.0, 800.0), "protein_g": (20.0, 50.0)},
+            allergies=normalize_tags(row.allergies),
+            windows=dict(row.windows),
         )
         s0.profile = profile
-        query = (
-            "I was thinking of having shrimp tonight. Is that okay for me, or "
-            "what should I have instead?"
-        )
-        return query, Oracle(
+        return row.query, Oracle(
             profile=copy.deepcopy(profile),
             last_plan=[],
             plan_must_be_safe=True,
@@ -476,19 +503,21 @@ class Generator:
     def _build_situation_conflict_windows(
         self, rng: random.Random, s0: WorldState, knobs: dict
     ) -> tuple[str, Oracle]:
-        # Protein cannot reach 100 g under 100 kcal with any non-negative mix
-        # of the fixture foods. The expected safe response is no submitted plan.
+        rows = [row for row in CONSTRAIN_ROWS if row.kind == "conflict"]
+        return self._conflict_from_row(s0, rows[rng.randrange(len(rows))])
+
+    def _conflict_from_row(self, s0: WorldState, row) -> tuple[str, Oracle]:
         profile = replace(
             s0.profile,
-            windows={"kcal": (0.0, 100.0), "protein_g": (100.0, 200.0)},
+            windows=dict(row.windows),
+            allergies=normalize_tags(row.allergies),
         )
         s0.profile = profile
-        s0.last_plan = [{"food_id": "chicken_breast", "grams": 200.0}]
-        query = (
-            "Can you make a day of eating that hits my protein target without "
-            "going over calories?"
-        )
-        return query, Oracle(
+        s0.last_plan = [
+            {"food_id": self._food_id(s0, food_id), "grams": grams}
+            for food_id, grams in row.last_plan
+        ]
+        return row.query, Oracle(
             profile=copy.deepcopy(profile),
             last_plan=None,
             plan_must_fit_windows=True,

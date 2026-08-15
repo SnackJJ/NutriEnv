@@ -26,9 +26,11 @@ def test_log_oracle_contains_only_new_rows():
 
 def test_update_oracle_normalizes_and_preserves_unmentioned_fields():
     task = Generator().sample(3, "update")
-    assert task.oracle.profile.allergies == ("peanut", "shellfish")
+    assert task.oracle.profile != task.s0.profile
     assert task.oracle.profile.medications == task.s0.profile.medications
     assert task.oracle.profile.version == task.s0.profile.version
+    assert task.oracle.profile.user_id == task.s0.profile.user_id
+    assert "shrimp" not in task.oracle.profile.allergies
 
 
 def test_difficulty_changes_s0_not_action_availability():
@@ -60,8 +62,7 @@ def test_every_situation_has_a_fixture_backed_task():
 
     condition = generator.sample(7, situation=Situation.CONDITION_SUITABILITY)
     assert condition.family == "constrain"
-    assert "shellfish" in condition.s0.profile.allergies
-    assert "shrimp" in condition.query.lower()
+    assert condition.s0.profile.allergies
     assert condition.oracle.last_plan == []
     assert condition.oracle.allow_empty_plan is False
     assert condition.oracle.plan_must_be_safe
@@ -131,7 +132,7 @@ def test_non_log_drafts_pin_unchanged_ledger():
         assert task.oracle.ledger == tuple(task.s0.ledger), family
         assert task.oracle.profile is not None
     update = Generator().sample(3, "update")
-    assert "shellfish" in update.oracle.profile.allergies
+    assert update.oracle.profile != update.s0.profile
     assert "shrimp" not in update.oracle.profile.allergies
     recommend = Generator().sample(3, "recommend")
     assert recommend.oracle.last_plan == []

@@ -1,13 +1,22 @@
 from nutrienv.bench.realizations import (
+    CONSTRAIN_ROWS,
+    EVALUATE_ROWS,
     FUZZY_ROWS,
     LEFTOVER_ROWS,
+    UPDATE_ROWS,
+    assert_constrain_rows,
+    assert_evaluate_rows,
     assert_fuzzy_resolves,
+    assert_leftover_rows,
+    assert_update_rows,
+    evaluate_windows,
     fuzzy_key,
     leftover_key,
 )
 from nutrienv.bench.validator import semantic_key, validate_draft
 from nutrienv.bench import Generator
 from nutrienv.world.catalog_store import load_catalog
+from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals
 
 
@@ -23,16 +32,59 @@ def test_fuzzy_table_resolves_and_keys_are_unique():
 
 def test_leftover_table_remainders_are_positive_and_unique():
     catalog = load_catalog()
-    assert len(LEFTOVER_ROWS) >= 8
+    assert len(LEFTOVER_ROWS) >= 27
+    assert_leftover_rows(catalog)
     keys = [leftover_key(row) for row in LEFTOVER_ROWS]
     assert len(keys) == len(set(keys))
     novel = [row for row in LEFTOVER_ROWS if row.source != "gold"]
-    assert len(novel) >= 8
+    assert len(novel) >= 24
     for row in LEFTOVER_ROWS:
         ledger = [LedgerRow(food, grams, slot) for food, grams, slot in row.ledger]
         eaten = ledger_totals(ledger, catalog)
         kcal_hi = row.windows["kcal"][1] - eaten.get("kcal", 0.0)
         assert kcal_hi > 0, row.seed_id
+
+
+def test_update_constrain_evaluate_tables_have_unique_keys():
+    catalog = load_catalog()
+    assert len(UPDATE_ROWS) >= 22
+    assert len(CONSTRAIN_ROWS) >= 19
+    assert {row.kind for row in CONSTRAIN_ROWS} == {"condition", "conflict"}
+    assert len(EVALUATE_ROWS) >= 11
+    assert_update_rows(catalog)
+    assert_constrain_rows(catalog)
+    assert_evaluate_rows(catalog)
+
+
+def test_cut_leftover_rows_carry_plan_preset():
+    wanted = {
+        "lo-gold-cut",
+        "lo-cut-salmon",
+        "lo-cut-tight",
+        "lo-cut-breakfast-only",
+    }
+    found = {row.seed_id for row in LEFTOVER_ROWS if row.plan_preset == {"goal": "cut"}}
+    assert wanted <= found
+
+
+def test_evaluate_windows_are_derived_from_live_totals():
+    catalog = load_catalog()
+    for row in EVALUATE_ROWS:
+        items = []
+        for food_id, phrase in row.items:
+            grams = resolve_portion(food_id, phrase, catalog)
+            assert grams is not None, (row.seed_id, food_id, phrase)
+            items.append({"food_id": food_id, "grams": grams})
+        windows = evaluate_windows(items, catalog)
+        eaten = ledger_totals(
+            [LedgerRow(item["food_id"], item["grams"], "plan") for item in items],
+            catalog,
+        )
+        assert windows["kcal"][0] <= eaten["kcal"] <= windows["kcal"][1], row.seed_id
+        assert (
+            windows["protein_g"][0] <= eaten["protein_g"] <= windows["protein_g"][1]
+        ), row.seed_id
+        assert not hasattr(row, "windows")
 
 
 def test_fuzzy_seeds_change_semantic_key():
@@ -52,6 +104,71 @@ def test_leftover_seeds_change_semantic_key():
         for seed in range(20)
     }
     assert len(keys) > 1
+
+
+def test_update_constrain_evaluate_seeds_change_semantic_key():
+    update_keys = {
+        semantic_key(Generator().sample(seed, family="update"))
+        for seed in range(20)
+    }
+    constrain_keys = {
+        semantic_key(Generator().sample(seed, family="constrain"))
+        for seed in range(20)
+    }
+    evaluate_keys = {
+        semantic_key(Generator().sample(seed, family="evaluate"))
+        for seed in range(20)
+    }
+    assert len(update_keys) > 1
+    assert len(constrain_keys) > 1
+    assert len(evaluate_keys) > 1
+
+
+def _fresh_s0(base):
+    from nutrienv.world.types import WorldState
+
+    return WorldState(
+        profile=base.profile,
+        ledger=list(base.ledger),
+        catalog=base.catalog,
+        last_plan=list(base.last_plan),
+    )
+
+
+def test_every_table_row_materializes_to_a_clean_draft():
+    from nutrienv.bench.generator import Task
+
+    generator = Generator()
+    knobs = generator._difficulty(None)
+    base = generator._make_s0(0, knobs)
+
+    def check(family, persona, query, oracle, s0, situations=()):
+        task = Task("draft", family, query, s0, oracle, situations, persona)
+        assert validate_draft(task) == [], (family, query, validate_draft(task))
+
+    for row in LEFTOVER_ROWS:
+        s0 = _fresh_s0(base)
+        query, oracle = generator._leftover_from_row(s0, row)
+        check("recommend", "leftover", query, oracle, s0)
+
+    for row in UPDATE_ROWS:
+        s0 = _fresh_s0(base)
+        query, oracle = generator._update_from_row(s0, row)
+        check("update", "everyday", query, oracle, s0)
+
+    for row in CONSTRAIN_ROWS:
+        s0 = _fresh_s0(base)
+        if row.kind == "condition":
+            query, oracle = generator._condition_from_row(s0, row)
+            check("constrain", "everyday", query, oracle, s0, ("condition_suitability",))
+        else:
+            query, oracle = generator._conflict_from_row(s0, row)
+            check("constrain", "everyday", query, oracle, s0, ("conflict_windows",))
+
+    for row in EVALUATE_ROWS:
+        s0 = _fresh_s0(base)
+        query, oracle = generator._evaluate_from_row(s0, row)
+        check("evaluate", "everyday", query, oracle, s0)
 
 
 def test_validator_accepts_table_drafts_and_rejects_leaks():

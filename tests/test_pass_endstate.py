@@ -68,65 +68,40 @@ def test_submit_plan_in_windows_and_safe_passes() -> None:
     assert score.tag is None
 
 
-def test_tired_shrimp_query_requires_window_and_allergy() -> None:
+def test_update_pass_requires_every_oracle_field() -> None:
     task = Generator().generate(11, family="update")
-    query = task.query.lower()
-    assert "tired" in query
-    assert "shrimp" in query
-
     oracle = task.oracle
-    assert "shellfish" in oracle.profile.allergies
+    assert oracle.profile != task.s0.profile
     assert "shrimp" not in oracle.profile.allergies
-    assert oracle.profile.windows["kcal"] != task.s0.profile.windows["kcal"]
-    assert oracle.profile.windows["protein_g"] == task.s0.profile.windows["protein_g"]
     assert oracle.profile.medications == task.s0.profile.medications
 
     env = NutriEnv()
     scorer = Scorer()
-    kcal = oracle.profile.windows["kcal"]
-
-    env.reset(task.s0)
-    env.step({"op": "update_profile", "patch": {"windows": {"kcal": [kcal[0], kcal[1]]}}})
-    only_window = scorer.score(env.state(), oracle)
-    assert only_window.passed is False
-
-    env.reset(task.s0)
-    env.step(
-        {
-            "op": "update_profile",
-            "patch": {"allergies": list(oracle.profile.allergies)},
+    full_patch: dict = {}
+    if oracle.profile.allergies != task.s0.profile.allergies:
+        full_patch["allergies"] = list(oracle.profile.allergies)
+    if oracle.profile.windows != task.s0.profile.windows:
+        full_patch["windows"] = {
+            key: list(bounds) for key, bounds in oracle.profile.windows.items()
         }
-    )
-    only_allergy = scorer.score(env.state(), oracle)
-    assert only_allergy.passed is False
 
     env.reset(task.s0)
-    env.step(
-        {
-            "op": "update_profile",
-            "patch": {
-                "windows": {"kcal": [kcal[0], kcal[1]]},
-                "allergies": list(oracle.profile.allergies),
-            },
-        }
-    )
-    both = scorer.score(env.state(), oracle)
-    assert both.passed is True
+    env.step({"op": "update_profile", "patch": full_patch})
+    assert scorer.score(env.state(), oracle).passed is True
 
-    # Extra unmentioned write must not Pass.
+    if "windows" in full_patch and "allergies" in full_patch:
+        env.reset(task.s0)
+        env.step({"op": "update_profile", "patch": {"windows": full_patch["windows"]}})
+        assert scorer.score(env.state(), oracle).passed is False
+        env.reset(task.s0)
+        env.step({"op": "update_profile", "patch": {"allergies": full_patch["allergies"]}})
+        assert scorer.score(env.state(), oracle).passed is False
+
+    extra = dict(full_patch)
+    extra["medications"] = ["warfarin"]
     env.reset(task.s0)
-    env.step(
-        {
-            "op": "update_profile",
-            "patch": {
-                "windows": {"kcal": [kcal[0], kcal[1]]},
-                "allergies": list(oracle.profile.allergies),
-                "medications": ["warfarin"],
-            },
-        }
-    )
-    extra = scorer.score(env.state(), oracle)
-    assert extra.passed is False
+    env.step({"op": "update_profile", "patch": extra})
+    assert scorer.score(env.state(), oracle).passed is False
 
 
 def test_generator_deterministic_for_the_same_seed() -> None:
