@@ -48,6 +48,26 @@ _Avoid_: safety gate, task failure
 One exam item: initial world, a user query, and one primary goal. The full Action catalog is always available; which Actions are *necessary* is a property of the Task, not of a hidden tool subset.
 _Avoid_: hidden tool menu, teaching-simplified action space
 
+**Family**:
+The single goal a Task is scored against: Log, Recommend, Evaluate, Update, or Constrain. Every Task has exactly one, and the exam's slots are allocated by Family.
+_Avoid_: tool name, difficulty tier, Situation
+
+**Log**:
+A Family: the person reports a meal they already ate, and the Ledger must end up holding it. Spoken portions are resolved through the Catalog, never guessed.
+_Avoid_: planning the next meal, judging whether the meal was wise
+
+**Evaluate**:
+A Family: the person names a complete candidate meal and the agent must put that exact meal forward. What is judged is whether the named meal fits, not which meal to pick.
+_Avoid_: proposing a substitute for a bad meal (that is Constrain), taste rating
+
+**Update**:
+A Family: the person asks to change their own Profile. Fields the person did not mention stay as they were.
+_Avoid_: logging a meal, editing the Ledger
+
+**Constrain**:
+A Family: the person names one food that collides with their Profile, or asks for something no combination of foods can satisfy. The agent must choose a safe response rather than transcribe a given one.
+_Avoid_: a catalog tag lookup, evaluating a named meal
+
 **Persona**:
 A named S0 flavor used when authoring the Split (everyday, cut, gym, leftover, flex; medical ones stay thin). The judged facts are still windows and allergies, not the name.
 _Avoid_: NGQA tag-count as Pass, diagnosis as rubric, medication tasks in v1
