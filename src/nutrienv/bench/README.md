@@ -37,15 +37,21 @@ Scoring returns exactly `{"passed": bool, "tag": str}`. The tags are `pass`,
 
 Pass `situation="..."` to `Generator.sample` or `generate_split` to request a
 specific query/S0 flavor. Situations use the local USDA FDC catalog (`data/fdc/catalog.sqlite`, built by
-`scripts/download_fdc.py` and `scripts/build_fdc_catalog.py`). The published exam is a frozen split (ADR 0006, ADR 0009). `data/splits/v0-gold.json` is the 40-item calibration set. The destination ruler is 240 sliced items; increments are new files, never an overwrite of v0-gold. Everyday is the majority persona; cut / gym / leftover / flex are reasons people ask; hypertension is one thin item. Lookup is not in the headline split. Leftover recommend tasks show daily windows on the Profile and score the meal against `Oracle.plan_windows` (the remainder; ADR 0007). `scripts/run_react.py` reads v0-gold by default; `--seed/--n` is draft-factory only.
+`scripts/download_fdc.py` and `scripts/build_fdc_catalog.py`). The published exam is a frozen split (ADR 0006, ADR 0009). `data/splits/v0-gold.json` is the 40-item calibration set; `v0.1-gold.json` is 64 and `v0.2-gold.json` is 100, each copying its parent's items unchanged and appending a reviewed slice. Increments are materialized by `scripts/materialize_v02.py`, which drives the same `Generator._*_from_row` helpers the factory uses, so a frozen file cannot drift from the table that produced it. The destination ruler is 240 sliced items; increments are new files, never an overwrite of v0-gold. Everyday is the majority persona; cut / gym / leftover / flex are reasons people ask; hypertension is one thin item. Lookup is not in the headline split. Leftover recommend tasks show daily windows on the Profile and score the meal against `Oracle.plan_windows` (the remainder; ADR 0007). `scripts/run_react.py` reads v0-gold by default; `--seed/--n` is draft-factory only.
 
-Diversity comes from `realizations.py` tables (fuzzy portions, leftover ledgers). Changing the factory seed picks another table row. `validator.validate_draft` rejects leaks, unresolvable grams, and leftover windows that do not match the remainder.
+Diversity comes from `realizations.py` tables. Changing the factory seed picks another table row. Every family the exam scores is now table-backed: `FUZZY_ROWS` (24), `LEFTOVER_ROWS` (27), `UPDATE_ROWS` (22), `CONSTRAIN_ROWS` (22, split into `kind="condition"` and `kind="conflict"`), `EVALUATE_ROWS` (11). Gold-shaped rows come first in each table so the factory still covers the calibration shapes.
+
+Rows never store a number the catalog can compute. Grams come from `resolve_portion`, leftover remainder windows from `ledger_totals`, and an evaluate row's nutrient windows from its own plan total plus a margin the row declares. A row that stored those numbers could drift out of agreement with the catalog and turn a frozen item unpassable without any test noticing.
+
+Query text is hand-written, not templated: spoken diversity is the point, and ADR 0006 already says paraphrases are not new rows. Validity comes from cross-checking instead — `validate_draft` verifies that the sentence and the oracle describe the same change. An update whose oracle moves a window by an amount the sentence does not name, or moves it in the direction the sentence denies, or adds an allergen no word in the sentence evidences, or silently skips a change the sentence asks for, is rejected. Evaluate items must resolve every gram through the query's own phrasing and must land inside their own windows.
+
+Constrain carries two different oracle contracts and every gate is scoped per kind: `condition` must submit a safe plan (`last_plan=[]`, `allow_empty_plan=False`), while `conflict` may submit nothing (`last_plan=None`, `allow_empty_plan=True`). "Constrain means the agent chooses" is true only of the first.
 
 | Situation | Fixture-backed realization |
 |---|---|
 | `fuzzy_portion` | A table row’s spoken phrase resolves through `resolve_portion` (e.g. half a cup of milk → 122 g). |
 | `multi_item_log` | One query requires three distinct new breakfast ledger rows. |
-| `condition_suitability` | A shellfish-allergic profile asks whether shrimp is suitable, or what to eat instead; silence does not pass. |
+| `condition_suitability` | A profile allergic to the named food asks whether it is suitable, or what to eat instead; silence does not pass. |
 | `unit_convert` | Two ounces of oats converts through `resolve_portion` (28.35 g/oz) to 56.7 g. |
 | `near_synonym` | A log of “prawns” must resolve to the fixture's `shrimp` entry. |
 | `conflict_windows` | S0 contains mutually infeasible kcal/protein windows and expects no violating plan. |
