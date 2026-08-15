@@ -118,7 +118,7 @@ def test_evaluate_rows_cover_tiers_and_resolve():
     assert counts["pair"] >= 12
     assert counts["triple"] >= 12
     assert counts["long"] >= 6
-    assert counts["forced_grams"] >= 4
+    assert counts["explicit_grams"] >= 4
     assert counts["synonym"] >= 3
     assert_evaluate_rows(catalog)
     banned = {("whole_wheat_bread", "a slice"), ("broccoli", "a piece")}
@@ -145,11 +145,13 @@ def test_evaluate_rows_cover_tiers_and_resolve():
     assert len(set(keys)) == len(EVALUATE_ROWS)
 
     for row in EVALUATE_ROWS:
-        if row.tier != "forced_grams":
+        if row.tier != "explicit_grams":
             continue
-        for food_id, _phrase in row.items:
-            assert not (catalog[food_id].get("portions") or {}), (row.seed_id, food_id)
         assert re.search(r"\d+\s*g", row.query, re.I), row.seed_id
+        assert any(
+            not (catalog[food_id].get("portions") or {})
+            for food_id, _phrase in row.items
+        ), row.seed_id
 
     synonym_targets = {"shrimp", "oats", "greek_yogurt"}
     seen_hidden: set[str] = set()

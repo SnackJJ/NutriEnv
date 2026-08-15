@@ -5628,7 +5628,7 @@
       "family": "evaluate",
       "persona": "everyday",
       "situations": [],
-      "query": "Evaluate this as lunch: 160 g of tofu.",
+      "query": "Evaluate this as a light lunch: 160 g of tofu.",
       "s0": {
         "profile": {
           "user_id": "v03-eval-single-tofu-g",
@@ -5702,7 +5702,7 @@
       "family": "evaluate",
       "persona": "everyday",
       "situations": [],
-      "query": "Check this lunch for me: a baked potato.",
+      "query": "Check this for me: a baked potato.",
       "s0": {
         "profile": {
           "user_id": "v03-eval-single-potato-piece",
@@ -6006,7 +6006,7 @@
       "family": "evaluate",
       "persona": "everyday",
       "situations": [],
-      "query": "Submit this as lunch: a can of tuna and a cup of spinach.",
+      "query": "Check this as a light lunch: a can of tuna and a cup of spinach.",
       "s0": {
         "profile": {
           "user_id": "v03-eval-pair-tuna-spinach",
@@ -6047,7 +6047,7 @@
       "family": "evaluate",
       "persona": "everyday",
       "situations": [],
-      "query": "Evaluate this as dinner: a baked potato and a cup of broccoli.",
+      "query": "Does this work as a light dinner: a baked potato and a cup of broccoli?",
       "s0": {
         "profile": {
           "user_id": "v03-eval-pair-potato-broccoli",
@@ -6088,7 +6088,7 @@
       "family": "evaluate",
       "persona": "everyday",
       "situations": [],
-      "query": "I already ate after the gym — about 2 ounces of oats and a banana. Submit that as the plan.",
+      "query": "I'm thinking of about 2 ounces of oats and a banana after the gym. Does that work?",
       "s0": {
         "profile": {
           "user_id": "v03-eval-pair-oats-oz-banana",
@@ -6129,7 +6129,7 @@
       "family": "evaluate",
       "persona": "everyday",
       "situations": [],
-      "query": "Does this work as brunch: a slice of avocado and an egg?",
+      "query": "Does this work as brunch: half a cup of avocado and two eggs?",
       "s0": {
         "profile": {
           "user_id": "v03-eval-pair-avocado-egg",
@@ -6138,8 +6138,8 @@
           ],
           "windows": {
             "kcal": [
-              0.0,
-              250.0
+              110.0,
+              420.0
             ],
             "protein_g": [
               0.0,
@@ -6154,11 +6154,11 @@
         "last_plan": [
           {
             "food_id": "avocado",
-            "grams": 15.0
+            "grams": 75.0
           },
           {
             "food_id": "egg",
-            "grams": 50.0
+            "grams": 100.0
           }
         ],
         "plan_must_fit_windows": true,
@@ -6170,7 +6170,7 @@
       "family": "evaluate",
       "persona": "everyday",
       "situations": [],
-      "query": "Evaluate this as lunch: 150 g tofu and a cup of spinach.",
+      "query": "Evaluate this as a light lunch: 150 g tofu and a cup of spinach.",
       "s0": {
         "profile": {
           "user_id": "v03-eval-pair-tofu-spinach",
@@ -6823,25 +6823,25 @@
       }
     },
     {
-      "id": "v03-eval-long-chicken-rice-broc-oil",
+      "id": "v03-eval-long-beef-pasta-broc-oil",
       "family": "evaluate",
       "persona": "everyday",
       "situations": [],
-      "query": "Evaluate this as dinner: 160 g chicken, a cup of rice, a cup of broccoli, and a tablespoon of olive oil.",
+      "query": "Submit this as dinner: 150 g beef, a cup of pasta, a cup of broccoli, and a tablespoon of olive oil.",
       "s0": {
         "profile": {
-          "user_id": "v03-eval-long-chicken-rice-broc-oil",
+          "user_id": "v03-eval-long-beef-pasta-broc-oil",
           "allergies": [
             "peanut"
           ],
           "windows": {
             "kcal": [
-              470.0,
-              780.0
+              530.0,
+              840.0
             ],
             "protein_g": [
-              40.0,
-              80.0
+              30.0,
+              70.0
             ]
           }
         },
@@ -6851,12 +6851,12 @@
         "profile": "s0",
         "last_plan": [
           {
-            "food_id": "chicken_breast",
-            "grams": 160.0
+            "food_id": "beef",
+            "grams": 150.0
           },
           {
-            "food_id": "white_rice",
-            "grams": 158.0
+            "food_id": "pasta",
+            "grams": 140.0
           },
           {
             "food_id": "broccoli",
@@ -7148,25 +7148,25 @@
       }
     },
     {
-      "id": "v03-eval-fg-shrimp",
+      "id": "v03-eval-eg-beef-rice",
       "family": "evaluate",
       "persona": "everyday",
       "situations": [],
-      "query": "Check this for me: 100 g of shrimp.",
+      "query": "Does this work as a light dinner: 100 g beef and a cup of rice?",
       "s0": {
         "profile": {
-          "user_id": "v03-eval-fg-shrimp",
+          "user_id": "v03-eval-eg-beef-rice",
           "allergies": [
             "peanut"
           ],
           "windows": {
             "kcal": [
-              0.0,
-              250.0
+              250.0,
+              560.0
             ],
             "protein_g": [
-              0.0,
-              40.0
+              10.0,
+              50.0
             ]
           }
         },
@@ -7176,8 +7176,12 @@
         "profile": "s0",
         "last_plan": [
           {
-            "food_id": "shrimp",
+            "food_id": "beef",
             "grams": 100.0
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 158.0
           }
         ],
         "plan_must_fit_windows": true,
@@ -7308,7 +7312,7 @@
       "family": "evaluate",
       "persona": "everyday",
       "situations": [],
-      "query": "Check this snack for me: a cup of plain yogurt and a slice of orange.",
+      "query": "Check this snack for me: a cup of plain yogurt and a cup of orange segments.",
       "s0": {
         "profile": {
           "user_id": "v03-eval-syn-yogurt-orange",
@@ -7317,8 +7321,8 @@
           ],
           "windows": {
             "kcal": [
-              0.0,
-              310.0
+              80.0,
+              390.0
             ],
             "protein_g": [
               10.0,
@@ -7337,7 +7341,7 @@
           },
           {
             "food_id": "orange",
-            "grams": 15.0
+            "grams": 180.0
           }
         ],
         "plan_must_fit_windows": true,

@@ -92,8 +92,14 @@ INCREMENTS = {
         "conflict": ("cf-near-200-56", "cf-near-400-111", "cf-near-800-221"),
         # 41 of the 48 available rows, landing evaluate exactly on its 48-item
         # allocation. The 7 held back are a review reserve, the way v0.1 kept a
-        # band: three tiered rows whose food sets overlap most with what is
-        # already admitted, plus the four rows that predate the tier matrix.
+        # band. ev-long-chicken-rice-broc-oil is held because it repeats
+        # ev-gold-plan's exact food set, and a "long" row whose only claim is
+        # length adds nothing over an item gold already froze. The beef-pasta
+        # rows it displaced duplicate nothing and are admitted instead.
+        # ev-pair-oats-oz-banana and ev-syn-oatmeal-banana share a food set but
+        # are both kept: their portions differ (56.7 g vs 80 g of oats) and they
+        # test different things -- ounce conversion versus synonym resolution --
+        # which is the food/portion geometry ADR 0006 asks rows to differ on.
         "evaluate": (
             "ev-single-tofu-g", "ev-single-oats-cup", "ev-single-potato-piece",
             "ev-single-tuna-can", "ev-single-cheddar-slice", "ev-single-pb-tbsp",
@@ -108,10 +114,10 @@ INCREMENTS = {
             "ev-tri-shrimp-rice-broc", "ev-tri-pb-banana-oats",
             "ev-tri-cheddar-apple-yogurt", "ev-tri-avocado-eggs-spin",
             "ev-tri-milk-oats-banana",
-            "ev-long-chicken-rice-broc-oil", "ev-long-oats-milk-banana-pb",
+            "ev-long-beef-pasta-broc-oil", "ev-long-oats-milk-banana-pb",
             "ev-long-salmon-rice-spin-avo", "ev-long-tofu-rice-veg-oil",
             "ev-long-chicken-potato-fixings",
-            "ev-fg-salmon", "ev-fg-beef", "ev-fg-shrimp", "ev-fg-salmon-beef",
+            "ev-fg-salmon", "ev-fg-beef", "ev-eg-beef-rice", "ev-fg-salmon-beef",
             "ev-syn-prawns", "ev-syn-oatmeal-banana", "ev-syn-yogurt-orange",
         ),
         "notes": (

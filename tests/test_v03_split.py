@@ -49,7 +49,7 @@ def test_v03_evaluate_covers_every_difficulty_tier():
             tiers[getattr(row, "tier", "untiered")] += 1
     for tier, least in (
         ("single", 7), ("pair", 11), ("triple", 11),
-        ("long", 5), ("forced_grams", 4), ("synonym", 3),
+        ("long", 5), ("explicit_grams", 4), ("synonym", 3),
     ):
         assert tiers[tier] >= least, (tier, tiers[tier], dict(tiers))
 
