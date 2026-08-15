@@ -5071,7 +5071,7 @@
       "situations": [
         "fuzzy_portion"
       ],
-      "query": "I had half a cup of rice at dinner. Log that?",
+      "query": "I had half a cup of white rice at dinner. Log that?",
       "s0": {
         "profile": {
           "user_id": "v03-fz-rice-half",

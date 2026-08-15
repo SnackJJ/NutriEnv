@@ -11,7 +11,7 @@ from nutrienv import __version__
 from nutrienv.bench import Generator, Scorer, load_split
 from nutrienv.env import NutriEnv
 
-from .protocol import Harness
+from .protocol import Harness, HarnessView
 from .script import ScriptHarness
 
 __all__ = [
@@ -56,6 +56,7 @@ def run_split(
     task_ids: list[str] | None = None,
     verbose: bool = False,
     workers: int = 1,
+    leak_oracle: bool = False,
 ) -> dict:
     """Run a frozen split (or a Generator factory split) and return Pass / pass^k.
 
@@ -65,6 +66,10 @@ def run_split(
     is the fraction that Pass on every episode. ``workers`` runs Tasks
     concurrently (each Task keeps its own Env and harness clone). Published
     numbers should use a frozen file.
+
+    ``reset`` receives a :class:`HarnessView` (id, family, persona, situations,
+    query) unless ``leak_oracle`` is True, in which case it receives the full
+    Task. The flag is recorded on the result so a leaked run is self-identifying.
     """
     if isinstance(k, bool) or not isinstance(k, int) or k < 1:
         raise ValueError("k must be an int >= 1")
@@ -91,7 +96,9 @@ def run_split(
     details: list[dict] = []
     if workers == 1:
         for task in tasks:
-            row = _eval_task(task, policy, scorer, max_steps, k, fresh=False)
+            row = _eval_task(
+                task, policy, scorer, max_steps, k, fresh=False, leak_oracle=leak_oracle
+            )
             details.append(row)
             if verbose:
                 _log_task(row, k)
@@ -99,7 +106,9 @@ def run_split(
         log_lock = threading.Lock()
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = {
-                pool.submit(_eval_task, task, policy, scorer, max_steps, k, True): index
+                pool.submit(
+                    _eval_task, task, policy, scorer, max_steps, k, True, leak_oracle
+                ): index
                 for index, task in enumerate(tasks)
             }
             slotted: list[dict | None] = [None] * len(tasks)
@@ -124,6 +133,7 @@ def run_split(
         "env": ENV_LABEL,
         "harness": harness_label or HARNESS_LABEL,
         "model": model_label or MODEL_LABEL,
+        "leak_oracle": leak_oracle,
     }
     result = {
         **manifest,
@@ -136,12 +146,25 @@ def run_split(
         "situation": situation,
         "split": str(split_path) if split_path is not None else None,
         "workers": workers,
+        "leak_oracle": leak_oracle,
         "details": details,
     }
     if k > 1:
         result["pass_at_k"] = pass_at_k
         result["pass_k"] = pass_k
     return result
+
+
+def _harness_view(task, leak_oracle: bool):
+    if leak_oracle:
+        return task
+    return HarnessView(
+        id=task.id,
+        family=task.family,
+        persona=task.persona,
+        situations=tuple(task.situations or ()),
+        query=task.query,
+    )
 
 
 def _eval_task(
@@ -151,16 +174,18 @@ def _eval_task(
     max_steps: int,
     k: int,
     fresh: bool,
+    leak_oracle: bool = False,
 ) -> dict:
     k_hits = 0
     last_tag = None
     last_ops: list[str] = []
     last_steps = 0
+    view = _harness_view(task, leak_oracle)
     for _ in range(k):
         policy = harness.clone() if fresh else harness
         reset = getattr(policy, "reset", None)
         if callable(reset):
-            reset(task)
+            reset(view)
         passed, tag, ops = _run_episode(task, policy, scorer, max_steps)
         last_tag = tag
         last_ops = ops

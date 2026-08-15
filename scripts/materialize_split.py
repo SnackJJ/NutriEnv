@@ -392,7 +392,15 @@ def recommend_items(catalog: dict, wanted, tag: str) -> list[dict]:
 
 
 def _log_item(tag: str, situation: str, stem: str, query: str,
-              ledger: list[dict], tail: list[dict]) -> dict:
+              ledger: list[dict], tail: list[dict], catalog: dict) -> dict:
+    # The gold log items carry a baseline peanut allergy, but never one the
+    # logged meal itself trips. The Ledger is descriptive and recording an
+    # allergen you actually ate is legitimate, yet it invites the agent to stop
+    # and warn instead of logging, which is noise the item does not need.
+    carried: set[str] = set()
+    for row in tail:
+        carried.update(catalog[row["food_id"]].get("allergen_tags") or [])
+    allergies = [tag_ for tag_ in ("peanut",) if tag_ not in carried]
     return {
         "id": f"{tag}-log-{stem}",
         "family": "log",
@@ -402,7 +410,7 @@ def _log_item(tag: str, situation: str, stem: str, query: str,
         "s0": {
             "profile": {
                 "user_id": f"{tag}-{stem}",
-                "allergies": ["peanut"],
+                "allergies": allergies,
                 "windows": {key: list(bounds) for key, bounds in GOLD_WINDOWS.items()},
             },
             "ledger": ledger,
@@ -438,7 +446,7 @@ def multi_item_items(catalog: dict, wanted, tag: str) -> list[dict]:
             for food_id, phrase in row.items
         ]
         items.append(_log_item(tag, "multi_item_log", stem, row.query,
-                               _distractors(row.slot), tail))
+                               _distractors(row.slot), tail, catalog))
     return items
 
 
@@ -452,7 +460,7 @@ def unit_convert_items(catalog: dict, wanted, tag: str) -> list[dict]:
             "eaten_at": row.slot,
         }]
         items.append(_log_item(tag, "unit_convert", row.seed_id, row.utterance,
-                               _distractors(row.slot), tail))
+                               _distractors(row.slot), tail, catalog))
     return items
 
 
@@ -466,7 +474,7 @@ def near_synonym_items(catalog: dict, wanted, tag: str) -> list[dict]:
             "eaten_at": row.slot,
         }]
         items.append(_log_item(tag, "near_synonym", row.seed_id, row.utterance,
-                               _distractors(row.slot), tail))
+                               _distractors(row.slot), tail, catalog))
     return items
 
 
@@ -483,7 +491,7 @@ def ledger_gap_items(catalog: dict, wanted, tag: str) -> list[dict]:
         ledger = [
             {"food_id": f, "grams": float(g), "eaten_at": s} for f, g, s in row.surround
         ]
-        items.append(_log_item(tag, "ledger_gap", row.seed_id, row.query, ledger, tail))
+        items.append(_log_item(tag, "ledger_gap", row.seed_id, row.query, ledger, tail, catalog))
     return items
 
 

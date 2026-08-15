@@ -58,6 +58,51 @@ def test_run_split_filters_task_ids() -> None:
     assert result["details"][0]["id"] == first
 
 
+def test_run_split_redacts_oracle_from_reset_unless_leaked() -> None:
+    from nutrienv.bench import GOLD_SPLIT_PATH
+
+    class _Probe:
+        def __init__(self) -> None:
+            self.seen: list[object] = []
+
+        def reset(self, task: object) -> None:
+            self.seen.append(task)
+
+        def act(self, observation: dict, query: str, history: list) -> dict:
+            return {"op": "finish"}
+
+    dry = _Probe()
+    sealed = run_split(
+        split_path=GOLD_SPLIT_PATH,
+        task_ids=["v0-update-kcal-001"],
+        harness=dry,
+    )
+    assert sealed["leak_oracle"] is False
+    assert sealed["manifest"]["leak_oracle"] is False
+    assert len(dry.seen) == 1
+    view = dry.seen[0]
+    assert getattr(view, "oracle", None) is None
+    assert getattr(view, "s0", None) is None
+    assert not hasattr(view, "oracle")
+    assert view.id == "v0-update-kcal-001"
+    assert view.query
+    assert view.family == "update"
+
+    leak = _Probe()
+    opened = run_split(
+        split_path=GOLD_SPLIT_PATH,
+        task_ids=["v0-update-kcal-001"],
+        harness=leak,
+        leak_oracle=True,
+    )
+    assert opened["leak_oracle"] is True
+    assert opened["manifest"]["leak_oracle"] is True
+    assert len(leak.seen) == 1
+    leaked = leak.seen[0]
+    assert getattr(leaked, "oracle", None) is not None
+    assert getattr(leaked, "s0", None) is not None
+
+
 def test_run_split_rejects_bad_workers() -> None:
     import pytest
 

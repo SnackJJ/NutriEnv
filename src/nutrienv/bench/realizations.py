@@ -286,7 +286,7 @@ FUZZY_ROWS: tuple[FuzzyRow, ...] = (
              "I put a tablespoon of olive oil on my salad at lunch. Log that?",
              "today-lunch", source="gold"),
     FuzzyRow("fz-milk-cup", "milk_whole", "a cup",
-             "I drank a cup of milk with breakfast. Please log it.",
+             "I drank a cup of whole milk with breakfast. Please log it.",
              "today-breakfast"),
     FuzzyRow("fz-oats-cup", "oats", "a cup",
              "Breakfast was a cup of oats. Can you log that?",
@@ -337,7 +337,7 @@ FUZZY_ROWS: tuple[FuzzyRow, ...] = (
              "Snack was half a cup of almonds. Please log it.",
              "today-snack"),
     FuzzyRow("fz-rice-half", "white_rice", "half a cup",
-             "I had half a cup of rice at dinner. Log that?",
+             "I had half a cup of white rice at dinner. Log that?",
              "today-dinner"),
     FuzzyRow("fz-oats-oz", "oats", "2 ounces",
              "Snack was about 2 ounces of oats. Log it for me.",
@@ -362,7 +362,7 @@ MULTI_ITEM_LOG_ROWS: tuple[MultiItemLogRow, ...] = (
     ),
     MultiItemLogRow(
         "mi-lunch-chicken-rice",
-        "Lunch was 150 grams of chicken and a cup of rice. Please log both.",
+        "Lunch was 150 grams of chicken breast and a cup of white rice. Please log both.",
         (("chicken_breast", "150 g"), ("white_rice", "a cup")),
         "today-lunch",
     ),
@@ -374,7 +374,7 @@ MULTI_ITEM_LOG_ROWS: tuple[MultiItemLogRow, ...] = (
     ),
     MultiItemLogRow(
         "mi-dinner-tofu-four",
-        "Dinner was 160 g tofu, a cup of rice, a cup of spinach, and a teaspoon of olive oil. Please log all of it.",
+        "Dinner was 160 g tofu, a cup of white rice, a cup of spinach, and a teaspoon of olive oil. Please log all of it.",
         (
             ("tofu", "160 g"),
             ("white_rice", "a cup"),
@@ -391,19 +391,19 @@ MULTI_ITEM_LOG_ROWS: tuple[MultiItemLogRow, ...] = (
     ),
     MultiItemLogRow(
         "mi-lunch-tuna-broc-rice",
-        "Lunch was a can of tuna, 100 g broccoli, and a cup of rice. Please log all of it.",
+        "Lunch was a can of tuna, 100 g broccoli, and a cup of white rice. Please log all of it.",
         (("tuna", "a can"), ("broccoli", "100 g"), ("white_rice", "a cup")),
         "today-lunch",
     ),
     MultiItemLogRow(
         "mi-dinner-beef-pasta-spin",
-        "Dinner was 180 g beef, a cup of pasta, and a cup of spinach. Log all three.",
+        "Dinner was 180 g ground beef, a cup of pasta, and a cup of spinach. Log all three.",
         (("beef", "180 g"), ("pasta", "a cup"), ("spinach", "a cup")),
         "today-dinner",
     ),
     MultiItemLogRow(
         "mi-bfast-milk-oats-banana-pb",
-        "Breakfast was a cup of milk, 60 g oats, a banana, and a tablespoon of peanut butter. Please log all of it.",
+        "Breakfast was a cup of whole milk, 60 g oats, a banana, and a tablespoon of peanut butter. Please log all of it.",
         (
             ("milk_whole", "a cup"),
             ("oats", "60 g"),
@@ -428,7 +428,7 @@ UNIT_CONVERT_ROWS: tuple[UnitConvertRow, ...] = (
         "uc-chicken-3oz",
         "chicken_breast",
         "3 ounces",
-        "Lunch was about 3 ounces of chicken. Please log it.",
+        "Lunch was about 3 ounces of chicken breast. Please log it.",
         "today-lunch",
     ),
     UnitConvertRow(
@@ -463,7 +463,7 @@ UNIT_CONVERT_ROWS: tuple[UnitConvertRow, ...] = (
         "uc-rice-1-5cups",
         "white_rice",
         "1.5 cups",
-        "Dinner was 1.5 cups of rice. Please log that.",
+        "Dinner was 1.5 cups of white rice. Please log that.",
         "today-dinner",
     ),
     UnitConvertRow(
@@ -491,7 +491,7 @@ NEAR_SYNONYM_ROWS: tuple[NearSynonymRow, ...] = (
         "oats",
         "oatmeal",
         "a cup",
-        "Breakfast was a cup of oatmeal. Please log it.",
+        "Breakfast was a cup of uncooked oatmeal. Please log it.",
         "today-breakfast",
     ),
     NearSynonymRow(
@@ -523,15 +523,15 @@ NEAR_SYNONYM_ROWS: tuple[NearSynonymRow, ...] = (
         "white_rice",
         "steamed rice",
         "a cup",
-        "Lunch was a cup of steamed rice. Log that?",
+        "Lunch was a cup of steamed white rice. Log that?",
         "today-lunch",
     ),
     NearSynonymRow(
         "ns-evoo",
         "olive_oil",
         "evoo",
-        "a tablespoon",
-        "I put a tablespoon of evoo on lunch. Please log it.",
+        "a teaspoon",
+        "I put a teaspoon of evoo on lunch. Please log it.",
         "today-lunch",
     ),
 )
@@ -1405,7 +1405,7 @@ RECOMMEND_ROWS: tuple[RecommendRow, ...] = (
         "rec-gym-peanut",
         "Just trained and I can't do peanuts. What should I eat?",
         "gym",
-        {"kcal": (450.0, 800.0), "protein_g": (40.0, 70.0)},
+        {"kcal": (520.0, 860.0), "protein_g": (45.0, 75.0)},
         allergies=("peanut",),
         plan_preset={"goal": "muscle"},
         occasion="post-workout",

@@ -5071,7 +5071,7 @@
       "situations": [
         "fuzzy_portion"
       ],
-      "query": "I had half a cup of rice at dinner. Log that?",
+      "query": "I had half a cup of white rice at dinner. Log that?",
       "s0": {
         "profile": {
           "user_id": "v03-fz-rice-half",
@@ -8051,12 +8051,12 @@
           ],
           "windows": {
             "kcal": [
-              450.0,
-              800.0
+              520.0,
+              860.0
             ],
             "protein_g": [
-              40.0,
-              70.0
+              45.0,
+              75.0
             ]
           },
           "plan_preset": {
@@ -9186,7 +9186,7 @@
       "situations": [
         "multi_item_log"
       ],
-      "query": "Lunch was 150 grams of chicken and a cup of rice. Please log both.",
+      "query": "Lunch was 150 grams of chicken breast and a cup of white rice. Please log both.",
       "s0": {
         "profile": {
           "user_id": "v05-mi-lunch-chicken-rice",
@@ -9301,7 +9301,7 @@
       "situations": [
         "multi_item_log"
       ],
-      "query": "Dinner was 160 g tofu, a cup of rice, a cup of spinach, and a teaspoon of olive oil. Please log all of it.",
+      "query": "Dinner was 160 g tofu, a cup of white rice, a cup of spinach, and a teaspoon of olive oil. Please log all of it.",
       "s0": {
         "profile": {
           "user_id": "v05-mi-dinner-tofu-four",
@@ -9421,7 +9421,7 @@
       "situations": [
         "multi_item_log"
       ],
-      "query": "Dinner was 180 g beef, a cup of pasta, and a cup of spinach. Log all three.",
+      "query": "Dinner was 180 g ground beef, a cup of pasta, and a cup of spinach. Log all three.",
       "s0": {
         "profile": {
           "user_id": "v05-mi-dinner-beef-pasta-spin",
@@ -9481,13 +9481,11 @@
       "situations": [
         "multi_item_log"
       ],
-      "query": "Breakfast was a cup of milk, 60 g oats, a banana, and a tablespoon of peanut butter. Please log all of it.",
+      "query": "Breakfast was a cup of whole milk, 60 g oats, a banana, and a tablespoon of peanut butter. Please log all of it.",
       "s0": {
         "profile": {
           "user_id": "v05-mi-bfast-milk-oats-banana-pb",
-          "allergies": [
-            "peanut"
-          ],
+          "allergies": [],
           "windows": {
             "kcal": [
               1800.0,
@@ -9546,7 +9544,7 @@
       "situations": [
         "unit_convert"
       ],
-      "query": "Lunch was about 3 ounces of chicken. Please log it.",
+      "query": "Lunch was about 3 ounces of chicken breast. Please log it.",
       "s0": {
         "profile": {
           "user_id": "v05-uc-chicken-3oz",
@@ -9696,7 +9694,7 @@
       "situations": [
         "unit_convert"
       ],
-      "query": "Dinner was 1.5 cups of rice. Please log that.",
+      "query": "Dinner was 1.5 cups of white rice. Please log that.",
       "s0": {
         "profile": {
           "user_id": "v05-uc-rice-1-5cups",
@@ -9796,7 +9794,7 @@
       "situations": [
         "near_synonym"
       ],
-      "query": "Breakfast was a cup of oatmeal. Please log it.",
+      "query": "Breakfast was a cup of uncooked oatmeal. Please log it.",
       "s0": {
         "profile": {
           "user_id": "v05-ns-oatmeal",
@@ -9946,7 +9944,7 @@
       "situations": [
         "near_synonym"
       ],
-      "query": "Lunch was a cup of steamed rice. Log that?",
+      "query": "Lunch was a cup of steamed white rice. Log that?",
       "s0": {
         "profile": {
           "user_id": "v05-ns-steamed-rice",
@@ -9996,7 +9994,7 @@
       "situations": [
         "near_synonym"
       ],
-      "query": "I put a tablespoon of evoo on lunch. Please log it.",
+      "query": "I put a teaspoon of evoo on lunch. Please log it.",
       "s0": {
         "profile": {
           "user_id": "v05-ns-evoo",
@@ -10031,7 +10029,7 @@
         "ledger_tail": [
           {
             "food_id": "olive_oil",
-            "grams": 13.5,
+            "grams": 4.5,
             "eaten_at": "today-lunch"
           }
         ],

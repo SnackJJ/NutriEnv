@@ -326,6 +326,20 @@ def test_recommend_table_covers_declared_axes():
         assert "i ate" not in lower, row.seed_id
 
 
+def test_rec_gym_peanut_is_not_the_gold_gym_window():
+    row = next(item for item in RECOMMEND_ROWS if item.seed_id == "rec-gym-peanut")
+    assert row.persona == "gym"
+    assert row.allergies == ("peanut",)
+    assert row.plan_preset == {"goal": "muscle"}
+    assert row.windows != {"kcal": (450.0, 800.0), "protein_g": (40.0, 70.0)}
+
+
+def test_ns_evoo_ledger_is_not_the_gold_oil_row():
+    row = next(item for item in NEAR_SYNONYM_ROWS if item.seed_id == "ns-evoo")
+    assert row.food_id == "olive_oil"
+    assert (row.phrase, row.slot) != ("a tablespoon", "today-lunch")
+
+
 def test_keep_fat_down_rows_have_an_open_fat_floor():
     wanted = {"rec-lunch-fat", "rec-flex-fat", "rec-dinner-fat-ceil"}
     found = {row.seed_id for row in RECOMMEND_ROWS if row.seed_id in wanted}

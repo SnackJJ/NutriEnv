@@ -36,6 +36,14 @@ _SPELLED_MAGNITUDE = (
     ("twenty", 20.0),
 )
 _NUMBER = re.compile(r"(?<!\d)(\d+(?:\.\d+)?)(?!\d)")
+# Split an update query into clauses so each window's delta and direction
+# stay attached to the noun they were spoken with. A comma starts a clause
+# only when the next words look like one (window noun or direction verb).
+_CLAUSE_SPLIT = re.compile(
+    r"\s+and\s+|;\s*|\.\s+"
+    r"|,\s+(?=(?:my|the)\s+(?:calorie|kcal|caloric|protein)"
+    r"|(?:up|raise|increase|lower|reduce|move|take|bring|bump)\b)"
+)
 _KCAL_RATIO_CAP = {
     "protein_g": 0.25,
     "carb_g": 0.25,
@@ -263,6 +271,48 @@ def _query_magnitudes(query: str) -> set[float]:
     return found
 
 
+def _split_update_clauses(query: str) -> list[str]:
+    parts = [part.strip() for part in _CLAUSE_SPLIT.split(query) if part and part.strip()]
+    return parts or [query]
+
+
+def _update_clause_bindings(
+    query: str,
+) -> dict[str, tuple[set[float], bool, bool]] | None:
+    """Pair each window noun with the magnitudes and direction in its clause.
+
+    Returns None when a clause names a window but cannot be paired reliably
+    (several numbers, or two windows with several numbers). A false rejection
+    costs a row; a false acceptance costs a broken exam item.
+    """
+    bindings: dict[str, tuple[set[float], bool, bool]] = {}
+    inherit_up = False
+    inherit_down = False
+    for clause in _split_update_clauses(query):
+        has_up = _UP.search(clause) is not None
+        has_down = _DOWN.search(clause) is not None
+        if has_up or has_down:
+            inherit_up = has_up
+            inherit_down = has_down
+        mentioned: list[str] = []
+        if _KCAL_WORD.search(clause):
+            mentioned.append("kcal")
+        if _PROTEIN_WORD.search(clause):
+            mentioned.append("protein_g")
+        magnitudes = _query_magnitudes(clause)
+        if not mentioned or not magnitudes:
+            continue
+        if len(magnitudes) != 1:
+            return None
+        bound = (magnitudes, has_up or inherit_up, has_down or inherit_down)
+        for key in mentioned:
+            prior = bindings.get(key)
+            if prior is not None and prior[0] != magnitudes:
+                return None
+            bindings[key] = bound
+    return bindings
+
+
 def _oracle_window_shifts(
     s0_windows: dict, oracle_windows: dict
 ) -> dict[str, float | tuple[float, float]]:
@@ -344,8 +394,7 @@ def _validate_update(task: Task, query: str) -> list[str]:
         issues.append("update row declared plan_preset change missing from oracle")
     mentions_kcal = _KCAL_WORD.search(query) is not None
     mentions_protein = _PROTEIN_WORD.search(query) is not None
-    magnitudes = _query_magnitudes(query)
-    actual_mags: set[float] = set()
+    bindings = _update_clause_bindings(query)
     for key, bounds in oracle.windows.items():
         s0_bounds = s0.windows.get(key)
         if s0_bounds == bounds:
@@ -368,15 +417,19 @@ def _validate_update(task: Task, query: str) -> list[str]:
                 issues.append(f"update window {key} moved the floor but query names no bound")
             if dhi != 0.0 and _CEILING_WORD.search(query) is None:
                 issues.append(f"update window {key} moved the ceiling but query names no bound")
-        actual_mags.update(_shift_magnitudes((dlo, dhi) if dlo != dhi else dlo))
-        if dlo > 0 or dhi > 0:
-            if _UP.search(query) is None:
-                issues.append("update window rose but query has no up-direction word")
-        if dlo < 0 or dhi < 0:
-            if _DOWN.search(query) is None:
-                issues.append("update window fell but query has no down-direction word")
-    if actual_mags and magnitudes != actual_mags:
-        issues.append("update window deltas are not the query magnitudes")
+        actual = _shift_magnitudes((dlo, dhi) if dlo != dhi else dlo)
+        if bindings is None:
+            issues.append("update window deltas are not the query magnitudes")
+        else:
+            bound = bindings.get(key)
+            if bound is None or bound[0] != actual:
+                issues.append("update window deltas are not the query magnitudes")
+            else:
+                _, clause_up, clause_down = bound
+                if (dlo > 0 or dhi > 0) and not clause_up:
+                    issues.append("update window rose but query has no up-direction word")
+                if (dlo < 0 or dhi < 0) and not clause_down:
+                    issues.append("update window fell but query has no down-direction word")
     for key, bounds in s0.windows.items():
         if key in oracle.windows:
             continue

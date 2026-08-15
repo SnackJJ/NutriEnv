@@ -5071,7 +5071,7 @@
       "situations": [
         "fuzzy_portion"
       ],
-      "query": "I had half a cup of rice at dinner. Log that?",
+      "query": "I had half a cup of white rice at dinner. Log that?",
       "s0": {
         "profile": {
           "user_id": "v03-fz-rice-half",
@@ -8051,12 +8051,12 @@
           ],
           "windows": {
             "kcal": [
-              450.0,
-              800.0
+              520.0,
+              860.0
             ],
             "protein_g": [
-              40.0,
-              70.0
+              45.0,
+              75.0
             ]
           },
           "plan_preset": {

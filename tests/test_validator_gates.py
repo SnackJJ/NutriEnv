@@ -450,6 +450,36 @@ def test_update_gate_rejects_two_window_query_with_one_magnitude():
     assert any("magnitude" in item for item in issues)
 
 
+def test_update_gate_rejects_swapped_two_window_magnitudes():
+    good = _custom_update(
+        "Raise my calorie range by 200 at both ends and my protein range by 20 at both ends.",
+        window_shifts={"kcal": 200.0, "protein_g": 20.0},
+    )
+    assert validate_draft(good) == []
+    swapped = replace(
+        good,
+        query="Raise my calorie range by 20 at both ends and my protein range by 200 at both ends.",
+    )
+    issues = validate_draft(swapped)
+    assert issues
+    assert any("magnitude" in item for item in issues)
+
+
+def test_update_gate_rejects_swapped_two_window_directions():
+    good = _custom_update(
+        "Raise my calorie range by 200 at both ends and my protein range by 20 at both ends.",
+        window_shifts={"kcal": 200.0, "protein_g": 20.0},
+    )
+    assert validate_draft(good) == []
+    swapped = replace(
+        good,
+        query="Raise my calorie range by 200 at both ends and lower my protein range by 20 at both ends.",
+    )
+    issues = validate_draft(swapped)
+    assert issues
+    assert any("down" in item or "up" in item or "direction" in item for item in issues)
+
+
 def test_declared_update_axes_are_accepted():
     generator = Generator()
     knobs = generator._difficulty(None)

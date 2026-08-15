@@ -124,6 +124,7 @@ def main(argv: list[str] | None = None) -> int:
         task_ids=task_ids,
         verbose=True,
         workers=args.workers,
+        leak_oracle=args.leak_oracle,
     )
 
     print(
