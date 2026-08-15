@@ -10,6 +10,7 @@ from nutrienv.bench.realizations import CONSTRAIN_ROWS, EVALUATE_ROWS, UPDATE_RO
 from nutrienv.bench.validator import (
     _any_pair_unsatisfiable,
     _windows_unsatisfiable,
+    fitting_plan,
     validate_draft,
 )
 from nutrienv.world.catalog_store import load_catalog
@@ -338,6 +339,61 @@ def test_recommend_gate_rejects_unsatisfiable_windows():
 def test_recommend_gate_accepts_a_normal_meal():
     task = _recommend_draft({"kcal": (400.0, 800.0), "protein_g": (20.0, 50.0)})
     assert validate_draft(task) == []
+
+
+def test_recommend_gate_searches_the_oracle_profile():
+    task = _recommend_draft({"kcal": (400.0, 800.0), "protein_g": (20.0, 50.0)})
+    assert validate_draft(task) == []
+    task = replace(
+        task,
+        oracle=replace(
+            task.oracle,
+            profile=replace(
+                task.oracle.profile,
+                windows={"kcal": (0.0, 1.0), "protein_g": (100.0, 110.0)},
+            ),
+        ),
+    )
+    issues = validate_draft(task)
+    assert any("unpassable" in item for item in issues)
+
+
+def test_leftover_gate_keeps_plan_windows_precedence():
+    task = Generator().sample(11, family="recommend", persona="leftover")
+    assert validate_draft(task) == []
+    task = replace(
+        task,
+        oracle=replace(
+            task.oracle,
+            profile=replace(
+                task.oracle.profile,
+                windows={"kcal": (0.0, 1.0), "protein_g": (100.0, 110.0)},
+            ),
+        ),
+    )
+    assert validate_draft(task) == []
+
+
+def test_fitting_plan_normalizes_allergy_tags():
+    catalog = {
+        "peanut_butter": {
+            "allergen_tags": [" Peanut "],
+            "nutrients": {"kcal": 500.0, "protein_g": 20.0},
+        },
+    }
+    windows = {"kcal": (80.0, 120.0), "protein_g": (3.0, 10.0)}
+    assert fitting_plan(catalog, windows, ()) is not None
+    assert fitting_plan(catalog, windows, ("peanut",)) is None
+    assert fitting_plan(
+        {
+            "peanut_butter": {
+                "allergen_tags": ["peanut"],
+                "nutrients": {"kcal": 500.0, "protein_g": 20.0},
+            },
+        },
+        windows,
+        (" Peanut ",),
+    ) is None
 
 
 def test_every_frozen_item_still_validates():

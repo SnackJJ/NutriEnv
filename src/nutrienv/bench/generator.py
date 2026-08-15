@@ -32,6 +32,9 @@ __all__ = ["Oracle", "Task", "Generator"]
 
 FAMILIES = ("lookup", "log", "recommend", "evaluate", "update", "constrain")
 PERSONAS = ("everyday", "cut", "gym", "leftover", "flex", "htn")
+# Windows and presets for these live on recommend rows (leftover has its own
+# table). Elsewhere the name is a label with no semantics behind it.
+_RECOMMEND_ONLY_PERSONAS = frozenset({"cut", "gym", "leftover", "flex", "htn"})
 _NUTRIENTS = ("kcal", "protein_g", "carb_g", "fat_g", "fiber_g", "sodium_mg")
 _SAFE_PLAN = (
     ("chicken_breast", 200.0),
@@ -114,9 +117,9 @@ class Generator:
                     f"situation {situation_name!r} requires family {expected_family!r}"
                 )
             family = expected_family
-        if persona == "leftover":
+        if persona in _RECOMMEND_ONLY_PERSONAS:
             if family is not None and family != "recommend":
-                raise ValueError("persona 'leftover' requires family 'recommend'")
+                raise ValueError(f"persona {persona!r} requires family 'recommend'")
             family = "recommend"
         elif family is None:
             family = rng.choice(FAMILIES)
@@ -175,11 +178,11 @@ class Generator:
         # Cycling guarantees family coverage in ordinary splits; the seeded
         # shuffle prevents a fixed family order from becoming a shortcut.
         situation_name = self._situation_name(situation)
-        if persona == "leftover":
+        if persona in _RECOMMEND_ONLY_PERSONAS:
             if situation_name is not None:
-                raise ValueError("persona 'leftover' cannot pair with a situation")
+                raise ValueError(f"persona {persona!r} cannot pair with a situation")
             return [
-                self.sample(seed + index, family="recommend", persona="leftover")
+                self.sample(seed + index, family="recommend", persona=persona)
                 for index in range(n)
             ]
         if situation_name is not None:

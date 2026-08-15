@@ -10,7 +10,7 @@ import itertools
 import re
 
 from nutrienv.world.portions import OUNCE_GRAMS, resolve_portion
-from nutrienv.world.types import LedgerRow, ledger_totals
+from nutrienv.world.types import LedgerRow, ledger_totals, normalize_tags
 
 from .generator import Task
 from .realizations import EVALUATE_ROWS, UPDATE_ROWS
@@ -161,12 +161,27 @@ def validate_draft(task: Task) -> list[str]:
     if task.family == "evaluate":
         issues.extend(_validate_evaluate(task, query))
     if task.oracle.last_plan == [] and task.oracle.plan_must_fit_windows:
-        windows = task.oracle.plan_windows or task.s0.profile.windows
-        if fitting_plan(task.s0.catalog, windows, task.s0.profile.allergies) is None:
+        # Scorer judges the plan against oracle.profile (else S0). Search
+        # that profile so a draft the gate admits is one the Scorer can pass.
+        # plan_windows, when pinned (leftover remainder), stays the judged
+        # window.
+        profile = _judged_profile(task)
+        windows = task.oracle.plan_windows or profile.windows
+        if fitting_plan(task.s0.catalog, windows, profile.allergies) is None:
             issues.append(
                 "item is unpassable: no allergen-safe plan fits the judged windows"
             )
     return issues
+
+
+def _judged_profile(task: Task):
+    if task.oracle.profile is not None:
+        return task.oracle.profile
+    return task.s0.profile
+
+
+def _tag_set(values) -> set[str]:
+    return set(normalize_tags(list(values or [])))
 
 
 def _catalog_tags(catalog) -> set[str]:
@@ -345,9 +360,8 @@ def _validate_condition(task: Task, query: str) -> list[str]:
             break
     if not carries:
         issues.append("condition query food does not carry a profile allergy tag")
-    if not _staple_plan_fits(
-        task.s0.catalog, task.s0.profile.windows, task.s0.profile.allergies
-    ):
+    profile = _judged_profile(task)
+    if not _staple_plan_fits(task.s0.catalog, profile.windows, profile.allergies):
         issues.append("condition meal window has no safe staple plan")
     return issues
 
@@ -359,12 +373,15 @@ def _windows_unsatisfiable(
     floor_nutrient: str = "protein_g",
     ceiling_nutrient: str = "kcal",
 ) -> bool:
-    banned = set(allergies)
+    banned = _tag_set(allergies)
     ceiling_value = float(windows.get(ceiling_nutrient, (0.0, 0.0))[1])
     floor_value = float(windows.get(floor_nutrient, (0.0, 0.0))[0])
     best = 0.0
     for entry in catalog.values():
-        tags = set(entry.get("allergen_tags") or [])
+        try:
+            tags = _tag_set(entry.get("allergen_tags") or [])
+        except ValueError:
+            continue
         if tags & banned:
             continue
         nutrients = entry.get("nutrients") or {}
@@ -387,10 +404,11 @@ def _windows_unsatisfiable(
         if ceiling_nutrient == "kcal":
             # Atwater factors: protein and carbohydrate yield 4 kcal/g, fat
             # yields 9 kcal/g. No food can exceed 0.25 g protein or carb, or
-            # 1/9 g fat, per kcal. Fibre is a carbohydrate fraction metabolised
-            # at roughly 2 kcal/g, so 0.5 g/kcal is a safe bound. Sodium
+            # 1/9 g fat, per kcal. The fibre cap (0.5 g/kcal) is a pragmatic
+            # bound rather than physics; catalog conflicts are already
+            # infeasible under the observed maximum (~0.353 g/kcal). Sodium
             # carries no energy. Catalog rounding sometimes reports ratios
-            # above these; trust physics, not the artifact.
+            # above the Atwater caps; trust physics, not the artifact.
             cap = _KCAL_RATIO_CAP.get(floor_nutrient)
             if cap is not None:
                 ratio = min(ratio, cap)
@@ -521,7 +539,7 @@ _STAPLE_PLANS = (
 
 
 def _staple_plan_fits(catalog, windows: dict, allergies) -> bool:
-    banned = set(allergies)
+    banned = _tag_set(allergies)
     for items in _STAPLE_PLANS:
         tags: set[str] = set()
         totals: dict[str, float] = {}
@@ -531,7 +549,11 @@ def _staple_plan_fits(catalog, windows: dict, allergies) -> bool:
             if not isinstance(food, dict):
                 missing = True
                 break
-            tags.update(food.get("allergen_tags") or [])
+            try:
+                tags.update(_tag_set(food.get("allergen_tags") or []))
+            except ValueError:
+                missing = True
+                break
             grams = float(item["grams"])
             for key, amount in (food.get("nutrients") or {}).items():
                 totals[str(key)] = totals.get(str(key), 0.0) + float(amount) * grams / 100.0
@@ -559,14 +581,17 @@ _FIT_GRID = tuple(float(grams) for grams in range(20, 401, 20))
 
 def fitting_plan(catalog, windows: dict, allergies) -> list[dict] | None:
     """Search staples for any allergen-safe plan inside every judged window."""
-    banned = set(allergies)
+    banned = _tag_set(allergies)
     keys = list(windows)
     per_gram: dict[str, dict[str, float]] = {}
     for food_id in _FIT_STAPLES:
         entry = catalog.get(food_id)
         if not isinstance(entry, dict):
             continue
-        tags = set(entry.get("allergen_tags") or [])
+        try:
+            tags = _tag_set(entry.get("allergen_tags") or [])
+        except ValueError:
+            continue
         if tags & banned:
             continue
         nutrients = entry.get("nutrients") or {}

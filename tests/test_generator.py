@@ -213,6 +213,15 @@ def test_leftover_persona_only_pairs_with_recommend():
     assert implied.persona == "leftover"
 
 
+@pytest.mark.parametrize("persona", ["cut", "gym", "flex", "htn"])
+def test_table_personas_only_pair_with_recommend(persona):
+    with pytest.raises(ValueError, match=persona):
+        Generator().sample(0, family="log", persona=persona)
+    task = Generator().sample(1, family="recommend", persona=persona)
+    assert task.persona == persona
+    assert task.family == "recommend"
+
+
 def test_leftover_recommend_uses_remainder_plan_windows():
     task = Generator().sample(11, family="recommend", persona="leftover")
     assert task.persona == "leftover"

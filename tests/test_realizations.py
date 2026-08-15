@@ -301,6 +301,18 @@ def test_recommend_table_covers_declared_axes():
         assert "i ate" not in lower, row.seed_id
 
 
+def test_keep_fat_down_rows_have_an_open_fat_floor():
+    wanted = {"rec-lunch-fat", "rec-flex-fat", "rec-dinner-fat-ceil"}
+    found = {row.seed_id for row in RECOMMEND_ROWS if row.seed_id in wanted}
+    assert found == wanted
+    for row in RECOMMEND_ROWS:
+        if row.seed_id not in wanted:
+            continue
+        lo, hi = row.windows["fat_g"]
+        assert lo == 0.0, row.seed_id
+        assert hi > 0.0, row.seed_id
+
+
 def test_constrain_conflict_spans_three_mechanisms():
     conflict = [row for row in CONSTRAIN_ROWS if row.kind == "conflict"]
     condition = [row for row in CONSTRAIN_ROWS if row.kind == "condition"]
