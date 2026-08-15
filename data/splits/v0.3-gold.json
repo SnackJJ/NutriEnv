@@ -1,0 +1,7348 @@
+{
+  "version": "v0.3-gold",
+  "catalog": "data/fdc/catalog.sqlite",
+  "catalog_sha256": "e1ffbb1a594a99a404c9a34dadfe09409bebaf702cb65173686e30caf3fdcbf7",
+  "parent": "v0.2-gold",
+  "notes": "v0.2-gold 100 KEEP plus the third increment: evaluate completes its 48-item allocation (ADR 0009) across declared difficulty tiers, plus 2 fuzzy logs, 8 profile updates, 2 condition and 3 near-miss conflict constrains. The near-miss conflicts are infeasible by only a few kcal against the catalog's best protein source, so validate_draft rechecks feasibility live and a catalog rebuild will turn the split test red rather than fail silently. Reviewed by validate_draft plus an LLM reviewer; not reviewed item-by-item by a human.",
+  "items": [
+    {
+      "id": "v0-log-fuzzy-001",
+      "family": "log",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "I had half a cup of milk with breakfast — can you log that?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-log-fuzzy",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-breakfast"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "milk_whole",
+            "grams": 122.0,
+            "eaten_at": "today-breakfast"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      },
+      "persona": "everyday"
+    },
+    {
+      "id": "v0-log-multi-001",
+      "family": "log",
+      "situations": [
+        "multi_item_log"
+      ],
+      "query": "Breakfast was 60 grams of oats, a banana (110g), and 150g of Greek yogurt. Please log all of it.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-log-multi",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-breakfast"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "banana",
+            "grams": 110.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "greek_yogurt",
+            "grams": 150.0,
+            "eaten_at": "today-breakfast"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      },
+      "persona": "everyday"
+    },
+    {
+      "id": "v0-log-unit-001",
+      "family": "log",
+      "situations": [
+        "unit_convert"
+      ],
+      "query": "Snack was about 2 ounces of oats. Log it for me.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-log-unit",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-snack"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "oats",
+            "grams": 56.7,
+            "eaten_at": "today-snack"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      },
+      "persona": "everyday"
+    },
+    {
+      "id": "v0-log-gap-001",
+      "family": "log",
+      "situations": [
+        "ledger_gap"
+      ],
+      "query": "I forgot to log lunch — 150g of chicken breast. Add just that.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-log-gap",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "banana",
+            "grams": 100.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 200.0,
+            "eaten_at": "today-dinner"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "chicken_breast",
+            "grams": 150.0,
+            "eaten_at": "today-lunch"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      },
+      "persona": "everyday"
+    },
+    {
+      "id": "v0-log-eaten-001",
+      "family": "log",
+      "situations": [],
+      "query": "Log the shrimp I ate for lunch — about 150g.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-log-eaten",
+          "allergies": [
+            "shellfish"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "shrimp",
+            "grams": 150.0,
+            "eaten_at": "today-lunch"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      },
+      "persona": "everyday"
+    },
+    {
+      "id": "v0-update-allergy-001",
+      "family": "update",
+      "situations": [],
+      "query": "I just found out I'm allergic to shrimp. Add that to my profile.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-upd-allergy",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        }
+      },
+      "oracle": {
+        "profile": {
+          "allergies": [
+            "peanut",
+            "shellfish"
+          ]
+        },
+        "ledger": "s0"
+      },
+      "persona": "everyday"
+    },
+    {
+      "id": "v0-update-kcal-001",
+      "family": "update",
+      "situations": [],
+      "query": "I've been exhausted. Move my whole calorie range up by 200 — both the floor and the ceiling. Leave everything else alone.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-upd-kcal",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        }
+      },
+      "oracle": {
+        "profile": {
+          "windows": {
+            "kcal": [
+              2000,
+              2400
+            ]
+          }
+        },
+        "ledger": "s0"
+      },
+      "persona": "everyday"
+    },
+    {
+      "id": "v0-update-both-001",
+      "family": "update",
+      "situations": [],
+      "query": "Add shellfish to my allergies — I reacted to shrimp — and move my whole calorie range up by 200. Don't change anything else.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-upd-both",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        }
+      },
+      "oracle": {
+        "profile": {
+          "allergies": [
+            "peanut",
+            "shellfish"
+          ],
+          "windows": {
+            "kcal": [
+              2000,
+              2400
+            ]
+          }
+        },
+        "ledger": "s0"
+      },
+      "persona": "everyday"
+    },
+    {
+      "id": "v0-rec-safe-001",
+      "family": "recommend",
+      "situations": [],
+      "query": "Can you put together a meal that works with my targets and allergies?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-safe",
+          "allergies": [
+            "peanut",
+            "shellfish"
+          ],
+          "windows": {
+            "kcal": [
+              400,
+              800
+            ],
+            "protein_g": [
+              25,
+              55
+            ]
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      },
+      "persona": "everyday"
+    },
+    {
+      "id": "v0-rec-conflict-001",
+      "family": "constrain",
+      "situations": [
+        "conflict_windows"
+      ],
+      "query": "Can you make a day of eating that hits my protein target without going over calories?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-conflict",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              0,
+              100
+            ],
+            "protein_g": [
+              100,
+              200
+            ]
+          }
+        },
+        "last_plan": [
+          {
+            "food_id": "chicken_breast",
+            "grams": 200.0
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "plan_must_fit_windows": true,
+        "allow_empty_plan": true,
+        "ledger": "s0"
+      },
+      "persona": "everyday"
+    },
+    {
+      "id": "v0-cond-shrimp-001",
+      "family": "constrain",
+      "situations": [
+        "condition_suitability"
+      ],
+      "query": "I was thinking of having shrimp tonight. Is that okay for me, or what should I have instead?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-cond-shrimp",
+          "allergies": [
+            "shellfish"
+          ],
+          "windows": {
+            "kcal": [
+              400,
+              800
+            ],
+            "protein_g": [
+              20,
+              50
+            ]
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "allow_empty_plan": false,
+        "ledger": "s0",
+        "plan_must_fit_windows": true
+      },
+      "persona": "everyday"
+    },
+    {
+      "id": "v0-eval-plan-001",
+      "family": "evaluate",
+      "situations": [],
+      "query": "Evaluate this as my plan: 200g chicken breast, 300g rice, 150g broccoli, and 20g olive oil.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-eval",
+          "allergies": [
+            "peanut",
+            "shellfish"
+          ],
+          "windows": {
+            "kcal": [
+              700,
+              1000
+            ],
+            "protein_g": [
+              50,
+              90
+            ]
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "chicken_breast",
+            "grams": 200.0
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 300.0
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 150.0
+          },
+          {
+            "food_id": "olive_oil",
+            "grams": 20.0
+          }
+        ],
+        "ledger": "s0",
+        "plan_must_fit_windows": true
+      },
+      "persona": "everyday"
+    },
+    {
+      "id": "v0-rec-dinner-001",
+      "family": "recommend",
+      "persona": "everyday",
+      "situations": [],
+      "query": "What should I eat for dinner?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-dinner",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              400,
+              800
+            ],
+            "protein_g": [
+              20,
+              50
+            ]
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-rec-cut-001",
+      "family": "recommend",
+      "persona": "cut",
+      "situations": [],
+      "query": "I'm cutting and don't want to blow dinner. What should I eat?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-cut",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              400,
+              600
+            ],
+            "protein_g": [
+              35,
+              55
+            ]
+          },
+          "plan_preset": {
+            "goal": "cut"
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-rec-gym-001",
+      "family": "recommend",
+      "persona": "gym",
+      "situations": [],
+      "query": "Just finished lifting — what should I eat?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-gym",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              400,
+              750
+            ],
+            "protein_g": [
+              35,
+              65
+            ]
+          },
+          "plan_preset": {
+            "goal": "muscle"
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-rec-leftover-001",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I already ate breakfast and lunch. What should I eat?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-leftover",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              80,
+              160
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "oats",
+            "grams": 80.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "banana",
+            "grams": 118.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "milk_whole",
+            "grams": 244.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "chicken_breast",
+            "grams": 200.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 300.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "olive_oil",
+            "grams": 20.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "cheddar",
+            "grams": 40.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            176.1,
+            576.1
+          ],
+          "protein_g": [
+            0.0,
+            61.26
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-rec-flex-001",
+      "family": "recommend",
+      "persona": "flex",
+      "situations": [],
+      "query": "Tonight I want something more filling. Any ideas?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-flex",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              700,
+              1200
+            ],
+            "protein_g": [
+              20,
+              80
+            ]
+          },
+          "plan_preset": {
+            "flex_day": true
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-rec-htn-001",
+      "family": "recommend",
+      "persona": "htn",
+      "situations": [],
+      "query": "What's for dinner?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-htn",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              400,
+              800
+            ],
+            "protein_g": [
+              20,
+              50
+            ],
+            "sodium_mg": [
+              0,
+              400
+            ]
+          },
+          "plan_preset": {
+            "condition": "hypertension"
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-log-eggs-001",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "I had two eggs this morning — can you log that?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-log-eggs",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-breakfast"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "egg",
+            "grams": 100.0,
+            "eaten_at": "today-breakfast"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v0-log-banana-001",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "Just ate a banana as a snack — can you log it?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-log-banana",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-snack"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "banana",
+            "grams": 126.0,
+            "eaten_at": "today-snack"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v0-log-yogurt-001",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "Had a cup of Greek yogurt as a snack. Please log it.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-log-yogurt",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-snack"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "greek_yogurt",
+            "grams": 245.0,
+            "eaten_at": "today-snack"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v0-log-oil-001",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "I put a tablespoon of olive oil on my salad at lunch. Log that?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-log-oil",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "olive_oil",
+            "grams": 13.5,
+            "eaten_at": "today-lunch"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v0-log-prawn-001",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "near_synonym"
+      ],
+      "query": "Log the prawns I had for dinner — about 150 grams.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-log-prawn",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-dinner"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "shrimp",
+            "grams": 150.0,
+            "eaten_at": "today-dinner"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v0-log-dinner-001",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "multi_item_log"
+      ],
+      "query": "Dinner was 150g salmon, a cup of rice, and 100g broccoli. Please log all of it.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-log-dinner",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-dinner"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "salmon",
+            "grams": 150.0,
+            "eaten_at": "today-dinner"
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 158.0,
+            "eaten_at": "today-dinner"
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 100.0,
+            "eaten_at": "today-dinner"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v0-rec-lunch-001",
+      "family": "recommend",
+      "persona": "everyday",
+      "situations": [],
+      "query": "What should I eat for lunch?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-lunch",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              450,
+              750
+            ],
+            "protein_g": [
+              25,
+              55
+            ]
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-rec-snack-001",
+      "family": "recommend",
+      "persona": "everyday",
+      "situations": [],
+      "query": "I need a snack.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-snack",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              80,
+              250
+            ],
+            "protein_g": [
+              8,
+              25
+            ]
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-rec-breakfast-001",
+      "family": "recommend",
+      "persona": "everyday",
+      "situations": [],
+      "query": "What's a simple breakfast?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-breakfast",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              350,
+              600
+            ],
+            "protein_g": [
+              15,
+              45
+            ]
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-rec-light-001",
+      "family": "recommend",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Something light tonight.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-light",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              300,
+              500
+            ],
+            "protein_g": [
+              20,
+              45
+            ]
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-rec-leftover-002",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I already ate breakfast, lunch, and a snack. Can I still eat something?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-leftover-2",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              80,
+              160
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "oats",
+            "grams": 80.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "banana",
+            "grams": 118.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "milk_whole",
+            "grams": 244.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "beef",
+            "grams": 180.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "pasta",
+            "grams": 280.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "olive_oil",
+            "grams": 18.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "spinach",
+            "grams": 90.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "greek_yogurt",
+            "grams": 200.0,
+            "eaten_at": "today-snack"
+          },
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "today-snack"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            14.26,
+            414.26
+          ],
+          "protein_g": [
+            0.0,
+            55.65
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-rec-leftover-003",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I'm cutting and I already ate breakfast and lunch. What can I still eat?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-leftover-3",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1600,
+              1900
+            ],
+            "protein_g": [
+              110,
+              160
+            ]
+          },
+          "plan_preset": {
+            "goal": "cut"
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "greek_yogurt",
+            "grams": 170.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "banana",
+            "grams": 118.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "chicken_breast",
+            "grams": 90.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 250.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 100.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "olive_oil",
+            "grams": 12.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "cheddar",
+            "grams": 40.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "potato",
+            "grams": 200.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            192.16,
+            492.16
+          ],
+          "protein_g": [
+            33.34,
+            83.34
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-rec-cut-002",
+      "family": "recommend",
+      "persona": "cut",
+      "situations": [],
+      "query": "Need a high-protein lunch that isn't huge. I'm cutting.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-cut-2",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              400,
+              550
+            ],
+            "protein_g": [
+              40,
+              60
+            ]
+          },
+          "plan_preset": {
+            "goal": "cut"
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-rec-gym-002",
+      "family": "recommend",
+      "persona": "gym",
+      "situations": [],
+      "query": "What should I eat after the gym?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-gym-2",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              450,
+              800
+            ],
+            "protein_g": [
+              40,
+              70
+            ]
+          },
+          "plan_preset": {
+            "goal": "muscle"
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-rec-gym-003",
+      "family": "recommend",
+      "persona": "gym",
+      "situations": [],
+      "query": "Need dinner after training.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-gym-3",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              500,
+              850
+            ],
+            "protein_g": [
+              40,
+              70
+            ]
+          },
+          "plan_preset": {
+            "goal": "muscle"
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-rec-flex-002",
+      "family": "recommend",
+      "persona": "flex",
+      "situations": [],
+      "query": "I'm starving tonight. I can go bigger than usual.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-rec-flex-2",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              800,
+              1300
+            ],
+            "protein_g": [
+              25,
+              90
+            ]
+          },
+          "plan_preset": {
+            "flex_day": true
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-update-peanut-001",
+      "family": "update",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Add peanut to my allergies.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-upd-peanut",
+          "allergies": [
+            "shellfish"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        }
+      },
+      "oracle": {
+        "profile": {
+          "allergies": [
+            "peanut",
+            "shellfish"
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-update-protein-001",
+      "family": "update",
+      "persona": "everyday",
+      "situations": [],
+      "query": "I want more protein. Shift my protein range up 20 grams at both ends.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-upd-protein",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        }
+      },
+      "oracle": {
+        "profile": {
+          "windows": {
+            "protein_g": [
+              110,
+              160
+            ]
+          }
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-update-cut-001",
+      "family": "update",
+      "persona": "cut",
+      "situations": [],
+      "query": "I'm cutting now. Take 300 off both ends of my calorie range.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-upd-cut",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          },
+          "plan_preset": {
+            "goal": "cut"
+          }
+        }
+      },
+      "oracle": {
+        "profile": {
+          "windows": {
+            "kcal": [
+              1500,
+              1900
+            ]
+          }
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v0-eval-salmon-001",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Does this work as dinner: 150g salmon, a cup of rice, and 100g broccoli?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-eval-salmon",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              400,
+              700
+            ],
+            "protein_g": [
+              25,
+              55
+            ]
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "salmon",
+            "grams": 150.0
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 158.0
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 100.0
+          }
+        ],
+        "ledger": "s0",
+        "plan_must_fit_windows": true
+      }
+    },
+    {
+      "id": "v0-eval-snack-001",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Check this snack for me: a banana and 150g of Greek yogurt.",
+      "s0": {
+        "profile": {
+          "user_id": "gold-eval-snack",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              100,
+              300
+            ],
+            "protein_g": [
+              5,
+              30
+            ]
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "banana",
+            "grams": 126.0
+          },
+          {
+            "food_id": "greek_yogurt",
+            "grams": 150.0
+          }
+        ],
+        "ledger": "s0",
+        "plan_must_fit_windows": true
+      }
+    },
+    {
+      "id": "v0-cond-pb-001",
+      "family": "constrain",
+      "persona": "everyday",
+      "situations": [
+        "condition_suitability"
+      ],
+      "query": "Is peanut butter okay for me, or what should I have instead?",
+      "s0": {
+        "profile": {
+          "user_id": "gold-cond-pb",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              400,
+              800
+            ],
+            "protein_g": [
+              20,
+              50
+            ]
+          }
+        }
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "allow_empty_plan": false,
+        "ledger": "s0",
+        "plan_must_fit_windows": true
+      }
+    },
+    {
+      "id": "v01-log-fz-milk-cup",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "I drank a cup of milk with breakfast. Please log it.",
+      "s0": {
+        "profile": {
+          "user_id": "v01-fz-milk-cup",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-breakfast"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "milk_whole",
+            "grams": 244.0,
+            "eaten_at": "today-breakfast"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v01-log-fz-oats-cup",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "Breakfast was a cup of oats. Can you log that?",
+      "s0": {
+        "profile": {
+          "user_id": "v01-fz-oats-cup",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "banana",
+            "grams": 118.0,
+            "eaten_at": "today-breakfast"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "oats",
+            "grams": 80.0,
+            "eaten_at": "today-breakfast"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v01-log-fz-yogurt-half",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "Snack was half a cup of Greek yogurt. Log it for me.",
+      "s0": {
+        "profile": {
+          "user_id": "v01-fz-yogurt-half",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-snack"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "greek_yogurt",
+            "grams": 122.5,
+            "eaten_at": "today-snack"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v01-log-fz-oil-tsp",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "I added a teaspoon of olive oil at lunch. Please log it.",
+      "s0": {
+        "profile": {
+          "user_id": "v01-fz-oil-tsp",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "olive_oil",
+            "grams": 4.5,
+            "eaten_at": "today-lunch"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v01-log-fz-cheddar-slice",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "Had a slice of cheddar at lunch — can you log that?",
+      "s0": {
+        "profile": {
+          "user_id": "v01-fz-cheddar-slice",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "cheddar",
+            "grams": 21.0,
+            "eaten_at": "today-lunch"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v01-log-fz-orange-slice",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "I ate a slice of orange as a snack. Log it?",
+      "s0": {
+        "profile": {
+          "user_id": "v01-fz-orange-slice",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-snack"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "orange",
+            "grams": 15.0,
+            "eaten_at": "today-snack"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v01-log-fz-avocado-slice",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "Put a slice of avocado on my lunch. Please log that.",
+      "s0": {
+        "profile": {
+          "user_id": "v01-fz-avocado-slice",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "avocado",
+            "grams": 15.0,
+            "eaten_at": "today-lunch"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v01-log-fz-apple-piece",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "Just ate an apple as a snack — can you log it?",
+      "s0": {
+        "profile": {
+          "user_id": "v01-fz-apple-piece",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-snack"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "apple",
+            "grams": 200.0,
+            "eaten_at": "today-snack"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v01-log-fz-tofu-cup",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "Lunch was a cup of tofu. Please log it.",
+      "s0": {
+        "profile": {
+          "user_id": "v01-fz-tofu-cup",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "tofu",
+            "grams": 126.0,
+            "eaten_at": "today-lunch"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v01-log-fz-pasta-cup",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "I had a cup of pasta for dinner. Log that?",
+      "s0": {
+        "profile": {
+          "user_id": "v01-fz-pasta-cup",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-dinner"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "pasta",
+            "grams": 140.0,
+            "eaten_at": "today-dinner"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v01-log-fz-beans-cup",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "Had a cup of black beans at lunch. Can you log that?",
+      "s0": {
+        "profile": {
+          "user_id": "v01-fz-beans-cup",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "black_beans",
+            "grams": 172.0,
+            "eaten_at": "today-lunch"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v01-log-fz-soymilk-half",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "I had half a cup of soy milk with breakfast. Please log it.",
+      "s0": {
+        "profile": {
+          "user_id": "v01-fz-soymilk-half",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-breakfast"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "soy_milk",
+            "grams": 122.0,
+            "eaten_at": "today-breakfast"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v01-log-fz-spinach-cup",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "Dinner side was a cup of spinach. Log it for me.",
+      "s0": {
+        "profile": {
+          "user_id": "v01-fz-spinach-cup",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-dinner"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "spinach",
+            "grams": 25.0,
+            "eaten_at": "today-dinner"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v01-log-fz-pb-tbsp",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "I had a tablespoon of peanut butter at breakfast. Please log it.",
+      "s0": {
+        "profile": {
+          "user_id": "v01-fz-pb-tbsp",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-breakfast"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "peanut_butter",
+            "grams": 16.0,
+            "eaten_at": "today-breakfast"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v01-log-fz-tuna-can",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "Logged lunch already? I ate a can of tuna. Please add it.",
+      "s0": {
+        "profile": {
+          "user_id": "v01-fz-tuna-can",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "tuna",
+            "grams": 165.0,
+            "eaten_at": "today-lunch"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v01-log-fz-potato-piece",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "I had a baked potato for dinner. Can you log that?",
+      "s0": {
+        "profile": {
+          "user_id": "v01-fz-potato-piece",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800,
+              2200
+            ],
+            "protein_g": [
+              90,
+              140
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-dinner"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "potato",
+            "grams": 230.0,
+            "eaten_at": "today-dinner"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v01-rec-lo-breakfast-only",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I only had breakfast. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v01-lo-breakfast-only",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "oats",
+            "grams": 80.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "banana",
+            "grams": 118.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "milk_whole",
+            "grams": 244.0,
+            "eaten_at": "today-breakfast"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            1233.5,
+            1633.5
+          ],
+          "protein_g": [
+            60.63,
+            140.63
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v01-rec-lo-protein-debt",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I already ate breakfast and lunch. I still want to hit protein.",
+      "s0": {
+        "profile": {
+          "user_id": "v01-lo-protein-debt",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              120.0,
+              180.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "white_rice",
+            "grams": 300.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "pasta",
+            "grams": 200.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "olive_oil",
+            "grams": 15.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 150.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            674.66,
+            1074.66
+          ],
+          "protein_g": [
+            95.37,
+            155.37
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v01-rec-lo-protein-met",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I already ate a high-protein breakfast and lunch. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v01-lo-protein-met",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "egg",
+            "grams": 100.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "greek_yogurt",
+            "grams": 245.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "chicken_breast",
+            "grams": 220.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "spinach",
+            "grams": 80.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            1127.85,
+            1527.85
+          ],
+          "protein_g": [
+            0.0,
+            51.84
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v01-rec-lo-snack-no-lunch",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I had breakfast and a snack but skipped lunch. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v01-lo-snack-no-lunch",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "oats",
+            "grams": 80.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "milk_whole",
+            "grams": 244.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "greek_yogurt",
+            "grams": 200.0,
+            "eaten_at": "today-snack"
+          },
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "today-snack"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            1118.94,
+            1518.94
+          ],
+          "protein_g": [
+            40.59,
+            120.59
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v01-rec-lo-tofu-lunch",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I already ate breakfast and a tofu lunch. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v01-lo-tofu-lunch",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "soy_milk",
+            "grams": 244.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "oats",
+            "grams": 80.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "tofu",
+            "grams": 200.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "black_beans",
+            "grams": 172.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 200.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            726.44,
+            1126.44
+          ],
+          "protein_g": [
+            22.5,
+            102.5
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v01-rec-lo-almost-full",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I already ate breakfast, lunch, and a snack. Is there room for anything else?",
+      "s0": {
+        "profile": {
+          "user_id": "v01-lo-almost-full",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "oats",
+            "grams": 80.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "banana",
+            "grams": 118.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "milk_whole",
+            "grams": 244.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "chicken_breast",
+            "grams": 180.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 280.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "olive_oil",
+            "grams": 18.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "greek_yogurt",
+            "grams": 200.0,
+            "eaten_at": "today-snack"
+          },
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "today-snack"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            187.16,
+            587.16
+          ],
+          "protein_g": [
+            0.0,
+            56.41
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v01-rec-lo-cut-salmon",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I'm cutting and already ate breakfast and lunch. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v01-lo-cut-salmon",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1600.0,
+              1900.0
+            ],
+            "protein_g": [
+              110.0,
+              160.0
+            ]
+          },
+          "plan_preset": {
+            "goal": "cut"
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "greek_yogurt",
+            "grams": 170.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "salmon",
+            "grams": 150.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 120.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "olive_oil",
+            "grams": 10.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            864.1,
+            1164.1
+          ],
+          "protein_g": [
+            43.36,
+            93.36
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v01-rec-lo-beans-rice",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "Breakfast and a beans-and-rice lunch are already logged. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v01-lo-beans-rice",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "oats",
+            "grams": 80.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "black_beans",
+            "grams": 172.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 250.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "avocado",
+            "grams": 75.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            705.04,
+            1105.04
+          ],
+          "protein_g": [
+            45.13,
+            125.13
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-rec-lo-tuna-lunch",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I already ate breakfast and a tuna lunch. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-lo-tuna-lunch",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "oats",
+            "grams": 80.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "tuna",
+            "grams": 165.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "spinach",
+            "grams": 50.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 158.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            965.86,
+            1365.86
+          ],
+          "protein_g": [
+            20.81,
+            100.81
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-rec-lo-avocado-rice",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "Breakfast and an avocado-and-rice lunch are already logged. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-lo-avocado-rice",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "soy_milk",
+            "grams": 244.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "oats",
+            "grams": 80.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "avocado",
+            "grams": 150.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 200.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "black_beans",
+            "grams": 172.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            642.44,
+            1042.44
+          ],
+          "protein_g": [
+            37.58,
+            117.58
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-rec-lo-dinner-logged",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I already ate breakfast, lunch, and dinner. Is there room for a late bite?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-lo-dinner-logged",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "oats",
+            "grams": 80.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "milk_whole",
+            "grams": 244.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "chicken_breast",
+            "grams": 180.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 250.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "olive_oil",
+            "grams": 15.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "pasta",
+            "grams": 200.0,
+            "eaten_at": "today-dinner"
+          },
+          {
+            "food_id": "beef",
+            "grams": 150.0,
+            "eaten_at": "today-dinner"
+          },
+          {
+            "food_id": "spinach",
+            "grams": 80.0,
+            "eaten_at": "today-dinner"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            0.0,
+            232.04
+          ],
+          "protein_g": [
+            0.0,
+            26.44
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-rec-lo-skip-breakfast",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I skipped breakfast and already ate lunch. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-lo-skip-breakfast",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "chicken_breast",
+            "grams": 200.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 250.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 150.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "olive_oil",
+            "grams": 15.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            956.4,
+            1356.4
+          ],
+          "protein_g": [
+            7.43,
+            87.43
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-rec-lo-almond-snack",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I already ate breakfast, lunch, and a handful of almonds. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-lo-almond-snack",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "oats",
+            "grams": 80.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "chicken_breast",
+            "grams": 160.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 120.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "almond",
+            "grams": 36.0,
+            "eaten_at": "today-snack"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            849.94,
+            1249.94
+          ],
+          "protein_g": [
+            9.29,
+            89.29
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-rec-lo-peanut-allergy",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "Breakfast and lunch are already in. What can I still eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-lo-peanut-allergy",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "oats",
+            "grams": 80.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "chicken_breast",
+            "grams": 180.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 200.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 100.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            780.58,
+            1180.58
+          ],
+          "protein_g": [
+            4.8,
+            84.8
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-rec-lo-milk-allergy",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I already logged breakfast and lunch. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-lo-milk-allergy",
+          "allergies": [
+            "milk"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "soy_milk",
+            "grams": 244.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "oats",
+            "grams": 80.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "apple",
+            "grams": 200.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "chicken_breast",
+            "grams": 170.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "potato",
+            "grams": 230.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "spinach",
+            "grams": 80.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            729.48,
+            1129.48
+          ],
+          "protein_g": [
+            1.32,
+            81.32
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-rec-lo-cut-tight",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I'm cutting and I already ate breakfast, lunch, and a snack. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-lo-cut-tight",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1600.0,
+              1900.0
+            ],
+            "protein_g": [
+              110.0,
+              160.0
+            ]
+          },
+          "plan_preset": {
+            "goal": "cut"
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "greek_yogurt",
+            "grams": 170.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "chicken_breast",
+            "grams": 150.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 200.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 100.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "olive_oil",
+            "grams": 10.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "apple",
+            "grams": 200.0,
+            "eaten_at": "today-snack"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            517.4,
+            817.4
+          ],
+          "protein_g": [
+            29.82,
+            79.82
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-rec-lo-potato-lunch",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I already ate breakfast and a potato lunch. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-lo-potato-lunch",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "oats",
+            "grams": 80.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "potato",
+            "grams": 230.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "cheddar",
+            "grams": 42.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 100.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            949.9,
+            1349.9
+          ],
+          "protein_g": [
+            51.71,
+            131.71
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-rec-lo-pb-breakfast",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I only had breakfast — oats with peanut butter. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-lo-pb-breakfast",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "oats",
+            "grams": 80.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "peanut_butter",
+            "grams": 32.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0,
+            "eaten_at": "today-breakfast"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            1183.22,
+            1583.22
+          ],
+          "protein_g": [
+            61.44,
+            141.44
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-rec-lo-beef-pasta",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "Breakfast and a beef-and-pasta lunch are already logged. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-lo-beef-pasta",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "greek_yogurt",
+            "grams": 245.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "orange",
+            "grams": 180.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "beef",
+            "grams": 180.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "pasta",
+            "grams": 280.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "spinach",
+            "grams": 90.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            734.35,
+            1134.35
+          ],
+          "protein_g": [
+            0.0,
+            69.04
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-rec-lo-late-snack-only",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I've only had a snack so far. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-lo-late-snack-only",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "greek_yogurt",
+            "grams": 200.0,
+            "eaten_at": "today-snack"
+          },
+          {
+            "food_id": "apple",
+            "grams": 200.0,
+            "eaten_at": "today-snack"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            1560.0,
+            1960.0
+          ],
+          "protein_g": [
+            59.06,
+            139.06
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-rec-lo-three-carb-debt",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I already ate, but I still want to hit protein. What should I eat?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-lo-three-carb-debt",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              120.0,
+              180.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "white_rice",
+            "grams": 250.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "pasta",
+            "grams": 280.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "olive_oil",
+            "grams": 18.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "apple",
+            "grams": 200.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "potato",
+            "grams": 230.0,
+            "eaten_at": "today-snack"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            420.66,
+            820.66
+          ],
+          "protein_g": [
+            91.44,
+            151.44
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-rec-lo-gym-protein-in",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "Breakfast and lunch were already high in protein. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-lo-gym-protein-in",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "egg",
+            "grams": 150.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "greek_yogurt",
+            "grams": 245.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "tuna",
+            "grams": 165.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "spinach",
+            "grams": 80.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "chicken_breast",
+            "grams": 150.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            980.45,
+            1380.45
+          ],
+          "protein_g": [
+            0.0,
+            25.26
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-rec-lo-shrimp-lunch",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I already ate breakfast and a shrimp lunch. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-lo-shrimp-lunch",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              80.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "oats",
+            "grams": 80.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "orange",
+            "grams": 180.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "shrimp",
+            "grams": 200.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 200.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 100.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            911.8,
+            1311.8
+          ],
+          "protein_g": [
+            11.95,
+            91.95
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-rec-lo-cut-breakfast-only",
+      "family": "recommend",
+      "persona": "leftover",
+      "situations": [],
+      "query": "I'm cutting and I only had breakfast. What should I eat for the rest of the day?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-lo-cut-breakfast-only",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1600.0,
+              1900.0
+            ],
+            "protein_g": [
+              110.0,
+              160.0
+            ]
+          },
+          "plan_preset": {
+            "goal": "cut"
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "greek_yogurt",
+            "grams": 170.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0,
+            "eaten_at": "today-breakfast"
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            1150.08,
+            1450.08
+          ],
+          "protein_g": [
+            83.67,
+            133.67
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-upd-milk",
+      "family": "update",
+      "persona": "everyday",
+      "situations": [],
+      "query": "I reacted to milk. Add that to my allergies.",
+      "s0": {
+        "profile": {
+          "user_id": "v02-upd-milk",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": {
+          "allergies": [
+            "milk",
+            "peanut"
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-upd-soy-tofu",
+      "family": "update",
+      "persona": "everyday",
+      "situations": [],
+      "query": "I reacted to tofu. Add that to my allergies.",
+      "s0": {
+        "profile": {
+          "user_id": "v02-upd-soy-tofu",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": {
+          "allergies": [
+            "peanut",
+            "soy"
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-upd-fish-salmon",
+      "family": "update",
+      "persona": "everyday",
+      "situations": [],
+      "query": "I reacted to salmon. Add that to my allergies.",
+      "s0": {
+        "profile": {
+          "user_id": "v02-upd-fish-salmon",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": {
+          "allergies": [
+            "fish",
+            "peanut"
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-upd-tree-nut-almonds",
+      "family": "update",
+      "persona": "everyday",
+      "situations": [],
+      "query": "I reacted to almonds. Add that to my allergies.",
+      "s0": {
+        "profile": {
+          "user_id": "v02-upd-tree-nut-almonds",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": {
+          "allergies": [
+            "peanut",
+            "tree_nut"
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-upd-kcal-plus-300",
+      "family": "update",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Raise my whole calorie range by 300 at both ends.",
+      "s0": {
+        "profile": {
+          "user_id": "v02-upd-kcal-plus-300",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": {
+          "windows": {
+            "kcal": [
+              2100.0,
+              2500.0
+            ]
+          }
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-upd-protein-plus-30",
+      "family": "update",
+      "persona": "everyday",
+      "situations": [],
+      "query": "I want more protein. Shift my protein range up 30 grams at both ends.",
+      "s0": {
+        "profile": {
+          "user_id": "v02-upd-protein-plus-30",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": {
+          "windows": {
+            "protein_g": [
+              120.0,
+              170.0
+            ]
+          }
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-upd-milk-kcal-200",
+      "family": "update",
+      "persona": "everyday",
+      "situations": [],
+      "query": "I reacted to milk. Add that to my allergies and raise my calorie range by 200 at both ends.",
+      "s0": {
+        "profile": {
+          "user_id": "v02-upd-milk-kcal-200",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": {
+          "allergies": [
+            "milk",
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              2000.0,
+              2400.0
+            ]
+          }
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-upd-cut-400",
+      "family": "update",
+      "persona": "cut",
+      "situations": [],
+      "query": "I'm cutting. Reduce my calorie range by 400 at both ends.",
+      "s0": {
+        "profile": {
+          "user_id": "v02-upd-cut-400",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          },
+          "plan_preset": {
+            "goal": "cut"
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": {
+          "windows": {
+            "kcal": [
+              1400.0,
+              1800.0
+            ]
+          }
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-cond-milk",
+      "family": "constrain",
+      "persona": "everyday",
+      "situations": [
+        "condition_suitability"
+      ],
+      "query": "I was thinking of having a glass of milk tonight. Is that okay for me, or what should I have instead?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-cond-milk",
+          "allergies": [
+            "milk"
+          ],
+          "windows": {
+            "kcal": [
+              350.0,
+              750.0
+            ],
+            "protein_g": [
+              15.0,
+              45.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "allow_empty_plan": false,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-cond-tofu",
+      "family": "constrain",
+      "persona": "everyday",
+      "situations": [
+        "condition_suitability"
+      ],
+      "query": "Is tofu okay for me, or what should I have instead?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-cond-tofu",
+          "allergies": [
+            "soy"
+          ],
+          "windows": {
+            "kcal": [
+              300.0,
+              700.0
+            ],
+            "protein_g": [
+              10.0,
+              40.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "allow_empty_plan": false,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-cond-eggs",
+      "family": "constrain",
+      "persona": "everyday",
+      "situations": [
+        "condition_suitability"
+      ],
+      "query": "I was thinking of having scrambled eggs tonight. Is that okay for me, or what should I have instead?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-cond-eggs",
+          "allergies": [
+            "egg"
+          ],
+          "windows": {
+            "kcal": [
+              400.0,
+              800.0
+            ],
+            "protein_g": [
+              25.0,
+              55.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "allow_empty_plan": false,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-cond-salmon",
+      "family": "constrain",
+      "persona": "everyday",
+      "situations": [
+        "condition_suitability"
+      ],
+      "query": "Is salmon okay for me tonight, or what should I have instead?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-cond-salmon",
+          "allergies": [
+            "fish"
+          ],
+          "windows": {
+            "kcal": [
+              450.0,
+              800.0
+            ],
+            "protein_g": [
+              25.0,
+              55.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "allow_empty_plan": false,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-cond-almonds",
+      "family": "constrain",
+      "persona": "everyday",
+      "situations": [
+        "condition_suitability"
+      ],
+      "query": "I was thinking of having almonds as a snack. Is that okay for me, or what should I have instead?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-cond-almonds",
+          "allergies": [
+            "tree_nut"
+          ],
+          "windows": {
+            "kcal": [
+              300.0,
+              650.0
+            ],
+            "protein_g": [
+              10.0,
+              35.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "allow_empty_plan": false,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-conf-50-70",
+      "family": "constrain",
+      "persona": "everyday",
+      "situations": [
+        "conflict_windows"
+      ],
+      "query": "These calorie and protein targets look impossible together. Can you still make a plan?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-conf-50-70",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              0.0,
+              50.0
+            ],
+            "protein_g": [
+              70.0,
+              120.0
+            ]
+          }
+        },
+        "ledger": [],
+        "last_plan": [
+          {
+            "food_id": "chicken_breast",
+            "grams": 200.0
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "plan_must_fit_windows": true,
+        "allow_empty_plan": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-conf-70-90",
+      "family": "constrain",
+      "persona": "everyday",
+      "situations": [
+        "conflict_windows"
+      ],
+      "query": "Can you plan meals that hit protein without blowing the tiny calorie budget?",
+      "s0": {
+        "profile": {
+          "user_id": "v02-conf-70-90",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              0.0,
+              70.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": [],
+        "last_plan": [
+          {
+            "food_id": "egg",
+            "grams": 200.0
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "plan_must_fit_windows": true,
+        "allow_empty_plan": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-conf-90-110",
+      "family": "constrain",
+      "persona": "everyday",
+      "situations": [
+        "conflict_windows"
+      ],
+      "query": "These windows feel contradictory — protein way up, calories almost none. Submit a plan if you can.",
+      "s0": {
+        "profile": {
+          "user_id": "v02-conf-90-110",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              0.0,
+              90.0
+            ],
+            "protein_g": [
+              110.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": [],
+        "last_plan": [
+          {
+            "food_id": "pasta",
+            "grams": 280.0
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "plan_must_fit_windows": true,
+        "allow_empty_plan": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-eval-tuna-rice",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Evaluate this as my plan: a can of tuna, a cup of rice, and a cup of broccoli.",
+      "s0": {
+        "profile": {
+          "user_id": "v02-eval-tuna-rice",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              280.0,
+              590.0
+            ],
+            "protein_g": [
+              30.0,
+              70.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "tuna",
+            "grams": 165.0
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 158.0
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 90.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-eval-yogurt-banana",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Submit this as the plan: a cup of Greek yogurt and a banana.",
+      "s0": {
+        "profile": {
+          "user_id": "v02-eval-yogurt-banana",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              110.0,
+              420.0
+            ],
+            "protein_g": [
+              10.0,
+              50.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "greek_yogurt",
+            "grams": 245.0
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-eval-chicken-potato",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Evaluate this as my plan: 150 g chicken, a baked potato, and 100 g broccoli.",
+      "s0": {
+        "profile": {
+          "user_id": "v02-eval-chicken-potato",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              350.0,
+              660.0
+            ],
+            "protein_g": [
+              30.0,
+              70.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "chicken_breast",
+            "grams": 150.0
+          },
+          {
+            "food_id": "potato",
+            "grams": 230.0
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 100.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v02-eval-tofu-rice",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Submit this as the plan: a cup of tofu, a cup of rice, and a cup of spinach.",
+      "s0": {
+        "profile": {
+          "user_id": "v02-eval-tofu-rice",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              150.0,
+              460.0
+            ],
+            "protein_g": [
+              0.0,
+              40.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "tofu",
+            "grams": 126.0
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 158.0
+          },
+          {
+            "food_id": "spinach",
+            "grams": 25.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-log-fz-almond-half",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "Snack was half a cup of almonds. Please log it.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-fz-almond-half",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-snack"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "almond",
+            "grams": 72.0,
+            "eaten_at": "today-snack"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v03-log-fz-rice-half",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [
+        "fuzzy_portion"
+      ],
+      "query": "I had half a cup of rice at dinner. Log that?",
+      "s0": {
+        "profile": {
+          "user_id": "v03-fz-rice-half",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": [
+          {
+            "food_id": "apple",
+            "grams": 182.0,
+            "eaten_at": "yesterday-snack"
+          },
+          {
+            "food_id": "orange",
+            "grams": 131.0,
+            "eaten_at": "today-breakfast"
+          },
+          {
+            "food_id": "oats",
+            "grams": 60.0,
+            "eaten_at": "today-dinner"
+          }
+        ]
+      },
+      "oracle": {
+        "ledger_tail": [
+          {
+            "food_id": "white_rice",
+            "grams": 79.0,
+            "eaten_at": "today-dinner"
+          }
+        ],
+        "profile": "s0",
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "v03-upd-egg",
+      "family": "update",
+      "persona": "everyday",
+      "situations": [],
+      "query": "I reacted to eggs. Add that to my allergies.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-upd-egg",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": {
+          "allergies": [
+            "egg",
+            "peanut"
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-upd-kcal-minus-200",
+      "family": "update",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Lower my whole calorie range by 200 at both ends.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-upd-kcal-minus-200",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": {
+          "windows": {
+            "kcal": [
+              1600.0,
+              2000.0
+            ]
+          }
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-upd-soy-kcal-300",
+      "family": "update",
+      "persona": "everyday",
+      "situations": [],
+      "query": "I reacted to tofu. Add that to my allergies and increase my calorie range by 300 at both ends.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-upd-soy-kcal-300",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": {
+          "allergies": [
+            "peanut",
+            "soy"
+          ],
+          "windows": {
+            "kcal": [
+              2100.0,
+              2500.0
+            ]
+          }
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-upd-egg-protein-20",
+      "family": "update",
+      "persona": "everyday",
+      "situations": [],
+      "query": "I reacted to eggs. Add that to my allergies and shift my protein range up 20 grams at both ends.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-upd-egg-protein-20",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": {
+          "allergies": [
+            "egg",
+            "peanut"
+          ],
+          "windows": {
+            "protein_g": [
+              110.0,
+              160.0
+            ]
+          }
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-upd-fish-protein-30",
+      "family": "update",
+      "persona": "everyday",
+      "situations": [],
+      "query": "I reacted to salmon. Add that to my allergies and raise my protein range 30 grams at both ends.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-upd-fish-protein-30",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": {
+          "allergies": [
+            "fish",
+            "peanut"
+          ],
+          "windows": {
+            "protein_g": [
+              120.0,
+              170.0
+            ]
+          }
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-upd-almond-kcal-minus-200",
+      "family": "update",
+      "persona": "everyday",
+      "situations": [],
+      "query": "I reacted to almonds. Add that to my allergies and lower my calorie range by 200 at both ends.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-upd-almond-kcal-minus-200",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": {
+          "allergies": [
+            "peanut",
+            "tree_nut"
+          ],
+          "windows": {
+            "kcal": [
+              1600.0,
+              2000.0
+            ]
+          }
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-upd-milk-protein-30",
+      "family": "update",
+      "persona": "everyday",
+      "situations": [],
+      "query": "I reacted to milk. Add that to my allergies and shift my protein range up 30 grams at both ends.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-upd-milk-protein-30",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": {
+          "allergies": [
+            "milk",
+            "peanut"
+          ],
+          "windows": {
+            "protein_g": [
+              120.0,
+              170.0
+            ]
+          }
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-upd-egg-kcal-300",
+      "family": "update",
+      "persona": "everyday",
+      "situations": [],
+      "query": "I reacted to eggs. Add that to my allergies and raise my calorie range by 300 at both ends.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-upd-egg-kcal-300",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": {
+          "allergies": [
+            "egg",
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              2100.0,
+              2500.0
+            ]
+          }
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-cond-peanuts",
+      "family": "constrain",
+      "persona": "everyday",
+      "situations": [
+        "condition_suitability"
+      ],
+      "query": "Are peanuts okay for me, or what should I have instead?",
+      "s0": {
+        "profile": {
+          "user_id": "v03-cond-peanuts",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              350.0,
+              700.0
+            ],
+            "protein_g": [
+              15.0,
+              40.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "allow_empty_plan": false,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-cond-soy-milk",
+      "family": "constrain",
+      "persona": "everyday",
+      "situations": [
+        "condition_suitability"
+      ],
+      "query": "I was thinking of having a glass of soy milk tonight. Is that okay for me, or what should I have instead?",
+      "s0": {
+        "profile": {
+          "user_id": "v03-cond-soy-milk",
+          "allergies": [
+            "soy"
+          ],
+          "windows": {
+            "kcal": [
+              350.0,
+              720.0
+            ],
+            "protein_g": [
+              12.0,
+              42.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "allow_empty_plan": false,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-conf-near-200-56",
+      "family": "constrain",
+      "persona": "everyday",
+      "situations": [
+        "conflict_windows"
+      ],
+      "query": "Can you put together something around 200 calories that still hits my protein target?",
+      "s0": {
+        "profile": {
+          "user_id": "v03-conf-near-200-56",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              0.0,
+              200.0
+            ],
+            "protein_g": [
+              56.0,
+              90.0
+            ]
+          }
+        },
+        "ledger": [],
+        "last_plan": [
+          {
+            "food_id": "chicken_breast",
+            "grams": 200.0
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "plan_must_fit_windows": true,
+        "allow_empty_plan": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-conf-near-400-111",
+      "family": "constrain",
+      "persona": "everyday",
+      "situations": [
+        "conflict_windows"
+      ],
+      "query": "I only have a 400 calorie budget left. Can you still make a high-protein meal?",
+      "s0": {
+        "profile": {
+          "user_id": "v03-conf-near-400-111",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              0.0,
+              400.0
+            ],
+            "protein_g": [
+              111.0,
+              150.0
+            ]
+          }
+        },
+        "ledger": [],
+        "last_plan": [
+          {
+            "food_id": "salmon",
+            "grams": 150.0
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "plan_must_fit_windows": true,
+        "allow_empty_plan": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-conf-near-800-221",
+      "family": "constrain",
+      "persona": "everyday",
+      "situations": [
+        "conflict_windows"
+      ],
+      "query": "Build me a day of eating under 800 calories that hits my protein floor.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-conf-near-800-221",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              0.0,
+              800.0
+            ],
+            "protein_g": [
+              221.0,
+              300.0
+            ]
+          }
+        },
+        "ledger": [],
+        "last_plan": [
+          {
+            "food_id": "greek_yogurt",
+            "grams": 245.0
+          }
+        ]
+      },
+      "oracle": {
+        "profile": "s0",
+        "plan_must_fit_windows": true,
+        "allow_empty_plan": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-single-tofu-g",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Evaluate this as lunch: 160 g of tofu.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-single-tofu-g",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              0.0,
+              280.0
+            ],
+            "protein_g": [
+              0.0,
+              30.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "tofu",
+            "grams": 160.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-single-oats-cup",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Does this work as breakfast: a cup of oats?",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-single-oats-cup",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              150.0,
+              460.0
+            ],
+            "protein_g": [
+              0.0,
+              30.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "oats",
+            "grams": 80.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-single-potato-piece",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Check this lunch for me: a baked potato.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-single-potato-piece",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              60.0,
+              370.0
+            ],
+            "protein_g": [
+              0.0,
+              20.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "potato",
+            "grams": 230.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-single-tuna-can",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Submit this as the plan: a can of tuna.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-single-tuna-can",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              40.0,
+              350.0
+            ],
+            "protein_g": [
+              20.0,
+              60.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "tuna",
+            "grams": 165.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-single-cheddar-slice",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Evaluate this as a snack: a slice of cheddar.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-single-cheddar-slice",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              0.0,
+              240.0
+            ],
+            "protein_g": [
+              0.0,
+              20.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "cheddar",
+            "grams": 21.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-single-pb-tbsp",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Check this snack for me: a tablespoon of peanut butter.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-single-pb-tbsp",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              0.0,
+              250.0
+            ],
+            "protein_g": [
+              0.0,
+              20.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "peanut_butter",
+            "grams": 16.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-single-almond-oz",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Does this work as a late snack: about 2 ounces of almonds?",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-single-almond-oz",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              180.0,
+              490.0
+            ],
+            "protein_g": [
+              0.0,
+              30.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "almond",
+            "grams": 56.7
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-pair-chicken-rice",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Evaluate this as lunch: 150 g chicken and a cup of rice.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-pair-chicken-rice",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              300.0,
+              610.0
+            ],
+            "protein_g": [
+              30.0,
+              70.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "chicken_breast",
+            "grams": 150.0
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 158.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-pair-banana-pb",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Does this work as breakfast: a banana and a tablespoon of peanut butter?",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-pair-banana-pb",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              60.0,
+              370.0
+            ],
+            "protein_g": [
+              0.0,
+              20.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "banana",
+            "grams": 126.0
+          },
+          {
+            "food_id": "peanut_butter",
+            "grams": 16.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-pair-cheddar-apple",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Check this snack for me: a slice of cheddar and an apple.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-pair-cheddar-apple",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              50.0,
+              360.0
+            ],
+            "protein_g": [
+              0.0,
+              30.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "cheddar",
+            "grams": 21.0
+          },
+          {
+            "food_id": "apple",
+            "grams": 200.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-pair-tuna-spinach",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Submit this as lunch: a can of tuna and a cup of spinach.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-pair-tuna-spinach",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              40.0,
+              350.0
+            ],
+            "protein_g": [
+              20.0,
+              60.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "tuna",
+            "grams": 165.0
+          },
+          {
+            "food_id": "spinach",
+            "grams": 25.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-pair-potato-broccoli",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Evaluate this as dinner: a baked potato and a cup of broccoli.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-pair-potato-broccoli",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              90.0,
+              400.0
+            ],
+            "protein_g": [
+              0.0,
+              30.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "potato",
+            "grams": 230.0
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 90.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-pair-oats-oz-banana",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "I already ate after the gym — about 2 ounces of oats and a banana. Submit that as the plan.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-pair-oats-oz-banana",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              180.0,
+              490.0
+            ],
+            "protein_g": [
+              0.0,
+              30.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "oats",
+            "grams": 56.7
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-pair-avocado-egg",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Does this work as brunch: a slice of avocado and an egg?",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-pair-avocado-egg",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              0.0,
+              250.0
+            ],
+            "protein_g": [
+              0.0,
+              30.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "avocado",
+            "grams": 15.0
+          },
+          {
+            "food_id": "egg",
+            "grams": 50.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-pair-tofu-spinach",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Evaluate this as lunch: 150 g tofu and a cup of spinach.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-pair-tofu-spinach",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              0.0,
+              280.0
+            ],
+            "protein_g": [
+              0.0,
+              30.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "tofu",
+            "grams": 150.0
+          },
+          {
+            "food_id": "spinach",
+            "grams": 25.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-pair-yogurt-apple",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Check this snack for me: a cup of Greek yogurt and an apple.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-pair-yogurt-apple",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              110.0,
+              420.0
+            ],
+            "protein_g": [
+              10.0,
+              50.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "greek_yogurt",
+            "grams": 245.0
+          },
+          {
+            "food_id": "apple",
+            "grams": 200.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-pair-potato-oil",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Late snack idea: a baked potato with a tablespoon of olive oil. Evaluate that as the plan.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-pair-potato-oil",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              180.0,
+              490.0
+            ],
+            "protein_g": [
+              0.0,
+              20.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "potato",
+            "grams": 230.0
+          },
+          {
+            "food_id": "olive_oil",
+            "grams": 13.5
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-pair-milk-oats-oz",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Evaluate this as breakfast: a cup of milk and about 2 ounces of oats.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-pair-milk-oats-oz",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              210.0,
+              520.0
+            ],
+            "protein_g": [
+              0.0,
+              40.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "milk_whole",
+            "grams": 244.0
+          },
+          {
+            "food_id": "oats",
+            "grams": 56.7
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-tri-eggs-oats-banana",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Does this work as breakfast: two eggs, a cup of oats, and a banana?",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-tri-eggs-oats-banana",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              410.0,
+              720.0
+            ],
+            "protein_g": [
+              0.0,
+              40.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "egg",
+            "grams": 100.0
+          },
+          {
+            "food_id": "oats",
+            "grams": 80.0
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-tri-tuna-potato-spin",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Check this lunch for me: a can of tuna, a baked potato, and a cup of spinach.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-tri-tuna-potato-spin",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              260.0,
+              570.0
+            ],
+            "protein_g": [
+              30.0,
+              70.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "tuna",
+            "grams": 165.0
+          },
+          {
+            "food_id": "potato",
+            "grams": 230.0
+          },
+          {
+            "food_id": "spinach",
+            "grams": 25.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-tri-beef-pasta-spin",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Submit this as dinner: 160 g beef, a cup of pasta, and a cup of spinach.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-tri-beef-pasta-spin",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              400.0,
+              710.0
+            ],
+            "protein_g": [
+              30.0,
+              70.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "beef",
+            "grams": 160.0
+          },
+          {
+            "food_id": "pasta",
+            "grams": 140.0
+          },
+          {
+            "food_id": "spinach",
+            "grams": 25.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-tri-salmon-potato-broc",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Does this work as dinner: 180 g salmon, a baked potato, and a cup of broccoli?",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-tri-salmon-potato-broc",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              420.0,
+              730.0
+            ],
+            "protein_g": [
+              30.0,
+              70.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "salmon",
+            "grams": 180.0
+          },
+          {
+            "food_id": "potato",
+            "grams": 230.0
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 90.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-tri-yogurt-banana-apple",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Check this snack plate for me: a cup of yogurt, a banana, and a slice of apple.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-tri-yogurt-banana-apple",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              130.0,
+              440.0
+            ],
+            "protein_g": [
+              10.0,
+              50.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "greek_yogurt",
+            "grams": 245.0
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0
+          },
+          {
+            "food_id": "apple",
+            "grams": 25.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-tri-chicken-spin-rice",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Evaluate this as lunch: 120 g chicken, a cup of spinach, and a cup of rice.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-tri-chicken-spin-rice",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              250.0,
+              560.0
+            ],
+            "protein_g": [
+              20.0,
+              60.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "chicken_breast",
+            "grams": 120.0
+          },
+          {
+            "food_id": "spinach",
+            "grams": 25.0
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 158.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-tri-shrimp-rice-broc",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Does this work as dinner: 150 g shrimp, a cup of rice, and a cup of broccoli?",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-tri-shrimp-rice-broc",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              230.0,
+              540.0
+            ],
+            "protein_g": [
+              20.0,
+              60.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "shrimp",
+            "grams": 150.0
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 158.0
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 90.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-tri-pb-banana-oats",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Here's breakfast: a tablespoon of peanut butter, a banana, and a cup of oats. Evaluate that as the plan.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-tri-pb-banana-oats",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              370.0,
+              680.0
+            ],
+            "protein_g": [
+              0.0,
+              40.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "peanut_butter",
+            "grams": 16.0
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0
+          },
+          {
+            "food_id": "oats",
+            "grams": 80.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-tri-cheddar-apple-yogurt",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Check this snack plate for me: a slice of cheddar, an apple, and a cup of yogurt.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-tri-cheddar-apple-yogurt",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              200.0,
+              510.0
+            ],
+            "protein_g": [
+              10.0,
+              50.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "cheddar",
+            "grams": 21.0
+          },
+          {
+            "food_id": "apple",
+            "grams": 200.0
+          },
+          {
+            "food_id": "greek_yogurt",
+            "grams": 245.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-tri-avocado-eggs-spin",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Does this work as brunch: a cup of avocado, two eggs, and a cup of spinach?",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-tri-avocado-eggs-spin",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              230.0,
+              540.0
+            ],
+            "protein_g": [
+              0.0,
+              40.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "avocado",
+            "grams": 150.0
+          },
+          {
+            "food_id": "egg",
+            "grams": 100.0
+          },
+          {
+            "food_id": "spinach",
+            "grams": 25.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-tri-milk-oats-banana",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Submit this as breakfast: a cup of milk, a cup of oats, and a banana.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-tri-milk-oats-banana",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              420.0,
+              730.0
+            ],
+            "protein_g": [
+              0.0,
+              40.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "milk_whole",
+            "grams": 244.0
+          },
+          {
+            "food_id": "oats",
+            "grams": 80.0
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-long-chicken-rice-broc-oil",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Evaluate this as dinner: 160 g chicken, a cup of rice, a cup of broccoli, and a tablespoon of olive oil.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-long-chicken-rice-broc-oil",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              470.0,
+              780.0
+            ],
+            "protein_g": [
+              40.0,
+              80.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "chicken_breast",
+            "grams": 160.0
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 158.0
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 90.0
+          },
+          {
+            "food_id": "olive_oil",
+            "grams": 13.5
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-long-oats-milk-banana-pb",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Does this work as breakfast: a cup of oats, a cup of milk, a banana, and a tablespoon of peanut butter?",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-long-oats-milk-banana-pb",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              510.0,
+              820.0
+            ],
+            "protein_g": [
+              0.0,
+              40.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "oats",
+            "grams": 80.0
+          },
+          {
+            "food_id": "milk_whole",
+            "grams": 244.0
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0
+          },
+          {
+            "food_id": "peanut_butter",
+            "grams": 16.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-long-salmon-rice-spin-avo",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Check this dinner for me: 150 g salmon, a cup of rice, a cup of spinach, and a slice of avocado.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-long-salmon-rice-spin-avo",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              350.0,
+              660.0
+            ],
+            "protein_g": [
+              20.0,
+              60.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "salmon",
+            "grams": 150.0
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 158.0
+          },
+          {
+            "food_id": "spinach",
+            "grams": 25.0
+          },
+          {
+            "food_id": "avocado",
+            "grams": 15.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-long-tofu-rice-veg-oil",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Evaluate this as a vegetarian dinner: a cup of tofu, a cup of rice, a cup of broccoli, a cup of spinach, and a teaspoon of olive oil.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-long-tofu-rice-veg-oil",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              230.0,
+              540.0
+            ],
+            "protein_g": [
+              0.0,
+              40.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "tofu",
+            "grams": 126.0
+          },
+          {
+            "food_id": "white_rice",
+            "grams": 158.0
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 90.0
+          },
+          {
+            "food_id": "spinach",
+            "grams": 25.0
+          },
+          {
+            "food_id": "olive_oil",
+            "grams": 4.5
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-long-chicken-potato-fixings",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Does this work as lunch: 150 g chicken, a baked potato, a cup of broccoli, a slice of cheddar, and a tablespoon of olive oil?",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-long-chicken-potato-fixings",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              550.0,
+              860.0
+            ],
+            "protein_g": [
+              40.0,
+              80.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "chicken_breast",
+            "grams": 150.0
+          },
+          {
+            "food_id": "potato",
+            "grams": 230.0
+          },
+          {
+            "food_id": "broccoli",
+            "grams": 90.0
+          },
+          {
+            "food_id": "cheddar",
+            "grams": 21.0
+          },
+          {
+            "food_id": "olive_oil",
+            "grams": 13.5
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-fg-salmon",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Evaluate this as my plan: 120 g salmon.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-fg-salmon",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              60.0,
+              370.0
+            ],
+            "protein_g": [
+              10.0,
+              50.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "salmon",
+            "grams": 120.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-fg-beef",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Does this work as dinner: 180 g of beef?",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-fg-beef",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              210.0,
+              520.0
+            ],
+            "protein_g": [
+              30.0,
+              70.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "beef",
+            "grams": 180.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-fg-shrimp",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Check this for me: 100 g of shrimp.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-fg-shrimp",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              0.0,
+              250.0
+            ],
+            "protein_g": [
+              0.0,
+              40.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "shrimp",
+            "grams": 100.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-fg-salmon-beef",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Submit this as dinner: 140 g salmon and 80 g beef.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-fg-salmon-beef",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              260.0,
+              570.0
+            ],
+            "protein_g": [
+              40.0,
+              80.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "salmon",
+            "grams": 140.0
+          },
+          {
+            "food_id": "beef",
+            "grams": 80.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-syn-prawns",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Does this work as dinner: 150 g of prawns?",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-syn-prawns",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              0.0,
+              300.0
+            ],
+            "protein_g": [
+              20.0,
+              60.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "shrimp",
+            "grams": 150.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-syn-oatmeal-banana",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Evaluate this as breakfast: a cup of oatmeal and a banana.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-syn-oatmeal-banana",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              270.0,
+              580.0
+            ],
+            "protein_g": [
+              0.0,
+              30.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "oats",
+            "grams": 80.0
+          },
+          {
+            "food_id": "banana",
+            "grams": 126.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "v03-eval-syn-yogurt-orange",
+      "family": "evaluate",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Check this snack for me: a cup of plain yogurt and a slice of orange.",
+      "s0": {
+        "profile": {
+          "user_id": "v03-eval-syn-yogurt-orange",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              0.0,
+              310.0
+            ],
+            "protein_g": [
+              10.0,
+              50.0
+            ]
+          }
+        },
+        "ledger": []
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [
+          {
+            "food_id": "greek_yogurt",
+            "grams": 245.0
+          },
+          {
+            "food_id": "orange",
+            "grams": 15.0
+          }
+        ],
+        "plan_must_fit_windows": true,
+        "ledger": "s0"
+      }
+    }
+  ]
+}

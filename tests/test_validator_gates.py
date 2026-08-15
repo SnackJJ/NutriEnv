@@ -6,7 +6,7 @@ from dataclasses import replace
 
 from nutrienv.bench import Generator
 from nutrienv.bench.generator import Oracle, Task
-from nutrienv.bench.realizations import CONSTRAIN_ROWS, UPDATE_ROWS
+from nutrienv.bench.realizations import CONSTRAIN_ROWS, EVALUATE_ROWS, UPDATE_ROWS
 from nutrienv.bench.validator import validate_draft
 from nutrienv.world.types import normalize_tags
 
@@ -240,6 +240,40 @@ def test_spelled_window_magnitude_is_accepted():
         window_shifts={"kcal": 200.0},
     )
     assert validate_draft(task) == []
+
+
+def test_evaluate_gate_rejects_a_plan_that_hits_s0_allergies():
+    row = next(item for item in EVALUATE_ROWS if item.seed_id == "ev-single-pb-tbsp")
+    generator = Generator()
+    s0 = generator._make_s0(0, generator._difficulty(None))
+    query, oracle = generator._evaluate_from_row(s0, row)
+    task = Task("draft", "evaluate", query, s0, oracle)
+    assert validate_draft(task) == []
+    task.s0.profile = replace(task.s0.profile, allergies=("peanut",))
+    issues = validate_draft(task)
+    assert any("unpassable" in item for item in issues)
+
+
+def test_factory_evaluate_rows_are_not_unpassable():
+    generator = Generator()
+    knobs = generator._difficulty(None)
+    base = generator._make_s0(0, knobs)
+    from nutrienv.world.types import WorldState
+
+    for row in EVALUATE_ROWS:
+        s0 = WorldState(
+            profile=base.profile,
+            ledger=list(base.ledger),
+            catalog=base.catalog,
+            last_plan=list(base.last_plan),
+        )
+        query, oracle = generator._evaluate_from_row(s0, row)
+        issues = validate_draft(Task("draft", "evaluate", query, s0, oracle))
+        assert issues == [], (row.seed_id, issues)
+        allergies = set(s0.profile.allergies)
+        for item in oracle.last_plan:
+            tags = set((s0.catalog.get(item["food_id"]) or {}).get("allergen_tags") or [])
+            assert not tags & allergies, (row.seed_id, item, tags & allergies)
 
 
 def test_condition_rows_do_not_reuse_the_same_food():

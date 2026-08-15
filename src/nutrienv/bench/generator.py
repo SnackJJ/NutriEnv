@@ -403,7 +403,12 @@ class Generator:
             kcal_margin=row.margin_kcal,
             protein_margin=row.margin_protein,
         )
-        s0.profile = replace(s0.profile, windows=windows)
+        colliding = set()
+        for item in items:
+            entry = s0.catalog.get(item["food_id"]) or {}
+            colliding.update(entry.get("allergen_tags") or [])
+        allergies = tuple(tag for tag in s0.profile.allergies if tag not in colliding)
+        s0.profile = replace(s0.profile, windows=windows, allergies=allergies)
         return row.query, Oracle(
             profile=copy.deepcopy(s0.profile),
             last_plan=items,

@@ -319,6 +319,10 @@ def _validate_condition(task: Task, query: str) -> list[str]:
             break
     if not carries:
         issues.append("condition query food does not carry a profile allergy tag")
+    if not _staple_plan_fits(
+        task.s0.catalog, task.s0.profile.windows, task.s0.profile.allergies
+    ):
+        issues.append("condition meal window has no safe staple plan")
     return issues
 
 
@@ -410,4 +414,70 @@ def _validate_evaluate(task: Task, query: str) -> list[str]:
         amount = totals.get(key, 0.0)
         if amount < lo or amount > hi:
             issues.append(f"evaluate plan {key} {amount} is outside windows {(lo, hi)}")
+    allergies = set(task.s0.profile.allergies)
+    for item in plan:
+        entry = task.s0.catalog.get(str(item["food_id"])) or {}
+        tags = set(entry.get("allergen_tags") or [])
+        hit = tags & allergies
+        if hit:
+            issues.append(
+                f"evaluate last_plan is unpassable: {item['food_id']} carries {sorted(hit)}"
+            )
     return issues
+
+
+_STAPLE_PLANS = (
+    (
+        {"food_id": "chicken_breast", "grams": 150.0},
+        {"food_id": "white_rice", "grams": 150.0},
+    ),
+    (
+        {"food_id": "chicken_breast", "grams": 120.0},
+        {"food_id": "white_rice", "grams": 180.0},
+    ),
+    (
+        {"food_id": "chicken_breast", "grams": 100.0},
+        {"food_id": "white_rice", "grams": 200.0},
+        {"food_id": "olive_oil", "grams": 10.0},
+    ),
+    (
+        {"food_id": "chicken_breast", "grams": 80.0},
+        {"food_id": "white_rice", "grams": 200.0},
+        {"food_id": "broccoli", "grams": 100.0},
+        {"food_id": "olive_oil", "grams": 15.0},
+    ),
+    (
+        {"food_id": "chicken_breast", "grams": 130.0},
+        {"food_id": "white_rice", "grams": 120.0},
+        {"food_id": "broccoli", "grams": 90.0},
+    ),
+    (
+        {"food_id": "pasta", "grams": 140.0},
+        {"food_id": "chicken_breast", "grams": 120.0},
+    ),
+)
+
+
+def _staple_plan_fits(catalog, windows: dict, allergies) -> bool:
+    banned = set(allergies)
+    for items in _STAPLE_PLANS:
+        tags: set[str] = set()
+        totals: dict[str, float] = {}
+        missing = False
+        for item in items:
+            food = catalog.get(item["food_id"])
+            if not isinstance(food, dict):
+                missing = True
+                break
+            tags.update(food.get("allergen_tags") or [])
+            grams = float(item["grams"])
+            for key, amount in (food.get("nutrients") or {}).items():
+                totals[str(key)] = totals.get(str(key), 0.0) + float(amount) * grams / 100.0
+        if missing or tags & banned:
+            continue
+        if all(
+            lo <= totals.get(nutrient, 0.0) <= hi
+            for nutrient, (lo, hi) in windows.items()
+        ):
+            return True
+    return False
