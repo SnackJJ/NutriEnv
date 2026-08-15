@@ -15,6 +15,7 @@ from dataclasses import replace
 
 from ..world.dri import BASIS, DRI_REFERENCE
 from ..world.types import (
+    ImplausibleQuantity,
     LedgerRow,
     WorldState,
     food_view,
@@ -33,7 +34,19 @@ from .schemas import (
     validate_envelope,
 )
 
-__all__ = ["dispatch", "DEFAULT_EATEN_AT", "PROFILE_PATCH_KEYS", "SEARCH_ALL"]
+__all__ = [
+    "dispatch",
+    "DEFAULT_EATEN_AT",
+    "PROFILE_PATCH_KEYS",
+    "SEARCH_ALL",
+    "MAX_PLAN_GRAMS",
+]
+
+# Habitability bound on a submitted plan's total, not validation trivia. The
+# per-item cap in normalize_grams is otherwise defeated by 35 items of 2000 g
+# (the zero-kcal coffee exploit on v0-rec-conflict-001). The largest
+# legitimate frozen-split plan is 670 g.
+MAX_PLAN_GRAMS = 4000.0
 
 #: Deterministic stand-in for a clock. A wall-clock default would make the
 #: ledger unpredictable, and Pass compares the end state to an Oracle.
@@ -163,12 +176,18 @@ def _get_dri(state: WorldState, _args: dict, _default_eaten_at: str) -> dict:
 # --- writes -----------------------------------------------------------------
 
 
+def _require_grams(value: object, label: str) -> float:
+    try:
+        return normalize_grams(value)
+    except ImplausibleQuantity as exc:
+        raise ActionError("implausible_quantity", f"{label}: {exc}") from exc
+    except ValueError as exc:
+        raise ActionError("bad_schema", f"{label}: {exc}") from exc
+
+
 def _log_meal(state: WorldState, args: dict, default_eaten_at: str) -> dict:
     food_id = _resolve_food(state, args["food_id"])
-    try:
-        grams = normalize_grams(args["grams"])
-    except ValueError as exc:
-        raise ActionError("bad_schema", f"'grams': {exc}") from exc
+    grams = _require_grams(args["grams"], "'grams'")
     eaten_at = (
         as_nonempty_str(args["eaten_at"], "eaten_at")
         if "eaten_at" in args
@@ -196,11 +215,15 @@ def _submit_plan(state: WorldState, args: dict, _default_eaten_at: str) -> dict:
         if "food_id" not in item or "grams" not in item:
             raise ActionError("bad_schema", f"items[{index}] needs food_id and grams")
         food_id = _resolve_food(state, item["food_id"])
-        try:
-            grams = normalize_grams(item["grams"])
-        except ValueError as exc:
-            raise ActionError("bad_schema", f"items[{index}].grams: {exc}") from exc
+        grams = _require_grams(item["grams"], f"items[{index}].grams")
         normalized.append({"food_id": food_id, "grams": grams})
+
+    total = sum(item["grams"] for item in normalized)
+    if total > MAX_PLAN_GRAMS:
+        raise ActionError(
+            "implausible_quantity",
+            f"plan total {total:g} g exceeds {MAX_PLAN_GRAMS:g} g",
+        )
 
     state.last_plan = normalized
     return {"op": "submit_plan", "items": copy.deepcopy(normalized)}

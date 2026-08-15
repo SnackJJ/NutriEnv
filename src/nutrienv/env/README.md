@@ -33,7 +33,8 @@ env.state() -> WorldState           # the live end state, for the scorer
   observation does not list every id.
 - `step` on a legal action → `{"ok": True, "observation": {...}, "done": False}`.
 - Illegal action → `{"ok": False, "observation": None, "error": {"code", "message"}, "done": False}`
-  and the world is unchanged. Codes: `bad_schema`, `unknown_op`, `unknown_food`.
+  and the world is unchanged. Codes: `bad_schema`, `unknown_op`, `unknown_food`,
+  `implausible_quantity`.
 - `done` is always `False` in v1 — hand-in lives outside Env.
 - `step`/`state` before `reset` raise `RuntimeError`. That is a harness bug, not an Illegal Action,
   so it is not graded as one.
@@ -53,7 +54,9 @@ env.state() -> WorldState           # the live end state, for the scorer
 | `update_plan` | `patch` | shallow-merges into `profile.plan_preset` |
 
 Schemas are strict: an unknown key anywhere in the envelope or in a plan item is `bad_schema`.
-`grams` must be a finite number `> 0`. An empty `items` list is legal.
+`grams` must be a finite number `> 0` and at most 2000. A submitted plan's
+total may not exceed 4000 g. Either breach is `implausible_quantity`, not
+`bad_schema`. An empty `items` list is legal.
 
 ## Rules bench-gen must mirror when building an Oracle
 

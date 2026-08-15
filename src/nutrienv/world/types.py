@@ -20,6 +20,8 @@ __all__ = [
     "Profile",
     "LedgerRow",
     "WorldState",
+    "ImplausibleQuantity",
+    "MAX_ITEM_GRAMS",
     "normalize_tags",
     "normalize_window",
     "normalize_grams",
@@ -99,14 +101,27 @@ def normalize_window(value: object) -> tuple[float, float]:
     return (lo, hi)
 
 
+# Habitability bound, not validation trivia. A kcal ceiling cannot constrain a
+# 0-kcal food, so a protein or fat floor was reachable by submitting tens of
+# kilograms of brewed coffee (v0-rec-conflict-001: 90,909 g of 2710376). A
+# person cannot eat 2 kg of one item; the largest frozen-split quantity is 300 g.
+MAX_ITEM_GRAMS = 2000.0
+
+
+class ImplausibleQuantity(ValueError):
+    """A serving no person can eat. Dispatch maps this to ActionError."""
+
+
 def normalize_grams(value: object) -> float:
-    """Canonicalize a serving size into a positive float."""
+    """Canonicalize a serving size into a positive float at most MAX_ITEM_GRAMS."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError("grams must be a number")
     if not math.isfinite(value):
         raise ValueError("grams must be finite")
     if value <= 0:
         raise ValueError("grams must be > 0")
+    if value > MAX_ITEM_GRAMS:
+        raise ImplausibleQuantity(f"grams must be <= {MAX_ITEM_GRAMS:g}")
     return float(value)
 
 

@@ -1,8 +1,9 @@
 """Action envelope schemas and the error Env raises for an Illegal Action.
 
 Every Action is available on every Task (CHARTER). What makes an Action illegal
-is physics, not difficulty: a malformed envelope or an unminted food_id. The
-schema is strict — unknown keys are a schema error, not silently ignored.
+is physics, not difficulty: a malformed envelope, an unminted food_id, or a
+quantity no person can eat. The schema is strict — unknown keys are a schema
+error, not silently ignored.
 """
 
 from __future__ import annotations

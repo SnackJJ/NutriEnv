@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import copy
+from pathlib import Path
 
+from nutrienv.bench.split import load_split
 from nutrienv.env import NutriEnv
 from nutrienv.world.catalog_fixture import demo_state
 from nutrienv.world.types import LedgerRow
+
+V04 = Path("data/splits/v0.4-gold.json")
 
 
 def test_illegal_food_id_does_not_mutate() -> None:
@@ -98,3 +102,114 @@ def test_wildcard_is_the_only_match_all_query() -> None:
     # A stray character is still a miss, not an accidental catalog dump.
     assert hits("a") == 0
     assert hits("**") == 0
+
+
+def test_log_meal_rejects_item_above_2000g() -> None:
+    env = NutriEnv()
+    env.reset(demo_state())
+    before = copy.deepcopy(env.state())
+
+    out = env.step({"op": "log_meal", "food_id": "oats", "grams": 2001})
+
+    assert out["ok"] is False
+    assert out["error"]["code"] == "implausible_quantity"
+    after = env.state()
+    assert after.ledger == before.ledger
+    assert after.profile == before.profile
+    assert after.last_plan == before.last_plan
+    assert after.catalog == before.catalog
+
+
+def test_submit_plan_rejects_item_above_2000g() -> None:
+    env = NutriEnv()
+    env.reset(demo_state())
+    before = copy.deepcopy(env.state())
+
+    out = env.step(
+        {"op": "submit_plan", "items": [{"food_id": "oats", "grams": 2001}]}
+    )
+
+    assert out["ok"] is False
+    assert out["error"]["code"] == "implausible_quantity"
+    after = env.state()
+    assert after.ledger == before.ledger
+    assert after.profile == before.profile
+    assert after.last_plan == before.last_plan
+    assert after.catalog == before.catalog
+
+
+def test_submit_plan_rejects_total_above_4000g() -> None:
+    env = NutriEnv()
+    env.reset(demo_state())
+    before = copy.deepcopy(env.state())
+
+    out = env.step(
+        {
+            "op": "submit_plan",
+            "items": [
+                {"food_id": "oats", "grams": 2000},
+                {"food_id": "egg", "grams": 2000},
+                {"food_id": "banana", "grams": 2000},
+            ],
+        }
+    )
+
+    assert out["ok"] is False
+    assert out["error"]["code"] == "implausible_quantity"
+    after = env.state()
+    assert after.ledger == before.ledger
+    assert after.profile == before.profile
+    assert after.last_plan == before.last_plan
+    assert after.catalog == before.catalog
+
+
+def test_quantity_bounds_are_inclusive() -> None:
+    env = NutriEnv()
+    env.reset(demo_state())
+
+    logged = env.step({"op": "log_meal", "food_id": "oats", "grams": 2000})
+    assert logged["ok"] is True
+    assert env.state().ledger[-1].grams == 2000.0
+
+    single = env.step(
+        {"op": "submit_plan", "items": [{"food_id": "egg", "grams": 2000}]}
+    )
+    assert single["ok"] is True
+    assert env.state().last_plan == [{"food_id": "egg", "grams": 2000.0}]
+
+    total = env.step(
+        {
+            "op": "submit_plan",
+            "items": [
+                {"food_id": "oats", "grams": 2000},
+                {"food_id": "egg", "grams": 2000},
+            ],
+        }
+    )
+    assert total["ok"] is True
+    assert env.state().last_plan == [
+        {"food_id": "oats", "grams": 2000.0},
+        {"food_id": "egg", "grams": 2000.0},
+    ]
+
+
+def test_zero_kcal_coffee_exploit_is_rejected() -> None:
+    task = next(item for item in load_split(V04) if item.id == "v0-rec-conflict-001")
+    coffee = task.s0.catalog["2710376"]
+    assert coffee["nutrients"]["kcal"] == 0.0
+    assert coffee["nutrients"]["protein_g"] > 0
+
+    env = NutriEnv()
+    env.reset(task.s0)
+    before = copy.deepcopy(env.state())
+
+    out = env.step(
+        {"op": "submit_plan", "items": [{"food_id": "2710376", "grams": 90909}]}
+    )
+
+    assert out["ok"] is False
+    assert out["error"]["code"] == "implausible_quantity"
+    after = env.state()
+    assert after.ledger == before.ledger
+    assert after.profile == before.profile
+    assert after.last_plan == before.last_plan
