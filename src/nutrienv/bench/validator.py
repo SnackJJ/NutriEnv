@@ -6,6 +6,7 @@ to check that the spoken query entails the scored end state.
 
 from __future__ import annotations
 
+import itertools
 import re
 
 from nutrienv.world.portions import OUNCE_GRAMS, resolve_portion
@@ -14,7 +15,7 @@ from nutrienv.world.types import LedgerRow, ledger_totals
 from .generator import Task
 from .realizations import EVALUATE_ROWS, UPDATE_ROWS
 
-__all__ = ["validate_draft", "semantic_key"]
+__all__ = ["validate_draft", "semantic_key", "fitting_plan"]
 
 _WINDOW_LEAK = re.compile(r"\b(?:kcal|protein_g|carb_g|fat_g)\s+\d")
 _SLUG = re.compile(r"\b[a-z]+_[a-z0-9_]+\b")
@@ -33,6 +34,12 @@ _SPELLED_MAGNITUDE = (
     ("twenty", 20.0),
 )
 _NUMBER = re.compile(r"(?<!\d)(\d+(?:\.\d+)?)(?!\d)")
+_KCAL_RATIO_CAP = {
+    "protein_g": 0.25,
+    "carb_g": 0.25,
+    "fat_g": 1.0 / 9.0,
+    "fiber_g": 0.5,
+}
 
 
 def semantic_key(task: Task) -> tuple:
@@ -50,6 +57,19 @@ def semantic_key(task: Task) -> tuple:
         foods = tuple((row.food_id, row.eaten_at) for row in task.s0.ledger)
         windows = tuple(sorted(task.s0.profile.windows))
         return ("recommend", None, "leftover", foods, windows)
+    if task.family == "recommend":
+        windows = tuple(
+            sorted((key, tuple(bounds)) for key, bounds in task.s0.profile.windows.items())
+        )
+        preset = task.s0.profile.plan_preset
+        preset_key = tuple(sorted(preset.items())) if isinstance(preset, dict) else None
+        return (
+            task.family,
+            task.persona,
+            tuple(task.s0.profile.allergies),
+            windows,
+            preset_key,
+        )
     if task.family == "update" and task.oracle.profile is not None:
         added = tuple(
             sorted(set(task.oracle.profile.allergies) - set(task.s0.profile.allergies))
@@ -140,6 +160,12 @@ def validate_draft(task: Task) -> list[str]:
         issues.extend(_validate_conflict(task))
     if task.family == "evaluate":
         issues.extend(_validate_evaluate(task, query))
+    if task.oracle.last_plan == [] and task.oracle.plan_must_fit_windows:
+        windows = task.oracle.plan_windows or task.s0.profile.windows
+        if fitting_plan(task.s0.catalog, windows, task.s0.profile.allergies) is None:
+            issues.append(
+                "item is unpassable: no allergen-safe plan fits the judged windows"
+            )
     return issues
 
 
@@ -326,33 +352,69 @@ def _validate_condition(task: Task, query: str) -> list[str]:
     return issues
 
 
-def _windows_unsatisfiable(windows: dict, catalog, allergies: tuple[str, ...] = ()) -> bool:
+def _windows_unsatisfiable(
+    windows: dict,
+    catalog,
+    allergies: tuple[str, ...] = (),
+    floor_nutrient: str = "protein_g",
+    ceiling_nutrient: str = "kcal",
+) -> bool:
     banned = set(allergies)
-    kcal_hi = float(windows.get("kcal", (0.0, 0.0))[1])
-    prot_lo = float(windows.get("protein_g", (0.0, 0.0))[0])
+    ceiling_value = float(windows.get(ceiling_nutrient, (0.0, 0.0))[1])
+    floor_value = float(windows.get(floor_nutrient, (0.0, 0.0))[0])
     best = 0.0
     for entry in catalog.values():
         tags = set(entry.get("allergen_tags") or [])
         if tags & banned:
             continue
         nutrients = entry.get("nutrients") or {}
-        kcal = float(nutrients.get("kcal") or 0.0)
-        protein = float(nutrients.get("protein_g") or 0.0)
-        if protein <= 0:
+        ceiling = float(nutrients.get(ceiling_nutrient) or 0.0)
+        floor = float(nutrients.get(floor_nutrient) or 0.0)
+        if floor <= 0:
             continue
-        if kcal <= 0:
-            # A zero-kcal food has an unbounded protein-per-kcal ratio, so on
-            # paper it satisfies any low-kcal window. The catalog holds 14 such
-            # entries -- all decaf coffee at 0.1 g protein per 100 g -- and
-            # reaching a 56 g protein floor from them means drinking 56 kg.
-            # Anything at or above 1 g per 100 g is a real protein source and
-            # does make the window satisfiable; below that the "solution" is
-            # not food, so it does not count as one.
-            if protein >= 1.0:
+        if ceiling <= 0:
+            # A zero-denominator food has an unbounded floor/ceiling ratio, so
+            # on paper it satisfies any tight ceiling. The catalog holds 14
+            # zero-kcal entries -- all decaf coffee at 0.1 g protein per 100 g
+            # -- and reaching a 56 g protein floor from them means drinking
+            # 56 kg. Anything at or above 1 g per 100 g is a real source of
+            # the floor nutrient and does make the window satisfiable; below
+            # that the "solution" is not food, so it does not count as one.
+            if floor >= 1.0:
                 return False
             continue
-        best = max(best, protein / kcal)
-    return best * kcal_hi < prot_lo
+        ratio = floor / ceiling
+        if ceiling_nutrient == "kcal":
+            # Atwater factors: protein and carbohydrate yield 4 kcal/g, fat
+            # yields 9 kcal/g. No food can exceed 0.25 g protein or carb, or
+            # 1/9 g fat, per kcal. Fibre is a carbohydrate fraction metabolised
+            # at roughly 2 kcal/g, so 0.5 g/kcal is a safe bound. Sodium
+            # carries no energy. Catalog rounding sometimes reports ratios
+            # above these; trust physics, not the artifact.
+            cap = _KCAL_RATIO_CAP.get(floor_nutrient)
+            if cap is not None:
+                ratio = min(ratio, cap)
+        best = max(best, ratio)
+    return best * ceiling_value < floor_value
+
+
+def _any_pair_unsatisfiable(windows: dict, catalog, allergies: tuple[str, ...] = ()) -> bool:
+    keys = list(windows)
+    for floor_nutrient in keys:
+        if float(windows[floor_nutrient][0]) <= 0:
+            continue
+        for ceiling_nutrient in keys:
+            if ceiling_nutrient == floor_nutrient:
+                continue
+            if _windows_unsatisfiable(
+                windows,
+                catalog,
+                allergies,
+                floor_nutrient=floor_nutrient,
+                ceiling_nutrient=ceiling_nutrient,
+            ):
+                return True
+    return False
 
 
 def _validate_conflict(task: Task) -> list[str]:
@@ -369,7 +431,7 @@ def _validate_conflict(task: Task) -> list[str]:
         issues.append("conflict plan_must_fit_windows must be True")
     if task.oracle.last_plan is not None:
         issues.append("conflict oracle last_plan must be None")
-    if not _windows_unsatisfiable(
+    if not _any_pair_unsatisfiable(
         task.s0.profile.windows, task.s0.catalog, task.s0.profile.allergies
     ):
         issues.append("conflict windows are satisfiable")
@@ -481,3 +543,57 @@ def _staple_plan_fits(catalog, windows: dict, allergies) -> bool:
         ):
             return True
     return False
+
+
+# Staple basket and coarse gram grid for the achievability search. Singles
+# and pairs are enough for every admitted meal window; triples would be
+# C(n,3)*20^3 evaluations and make validate_draft too slow over a split.
+_FIT_STAPLES = (
+    "chicken_breast", "white_rice", "broccoli", "olive_oil", "greek_yogurt",
+    "banana", "oats", "potato", "spinach", "apple", "egg", "tofu",
+    "black_beans", "pasta", "salmon", "tuna", "cheddar", "peanut_butter",
+    "almond",
+)
+_FIT_GRID = tuple(float(grams) for grams in range(20, 401, 20))
+
+
+def fitting_plan(catalog, windows: dict, allergies) -> list[dict] | None:
+    """Search staples for any allergen-safe plan inside every judged window."""
+    banned = set(allergies)
+    keys = list(windows)
+    per_gram: dict[str, dict[str, float]] = {}
+    for food_id in _FIT_STAPLES:
+        entry = catalog.get(food_id)
+        if not isinstance(entry, dict):
+            continue
+        tags = set(entry.get("allergen_tags") or [])
+        if tags & banned:
+            continue
+        nutrients = entry.get("nutrients") or {}
+        per_gram[food_id] = {
+            key: float(nutrients.get(key) or 0.0) / 100.0 for key in keys
+        }
+
+    def _fits(totals: dict[str, float]) -> bool:
+        return all(
+            lo <= totals.get(key, 0.0) <= hi for key, (lo, hi) in windows.items()
+        )
+
+    for food_id, vec in per_gram.items():
+        for grams in _FIT_GRID:
+            totals = {key: vec.get(key, 0.0) * grams for key in keys}
+            if _fits(totals):
+                return [{"food_id": food_id, "grams": grams}]
+    for first, second in itertools.combinations(per_gram, 2):
+        v1 = per_gram[first]
+        v2 = per_gram[second]
+        for g1 in _FIT_GRID:
+            t1 = {key: v1.get(key, 0.0) * g1 for key in keys}
+            for g2 in _FIT_GRID:
+                totals = {key: t1[key] + v2.get(key, 0.0) * g2 for key in keys}
+                if _fits(totals):
+                    return [
+                        {"food_id": first, "grams": g1},
+                        {"food_id": second, "grams": g2},
+                    ]
+    return None

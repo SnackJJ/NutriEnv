@@ -26,6 +26,7 @@ from nutrienv.bench.realizations import (
     EVALUATE_ROWS,
     FUZZY_ROWS,
     LEFTOVER_ROWS,
+    RECOMMEND_ROWS,
     UPDATE_ROWS,
 )
 from nutrienv.world.catalog_store import load_catalog
@@ -129,6 +130,51 @@ INCREMENTS = {
             "feasibility live and a catalog rebuild will turn the split test red "
             "rather than fail silently. Reviewed by validate_draft plus an LLM "
             "reviewer; not reviewed item-by-item by a human."
+        ),
+    },
+    "v0.4": {
+        "parent": "v0.3-gold",
+        # recommend and constrain both land on their ADR 0009 allocation here.
+        # 31 of the 34 available recommend rows: the three held back duplicate a
+        # tag another admitted row already covers (soy twice, and wheat against
+        # gluten, which overlap heavily in this catalog). All nine catalog
+        # allergen tags stay covered by the 31.
+        "recommend": (
+            "rec-bfast-wide", "rec-lunch-milk", "rec-dinner-egg", "rec-lunch-fish",
+            "rec-dinner-soy", "rec-snack-treenut", "rec-dinner-gluten",
+            "rec-lunch-milk-egg", "rec-dinner-fish-shell",
+            "rec-snack-peanut-soy-tn", "rec-dinner-milk-wheat-soy",
+            "rec-lunch-tight", "rec-dinner-sodium", "rec-bfast-fiber",
+            "rec-lunch-fat", "rec-snack-fiber", "rec-dinner-carb",
+            "rec-cut-lunch-tight", "rec-cut-milk", "rec-cut-fiber",
+            "rec-gym-peanut", "rec-gym-egg-milk", "rec-gym-sodium",
+            "rec-flex-lunch", "rec-flex-fish", "rec-flex-fat", "rec-htn-lunch",
+            "rec-htn-milk", "rec-htn-fiber", "rec-bfast-shellfish",
+            "rec-dinner-fat-ceil",
+        ),
+        "condition": (
+            "co-cheddar", "co-yogurt", "co-tuna", "co-pasta", "co-bread",
+            "co-soy-sauce", "co-crab", "co-cashew-butter", "co-wheat-bran",
+            "co-cream-cheese",
+        ),
+        # The six cf-55-75 .. cf-85-105 ramp rows stay out for the third time:
+        # one arithmetic mechanism repeated is padding, which ADR 0009 forbids.
+        "conflict": (
+            "cf-fib-200-90", "cf-fib-150-80", "cf-fat-400-55", "cf-fat-600-82",
+            "cf-fib-carb-40-45", "cf-near-250-70", "cf-near-350-97",
+            "cf-near-180-50", "cf-near-fib-250-90", "cf-near-fat-500-67",
+        ),
+        "notes": (
+            "v0.3-gold 156 KEEP plus the fourth increment: 31 recommends and "
+            "20 constrains, landing both families on their ADR 0009 allocation. "
+            "Recommend rows span persona, meal occasion, all nine catalog allergen "
+            "tags and, on 13 of the 40 table rows, a third judged nutrient beyond "
+            "kcal and protein -- an axis only one exam item used before. Conflict "
+            "rows now differ in mechanism rather than walking one arithmetic ramp. "
+            "Every item passes an achievability gate that searches for a fitting "
+            "safe plan, so an unpassable item fails validation instead of freezing "
+            "silently. Reviewed by validate_draft plus an LLM reviewer; not "
+            "reviewed item-by-item by a human."
         ),
     },
 }
@@ -268,6 +314,31 @@ def update_items(catalog: dict, wanted, tag: str) -> list[dict]:
     return items
 
 
+def recommend_items(catalog: dict, wanted, tag: str) -> list[dict]:
+    gen = Generator()
+    items = []
+    for row in _rows(RECOMMEND_ROWS, wanted):
+        stem = row.seed_id.removeprefix("rec-")
+        s0 = _state(catalog, f"{tag}-rec-{stem}", ())
+        query, _oracle = gen._recommend_from_row(s0, row)
+        items.append({
+            "id": f"{tag}-rec-{stem}",
+            "family": "recommend",
+            "persona": row.persona,
+            "situations": [],
+            "query": query,
+            "s0": {"profile": _profile_json(s0.profile), "ledger": []},
+            "oracle": {
+                "profile": "s0",
+                "last_plan": [],
+                "plan_must_be_safe": True,
+                "plan_must_fit_windows": True,
+                "ledger": "s0",
+            },
+        })
+    return items
+
+
 def constrain_items(catalog: dict, conditions, conflicts, tag: str) -> list[dict]:
     gen = Generator()
     items = []
@@ -369,6 +440,7 @@ def build(version: str) -> None:
     new = (
         log_items(catalog, spec.get("log", ()), tag)
         + leftover_items(catalog, spec.get("leftover", ()), tag)
+        + recommend_items(catalog, spec.get("recommend", ()), tag)
         + update_items(catalog, spec.get("update", ()), tag)
         + constrain_items(catalog, spec.get("condition", ()), spec.get("conflict", ()), tag)
         + evaluate_items(catalog, wanted_eval, tag)

@@ -7,7 +7,12 @@ from dataclasses import replace
 from nutrienv.bench import Generator
 from nutrienv.bench.generator import Oracle, Task
 from nutrienv.bench.realizations import CONSTRAIN_ROWS, EVALUATE_ROWS, UPDATE_ROWS
-from nutrienv.bench.validator import validate_draft
+from nutrienv.bench.validator import (
+    _any_pair_unsatisfiable,
+    _windows_unsatisfiable,
+    validate_draft,
+)
+from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.types import normalize_tags
 
 
@@ -291,7 +296,8 @@ def test_conflict_table_has_non_ramp_rows():
         if row.kind == "conflict"
         and row.seed_id not in {"cf-50-70", "cf-70-90", "cf-90-110", "co-gold-conflict"}
         and not (
-            row.windows["kcal"][1] <= 90 and row.windows["protein_g"][0] >= 70
+            row.windows.get("kcal", (0.0, 0.0))[1] <= 90
+            and row.windows.get("protein_g", (0.0, 0.0))[0] >= 70
         )
     ]
     assert len(novel) >= 3
@@ -301,3 +307,94 @@ def test_conflict_table_has_non_ramp_rows():
         "cf-90-110",
     }
     assert frozen == {"cf-50-70", "cf-70-90", "cf-90-110"}
+
+
+def _recommend_draft(windows, allergies=(), query="What should I eat tonight?"):
+    generator = Generator()
+    s0 = generator._make_s0(0, generator._difficulty(None))
+    s0.profile = replace(s0.profile, windows=dict(windows), allergies=allergies)
+    s0.ledger = []
+    return Task(
+        "draft",
+        "recommend",
+        query,
+        s0,
+        Oracle(
+            profile=s0.profile,
+            last_plan=[],
+            plan_must_be_safe=True,
+            plan_must_fit_windows=True,
+            ledger=tuple(s0.ledger),
+        ),
+    )
+
+
+def test_recommend_gate_rejects_unsatisfiable_windows():
+    task = _recommend_draft({"kcal": (0.0, 50.0), "protein_g": (70.0, 120.0)})
+    issues = validate_draft(task)
+    assert any("unpassable" in item for item in issues)
+
+
+def test_recommend_gate_accepts_a_normal_meal():
+    task = _recommend_draft({"kcal": (400.0, 800.0), "protein_g": (20.0, 50.0)})
+    assert validate_draft(task) == []
+
+
+def test_every_frozen_item_still_validates():
+    from pathlib import Path
+
+    from nutrienv.bench.split import load_split
+
+    for task in load_split(Path("data/splits/v0.3-gold.json")):
+        assert validate_draft(task) == [], (task.id, validate_draft(task))
+
+
+def test_windows_unsatisfiable_accepts_any_nutrient_pair():
+    catalog = load_catalog()
+    assert _windows_unsatisfiable(
+        {"kcal": (0.0, 50.0), "protein_g": (70.0, 120.0)}, catalog
+    )
+    assert _windows_unsatisfiable(
+        {"kcal": (0.0, 200.0), "fiber_g": (90.0, 200.0)},
+        catalog,
+        floor_nutrient="fiber_g",
+        ceiling_nutrient="kcal",
+    )
+    assert not _windows_unsatisfiable(
+        {"kcal": (0.0, 800.0), "fiber_g": (5.0, 40.0)},
+        catalog,
+        floor_nutrient="fiber_g",
+        ceiling_nutrient="kcal",
+    )
+    # Catalog rounding puts soy isolate at 0.275 g protein/kcal and soybean
+    # lecithin at 0.131 g fat/kcal. The gate must not trust those: protein
+    # cannot exceed 0.25 g/kcal and fat cannot exceed 1/9 g/kcal.
+    assert _windows_unsatisfiable(
+        {"kcal": (0.0, 200.0), "protein_g": (51.0, 80.0)}, catalog
+    )
+    assert not _windows_unsatisfiable(
+        {"kcal": (0.0, 200.0), "protein_g": (49.0, 80.0)}, catalog
+    )
+    assert _windows_unsatisfiable(
+        {"kcal": (0.0, 800.0), "fat_g": (90.0, 160.0)},
+        catalog,
+        floor_nutrient="fat_g",
+        ceiling_nutrient="kcal",
+    )
+    assert not _windows_unsatisfiable(
+        {"kcal": (0.0, 800.0), "fat_g": (80.0, 160.0)},
+        catalog,
+        floor_nutrient="fat_g",
+        ceiling_nutrient="kcal",
+    )
+
+
+def test_conflict_gate_rejects_a_satisfiable_other_pair():
+    good = Generator().sample(8, situation="conflict_windows")
+    good.s0.profile = replace(
+        good.s0.profile,
+        allergies=(),
+        windows={"kcal": (200.0, 800.0), "fiber_g": (4.0, 20.0)},
+    )
+    issues = validate_draft(good)
+    assert any("unsatisfiable" in item or "satisfiable" in item for item in issues)

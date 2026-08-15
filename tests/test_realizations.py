@@ -3,17 +3,24 @@ from nutrienv.bench.realizations import (
     EVALUATE_ROWS,
     FUZZY_ROWS,
     LEFTOVER_ROWS,
+    RECOMMEND_ROWS,
     UPDATE_ROWS,
     assert_constrain_rows,
     assert_evaluate_rows,
     assert_fuzzy_resolves,
     assert_leftover_rows,
+    assert_recommend_rows,
     assert_update_rows,
     evaluate_windows,
     fuzzy_key,
     leftover_key,
+    recommend_key,
 )
-from nutrienv.bench.validator import semantic_key, validate_draft
+from nutrienv.bench.validator import (
+    _any_pair_unsatisfiable,
+    semantic_key,
+    validate_draft,
+)
 from nutrienv.bench import Generator
 from nutrienv.bench.generator import Task
 from nutrienv.world.catalog_store import load_catalog
@@ -49,12 +56,15 @@ def test_leftover_table_remainders_are_positive_and_unique():
 def test_update_constrain_evaluate_tables_have_unique_keys():
     catalog = load_catalog()
     assert len(UPDATE_ROWS) >= 22
-    assert len(CONSTRAIN_ROWS) >= 19
+    assert len(CONSTRAIN_ROWS) >= 42
     assert {row.kind for row in CONSTRAIN_ROWS} == {"condition", "conflict"}
+    assert len([row for row in CONSTRAIN_ROWS if row.kind == "condition"]) >= 19
+    assert len([row for row in CONSTRAIN_ROWS if row.kind == "conflict"]) >= 23
     assert len(EVALUATE_ROWS) >= 55
     assert_update_rows(catalog)
     assert_constrain_rows(catalog)
     assert_evaluate_rows(catalog)
+    assert_recommend_rows(catalog)
 
 
 def test_cut_leftover_rows_carry_plan_preset():
@@ -220,6 +230,11 @@ def test_every_table_row_materializes_to_a_clean_draft():
         task = Task("draft", family, query, s0, oracle, situations, persona)
         assert validate_draft(task) == [], (family, query, validate_draft(task))
 
+    for row in RECOMMEND_ROWS:
+        s0 = _fresh_s0(base)
+        query, oracle = generator._recommend_from_row(s0, row)
+        check("recommend", row.persona, query, oracle, s0)
+
     for row in LEFTOVER_ROWS:
         s0 = _fresh_s0(base)
         query, oracle = generator._leftover_from_row(s0, row)
@@ -243,6 +258,95 @@ def test_every_table_row_materializes_to_a_clean_draft():
         s0 = _fresh_s0(base)
         query, oracle = generator._evaluate_from_row(s0, row)
         check("evaluate", "everyday", query, oracle, s0)
+
+
+def test_recommend_table_covers_declared_axes():
+    catalog = load_catalog()
+    assert len(RECOMMEND_ROWS) >= 40
+    assert_recommend_rows(catalog)
+    personas = {row.persona for row in RECOMMEND_ROWS}
+    assert {"everyday", "cut", "gym", "flex", "htn"} <= personas
+    assert "leftover" not in personas
+    everyday = [row for row in RECOMMEND_ROWS if row.persona == "everyday"]
+    assert len(everyday) > len(RECOMMEND_ROWS) / 2
+    occasions = {row.occasion for row in RECOMMEND_ROWS}
+    assert {"breakfast", "lunch", "dinner", "snack", "post-workout"} <= occasions
+    tags: set[str] = set()
+    for row in RECOMMEND_ROWS:
+        tags.update(row.allergies)
+    assert {
+        "milk",
+        "wheat",
+        "gluten",
+        "fish",
+        "egg",
+        "peanut",
+        "soy",
+        "tree_nut",
+        "shellfish",
+    } <= tags
+    assert any(len(row.allergies) == 2 for row in RECOMMEND_ROWS)
+    assert any(len(row.allergies) >= 3 for row in RECOMMEND_ROWS)
+    third = [
+        row
+        for row in RECOMMEND_ROWS
+        if set(row.windows) - {"kcal", "protein_g"}
+    ]
+    assert len(third) >= 10
+    keys = [recommend_key(row) for row in RECOMMEND_ROWS]
+    assert len(keys) == len(set(keys))
+    for row in RECOMMEND_ROWS:
+        lower = row.query.lower()
+        assert "already ate" not in lower, row.seed_id
+        assert "i ate" not in lower, row.seed_id
+
+
+def test_constrain_conflict_spans_three_mechanisms():
+    conflict = [row for row in CONSTRAIN_ROWS if row.kind == "conflict"]
+    condition = [row for row in CONSTRAIN_ROWS if row.kind == "condition"]
+    assert len(CONSTRAIN_ROWS) >= 42
+    assert len(condition) >= 19
+    assert len(conflict) >= 23
+    mechanisms = {row.mechanism for row in conflict if row.mechanism}
+    assert {"other_pair", "near_miss"} <= mechanisms
+    frozen = {
+        "cf-50-70",
+        "cf-70-90",
+        "cf-90-110",
+        "cf-near-200-56",
+        "cf-near-400-111",
+        "cf-near-800-221",
+    }
+    assert frozen <= {row.seed_id for row in conflict}
+
+
+def test_allergen_conflict_rows_are_infeasible_only_with_the_allergy():
+    catalog = load_catalog()
+    allergen_rows = [
+        row
+        for row in CONSTRAIN_ROWS
+        if row.kind == "conflict" and row.mechanism == "allergen"
+    ]
+    for row in allergen_rows:
+        assert _any_pair_unsatisfiable(
+            row.windows, catalog, row.allergies
+        ), row.seed_id
+        assert not _any_pair_unsatisfiable(
+            row.windows, catalog, ()
+        ), row.seed_id
+
+
+def test_all_recommend_rows_have_distinct_semantic_keys():
+    generator = Generator()
+    knobs = generator._difficulty(None)
+    base = generator._make_s0(0, knobs)
+    keys = []
+    for row in RECOMMEND_ROWS:
+        s0 = _fresh_s0(base)
+        query, oracle = generator._recommend_from_row(s0, row)
+        keys.append(semantic_key(Task("draft", "recommend", query, s0, oracle, (), row.persona)))
+    assert len(keys) == len(RECOMMEND_ROWS)
+    assert len(set(keys)) == len(RECOMMEND_ROWS)
 
 
 def test_validator_accepts_table_drafts_and_rejects_leaks():

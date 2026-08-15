@@ -21,6 +21,7 @@ from .realizations import (
     EVALUATE_ROWS,
     FUZZY_ROWS,
     LEFTOVER_ROWS,
+    RECOMMEND_ROWS,
     UPDATE_ROWS,
     evaluate_windows,
 )
@@ -106,8 +107,6 @@ class Generator:
         situation_name = self._situation_name(situation)
         if persona not in PERSONAS:
             raise ValueError(f"unknown persona {persona!r}; expected one of {PERSONAS}")
-        if persona not in {"everyday", "leftover"}:
-            raise ValueError(f"persona {persona!r} is not implemented in the factory yet")
         if situation_name is not None:
             expected_family = _SITUATION_FAMILY[situation_name]
             if family is not None and family != expected_family:
@@ -344,14 +343,25 @@ class Generator:
     ) -> tuple[str, Oracle]:
         if persona == "leftover":
             return self._build_leftover_recommend(rng, s0)
-        profile = self._profile_for_plan(s0, knobs["n_constraints"])
-        s0.profile = profile
-        query = (
-            "Submit a non-empty food plan that avoids all profile allergies and "
-            "falls within every profile nutrient window."
+        rows = [row for row in RECOMMEND_ROWS if row.persona == persona]
+        if not rows:
+            raise ValueError(f"no recommend rows for persona {persona!r}")
+        return self._recommend_from_row(s0, rows[rng.randrange(len(rows))])
+
+    def _recommend_from_row(self, s0: WorldState, row) -> tuple[str, Oracle]:
+        extras: dict = {}
+        if row.plan_preset is not None:
+            extras["plan_preset"] = dict(row.plan_preset)
+        s0.profile = replace(
+            s0.profile,
+            windows=dict(row.windows),
+            allergies=normalize_tags(row.allergies),
+            **extras,
         )
-        return query, Oracle(
-            profile=copy.deepcopy(profile),
+        s0.ledger = []
+        s0.last_plan = []
+        return row.query, Oracle(
+            profile=copy.deepcopy(s0.profile),
             last_plan=[],
             plan_must_be_safe=True,
             plan_must_fit_windows=True,

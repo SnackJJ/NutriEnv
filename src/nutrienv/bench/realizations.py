@@ -19,22 +19,26 @@ __all__ = [
     "UpdateRow",
     "ConstrainRow",
     "EvaluateRow",
+    "RecommendRow",
     "FUZZY_ROWS",
     "LEFTOVER_ROWS",
     "UPDATE_ROWS",
     "CONSTRAIN_ROWS",
     "EVALUATE_ROWS",
+    "RECOMMEND_ROWS",
     "fuzzy_key",
     "leftover_key",
     "update_key",
     "constrain_key",
     "evaluate_key",
+    "recommend_key",
     "evaluate_windows",
     "assert_fuzzy_resolves",
     "assert_leftover_rows",
     "assert_update_rows",
     "assert_constrain_rows",
     "assert_evaluate_rows",
+    "assert_recommend_rows",
 ]
 
 
@@ -72,6 +76,18 @@ class UpdateRow:
 
 
 @dataclass(frozen=True)
+class RecommendRow:
+    seed_id: str
+    query: str
+    persona: str
+    windows: dict[str, tuple[float, float]]
+    allergies: tuple[str, ...] = ()
+    plan_preset: dict | None = None
+    source: str = "novel"
+    occasion: str = ""
+
+
+@dataclass(frozen=True)
 class ConstrainRow:
     seed_id: str
     kind: str
@@ -81,6 +97,7 @@ class ConstrainRow:
     food_id: str | None = None
     last_plan: tuple[tuple[str, float], ...] = ()
     source: str = "novel"
+    mechanism: str | None = None
 
 
 @dataclass(frozen=True)
@@ -111,6 +128,20 @@ def update_key(row: UpdateRow) -> tuple:
 def constrain_key(row: ConstrainRow) -> tuple:
     windows = tuple(sorted((key, bounds) for key, bounds in row.windows.items()))
     return ("constrain", row.kind, row.food_id, row.allergies, windows, row.last_plan)
+
+
+def recommend_key(row: RecommendRow) -> tuple:
+    windows = tuple(sorted((key, tuple(bounds)) for key, bounds in row.windows.items()))
+    preset = None
+    if row.plan_preset:
+        preset = tuple(sorted(row.plan_preset.items()))
+    return (
+        "recommend",
+        row.persona,
+        tuple(sorted(row.allergies)),
+        windows,
+        preset,
+    )
 
 
 def evaluate_key(row: EvaluateRow) -> tuple:
@@ -701,6 +732,341 @@ UPDATE_ROWS: tuple[UpdateRow, ...] = (
 )
 
 
+# Gold-shaped first so the factory still covers the calibration shapes.
+RECOMMEND_ROWS: tuple[RecommendRow, ...] = (
+    RecommendRow(
+        "rec-safe-001",
+        "Can you put together a meal that works with my targets and allergies?",
+        "everyday",
+        {"kcal": (400.0, 800.0), "protein_g": (25.0, 55.0)},
+        allergies=("peanut", "shellfish"),
+        source="gold",
+        occasion="dinner",
+    ),
+    RecommendRow(
+        "rec-cut-001",
+        "I'm cutting and don't want to blow dinner. What should I eat?",
+        "cut",
+        {"kcal": (400.0, 600.0), "protein_g": (35.0, 55.0)},
+        plan_preset={"goal": "cut"},
+        source="gold",
+        occasion="dinner",
+    ),
+    RecommendRow(
+        "rec-gym-001",
+        "Just finished lifting — what should I eat?",
+        "gym",
+        {"kcal": (400.0, 750.0), "protein_g": (35.0, 65.0)},
+        plan_preset={"goal": "muscle"},
+        source="gold",
+        occasion="post-workout",
+    ),
+    RecommendRow(
+        "rec-flex-001",
+        "Tonight I want something more filling. Any ideas?",
+        "flex",
+        {"kcal": (700.0, 1200.0), "protein_g": (20.0, 80.0)},
+        allergies=("peanut",),
+        plan_preset={"flex_day": True},
+        source="gold",
+        occasion="dinner",
+    ),
+    RecommendRow(
+        "rec-htn-001",
+        "What's for dinner?",
+        "htn",
+        {"kcal": (400.0, 800.0), "protein_g": (20.0, 50.0), "sodium_mg": (0.0, 400.0)},
+        source="gold",
+        occasion="dinner",
+    ),
+    RecommendRow(
+        "rec-snack-001",
+        "I need a snack.",
+        "everyday",
+        {"kcal": (80.0, 250.0), "protein_g": (8.0, 25.0)},
+        allergies=("peanut",),
+        source="gold",
+        occasion="snack",
+    ),
+    RecommendRow(
+        "rec-bfast-wide",
+        "What's a simple breakfast I can actually make?",
+        "everyday",
+        {"kcal": (350.0, 650.0), "protein_g": (12.0, 40.0)},
+        occasion="breakfast",
+    ),
+    RecommendRow(
+        "rec-lunch-milk",
+        "I have to skip dairy. What should lunch look like?",
+        "everyday",
+        {"kcal": (450.0, 750.0), "protein_g": (25.0, 55.0)},
+        allergies=("milk",),
+        occasion="lunch",
+    ),
+    RecommendRow(
+        "rec-dinner-egg",
+        "Eggs are off the table for me. What can I have tonight?",
+        "everyday",
+        {"kcal": (400.0, 800.0), "protein_g": (20.0, 50.0)},
+        allergies=("egg",),
+        occasion="dinner",
+    ),
+    RecommendRow(
+        "rec-lunch-fish",
+        "No fish, please. What should I eat for lunch?",
+        "everyday",
+        {"kcal": (450.0, 700.0), "protein_g": (30.0, 55.0)},
+        allergies=("fish",),
+        occasion="lunch",
+    ),
+    RecommendRow(
+        "rec-dinner-soy",
+        "Soy is a no for me. What should dinner be?",
+        "everyday",
+        {"kcal": (400.0, 750.0), "protein_g": (20.0, 50.0)},
+        allergies=("soy",),
+        occasion="dinner",
+    ),
+    RecommendRow(
+        "rec-snack-treenut",
+        "I need a mid-afternoon bite and I can't do tree nuts.",
+        "everyday",
+        {"kcal": (100.0, 280.0), "protein_g": (8.0, 22.0)},
+        allergies=("tree_nut",),
+        occasion="snack",
+    ),
+    RecommendRow(
+        "rec-lunch-wheat",
+        "Wheat is out. What should I pack for lunch?",
+        "everyday",
+        {"kcal": (450.0, 780.0), "protein_g": (25.0, 50.0)},
+        allergies=("wheat",),
+        occasion="lunch",
+    ),
+    RecommendRow(
+        "rec-dinner-gluten",
+        "Keep gluten away from dinner. What should I eat?",
+        "everyday",
+        {"kcal": (400.0, 720.0), "protein_g": (22.0, 48.0)},
+        allergies=("gluten",),
+        occasion="dinner",
+    ),
+    RecommendRow(
+        "rec-bfast-wheat-gluten",
+        "Bread is a problem — wheat and gluten both. What's breakfast?",
+        "everyday",
+        {"kcal": (320.0, 580.0), "protein_g": (15.0, 40.0)},
+        allergies=("wheat", "gluten"),
+        occasion="breakfast",
+    ),
+    RecommendRow(
+        "rec-lunch-milk-egg",
+        "No dairy, no eggs. What works for lunch?",
+        "everyday",
+        {"kcal": (450.0, 760.0), "protein_g": (25.0, 52.0)},
+        allergies=("egg", "milk"),
+        occasion="lunch",
+    ),
+    RecommendRow(
+        "rec-dinner-fish-shell",
+        "Seafood of any kind is a bad idea. What's dinner?",
+        "everyday",
+        {"kcal": (400.0, 780.0), "protein_g": (28.0, 55.0)},
+        allergies=("fish", "shellfish"),
+        occasion="dinner",
+    ),
+    RecommendRow(
+        "rec-snack-peanut-soy-tn",
+        "Peanuts, soy, and tree nuts are all out. I just need a snack.",
+        "everyday",
+        {"kcal": (90.0, 240.0), "protein_g": (10.0, 24.0)},
+        allergies=("peanut", "soy", "tree_nut"),
+        occasion="snack",
+    ),
+    RecommendRow(
+        "rec-dinner-milk-wheat-soy",
+        "Dairy, wheat, and soy all bother me. What should I eat tonight?",
+        "everyday",
+        {"kcal": (420.0, 800.0), "protein_g": (22.0, 50.0)},
+        allergies=("milk", "soy", "wheat"),
+        occasion="dinner",
+    ),
+    RecommendRow(
+        "rec-lunch-tight",
+        "I only have room for a small lunch. What should I eat?",
+        "everyday",
+        {"kcal": (480.0, 560.0), "protein_g": (30.0, 42.0)},
+        occasion="lunch",
+    ),
+    RecommendRow(
+        "rec-dinner-sodium",
+        "I want dinner that isn't a salt bomb. What should I eat?",
+        "everyday",
+        {"kcal": (400.0, 800.0), "protein_g": (20.0, 50.0), "sodium_mg": (0.0, 500.0)},
+        allergies=("peanut",),
+        occasion="dinner",
+    ),
+    RecommendRow(
+        "rec-bfast-fiber",
+        "I want breakfast that actually has some fibre. Ideas?",
+        "everyday",
+        {"kcal": (350.0, 600.0), "protein_g": (15.0, 40.0), "fiber_g": (6.0, 20.0)},
+        occasion="breakfast",
+    ),
+    RecommendRow(
+        "rec-lunch-fat",
+        "Keep lunch on the lean side — no shellfish either. What should I eat?",
+        "everyday",
+        {"kcal": (450.0, 750.0), "protein_g": (25.0, 50.0), "fat_g": (10.0, 30.0)},
+        allergies=("shellfish",),
+        occasion="lunch",
+    ),
+    RecommendRow(
+        "rec-snack-fiber",
+        "A fibre-ish snack, and skip eggs. What have you got?",
+        "everyday",
+        {"kcal": (120.0, 280.0), "protein_g": (10.0, 25.0), "fiber_g": (4.0, 12.0)},
+        allergies=("egg",),
+        occasion="snack",
+    ),
+    RecommendRow(
+        "rec-dinner-carb",
+        "I want a carb-forward dinner. What should I eat?",
+        "everyday",
+        {"kcal": (500.0, 800.0), "protein_g": (20.0, 45.0), "carb_g": (40.0, 90.0)},
+        occasion="dinner",
+    ),
+    RecommendRow(
+        "rec-cut-lunch-tight",
+        "I'm cutting and lunch has to stay small. What should I eat?",
+        "cut",
+        {"kcal": (380.0, 520.0), "protein_g": (38.0, 52.0)},
+        plan_preset={"goal": "cut"},
+        occasion="lunch",
+    ),
+    RecommendRow(
+        "rec-cut-milk",
+        "Cutting, and dairy is out. What's dinner?",
+        "cut",
+        {"kcal": (400.0, 580.0), "protein_g": (35.0, 50.0)},
+        allergies=("milk",),
+        plan_preset={"goal": "cut"},
+        occasion="dinner",
+    ),
+    RecommendRow(
+        "rec-cut-fiber",
+        "I'm cutting and I'd like lunch with some fibre. Wheat is a no.",
+        "cut",
+        {"kcal": (400.0, 600.0), "protein_g": (35.0, 55.0), "fiber_g": (5.0, 18.0)},
+        allergies=("wheat",),
+        plan_preset={"goal": "cut"},
+        occasion="lunch",
+    ),
+    RecommendRow(
+        "rec-gym-peanut",
+        "Just trained and I can't do peanuts. What should I eat?",
+        "gym",
+        {"kcal": (450.0, 800.0), "protein_g": (40.0, 70.0)},
+        allergies=("peanut",),
+        plan_preset={"goal": "muscle"},
+        occasion="post-workout",
+    ),
+    RecommendRow(
+        "rec-gym-egg-milk",
+        "Need dinner after training — no eggs, no dairy.",
+        "gym",
+        {"kcal": (420.0, 760.0), "protein_g": (38.0, 68.0)},
+        allergies=("egg", "milk"),
+        plan_preset={"goal": "muscle"},
+        occasion="dinner",
+    ),
+    RecommendRow(
+        "rec-gym-sodium",
+        "Post-lift meal that isn't swimming in salt. What should I eat?",
+        "gym",
+        {"kcal": (400.0, 750.0), "protein_g": (35.0, 65.0), "sodium_mg": (0.0, 450.0)},
+        plan_preset={"goal": "muscle"},
+        occasion="post-workout",
+    ),
+    RecommendRow(
+        "rec-flex-lunch",
+        "I'm starving and lunch can be a bigger plate than usual.",
+        "flex",
+        {"kcal": (750.0, 1250.0), "protein_g": (25.0, 85.0)},
+        plan_preset={"flex_day": True},
+        occasion="lunch",
+    ),
+    RecommendRow(
+        "rec-flex-fish",
+        "Flex night, but skip the fish. What should I eat?",
+        "flex",
+        {"kcal": (700.0, 1150.0), "protein_g": (20.0, 75.0)},
+        allergies=("fish",),
+        plan_preset={"flex_day": True},
+        occasion="dinner",
+    ),
+    RecommendRow(
+        "rec-flex-fat",
+        "I can go bigger tonight, just not with tree nuts, and keep fat in check.",
+        "flex",
+        {"kcal": (720.0, 1180.0), "protein_g": (22.0, 80.0), "fat_g": (15.0, 55.0)},
+        allergies=("tree_nut",),
+        plan_preset={"flex_day": True},
+        occasion="dinner",
+    ),
+    RecommendRow(
+        "rec-htn-lunch",
+        "What's a low-salt lunch? Peanuts are out too.",
+        "htn",
+        {"kcal": (400.0, 750.0), "protein_g": (22.0, 48.0), "sodium_mg": (0.0, 350.0)},
+        allergies=("peanut",),
+        occasion="lunch",
+    ),
+    RecommendRow(
+        "rec-htn-milk",
+        "Dinner, keep the salt down, and I can't do dairy.",
+        "htn",
+        {"kcal": (380.0, 720.0), "protein_g": (20.0, 50.0), "sodium_mg": (0.0, 380.0)},
+        allergies=("milk",),
+        occasion="dinner",
+    ),
+    RecommendRow(
+        "rec-htn-fiber",
+        "A breakfast that isn't salty and has some fibre in it?",
+        "htn",
+        {
+            "kcal": (400.0, 800.0),
+            "protein_g": (20.0, 50.0),
+            "sodium_mg": (0.0, 420.0),
+            "fiber_g": (5.0, 16.0),
+        },
+        occasion="breakfast",
+    ),
+    RecommendRow(
+        "rec-bfast-shellfish",
+        "Shellfish is a no. What's breakfast?",
+        "everyday",
+        {"kcal": (300.0, 550.0), "protein_g": (14.0, 38.0)},
+        allergies=("shellfish",),
+        occasion="breakfast",
+    ),
+    RecommendRow(
+        "rec-snack-soy",
+        "Quick snack, and keep soy out of it.",
+        "everyday",
+        {"kcal": (100.0, 260.0), "protein_g": (8.0, 22.0)},
+        allergies=("soy",),
+        occasion="snack",
+    ),
+    RecommendRow(
+        "rec-dinner-fat-ceil",
+        "Dinner that isn't greasy. What should I eat?",
+        "everyday",
+        {"kcal": (400.0, 700.0), "protein_g": (22.0, 50.0), "fat_g": (5.0, 25.0)},
+        occasion="dinner",
+    ),
+)
+
 _MEAL = {"kcal": (400.0, 800.0), "protein_g": (20.0, 50.0)}
 
 CONSTRAIN_ROWS: tuple[ConstrainRow, ...] = (
@@ -786,6 +1152,86 @@ CONSTRAIN_ROWS: tuple[ConstrainRow, ...] = (
         ("soy",),
         {"kcal": (350.0, 720.0), "protein_g": (12.0, 42.0)},
         food_id="soy_milk",
+    ),
+    ConstrainRow(
+        "co-cheddar",
+        "condition",
+        "I was thinking of putting cheddar on dinner. Is that okay for me, or what should I have instead?",
+        ("milk",),
+        {"kcal": (400.0, 800.0), "protein_g": (20.0, 50.0)},
+        food_id="cheddar",
+    ),
+    ConstrainRow(
+        "co-yogurt",
+        "condition",
+        "Is Greek yogurt a good snack for me, or should I pick something else?",
+        ("milk",),
+        {"kcal": (300.0, 650.0), "protein_g": (12.0, 40.0)},
+        food_id="greek_yogurt",
+    ),
+    ConstrainRow(
+        "co-tuna",
+        "condition",
+        "Would a tuna plate work for lunch, or what should I have instead?",
+        ("fish",),
+        {"kcal": (400.0, 750.0), "protein_g": (20.0, 50.0)},
+        food_id="tuna",
+    ),
+    ConstrainRow(
+        "co-pasta",
+        "condition",
+        "I was craving pasta tonight. Is that okay for me, or what should I have instead?",
+        ("wheat",),
+        {"kcal": (400.0, 800.0), "protein_g": (20.0, 50.0)},
+        food_id="pasta",
+    ),
+    ConstrainRow(
+        "co-bread",
+        "condition",
+        "Can I have whole wheat bread with dinner, or what should I have instead?",
+        ("gluten",),
+        {"kcal": (350.0, 700.0), "protein_g": (15.0, 45.0)},
+        food_id="whole_wheat_bread",
+    ),
+    ConstrainRow(
+        "co-soy-sauce",
+        "condition",
+        "Is it alright if I cook with soy sauce tonight, or what should I have instead?",
+        ("soy",),
+        {"kcal": (400.0, 780.0), "protein_g": (20.0, 50.0)},
+        food_id="2707442",
+    ),
+    ConstrainRow(
+        "co-crab",
+        "condition",
+        "I was looking at crab for dinner. Is that okay for me, or what should I have instead?",
+        ("shellfish",),
+        {"kcal": (400.0, 800.0), "protein_g": (25.0, 55.0)},
+        food_id="2706344",
+    ),
+    ConstrainRow(
+        "co-cashew-butter",
+        "condition",
+        "Is cashew butter okay on breakfast, or what should I have instead?",
+        ("tree_nut",),
+        {"kcal": (300.0, 650.0), "protein_g": (10.0, 40.0)},
+        food_id="2707536",
+    ),
+    ConstrainRow(
+        "co-wheat-bran",
+        "condition",
+        "I was thinking of adding wheat bran at breakfast. Is that okay for me, or what should I have instead?",
+        ("wheat",),
+        {"kcal": (350.0, 720.0), "protein_g": (15.0, 42.0)},
+        food_id="2708488",
+    ),
+    ConstrainRow(
+        "co-cream-cheese",
+        "condition",
+        "I was going to spread cream cheese, regular, plain on something. Is that okay for me, or what should I have instead?",
+        ("milk",),
+        {"kcal": (320.0, 700.0), "protein_g": (12.0, 40.0)},
+        food_id="2705760",
     ),
     ConstrainRow(
         "cf-50-70",
@@ -882,6 +1328,96 @@ CONSTRAIN_ROWS: tuple[ConstrainRow, ...] = (
         (),
         {"kcal": (0.0, 800.0), "protein_g": (221.0, 300.0)},
         last_plan=(("greek_yogurt", 245.0),),
+    ),
+    ConstrainRow(
+        "cf-fib-200-90",
+        "conflict",
+        "I want a huge amount of fibre without going over this calorie ceiling. Can you make it work?",
+        (),
+        {"kcal": (0.0, 200.0), "fiber_g": (90.0, 200.0)},
+        last_plan=(("oats", 200.0),),
+        mechanism="other_pair",
+    ),
+    ConstrainRow(
+        "cf-fib-150-80",
+        "conflict",
+        "Is there any mix of foods that hits this fibre floor inside such a small calorie budget?",
+        (),
+        {"kcal": (0.0, 150.0), "fiber_g": (80.0, 160.0)},
+        last_plan=(("black_beans", 200.0),),
+        mechanism="other_pair",
+    ),
+    ConstrainRow(
+        "cf-fat-400-55",
+        "conflict",
+        "I need more fat than this calorie cap can possibly hold. Submit a plan if you can.",
+        (),
+        {"kcal": (0.0, 400.0), "fat_g": (55.0, 100.0)},
+        last_plan=(("olive_oil", 50.0),),
+        mechanism="other_pair",
+    ),
+    ConstrainRow(
+        "cf-fat-600-82",
+        "conflict",
+        "These fat and calorie windows feel like they fight each other. Can you still make a plan?",
+        (),
+        {"kcal": (0.0, 600.0), "fat_g": (82.0, 140.0)},
+        last_plan=(("peanut_butter", 100.0),),
+        mechanism="other_pair",
+    ),
+    ConstrainRow(
+        "cf-fib-carb-40-45",
+        "conflict",
+        "I want more fibre than the carb ceiling can support. What would a day of eating look like?",
+        (),
+        {"carb_g": (0.0, 40.0), "fiber_g": (45.0, 80.0)},
+        last_plan=(("broccoli", 200.0),),
+        mechanism="other_pair",
+    ),
+    ConstrainRow(
+        "cf-near-250-70",
+        "conflict",
+        "Can you put together something around 250 calories that still hits my protein target?",
+        (),
+        {"kcal": (0.0, 250.0), "protein_g": (70.0, 110.0)},
+        last_plan=(("chicken_breast", 180.0),),
+        mechanism="near_miss",
+    ),
+    ConstrainRow(
+        "cf-near-350-97",
+        "conflict",
+        "I only have a 350 calorie budget left. Can you still make a high-protein meal?",
+        (),
+        {"kcal": (0.0, 350.0), "protein_g": (97.0, 140.0)},
+        last_plan=(("tuna", 165.0),),
+        mechanism="near_miss",
+    ),
+    ConstrainRow(
+        "cf-near-180-50",
+        "conflict",
+        "Fifty grams of protein in a very small calorie box. Make a plan anyway?",
+        (),
+        {"kcal": (0.0, 180.0), "protein_g": (50.0, 80.0)},
+        last_plan=(("egg", 200.0),),
+        mechanism="near_miss",
+    ),
+    ConstrainRow(
+        "cf-near-fib-250-90",
+        "conflict",
+        "Can you hit this fibre target without going over about 250 calories?",
+        (),
+        {"kcal": (0.0, 250.0), "fiber_g": (90.0, 150.0)},
+        last_plan=(("oats", 150.0),),
+        mechanism="near_miss",
+    ),
+    ConstrainRow(
+        "cf-near-fat-500-67",
+        "conflict",
+        "I need a lot of fat in a 500 calorie budget. Is there any mix that works?",
+        (),
+        {"kcal": (0.0, 500.0), "fat_g": (67.0, 120.0)},
+        last_plan=(("olive_oil", 40.0),),
+        mechanism="near_miss",
     ),
 )
 
@@ -1336,28 +1872,6 @@ def _catalog_tags(catalog) -> set[str]:
     return tags
 
 
-def _windows_unsatisfiable(windows: dict, catalog, allergies: tuple[str, ...] = ()) -> bool:
-    banned = set(allergies)
-    kcal_hi = float(windows.get("kcal", (0.0, 0.0))[1])
-    prot_lo = float(windows.get("protein_g", (0.0, 0.0))[0])
-    best = 0.0
-    for entry in catalog.values():
-        tags = set(entry.get("allergen_tags") or [])
-        if tags & banned:
-            continue
-        nutrients = entry.get("nutrients") or {}
-        kcal = float(nutrients.get("kcal") or 0.0)
-        protein = float(nutrients.get("protein_g") or 0.0)
-        if protein <= 0:
-            continue
-        if kcal <= 0:
-            if protein >= 1.0:
-                return False
-            continue
-        best = max(best, protein / kcal)
-    return best * kcal_hi < prot_lo
-
-
 def assert_fuzzy_resolves(catalog) -> None:
     """Raise if any table row cannot be converted by the live catalog."""
     seen: set[tuple] = set()
@@ -1413,7 +1927,9 @@ def assert_constrain_rows(catalog) -> None:
         else:
             if not row.last_plan:
                 raise RuntimeError(f"{row.seed_id} conflict row has no violating plan")
-            if not _windows_unsatisfiable(row.windows, catalog, row.allergies):
+            from nutrienv.bench.validator import _any_pair_unsatisfiable
+
+            if not _any_pair_unsatisfiable(row.windows, catalog, row.allergies):
                 raise RuntimeError(f"{row.seed_id} windows are satisfiable")
         for tag in row.allergies:
             if tag not in tags:
@@ -1440,4 +1956,19 @@ def assert_evaluate_rows(catalog) -> None:
         key = evaluate_key(row)
         if key in seen:
             raise RuntimeError(f"duplicate evaluate key {key}")
+        seen.add(key)
+
+
+def assert_recommend_rows(catalog) -> None:
+    tags = _catalog_tags(catalog)
+    seen: set[tuple] = set()
+    for row in RECOMMEND_ROWS:
+        if row.persona == "leftover":
+            raise RuntimeError(f"{row.seed_id} leftover recommend belongs in LEFTOVER_ROWS")
+        for tag in row.allergies:
+            if tag not in tags:
+                raise RuntimeError(f"{row.seed_id} uses non-tag allergy {tag!r}")
+        key = recommend_key(row)
+        if key in seen:
+            raise RuntimeError(f"duplicate recommend key {key}")
         seen.add(key)
