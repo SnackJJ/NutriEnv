@@ -405,6 +405,78 @@ def test_every_frozen_item_still_validates():
         assert validate_draft(task) == [], (task.id, validate_draft(task))
 
 
+def test_update_gate_rejects_undeclared_preset_change():
+    good = _sample_until("update", lambda task: "200" in task.query and "shrimp" in task.query.lower())
+    assert validate_draft(good) == []
+    broken = replace(
+        good,
+        oracle=replace(
+            good.oracle,
+            profile=replace(good.oracle.profile, plan_preset={"goal": "muscle"}),
+        ),
+    )
+    issues = validate_draft(broken)
+    assert any("plan_preset" in item for item in issues)
+
+
+def test_update_gate_rejects_unevidenced_removal():
+    good = _custom_update(
+        "Please add milk to my allergies after I reacted to it.",
+        add_allergens=("milk",),
+    )
+    remaining = tuple(tag for tag in good.oracle.profile.allergies if tag != "peanut")
+    broken = replace(
+        good,
+        oracle=replace(
+            good.oracle,
+            profile=replace(good.oracle.profile, allergies=remaining),
+        ),
+    )
+    issues = validate_draft(broken)
+    assert any("removal" in item or "removed" in item for item in issues)
+
+
+def test_update_gate_rejects_two_window_query_with_one_magnitude():
+    good = _custom_update(
+        "Raise my calorie range by 200 at both ends and my protein range by 20 at both ends.",
+        window_shifts={"kcal": 200.0, "protein_g": 20.0},
+    )
+    assert validate_draft(good) == []
+    one_number = replace(
+        good,
+        query="Raise my calorie range by 200 at both ends and raise protein at both ends.",
+    )
+    issues = validate_draft(one_number)
+    assert any("magnitude" in item for item in issues)
+
+
+def test_declared_update_axes_are_accepted():
+    generator = Generator()
+    knobs = generator._difficulty(None)
+    base = generator._make_s0(0, knobs)
+    wanted = {
+        "up-rm-peanut",
+        "up-floor-protein-20",
+        "up-two-kcal-200-prot-20",
+        "up-add-milk-egg",
+        "up-preset-cut-muscle",
+    }
+    for row in UPDATE_ROWS:
+        if row.seed_id not in wanted:
+            continue
+        from nutrienv.world.types import WorldState
+
+        s0 = WorldState(
+            profile=base.profile,
+            ledger=list(base.ledger),
+            catalog=base.catalog,
+            last_plan=list(base.last_plan),
+        )
+        query, oracle = generator._update_from_row(s0, row)
+        issues = validate_draft(Task("draft", "update", query, s0, oracle))
+        assert issues == [], (row.seed_id, issues)
+
+
 def test_windows_unsatisfiable_accepts_any_nutrient_pair():
     catalog = load_catalog()
     assert _windows_unsatisfiable(

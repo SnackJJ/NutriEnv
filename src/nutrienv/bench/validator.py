@@ -24,6 +24,8 @@ _UP = re.compile(r"\b(up|raise|increase|add|more|higher)\b")
 _DOWN = re.compile(r"\b(down|lower|reduce|less)\b|\bcut|take\s+\S*\s*off")
 _KCAL_WORD = re.compile(r"calorie|kcal|caloric")
 _PROTEIN_WORD = re.compile(r"protein")
+_FLOOR_WORD = re.compile(r"\bfloor\b|lower\s+end|\bbottom\b")
+_CEILING_WORD = re.compile(r"\bceiling\b|upper\s+end|\btop\b")
 _SPELLED_MAGNITUDE = (
     ("four hundred", 400.0),
     ("three hundred", 300.0),
@@ -53,6 +55,35 @@ def semantic_key(task: Task) -> tuple:
             row.grams,
             row.eaten_at,
         )
+    if task.situations == ("multi_item_log",) and task.oracle.ledger_tail:
+        items = tuple(
+            (row.food_id, row.grams, row.eaten_at) for row in task.oracle.ledger_tail
+        )
+        return (task.family, "multi_item_log", task.persona, items)
+    if task.situations == ("unit_convert",) and task.oracle.ledger_tail:
+        row = task.oracle.ledger_tail[0]
+        return (
+            task.family,
+            "unit_convert",
+            task.persona,
+            row.food_id,
+            row.grams,
+            row.eaten_at,
+        )
+    if task.situations == ("near_synonym",) and task.oracle.ledger_tail:
+        row = task.oracle.ledger_tail[0]
+        return (
+            task.family,
+            "near_synonym",
+            task.persona,
+            row.food_id,
+            row.grams,
+            row.eaten_at,
+        )
+    if task.situations == ("ledger_gap",) and task.oracle.ledger_tail:
+        missing = tuple((row.food_id, row.eaten_at) for row in task.oracle.ledger_tail)
+        surround = tuple(sorted(row.eaten_at for row in task.s0.ledger))
+        return (task.family, "ledger_gap", task.persona, missing, surround)
     if task.persona == "leftover":
         foods = tuple((row.food_id, row.eaten_at) for row in task.s0.ledger)
         windows = tuple(sorted(task.s0.profile.windows))
@@ -74,6 +105,9 @@ def semantic_key(task: Task) -> tuple:
         added = tuple(
             sorted(set(task.oracle.profile.allergies) - set(task.s0.profile.allergies))
         )
+        removed = tuple(
+            sorted(set(task.s0.profile.allergies) - set(task.oracle.profile.allergies))
+        )
         shifted = tuple(
             sorted(
                 (
@@ -83,16 +117,23 @@ def semantic_key(task: Task) -> tuple:
                         - task.s0.profile.windows[key][0],
                         2,
                     ),
+                    round(
+                        task.oracle.profile.windows[key][1]
+                        - task.s0.profile.windows[key][1],
+                        2,
+                    ),
                 )
                 for key, bounds in task.oracle.profile.windows.items()
                 if task.s0.profile.windows.get(key) != bounds
             )
         )
-        goal = None
-        preset = task.s0.profile.plan_preset
-        if isinstance(preset, dict):
-            goal = preset.get("goal")
-        return (task.family, added, shifted, goal)
+        goal_before = None
+        goal_after = None
+        if isinstance(task.s0.profile.plan_preset, dict):
+            goal_before = task.s0.profile.plan_preset.get("goal")
+        if isinstance(task.oracle.profile.plan_preset, dict):
+            goal_after = task.oracle.profile.plan_preset.get("goal")
+        return (task.family, added, removed, shifted, goal_before, goal_after)
     if task.family == "constrain":
         kind = "condition" if "condition_suitability" in task.situations else "conflict"
         allergies = tuple(task.s0.profile.allergies)
@@ -236,6 +277,39 @@ def _oracle_window_shifts(
     return actual
 
 
+def _normalize_shift(delta) -> float | tuple[float, float]:
+    if isinstance(delta, (tuple, list)):
+        dlo, dhi = float(delta[0]), float(delta[1])
+        return dlo if dlo == dhi else (dlo, dhi)
+    return float(delta)
+
+
+def _shift_magnitudes(shift: float | tuple[float, float]) -> set[float]:
+    if isinstance(shift, tuple):
+        return {abs(part) for part in shift if part != 0.0}
+    if float(shift) == 0.0:
+        return set()
+    return {abs(float(shift))}
+
+
+def _declared_asymmetric(row, key: str) -> bool:
+    if row is None:
+        return False
+    delta = (row.window_shifts or {}).get(key)
+    if not isinstance(delta, (tuple, list)):
+        return False
+    return float(delta[0]) != float(delta[1])
+
+
+def _preset_evidenced(query: str, preset: dict) -> bool:
+    for value in preset.values():
+        if isinstance(value, str) and value and _token_in_query(value, query):
+            return True
+        if value is True and _token_in_query("flex", query):
+            return True
+    return False
+
+
 def _validate_update(task: Task, query: str) -> list[str]:
     issues: list[str] = []
     oracle = task.oracle.profile
@@ -257,11 +331,21 @@ def _validate_update(task: Task, query: str) -> list[str]:
         issues.append("update changed an identity field")
     if oracle.medications != s0.medications:
         issues.append("update changed unmentioned medications")
+    row = next((item for item in UPDATE_ROWS if item.query == task.query), None)
+    declared_preset = getattr(row, "set_plan_preset", None) if row else None
     if oracle.plan_preset != s0.plan_preset:
-        issues.append("update changed unmentioned plan_preset")
+        if declared_preset is None:
+            issues.append("update changed unmentioned plan_preset")
+        elif oracle.plan_preset != declared_preset:
+            issues.append("update plan_preset does not match the row")
+        elif not _preset_evidenced(query, declared_preset):
+            issues.append("update plan_preset is not evidenced in the query")
+    elif declared_preset is not None and oracle.plan_preset != declared_preset:
+        issues.append("update row declared plan_preset change missing from oracle")
     mentions_kcal = _KCAL_WORD.search(query) is not None
     mentions_protein = _PROTEIN_WORD.search(query) is not None
     magnitudes = _query_magnitudes(query)
+    actual_mags: set[float] = set()
     for key, bounds in oracle.windows.items():
         s0_bounds = s0.windows.get(key)
         if s0_bounds == bounds:
@@ -277,15 +361,22 @@ def _validate_update(task: Task, query: str) -> list[str]:
         dlo = float(bounds[0]) - float(s0_bounds[0])
         dhi = float(bounds[1]) - float(s0_bounds[1])
         if dlo != dhi:
-            issues.append(f"update window {key} shift is asymmetric")
-            continue
-        delta = dlo
-        if magnitudes != {abs(delta)}:
-            issues.append(f"update window delta {abs(delta):g} is not the query magnitude")
-        if delta > 0 and _UP.search(query) is None:
-            issues.append("update window rose but query has no up-direction word")
-        if delta < 0 and _DOWN.search(query) is None:
-            issues.append("update window fell but query has no down-direction word")
+            if not _declared_asymmetric(row, key):
+                issues.append(f"update window {key} shift is asymmetric")
+                continue
+            if dlo != 0.0 and _FLOOR_WORD.search(query) is None:
+                issues.append(f"update window {key} moved the floor but query names no bound")
+            if dhi != 0.0 and _CEILING_WORD.search(query) is None:
+                issues.append(f"update window {key} moved the ceiling but query names no bound")
+        actual_mags.update(_shift_magnitudes((dlo, dhi) if dlo != dhi else dlo))
+        if dlo > 0 or dhi > 0:
+            if _UP.search(query) is None:
+                issues.append("update window rose but query has no up-direction word")
+        if dlo < 0 or dhi < 0:
+            if _DOWN.search(query) is None:
+                issues.append("update window fell but query has no down-direction word")
+    if actual_mags and magnitudes != actual_mags:
+        issues.append("update window deltas are not the query magnitudes")
     for key, bounds in s0.windows.items():
         if key in oracle.windows:
             continue
@@ -295,34 +386,45 @@ def _validate_update(task: Task, query: str) -> list[str]:
         if not mentioned:
             issues.append(f"update dropped unmentioned window {key}")
     added = set(oracle.allergies) - set(s0.allergies)
+    removed = set(s0.allergies) - set(oracle.allergies)
     for tag in added:
         if not _food_mentions_tag(query, tag, task.s0.catalog):
             issues.append(f"update allergy {tag} is not evidenced in the query")
-    issues.extend(_validate_update_matches_row(task, added))
+    for tag in removed:
+        if not _food_mentions_tag(query, tag, task.s0.catalog):
+            issues.append(f"update allergy removal {tag} is not evidenced in the query")
+    issues.extend(_validate_update_matches_row(task, added, removed))
     return issues
 
 
-def _validate_update_matches_row(task: Task, added: set[str]) -> list[str]:
+def _validate_update_matches_row(
+    task: Task, added: set[str], removed: set[str]
+) -> list[str]:
     issues: list[str] = []
     row = next((item for item in UPDATE_ROWS if item.query == task.query), None)
     if row is None or task.oracle.profile is None:
         return issues
-    declared = set(row.add_allergens)
-    if added != declared:
+    if added != set(row.add_allergens):
         issues.append("update oracle allergens do not match the row")
-    removed = set(task.s0.profile.allergies) - set(task.oracle.profile.allergies)
-    if removed:
+    declared_removed = set(row.remove_allergens)
+    extra = removed - declared_removed
+    missing = declared_removed - removed
+    if extra:
         issues.append("update oracle removed allergies the row did not declare")
+    if missing:
+        issues.append("update row declared allergen removal missing from oracle")
     declared_shifts = dict(row.window_shifts or {})
     actual = _oracle_window_shifts(task.s0.profile.windows, task.oracle.profile.windows)
     for key, delta in declared_shifts.items():
-        if float(delta) == 0.0:
+        normalized = _normalize_shift(delta)
+        zero = normalized == 0.0 or normalized == (0.0, 0.0)
+        if zero:
             if key not in actual:
                 issues.append(f"update zero-magnitude {key} shift was skipped")
             continue
         if key not in actual:
             issues.append(f"update row declared {key} shift missing from oracle")
-        elif actual[key] != float(delta):
+        elif actual[key] != normalized:
             issues.append(f"update oracle {key} shift {actual[key]} != declared {delta}")
     for key in actual:
         if key not in declared_shifts:

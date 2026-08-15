@@ -1,7 +1,7 @@
 import pytest
 
 from nutrienv.bench import Generator, SITUATIONS, Situation
-from nutrienv.bench.realizations import FUZZY_ROWS, UPDATE_ROWS
+from nutrienv.bench.realizations import FUZZY_ROWS, NEAR_SYNONYM_ROWS, UNIT_CONVERT_ROWS, UPDATE_ROWS
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals
 
@@ -28,15 +28,22 @@ def test_update_oracle_normalizes_and_preserves_unmentioned_fields():
     task = Generator().sample(3, "update")
     row = next(item for item in UPDATE_ROWS if item.query == task.query)
     added = set(task.oracle.profile.allergies) - set(task.s0.profile.allergies)
+    removed = set(task.s0.profile.allergies) - set(task.oracle.profile.allergies)
     assert added == set(row.add_allergens)
+    assert removed == set(row.remove_allergens)
     for key, delta in (row.window_shifts or {}).items():
+        dlo, dhi = delta if isinstance(delta, tuple) else (delta, delta)
         s0_lo, s0_hi = task.s0.profile.windows[key]
         ora_lo, ora_hi = task.oracle.profile.windows[key]
-        assert (ora_lo, ora_hi) == (s0_lo + delta, s0_hi + delta)
+        assert (ora_lo, ora_hi) == (s0_lo + dlo, s0_hi + dhi)
     for key, bounds in task.s0.profile.windows.items():
         if key in (row.window_shifts or {}):
             continue
         assert task.oracle.profile.windows[key] == bounds
+    if row.set_plan_preset is not None:
+        assert task.oracle.profile.plan_preset == row.set_plan_preset
+    else:
+        assert task.oracle.profile.plan_preset == task.s0.profile.plan_preset
     assert task.oracle.profile.medications == task.s0.profile.medications
     assert task.oracle.profile.version == task.s0.profile.version
     assert task.oracle.profile.user_id == task.s0.profile.user_id
@@ -88,8 +95,10 @@ def test_situation_realizations_have_concrete_oracles():
     assert fuzzy.oracle.ledger_tail == [LedgerRow(food, grams, spec.slot)]
 
     converted = generator.sample(1, situation="unit_convert")
-    oats = converted.s0.catalog.canonical_id("oats")
-    assert converted.oracle.ledger_tail == [LedgerRow(oats, 56.7, "today-snack")]
+    unit_row = next(item for item in UNIT_CONVERT_ROWS if item.utterance == converted.query)
+    unit_food = converted.s0.catalog.canonical_id(unit_row.food_id)
+    unit_grams = resolve_portion(unit_row.food_id, unit_row.phrase, converted.s0.catalog)
+    assert converted.oracle.ledger_tail == [LedgerRow(unit_food, unit_grams, unit_row.slot)]
 
     split = generator.generate_split(2, 3, situation="near_synonym")
     assert all(task.situations == ("near_synonym",) for task in split)
@@ -130,8 +139,9 @@ def test_fuzzy_and_unit_grams_come_from_resolve_portion():
     )
 
     converted = Generator().sample(1, situation="unit_convert")
+    unit_row = next(item for item in UNIT_CONVERT_ROWS if item.utterance == converted.query)
     assert converted.oracle.ledger_tail[0].grams == resolve_portion(
-        "oats", "2 ounces", converted.s0.catalog
+        unit_row.food_id, unit_row.phrase, converted.s0.catalog
     )
 
 
@@ -161,13 +171,16 @@ def test_conflict_windows_starts_with_a_violating_plan():
 
 def test_near_synonym_logs_the_catalog_food():
     task = Generator().sample(1, situation="near_synonym")
+    row = next(item for item in NEAR_SYNONYM_ROWS if item.utterance == task.query)
     assert task.family == "log"
-    assert "prawn" in task.query.lower()
-    shrimp = task.s0.catalog.canonical_id("shrimp")
-    assert task.oracle.ledger_tail == [LedgerRow(shrimp, 150.0, "today-dinner")]
+    assert row.spoken.lower() in task.query.lower()
+    assert row.food_id not in task.query.lower()
+    food = task.s0.catalog.canonical_id(row.food_id)
+    grams = resolve_portion(row.food_id, row.phrase, task.s0.catalog)
+    assert task.oracle.ledger_tail == [LedgerRow(food, grams, row.slot)]
     assert task.oracle.profile == task.s0.profile
     assert task.oracle.ledger == (*task.s0.ledger, *task.oracle.ledger_tail)
-    assert "today-dinner" in {row.eaten_at for row in task.s0.ledger}
+    assert row.slot in {item.eaten_at for item in task.s0.ledger}
 
 
 def test_generated_update_rejects_a_junk_log():

@@ -25,8 +25,12 @@ from nutrienv.bench.realizations import (
     CONSTRAIN_ROWS,
     EVALUATE_ROWS,
     FUZZY_ROWS,
+    LEDGER_GAP_ROWS,
     LEFTOVER_ROWS,
+    MULTI_ITEM_LOG_ROWS,
+    NEAR_SYNONYM_ROWS,
     RECOMMEND_ROWS,
+    UNIT_CONVERT_ROWS,
     UPDATE_ROWS,
 )
 from nutrienv.world.catalog_store import load_catalog
@@ -177,6 +181,52 @@ INCREMENTS = {
             "reviewed item-by-item by a human."
         ),
     },
+    "v0.5": {
+        "parent": "v0.4-gold",
+        # The final increment: log 29 -> 48 and update 22 -> 36 complete the
+        # 240. log was 79% fuzzy_portion because its other four situations were
+        # each a single hardcoded instance in the generator; they are tables now
+        # and this admits from them rather than adding 19 more fuzzy portions.
+        "multi_item_log": (
+            "mi-lunch-chicken-rice", "mi-bfast-eggs-oats-banana",
+            "mi-dinner-tofu-four", "mi-snack-yogurt-almonds",
+            "mi-dinner-beef-pasta-spin", "mi-bfast-milk-oats-banana-pb",
+        ),
+        # Five distinct conversion forms rather than five sizes of the same one:
+        # whole ounces, a decimal ounce, a cup multiplier and a cup fraction.
+        "unit_convert": (
+            "uc-chicken-3oz", "uc-almond-1oz", "uc-salmon-3-5oz",
+            "uc-rice-1-5cups", "uc-yogurt-quarter-cup",
+        ),
+        "near_synonym": (
+            "ns-oatmeal", "ns-bean-curd", "ns-spaghetti",
+            "ns-steamed-rice", "ns-evoo",
+        ),
+        "ledger_gap": ("lg-miss-breakfast", "lg-miss-dinner", "lg-miss-lunch-three"),
+        # update had only ever added an allergen or moved both ends of one
+        # window by the same amount. These are the axes it never touched.
+        "update": (
+            "up-rm-peanut", "up-rm-shellfish", "up-rm-milk",
+            "up-floor-protein-20", "up-floor-protein-30", "up-ceil-kcal-200",
+            "up-ceil-kcal-300", "up-floor-kcal-200",
+            "up-two-kcal-200-prot-20", "up-two-kcal-300-prot-30",
+            "up-add-milk-egg", "up-add-fish-treenut",
+            "up-preset-cut-muscle", "up-preset-muscle-cut",
+        ),
+        "notes": (
+            "v0.4-gold 207 KEEP plus the final increment: 19 logs and 14 profile "
+            "updates complete the 240-item exam (ADR 0009). The log family was 79 "
+            "percent fuzzy_portion because its other four situations each existed "
+            "as one hardcoded instance; multi_item_log, unit_convert, near_synonym "
+            "and ledger_gap are table-backed now and the family finishes balanced. "
+            "The update rows cover axes the family had never exercised: removing an "
+            "allergy, moving one bound rather than both, two windows in one "
+            "request, several allergens at once, and a plan_preset change -- each "
+            "declared by its row and cross-checked against the spoken query in both "
+            "directions. Reviewed by validate_draft plus an LLM reviewer; not "
+            "reviewed item-by-item by a human."
+        ),
+    },
 }
 
 
@@ -302,6 +352,8 @@ def update_items(catalog: dict, wanted, tag: str) -> list[dict]:
         }
         if moved:
             diff["windows"] = moved
+        if oracle.profile.plan_preset != s0.profile.plan_preset:
+            diff["plan_preset"] = copy.deepcopy(oracle.profile.plan_preset)
         items.append({
             "id": f"{tag}-upd-{stem}",
             "family": "update",
@@ -336,6 +388,102 @@ def recommend_items(catalog: dict, wanted, tag: str) -> list[dict]:
                 "ledger": "s0",
             },
         })
+    return items
+
+
+def _log_item(tag: str, situation: str, stem: str, query: str,
+              ledger: list[dict], tail: list[dict]) -> dict:
+    return {
+        "id": f"{tag}-log-{stem}",
+        "family": "log",
+        "persona": "everyday",
+        "situations": [situation],
+        "query": query,
+        "s0": {
+            "profile": {
+                "user_id": f"{tag}-{stem}",
+                "allergies": ["peanut"],
+                "windows": {key: list(bounds) for key, bounds in GOLD_WINDOWS.items()},
+            },
+            "ledger": ledger,
+        },
+        "oracle": {
+            "ledger_tail": tail,
+            "profile": "s0",
+            "ledger": "s0_plus_tail",
+        },
+    }
+
+
+def _distractors(slot: str) -> list[dict]:
+    """The two-row S0 the gold log items use: a yesterday row, and a row in the
+    target slot under a different food so the tail is not the only thing there."""
+    return [
+        {"food_id": "apple", "grams": FUZZY_DISTRACTORS["apple"], "eaten_at": "yesterday-snack"},
+        {"food_id": "orange", "grams": FUZZY_DISTRACTORS["orange"], "eaten_at": slot},
+    ]
+
+
+def multi_item_items(catalog: dict, wanted, tag: str) -> list[dict]:
+    gen = Generator()
+    items = []
+    for row in _rows(MULTI_ITEM_LOG_ROWS, wanted):
+        stem = row.seed_id
+        tail = [
+            {
+                "food_id": food_id,
+                "grams": gen._require_portion(food_id, phrase, catalog),
+                "eaten_at": row.slot,
+            }
+            for food_id, phrase in row.items
+        ]
+        items.append(_log_item(tag, "multi_item_log", stem, row.query,
+                               _distractors(row.slot), tail))
+    return items
+
+
+def unit_convert_items(catalog: dict, wanted, tag: str) -> list[dict]:
+    gen = Generator()
+    items = []
+    for row in _rows(UNIT_CONVERT_ROWS, wanted):
+        tail = [{
+            "food_id": row.food_id,
+            "grams": gen._require_portion(row.food_id, row.phrase, catalog),
+            "eaten_at": row.slot,
+        }]
+        items.append(_log_item(tag, "unit_convert", row.seed_id, row.utterance,
+                               _distractors(row.slot), tail))
+    return items
+
+
+def near_synonym_items(catalog: dict, wanted, tag: str) -> list[dict]:
+    gen = Generator()
+    items = []
+    for row in _rows(NEAR_SYNONYM_ROWS, wanted):
+        tail = [{
+            "food_id": row.food_id,
+            "grams": gen._require_portion(row.food_id, row.phrase, catalog),
+            "eaten_at": row.slot,
+        }]
+        items.append(_log_item(tag, "near_synonym", row.seed_id, row.utterance,
+                               _distractors(row.slot), tail))
+    return items
+
+
+def ledger_gap_items(catalog: dict, wanted, tag: str) -> list[dict]:
+    gen = Generator()
+    items = []
+    for row in _rows(LEDGER_GAP_ROWS, wanted):
+        food_id, phrase, slot = row.missing
+        tail = [{
+            "food_id": food_id,
+            "grams": gen._require_portion(food_id, phrase, catalog),
+            "eaten_at": slot,
+        }]
+        ledger = [
+            {"food_id": f, "grams": float(g), "eaten_at": s} for f, g, s in row.surround
+        ]
+        items.append(_log_item(tag, "ledger_gap", row.seed_id, row.query, ledger, tail))
     return items
 
 
@@ -439,6 +587,10 @@ def build(version: str) -> None:
 
     new = (
         log_items(catalog, spec.get("log", ()), tag)
+        + multi_item_items(catalog, spec.get("multi_item_log", ()), tag)
+        + unit_convert_items(catalog, spec.get("unit_convert", ()), tag)
+        + near_synonym_items(catalog, spec.get("near_synonym", ()), tag)
+        + ledger_gap_items(catalog, spec.get("ledger_gap", ()), tag)
         + leftover_items(catalog, spec.get("leftover", ()), tag)
         + recommend_items(catalog, spec.get("recommend", ()), tag)
         + update_items(catalog, spec.get("update", ()), tag)

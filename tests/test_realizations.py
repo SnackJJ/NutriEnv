@@ -2,13 +2,18 @@ from nutrienv.bench.realizations import (
     CONSTRAIN_ROWS,
     EVALUATE_ROWS,
     FUZZY_ROWS,
+    LEDGER_GAP_ROWS,
     LEFTOVER_ROWS,
+    MULTI_ITEM_LOG_ROWS,
+    NEAR_SYNONYM_ROWS,
     RECOMMEND_ROWS,
+    UNIT_CONVERT_ROWS,
     UPDATE_ROWS,
     assert_constrain_rows,
     assert_evaluate_rows,
     assert_fuzzy_resolves,
     assert_leftover_rows,
+    assert_log_situation_rows,
     assert_recommend_rows,
     assert_update_rows,
     evaluate_windows,
@@ -55,7 +60,7 @@ def test_leftover_table_remainders_are_positive_and_unique():
 
 def test_update_constrain_evaluate_tables_have_unique_keys():
     catalog = load_catalog()
-    assert len(UPDATE_ROWS) >= 22
+    assert len(UPDATE_ROWS) >= 34
     assert len(CONSTRAIN_ROWS) >= 42
     assert {row.kind for row in CONSTRAIN_ROWS} == {"condition", "conflict"}
     assert len([row for row in CONSTRAIN_ROWS if row.kind == "condition"]) >= 19
@@ -259,6 +264,26 @@ def test_every_table_row_materializes_to_a_clean_draft():
         query, oracle = generator._evaluate_from_row(s0, row)
         check("evaluate", "everyday", query, oracle, s0)
 
+    for row in MULTI_ITEM_LOG_ROWS:
+        s0 = _fresh_s0(base)
+        query, oracle = generator._multi_item_from_row(s0, row)
+        check("log", "everyday", query, oracle, s0, ("multi_item_log",))
+
+    for row in UNIT_CONVERT_ROWS:
+        s0 = _fresh_s0(base)
+        query, oracle = generator._unit_convert_from_row(s0, row)
+        check("log", "everyday", query, oracle, s0, ("unit_convert",))
+
+    for row in NEAR_SYNONYM_ROWS:
+        s0 = _fresh_s0(base)
+        query, oracle = generator._near_synonym_from_row(s0, row)
+        check("log", "everyday", query, oracle, s0, ("near_synonym",))
+
+    for row in LEDGER_GAP_ROWS:
+        s0 = _fresh_s0(base)
+        query, oracle = generator._ledger_gap_from_row(s0, row)
+        check("log", "everyday", query, oracle, s0, ("ledger_gap",))
+
 
 def test_recommend_table_covers_declared_axes():
     catalog = load_catalog()
@@ -372,3 +397,101 @@ def test_validator_accepts_table_drafts_and_rejects_leaks():
     object.__setattr__(leaked, "family", "recommend")
     issues = validate_draft(leaked)
     assert any("leaks" in item for item in issues)
+
+
+def _is_asymmetric(delta) -> bool:
+    return isinstance(delta, tuple) and delta[0] != delta[1]
+
+
+def test_log_situation_tables_cover_the_four_shapes():
+    catalog = load_catalog()
+    assert len(MULTI_ITEM_LOG_ROWS) >= 6
+    assert len(UNIT_CONVERT_ROWS) >= 5
+    assert len(NEAR_SYNONYM_ROWS) >= 5
+    assert len(LEDGER_GAP_ROWS) >= 3
+    total = (
+        len(MULTI_ITEM_LOG_ROWS)
+        + len(UNIT_CONVERT_ROWS)
+        + len(NEAR_SYNONYM_ROWS)
+        + len(LEDGER_GAP_ROWS)
+    )
+    assert total >= 24
+    assert_log_situation_rows(catalog)
+    banned = {("whole_wheat_bread", "a slice"), ("broccoli", "a piece")}
+    counts = {len(row.items) for row in MULTI_ITEM_LOG_ROWS}
+    assert {2, 3, 4} <= counts
+    slots = {row.slot for row in MULTI_ITEM_LOG_ROWS}
+    assert len(slots) >= 3
+    for row in MULTI_ITEM_LOG_ROWS:
+        for food_id, phrase in row.items:
+            assert (food_id, phrase) not in banned, row.seed_id
+            assert resolve_portion(food_id, phrase, catalog) is not None, (
+                row.seed_id,
+                food_id,
+                phrase,
+            )
+    phrases = {row.phrase for row in UNIT_CONVERT_ROWS}
+    assert {"2 ounces", "3 ounces", "1 ounce", "half an ounce", "4 oz", "3.5 ounces"} <= phrases
+    assert any("cup" in row.phrase for row in UNIT_CONVERT_ROWS)
+    foods = {row.food_id for row in UNIT_CONVERT_ROWS}
+    assert len(foods) >= 5
+    for row in NEAR_SYNONYM_ROWS:
+        aliases = {str(alias).lower() for alias in (catalog[row.food_id].get("aliases") or [])}
+        assert row.spoken.lower() in aliases, row.seed_id
+        assert row.spoken.lower() != row.food_id.lower(), row.seed_id
+        assert resolve_portion(row.food_id, row.phrase, catalog) is not None, row.seed_id
+    missing_slots = {row.missing[2] for row in LEDGER_GAP_ROWS}
+    assert {"today-breakfast", "today-lunch", "today-dinner", "today-snack"} <= missing_slots
+    surround_counts = {len(row.surround) for row in LEDGER_GAP_ROWS}
+    assert len(surround_counts) >= 2
+    for row in LEDGER_GAP_ROWS:
+        food_id, phrase, slot = row.missing
+        assert slot not in {eaten_at for _food, _grams, eaten_at in row.surround}, row.seed_id
+        assert resolve_portion(food_id, phrase, catalog) is not None, row.seed_id
+
+
+def test_update_table_covers_new_axes():
+    catalog = load_catalog()
+    assert len(UPDATE_ROWS) >= 34
+    assert_update_rows(catalog)
+    removals = [row for row in UPDATE_ROWS if row.remove_allergens]
+    single_bound = [
+        row
+        for row in UPDATE_ROWS
+        if row.window_shifts and any(_is_asymmetric(delta) for delta in row.window_shifts.values())
+    ]
+    two_window = [row for row in UPDATE_ROWS if row.window_shifts and len(row.window_shifts) >= 2]
+    multi_allergen = [row for row in UPDATE_ROWS if len(row.add_allergens) >= 2]
+    preset = [row for row in UPDATE_ROWS if row.set_plan_preset]
+    assert len(removals) >= 4
+    assert len(single_bound) >= 6
+    assert len(two_window) >= 3
+    assert len(multi_allergen) >= 3
+    assert len(preset) >= 2
+
+
+def test_log_situation_seeds_change_semantic_key():
+    for situation in ("multi_item_log", "unit_convert", "near_synonym", "ledger_gap"):
+        keys = {
+            semantic_key(Generator().sample(seed, situation=situation))
+            for seed in range(20)
+        }
+        assert len(keys) > 1, situation
+        assert Generator().sample(3, situation=situation) == Generator().sample(
+            3, situation=situation
+        )
+
+
+def test_log_situation_builders_are_table_backed():
+    import inspect
+
+    from nutrienv.bench.generator import Generator as Gen
+
+    assert "MULTI_ITEM_LOG_ROWS" in inspect.getsource(Gen._build_situation_multi_item_log)
+    assert "UNIT_CONVERT_ROWS" in inspect.getsource(Gen._build_situation_unit_convert)
+    assert "NEAR_SYNONYM_ROWS" in inspect.getsource(Gen._build_situation_near_synonym)
+    assert "LEDGER_GAP_ROWS" in inspect.getsource(Gen._build_situation_ledger_gap)
+    assert "60 g rolled oats" not in inspect.getsource(Gen._build_situation_multi_item_log)
+    assert "2 ounces of oats" not in inspect.getsource(Gen._build_situation_unit_convert)
+    assert "prawns" not in inspect.getsource(Gen._build_situation_near_synonym)
+    assert "150 g chicken breast" not in inspect.getsource(Gen._build_situation_ledger_gap)

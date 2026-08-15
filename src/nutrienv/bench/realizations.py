@@ -15,18 +15,30 @@ from nutrienv.world.types import LedgerRow, ledger_totals
 
 __all__ = [
     "FuzzyRow",
+    "MultiItemLogRow",
+    "UnitConvertRow",
+    "NearSynonymRow",
+    "LedgerGapRow",
     "LeftoverRow",
     "UpdateRow",
     "ConstrainRow",
     "EvaluateRow",
     "RecommendRow",
     "FUZZY_ROWS",
+    "MULTI_ITEM_LOG_ROWS",
+    "UNIT_CONVERT_ROWS",
+    "NEAR_SYNONYM_ROWS",
+    "LEDGER_GAP_ROWS",
     "LEFTOVER_ROWS",
     "UPDATE_ROWS",
     "CONSTRAIN_ROWS",
     "EVALUATE_ROWS",
     "RECOMMEND_ROWS",
     "fuzzy_key",
+    "multi_item_log_key",
+    "unit_convert_key",
+    "near_synonym_key",
+    "ledger_gap_key",
     "leftover_key",
     "update_key",
     "constrain_key",
@@ -34,6 +46,7 @@ __all__ = [
     "recommend_key",
     "evaluate_windows",
     "assert_fuzzy_resolves",
+    "assert_log_situation_rows",
     "assert_leftover_rows",
     "assert_update_rows",
     "assert_constrain_rows",
@@ -54,6 +67,45 @@ class FuzzyRow:
 
 
 @dataclass(frozen=True)
+class MultiItemLogRow:
+    seed_id: str
+    query: str
+    items: tuple[tuple[str, str], ...]
+    slot: str
+    source: str = "novel"
+
+
+@dataclass(frozen=True)
+class UnitConvertRow:
+    seed_id: str
+    food_id: str
+    phrase: str
+    utterance: str
+    slot: str
+    source: str = "novel"
+
+
+@dataclass(frozen=True)
+class NearSynonymRow:
+    seed_id: str
+    food_id: str
+    spoken: str
+    phrase: str
+    utterance: str
+    slot: str
+    source: str = "novel"
+
+
+@dataclass(frozen=True)
+class LedgerGapRow:
+    seed_id: str
+    query: str
+    missing: tuple[str, str, str]
+    surround: tuple[tuple[str, float, str], ...]
+    source: str = "novel"
+
+
+@dataclass(frozen=True)
 class LeftoverRow:
     seed_id: str
     query: str
@@ -69,9 +121,11 @@ class UpdateRow:
     seed_id: str
     query: str
     add_allergens: tuple[str, ...] = ()
-    window_shifts: dict[str, float] | None = None
+    remove_allergens: tuple[str, ...] = ()
+    window_shifts: dict[str, float | tuple[float, float]] | None = None
     s0_allergies: tuple[str, ...] | None = None
     s0_plan_preset: dict | None = None
+    set_plan_preset: dict | None = None
     source: str = "novel"
 
 
@@ -115,14 +169,57 @@ def fuzzy_key(row: FuzzyRow) -> tuple:
     return ("log", "fuzzy_portion", "everyday", row.food_id, row.phrase, row.slot)
 
 
+def multi_item_log_key(row: MultiItemLogRow) -> tuple:
+    return ("log", "multi_item_log", "everyday", row.items, row.slot)
+
+
+def unit_convert_key(row: UnitConvertRow) -> tuple:
+    return ("log", "unit_convert", "everyday", row.food_id, row.phrase, row.slot)
+
+
+def near_synonym_key(row: NearSynonymRow) -> tuple:
+    return (
+        "log",
+        "near_synonym",
+        "everyday",
+        row.food_id,
+        row.spoken,
+        row.phrase,
+        row.slot,
+    )
+
+
+def ledger_gap_key(row: LedgerGapRow) -> tuple:
+    surround = tuple((food_id, slot) for food_id, _grams, slot in row.surround)
+    return ("log", "ledger_gap", "everyday", row.missing, surround)
+
+
 def leftover_key(row: LeftoverRow) -> tuple:
     foods = tuple((food_id, slot) for food_id, _grams, slot in row.ledger)
     return ("recommend", None, "leftover", foods, tuple(sorted(row.windows)))
 
 
+def _shift_key(delta: float | tuple[float, float]) -> float | tuple[float, float]:
+    if isinstance(delta, (tuple, list)):
+        return tuple(float(part) for part in delta)
+    return float(delta)
+
+
 def update_key(row: UpdateRow) -> tuple:
-    shifts = tuple(sorted((row.window_shifts or {}).items()))
-    return ("update", tuple(row.add_allergens), shifts, row.s0_allergies)
+    shifts = tuple(
+        sorted((key, _shift_key(delta)) for key, delta in (row.window_shifts or {}).items())
+    )
+    preset = None
+    if row.set_plan_preset:
+        preset = tuple(sorted(row.set_plan_preset.items()))
+    return (
+        "update",
+        tuple(row.add_allergens),
+        tuple(row.remove_allergens),
+        shifts,
+        row.s0_allergies,
+        preset,
+    )
 
 
 def constrain_key(row: ConstrainRow) -> tuple:
@@ -245,6 +342,250 @@ FUZZY_ROWS: tuple[FuzzyRow, ...] = (
     FuzzyRow("fz-oats-oz", "oats", "2 ounces",
              "Snack was about 2 ounces of oats. Log it for me.",
              "today-snack", source="gold"),
+)
+
+
+MULTI_ITEM_LOG_ROWS: tuple[MultiItemLogRow, ...] = (
+    MultiItemLogRow(
+        "mi-gold-breakfast",
+        "Breakfast was 60 grams of oats, a banana (110g), and 150g of Greek yogurt. Please log all of it.",
+        (("oats", "60 g"), ("banana", "110 g"), ("greek_yogurt", "150 g")),
+        "today-breakfast",
+        source="gold",
+    ),
+    MultiItemLogRow(
+        "mi-gold-dinner",
+        "Dinner was 150g salmon, a cup of rice, and 100g broccoli. Please log all of it.",
+        (("salmon", "150 g"), ("white_rice", "a cup"), ("broccoli", "100 g")),
+        "today-dinner",
+        source="gold",
+    ),
+    MultiItemLogRow(
+        "mi-lunch-chicken-rice",
+        "Lunch was 150 grams of chicken and a cup of rice. Please log both.",
+        (("chicken_breast", "150 g"), ("white_rice", "a cup")),
+        "today-lunch",
+    ),
+    MultiItemLogRow(
+        "mi-bfast-eggs-oats-banana",
+        "Breakfast was two eggs, a cup of oats, and a banana. Log all of it.",
+        (("egg", "two pieces"), ("oats", "a cup"), ("banana", "a piece")),
+        "today-breakfast",
+    ),
+    MultiItemLogRow(
+        "mi-dinner-tofu-four",
+        "Dinner was 160 g tofu, a cup of rice, a cup of spinach, and a teaspoon of olive oil. Please log all of it.",
+        (
+            ("tofu", "160 g"),
+            ("white_rice", "a cup"),
+            ("spinach", "a cup"),
+            ("olive_oil", "a teaspoon"),
+        ),
+        "today-dinner",
+    ),
+    MultiItemLogRow(
+        "mi-snack-yogurt-almonds",
+        "Snack was a cup of Greek yogurt and 40 grams of almonds. Log both.",
+        (("greek_yogurt", "a cup"), ("almond", "40 g")),
+        "today-snack",
+    ),
+    MultiItemLogRow(
+        "mi-lunch-tuna-broc-rice",
+        "Lunch was a can of tuna, 100 g broccoli, and a cup of rice. Please log all of it.",
+        (("tuna", "a can"), ("broccoli", "100 g"), ("white_rice", "a cup")),
+        "today-lunch",
+    ),
+    MultiItemLogRow(
+        "mi-dinner-beef-pasta-spin",
+        "Dinner was 180 g beef, a cup of pasta, and a cup of spinach. Log all three.",
+        (("beef", "180 g"), ("pasta", "a cup"), ("spinach", "a cup")),
+        "today-dinner",
+    ),
+    MultiItemLogRow(
+        "mi-bfast-milk-oats-banana-pb",
+        "Breakfast was a cup of milk, 60 g oats, a banana, and a tablespoon of peanut butter. Please log all of it.",
+        (
+            ("milk_whole", "a cup"),
+            ("oats", "60 g"),
+            ("banana", "a piece"),
+            ("peanut_butter", "a tablespoon"),
+        ),
+        "today-breakfast",
+    ),
+)
+
+
+UNIT_CONVERT_ROWS: tuple[UnitConvertRow, ...] = (
+    UnitConvertRow(
+        "uc-gold-oats-2oz",
+        "oats",
+        "2 ounces",
+        "Snack was about 2 ounces of oats. Log it for me.",
+        "today-snack",
+        source="gold",
+    ),
+    UnitConvertRow(
+        "uc-chicken-3oz",
+        "chicken_breast",
+        "3 ounces",
+        "Lunch was about 3 ounces of chicken. Please log it.",
+        "today-lunch",
+    ),
+    UnitConvertRow(
+        "uc-almond-1oz",
+        "almond",
+        "1 ounce",
+        "Snack was about 1 ounce of almonds. Log that?",
+        "today-snack",
+    ),
+    UnitConvertRow(
+        "uc-almond-half-oz",
+        "almond",
+        "half an ounce",
+        "I had half an ounce of almonds as a snack. Can you log it?",
+        "today-snack",
+    ),
+    UnitConvertRow(
+        "uc-tuna-4oz",
+        "tuna",
+        "4 oz",
+        "Lunch was about 4 oz of tuna. Please log it.",
+        "today-lunch",
+    ),
+    UnitConvertRow(
+        "uc-salmon-3-5oz",
+        "salmon",
+        "3.5 ounces",
+        "Dinner was about 3.5 ounces of salmon. Log it for me.",
+        "today-dinner",
+    ),
+    UnitConvertRow(
+        "uc-rice-1-5cups",
+        "white_rice",
+        "1.5 cups",
+        "Dinner was 1.5 cups of rice. Please log that.",
+        "today-dinner",
+    ),
+    UnitConvertRow(
+        "uc-yogurt-quarter-cup",
+        "greek_yogurt",
+        "a quarter cup",
+        "Snack was a quarter cup of Greek yogurt. Log it?",
+        "today-snack",
+    ),
+)
+
+
+NEAR_SYNONYM_ROWS: tuple[NearSynonymRow, ...] = (
+    NearSynonymRow(
+        "ns-gold-prawns",
+        "shrimp",
+        "prawns",
+        "150 g",
+        "Log the prawns I had for dinner — about 150 grams.",
+        "today-dinner",
+        source="gold",
+    ),
+    NearSynonymRow(
+        "ns-oatmeal",
+        "oats",
+        "oatmeal",
+        "a cup",
+        "Breakfast was a cup of oatmeal. Please log it.",
+        "today-breakfast",
+    ),
+    NearSynonymRow(
+        "ns-bean-curd",
+        "tofu",
+        "bean curd",
+        "a cup",
+        "Lunch was a cup of bean curd. Can you log that?",
+        "today-lunch",
+    ),
+    NearSynonymRow(
+        "ns-yoghurt",
+        "greek_yogurt",
+        "greek yoghurt",
+        "a cup",
+        "Snack was a cup of greek yoghurt. Log it for me.",
+        "today-snack",
+    ),
+    NearSynonymRow(
+        "ns-spaghetti",
+        "pasta",
+        "spaghetti",
+        "a cup",
+        "Dinner was a cup of spaghetti. Please log it.",
+        "today-dinner",
+    ),
+    NearSynonymRow(
+        "ns-steamed-rice",
+        "white_rice",
+        "steamed rice",
+        "a cup",
+        "Lunch was a cup of steamed rice. Log that?",
+        "today-lunch",
+    ),
+    NearSynonymRow(
+        "ns-evoo",
+        "olive_oil",
+        "evoo",
+        "a tablespoon",
+        "I put a tablespoon of evoo on lunch. Please log it.",
+        "today-lunch",
+    ),
+)
+
+
+LEDGER_GAP_ROWS: tuple[LedgerGapRow, ...] = (
+    LedgerGapRow(
+        "lg-gold-lunch",
+        "I forgot to log lunch — 150g of chicken breast. Add just that.",
+        ("chicken_breast", "150 g", "today-lunch"),
+        (
+            ("banana", 100.0, "today-breakfast"),
+            ("white_rice", 200.0, "today-dinner"),
+        ),
+        source="gold",
+    ),
+    LedgerGapRow(
+        "lg-miss-breakfast",
+        "I forgot breakfast — 80 g of oats. Add just that.",
+        ("oats", "80 g", "today-breakfast"),
+        (
+            ("chicken_breast", 150.0, "today-lunch"),
+            ("white_rice", 200.0, "today-dinner"),
+        ),
+    ),
+    LedgerGapRow(
+        "lg-miss-dinner",
+        "Dinner never made it onto the ledger — 200 g of pasta. Add just that.",
+        ("pasta", "200 g", "today-dinner"),
+        (
+            ("oats", 80.0, "today-breakfast"),
+            ("chicken_breast", 150.0, "today-lunch"),
+        ),
+    ),
+    LedgerGapRow(
+        "lg-miss-snack",
+        "I skipped logging my snack — a cup of Greek yogurt. Add just that.",
+        ("greek_yogurt", "a cup", "today-snack"),
+        (
+            ("banana", 118.0, "today-breakfast"),
+            ("chicken_breast", 150.0, "today-lunch"),
+            ("white_rice", 200.0, "today-dinner"),
+        ),
+    ),
+    LedgerGapRow(
+        "lg-miss-lunch-three",
+        "Lunch is the hole — a can of tuna. Add just that.",
+        ("tuna", "a can", "today-lunch"),
+        (
+            ("oats", 80.0, "today-breakfast"),
+            ("apple", 182.0, "today-snack"),
+            ("salmon", 150.0, "today-dinner"),
+        ),
+    ),
 )
 
 
@@ -728,6 +1069,104 @@ UPDATE_ROWS: tuple[UpdateRow, ...] = (
         "I reacted to eggs. Add that to my allergies and raise my calorie range by 300 at both ends.",
         add_allergens=("egg",),
         window_shifts={"kcal": 300.0},
+    ),
+    UpdateRow(
+        "up-rm-peanut",
+        "I got tested — I'm not actually allergic to peanuts. Take that off my list.",
+        remove_allergens=("peanut",),
+    ),
+    UpdateRow(
+        "up-rm-shellfish",
+        "I got tested — I'm not actually allergic to shellfish. Remove it.",
+        remove_allergens=("shellfish",),
+        s0_allergies=("peanut", "shellfish"),
+    ),
+    UpdateRow(
+        "up-rm-milk",
+        "The milk allergy was a false alarm. I'm not actually allergic to milk — remove it.",
+        remove_allergens=("milk",),
+        s0_allergies=("milk",),
+    ),
+    UpdateRow(
+        "up-rm-egg",
+        "I got tested — I'm not actually allergic to eggs. Take that off my allergies.",
+        remove_allergens=("egg",),
+        s0_allergies=("peanut", "egg"),
+    ),
+    UpdateRow(
+        "up-floor-protein-20",
+        "Raise just my protein floor by 20 grams. Leave the ceiling alone.",
+        window_shifts={"protein_g": (20.0, 0.0)},
+    ),
+    UpdateRow(
+        "up-floor-protein-30",
+        "Bump the lower end of my protein range up 30 grams. Don't move the top.",
+        window_shifts={"protein_g": (30.0, 0.0)},
+    ),
+    UpdateRow(
+        "up-ceil-kcal-200",
+        "Bring the calorie ceiling down by 200. Leave the floor where it is.",
+        window_shifts={"kcal": (0.0, -200.0)},
+    ),
+    UpdateRow(
+        "up-ceil-kcal-300",
+        "Take 300 off the top of my calorie range. Don't touch the bottom.",
+        window_shifts={"kcal": (0.0, -300.0)},
+    ),
+    UpdateRow(
+        "up-floor-kcal-200",
+        "Raise just the lower end of my calorie range by 200. Leave the ceiling alone.",
+        window_shifts={"kcal": (200.0, 0.0)},
+    ),
+    UpdateRow(
+        "up-ceil-protein-20",
+        "Bring the upper end of my protein range down 20 grams. Leave the floor alone.",
+        window_shifts={"protein_g": (0.0, -20.0)},
+    ),
+    UpdateRow(
+        "up-two-kcal-200-prot-20",
+        "Raise my calorie range by 200 at both ends and my protein range by 20 at both ends.",
+        window_shifts={"kcal": 200.0, "protein_g": 20.0},
+    ),
+    UpdateRow(
+        "up-two-kcal-300-prot-30",
+        "Take 300 off both ends of my calorie range and raise protein 30 grams at both ends.",
+        window_shifts={"kcal": -300.0, "protein_g": 30.0},
+    ),
+    UpdateRow(
+        "up-two-kcal-200-prot-30",
+        "Move my calorie range down 200 at both ends and raise protein 30 grams at both ends.",
+        window_shifts={"kcal": -200.0, "protein_g": 30.0},
+    ),
+    UpdateRow(
+        "up-add-milk-egg",
+        "I reacted to milk and eggs. Add both to my allergies.",
+        add_allergens=("egg", "milk"),
+        s0_allergies=(),
+    ),
+    UpdateRow(
+        "up-add-fish-treenut",
+        "I reacted to salmon and almonds. Add both of those allergies.",
+        add_allergens=("fish", "tree_nut"),
+        s0_allergies=(),
+    ),
+    UpdateRow(
+        "up-add-soy-wheat",
+        "I reacted to tofu and pasta. Add both to my allergies.",
+        add_allergens=("soy", "wheat"),
+        s0_allergies=(),
+    ),
+    UpdateRow(
+        "up-preset-cut-muscle",
+        "I'm switching from a cut to a muscle plan. Update my plan.",
+        s0_plan_preset={"goal": "cut"},
+        set_plan_preset={"goal": "muscle"},
+    ),
+    UpdateRow(
+        "up-preset-muscle-cut",
+        "I was on a muscle plan; now I want to cut. Change my plan.",
+        s0_plan_preset={"goal": "muscle"},
+        set_plan_preset={"goal": "cut"},
     ),
 )
 
@@ -1872,6 +2311,11 @@ def _catalog_tags(catalog) -> set[str]:
     return tags
 
 
+_BANNED_LOG_PAIRS = frozenset(
+    {("whole_wheat_bread", "a slice"), ("broccoli", "a piece")}
+)
+
+
 def assert_fuzzy_resolves(catalog) -> None:
     """Raise if any table row cannot be converted by the live catalog."""
     seen: set[tuple] = set()
@@ -1882,6 +2326,72 @@ def assert_fuzzy_resolves(catalog) -> None:
         key = fuzzy_key(row)
         if key in seen:
             raise RuntimeError(f"duplicate fuzzy key {key}")
+        seen.add(key)
+
+
+def assert_log_situation_rows(catalog) -> None:
+    """Raise if a multi-item / unit / synonym / gap row cannot be realized."""
+    seen: set[tuple] = set()
+    for row in MULTI_ITEM_LOG_ROWS:
+        if not (2 <= len(row.items) <= 4):
+            raise RuntimeError(f"{row.seed_id} must log 2-4 items")
+        for food_id, phrase in row.items:
+            if (food_id, phrase) in _BANNED_LOG_PAIRS:
+                raise RuntimeError(f"{row.seed_id} uses banned pair {food_id} {phrase!r}")
+            if resolve_portion(food_id, phrase, catalog) is None:
+                raise RuntimeError(
+                    f"{row.seed_id} does not resolve {phrase!r} for {food_id}"
+                )
+        key = multi_item_log_key(row)
+        if key in seen:
+            raise RuntimeError(f"duplicate log key {key}")
+        seen.add(key)
+    for row in UNIT_CONVERT_ROWS:
+        if (row.food_id, row.phrase) in _BANNED_LOG_PAIRS:
+            raise RuntimeError(f"{row.seed_id} uses banned pair {row.food_id} {row.phrase!r}")
+        if resolve_portion(row.food_id, row.phrase, catalog) is None:
+            raise RuntimeError(
+                f"{row.seed_id} does not resolve {row.phrase!r} for {row.food_id}"
+            )
+        key = unit_convert_key(row)
+        if key in seen:
+            raise RuntimeError(f"duplicate log key {key}")
+        seen.add(key)
+    for row in NEAR_SYNONYM_ROWS:
+        if row.food_id not in catalog:
+            raise RuntimeError(f"{row.seed_id} food {row.food_id} is not in the catalog")
+        aliases = {str(alias).lower() for alias in (catalog[row.food_id].get("aliases") or [])}
+        if row.spoken.lower() not in aliases:
+            raise RuntimeError(
+                f"{row.seed_id} spoken {row.spoken!r} is not an alias of {row.food_id}"
+            )
+        if row.spoken.lower() == row.food_id.lower():
+            raise RuntimeError(f"{row.seed_id} spoken name is the slug")
+        if resolve_portion(row.food_id, row.phrase, catalog) is None:
+            raise RuntimeError(
+                f"{row.seed_id} does not resolve {row.phrase!r} for {row.food_id}"
+            )
+        key = near_synonym_key(row)
+        if key in seen:
+            raise RuntimeError(f"duplicate log key {key}")
+        seen.add(key)
+    for row in LEDGER_GAP_ROWS:
+        food_id, phrase, slot = row.missing
+        if (food_id, phrase) in _BANNED_LOG_PAIRS:
+            raise RuntimeError(f"{row.seed_id} uses banned pair {food_id} {phrase!r}")
+        if resolve_portion(food_id, phrase, catalog) is None:
+            raise RuntimeError(f"{row.seed_id} does not resolve {phrase!r} for {food_id}")
+        surround_slots = {eaten_at for _food, _grams, eaten_at in row.surround}
+        if slot in surround_slots:
+            raise RuntimeError(f"{row.seed_id} missing slot {slot} is already in S0")
+        if not row.surround:
+            raise RuntimeError(f"{row.seed_id} has no surrounding ledger rows")
+        for surround_food, _grams, _eaten_at in row.surround:
+            if surround_food not in catalog:
+                raise RuntimeError(f"{row.seed_id} surround food {surround_food} is not in the catalog")
+        key = ledger_gap_key(row)
+        if key in seen:
+            raise RuntimeError(f"duplicate log key {key}")
         seen.add(key)
 
 
@@ -1901,7 +2411,7 @@ def assert_update_rows(catalog) -> None:
     tags = _catalog_tags(catalog)
     seen: set[tuple] = set()
     for row in UPDATE_ROWS:
-        for tag in row.add_allergens:
+        for tag in (*row.add_allergens, *row.remove_allergens):
             if tag not in tags:
                 raise RuntimeError(f"{row.seed_id} uses non-tag allergy {tag!r}")
         key = update_key(row)

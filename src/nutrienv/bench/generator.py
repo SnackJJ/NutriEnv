@@ -20,8 +20,12 @@ from .realizations import (
     CONSTRAIN_ROWS,
     EVALUATE_ROWS,
     FUZZY_ROWS,
+    LEDGER_GAP_ROWS,
     LEFTOVER_ROWS,
+    MULTI_ITEM_LOG_ROWS,
+    NEAR_SYNONYM_ROWS,
     RECOMMEND_ROWS,
+    UNIT_CONVERT_ROWS,
     UPDATE_ROWS,
     evaluate_windows,
 )
@@ -444,14 +448,22 @@ class Generator:
         for tag in row.add_allergens:
             if tag not in allergies:
                 allergies.append(tag)
+        remove = set(row.remove_allergens)
+        if remove:
+            allergies = [tag for tag in allergies if tag not in remove]
         windows = dict(s0.profile.windows)
         for key, delta in (row.window_shifts or {}).items():
             lo, hi = windows.get(key, (0.0, 0.0))
-            windows[key] = (float(lo) + float(delta), float(hi) + float(delta))
+            dlo, dhi = _shift_deltas(delta)
+            windows[key] = (float(lo) + dlo, float(hi) + dhi)
+        extras: dict = {}
+        if row.set_plan_preset is not None:
+            extras["plan_preset"] = dict(row.set_plan_preset)
         expected = replace(
             s0.profile,
             allergies=normalize_tags(allergies),
             windows=windows,
+            **extras,
         )
         return row.query, Oracle(profile=expected, ledger=tuple(s0.ledger))
 
@@ -467,17 +479,20 @@ class Generator:
     def _build_situation_multi_item_log(
         self, rng: random.Random, s0: WorldState, knobs: dict
     ) -> tuple[str, Oracle]:
-        self._seed_eaten_at(s0, "today-breakfast")
-        rows = [
-            LedgerRow("oats", 60.0, "today-breakfast"),
-            LedgerRow("banana", 110.0, "today-breakfast"),
-            LedgerRow("greek_yogurt", 150.0, "today-breakfast"),
+        row = MULTI_ITEM_LOG_ROWS[rng.randrange(len(MULTI_ITEM_LOG_ROWS))]
+        return self._multi_item_from_row(s0, row)
+
+    def _multi_item_from_row(self, s0: WorldState, row) -> tuple[str, Oracle]:
+        s0.ledger = self._log_distractors(s0, row.slot)
+        tail = [
+            LedgerRow(
+                food_id,
+                self._require_portion(food_id, phrase, s0.catalog),
+                row.slot,
+            )
+            for food_id, phrase in row.items
         ]
-        query = (
-            "Log all three breakfast items: 60 g rolled oats, 110 g banana, and "
-            "150 g plain Greek yogurt, each at today-breakfast."
-        )
-        return query, self._log_oracle(s0, rows)
+        return row.query, self._log_oracle(s0, tail)
 
     def _build_situation_condition_suitability(
         self, rng: random.Random, s0: WorldState, knobs: dict
@@ -504,19 +519,24 @@ class Generator:
     def _build_situation_unit_convert(
         self, rng: random.Random, s0: WorldState, knobs: dict
     ) -> tuple[str, Oracle]:
-        grams = self._require_portion("oats", "2 ounces", s0.catalog)
-        self._seed_eaten_at(s0, "today-snack")
-        row = LedgerRow("oats", grams, "today-snack")
-        query = "Snack was about 2 ounces of oats. Log it for me."
-        return query, self._log_oracle(s0, [row])
+        row = UNIT_CONVERT_ROWS[rng.randrange(len(UNIT_CONVERT_ROWS))]
+        return self._unit_convert_from_row(s0, row)
+
+    def _unit_convert_from_row(self, s0: WorldState, row) -> tuple[str, Oracle]:
+        grams = self._require_portion(row.food_id, row.phrase, s0.catalog)
+        s0.ledger = self._log_distractors(s0, row.slot)
+        return row.utterance, self._log_oracle(s0, [LedgerRow(row.food_id, grams, row.slot)])
 
     def _build_situation_near_synonym(
         self, rng: random.Random, s0: WorldState, knobs: dict
     ) -> tuple[str, Oracle]:
-        self._seed_eaten_at(s0, "today-dinner")
-        row = LedgerRow("shrimp", 150.0, "today-dinner")
-        query = "Log the prawns I had for dinner — about 150 grams."
-        return query, self._log_oracle(s0, [row])
+        row = NEAR_SYNONYM_ROWS[rng.randrange(len(NEAR_SYNONYM_ROWS))]
+        return self._near_synonym_from_row(s0, row)
+
+    def _near_synonym_from_row(self, s0: WorldState, row) -> tuple[str, Oracle]:
+        grams = self._require_portion(row.food_id, row.phrase, s0.catalog)
+        s0.ledger = self._log_distractors(s0, row.slot)
+        return row.utterance, self._log_oracle(s0, [LedgerRow(row.food_id, grams, row.slot)])
 
     def _build_situation_conflict_windows(
         self, rng: random.Random, s0: WorldState, knobs: dict
@@ -546,13 +566,32 @@ class Generator:
     def _build_situation_ledger_gap(
         self, rng: random.Random, s0: WorldState, knobs: dict
     ) -> tuple[str, Oracle]:
+        row = LEDGER_GAP_ROWS[rng.randrange(len(LEDGER_GAP_ROWS))]
+        return self._ledger_gap_from_row(s0, row)
+
+    def _ledger_gap_from_row(self, s0: WorldState, row) -> tuple[str, Oracle]:
         s0.ledger = [
-            LedgerRow("banana", 100.0, "today-breakfast"),
-            LedgerRow("white_rice", 200.0, "today-dinner"),
+            LedgerRow(self._food_id(s0, food_id), grams, eaten_at)
+            for food_id, grams, eaten_at in row.surround
+            if food_id in s0.catalog
         ]
-        missing = LedgerRow("chicken_breast", 150.0, "today-lunch")
-        query = (
-            "My ledger skips lunch between breakfast and dinner. Add the missing "
-            "150 g chicken breast entry at today-lunch only."
+        food_id, phrase, slot = row.missing
+        missing = LedgerRow(
+            food_id,
+            self._require_portion(food_id, phrase, s0.catalog),
+            slot,
         )
-        return query, self._log_oracle(s0, [missing])
+        return row.query, self._log_oracle(s0, [missing])
+
+    def _log_distractors(self, s0: WorldState, slot: str) -> list[LedgerRow]:
+        return [
+            LedgerRow(self._food_id(s0, "apple"), 182.0, "yesterday-snack"),
+            LedgerRow(self._food_id(s0, "orange"), 131.0, slot),
+        ]
+
+
+def _shift_deltas(delta: float | tuple[float, float]) -> tuple[float, float]:
+    if isinstance(delta, (tuple, list)):
+        return (float(delta[0]), float(delta[1]))
+    value = float(delta)
+    return (value, value)
