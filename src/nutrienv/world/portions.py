@@ -4,6 +4,17 @@ Env does not parse natural language and no Action calls this. It exists so a
 Generator or a harness can turn "half a cup of milk" into a number the same way
 every time, instead of asking a model to do arithmetic over a units table.
 
+Two spoken forms get a table-free treatment, because real users do not weigh
+food:
+
+* ``"a serving of X"`` (also bowl/plate/portion/order) reads as the food's
+  default FNDDS portion: ``piece``, else ``slice``, else ``cup``. No per-food
+  "serving" entry is needed, and a food that defines none of those has no
+  serving ("a serving of olive oil" stays ``None``).
+* ``"a sandwich"`` / ``"two burritos"`` treat the dish noun itself as the
+  unit, one default serving each, but only when the food's own name contains
+  that noun, so the grammar cannot invent a unit out of thin air.
+
 The grammar is deliberately small and total: it never raises, and it returns
 ``None`` whenever it is not sure. ``None`` means "ask for grams", not "zero".
 """
@@ -23,7 +34,9 @@ GRAM_UNITS = frozenset({"g", "gram", "grams", "gm"})
 OUNCE_GRAMS = 28.35
 OUNCE_UNITS = frozenset({"oz", "ounce", "ounces"})
 
-#: Spoken unit -> the key a food's ``portions`` table uses.
+#: Spoken unit -> the key a food's ``portions`` table uses. A missing
+#: ``serving`` key falls back to the food's default FNDDS portion, so dishes
+#: need no per-food entry to be ordered "a serving of ...".
 UNIT_SYNONYMS: dict[str, str] = {
     "cup": "cup", "cups": "cup", "c": "cup",
     "tbsp": "tbsp", "tbsps": "tbsp", "tbs": "tbsp", "tb": "tbsp",
@@ -33,7 +46,18 @@ UNIT_SYNONYMS: dict[str, str] = {
     "unit": "piece", "units": "piece",
     "slice": "slice", "slices": "slice",
     "can": "can", "cans": "can",
+    "serving": "serving", "servings": "serving",
+    "portion": "serving", "portions": "serving",
+    "bowl": "serving", "plate": "serving", "order": "serving",
 }
+
+#: Dish nouns people use as the unit of the dish itself: "a sandwich", "two
+#: burritos". A noun only counts when the food's own name contains it.
+DISH_NOUNS = frozenset({
+    "sandwich", "burger", "burrito", "taco", "pizza", "omelet", "omelette",
+    "curry", "stew", "chili", "soup", "salad", "wrap", "sub", "lasagna",
+    "steak",
+})
 
 _WORD_NUMBERS: dict[str, float] = {
     "one": 1.0, "two": 2.0, "three": 3.0, "four": 4.0, "five": 5.0, "six": 6.0,
@@ -89,9 +113,18 @@ def resolve_portion(food_id: str, phrase: str, catalog: dict) -> float | None:
             grams_per_unit = OUNCE_GRAMS
         else:
             key = UNIT_SYNONYMS.get(token)
-            if key is None or key not in portions:
+            if key is None:
                 continue
-            grams_per_unit = portions[key]
+            if key not in portions:
+                # "a serving of X" is the spoken form of the food's default
+                # portion; it needs no per-food table entry.
+                if key != "serving":
+                    continue
+                grams_per_unit = _serving_default(portions)
+                if grams_per_unit is None:
+                    continue
+            else:
+                grams_per_unit = portions[key]
 
         if isinstance(grams_per_unit, bool) or not isinstance(grams_per_unit, (int, float)):
             return None
@@ -102,7 +135,78 @@ def resolve_portion(food_id: str, phrase: str, catalog: dict) -> float | None:
         if quantity is None or quantity <= 0:
             return None
         return round(quantity * float(grams_per_unit), 2)
+    return _dish_noun_grams(tokens, entry, portions)
+
+
+def _serving_default(portions: Mapping[str, object]) -> float | None:
+    """The default FNDDS portion of a food, in grams: piece, else slice, else cup."""
+    for key in ("piece", "slice", "cup"):
+        value = portions.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        if math.isfinite(value) and value > 0:
+            return float(value)
     return None
+
+
+def _dish_noun_grams(
+    tokens: list[str], entry: dict, portions: Mapping[str, object]
+) -> float | None:
+    """``"a sandwich"`` -> one default serving, when the noun fits the food.
+
+    Only runs after every real unit has failed, and only for a noun the food's
+    own name contains, so it cannot invent a unit for a food it does not name.
+    The quantity is the leading amount words only: "a barbecue beef sandwich"
+    reads 1, "two barbecue beef sandwiches" reads 2, "some sandwich" stays
+    ``None``.
+    """
+    name = str(entry.get("name") or "").lower()
+    for index, token in enumerate(tokens):
+        if not _noun_candidates(token) & _name_nouns(name):
+            continue
+        grams_per_unit = _serving_default(portions)
+        if grams_per_unit is None:
+            return None
+        quantity = _leading_quantity(tokens[:index])
+        if quantity is None or quantity <= 0:
+            return None
+        return round(quantity * grams_per_unit, 2)
+    return None
+
+
+def _noun_candidates(token: str) -> set[str]:
+    """The dish nouns ``token`` could be: "sandwiches" -> {sandwiches, sandwich}."""
+    out = {token}
+    if token.endswith("ies") and len(token) > 4:
+        out.add(token[:-3] + "y")
+    if token.endswith("es") and len(token) > 4:
+        out.add(token[:-2])
+    if token.endswith("s") and len(token) > 3:
+        out.add(token[:-1])
+    return out
+
+
+def _name_nouns(name: str) -> set[str]:
+    """Dish nouns we recognise that appear in the food's name."""
+    return DISH_NOUNS.intersection(_SPLIT.split(name.lower()))
+
+
+def _leading_quantity(tokens: list[str]) -> float | None:
+    """Quantity from the leading run of amount words, ignoring later content."""
+    run: list[str] = []
+    for token in tokens:
+        if (
+            token in _FILLERS
+            or token in _FRACTION_WORDS
+            or token == "and"
+            or _parse_number(token) is not None
+        ):
+            run.append(token)
+        else:
+            break
+    if not run:
+        return None
+    return _parse_quantity(run)
 
 
 def _tokenize(phrase: str) -> list[str]:

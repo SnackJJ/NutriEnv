@@ -10,3 +10,14 @@ __pycache__/
 dist/
 build/
 .DS_Store
+
+# tool infrastructure (not project content)
+.agent
+.agents/
+.claude/
+skills-lock.json
+
+# generated review-sheet artifacts (source of truth is build_review_sheet.py)
+reports/review-sheet.json
+reports/review-sheet.html
+reports/review_sheet_preview.html

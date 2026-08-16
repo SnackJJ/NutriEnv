@@ -342,6 +342,40 @@ FUZZY_ROWS: tuple[FuzzyRow, ...] = (
     FuzzyRow("fz-oats-oz", "oats", "2 ounces",
              "Snack was about 2 ounces of oats. Log it for me.",
              "today-snack", source="gold"),
+    # v0.6 dish sample: real users name the dish and say "a serving", not
+    # grams. Each row resolves through the catalog default FNDDS portion via
+    # the "serving" unit or the dish-noun grammar in portions.py; the oracle
+    # is still a single exact gram value, so the binary Pass rule holds.
+    FuzzyRow("fz-dish-sandwich", "2706880", "a sandwich",
+             "Lunch was a sandwich — can you log it?",
+             "today-lunch", source="v0.6-dish-sample"),
+    FuzzyRow("fz-dish-bbq-beef-sandwich", "2706885", "a barbecue beef sandwich",
+             "I had a barbecue beef sandwich for lunch. Log that?",
+             "today-lunch", source="v0.6-dish-sample"),
+    FuzzyRow("fz-dish-burrito", "2708534", "a burrito",
+             "Dinner was a burrito — please log it.",
+             "today-dinner", source="v0.6-dish-sample"),
+    FuzzyRow("fz-dish-egg-foo-yung", "2707196", "a serving of shrimp egg foo yung",
+             "I had shrimp egg foo yung at dinner, one serving. Can you log that?",
+             "today-dinner", source="v0.6-dish-sample"),
+    FuzzyRow("fz-dish-omelet", "2707198", "an omelet",
+             "Breakfast was an omelet. Please log it.",
+             "today-breakfast", source="v0.6-dish-sample"),
+    FuzzyRow("fz-dish-lasagna", "2708750", "a serving of lasagna",
+             "Dinner was lasagna, one serving. Log it for me.",
+             "today-dinner", source="v0.6-dish-sample"),
+    FuzzyRow("fz-dish-soup", "2709144", "a bowl of soup",
+             "Had a bowl of soup for lunch — can you log it?",
+             "today-lunch", source="v0.6-dish-sample"),
+    FuzzyRow("fz-dish-curry", "2706437", "a serving of chicken curry",
+             "I had chicken curry for dinner, about a serving. Please log it.",
+             "today-dinner", source="v0.6-dish-sample"),
+    FuzzyRow("fz-dish-fried-rice", "167668", "a serving of fried rice",
+             "Lunch was fried rice from the Chinese place. Log it?",
+             "today-lunch", source="v0.6-dish-sample"),
+    FuzzyRow("fz-dish-chili", "2706373", "a bowl of chili",
+             "I had a bowl of chili for dinner. Can you log that?",
+             "today-dinner", source="v0.6-dish-sample"),
 )
 
 

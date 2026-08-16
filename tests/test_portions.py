@@ -66,3 +66,49 @@ def test_portions_key_is_always_present():
     food = env.step({"op": "get_food", "food_id": "mystery"})["observation"]["food"]
     assert food["portions"] == {}
     assert resolve_portion("mystery", "a cup", catalog) is None
+
+def _dish_catalog():
+    """A tiny in-memory catalog of dishes for grammar tests."""
+    return {
+        "sandwich_nfs": {
+            "name": "Sandwich, NFS", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"piece": 175.0},
+        },
+        "burrito_nfs": {
+            "name": "Burrito, NFS", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"piece": 220.0, "cup": 120.0},
+        },
+        "foo_yung": {
+            "name": "Shrimp egg foo yung", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"cup": 175.0},
+        },
+        "olive_oil": {
+            "name": "Olive oil", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"tbsp": 13.5},
+        },
+        "milk_whole": {
+            "name": "Milk, whole", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"cup": 244.0},
+        },
+    }
+
+
+def test_serving_unit_uses_food_default_portion():
+    catalog = _dish_catalog()
+    assert resolve_portion("foo_yung", "a serving of shrimp egg foo yung", catalog) == 175.0
+    assert resolve_portion("foo_yung", "two servings", catalog) == 350.0
+    assert resolve_portion("foo_yung", "a bowl of foo yung", catalog) == 175.0
+    # a food with no piece/slice/cup default has no "serving"
+    assert resolve_portion("olive_oil", "a serving of olive oil", catalog) is None
+
+
+def test_dish_noun_is_its_own_unit():
+    catalog = _dish_catalog()
+    assert resolve_portion("sandwich_nfs", "a sandwich", catalog) == 175.0
+    assert resolve_portion("sandwich_nfs", "two sandwiches", catalog) == 350.0
+    assert resolve_portion("burrito_nfs", "a burrito", catalog) == 220.0
+    # the noun must name the food itself: no cross-food inventions
+    assert resolve_portion("milk_whole", "a sandwich", catalog) is None
+    assert resolve_portion("foo_yung", "a sandwich", catalog) is None
+    # "some" carries no quantity, so it still asks for grams
+    assert resolve_portion("sandwich_nfs", "some sandwich", catalog) is None
