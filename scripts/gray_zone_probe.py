@@ -1,0 +1,295 @@
+#!/usr/bin/env python3
+"""Gray-zone probe: does the portion judge false-kill legal FNDDS values?
+
+The 15/15 experiment in portion_judge_probe.py only tested extreme gaps
+(5.3x-12.6x). Real generator mistakes sit at 1.2x-2.0x, and both sides of
+those pairs are legal FNDDS portion keys (piece vs QNS), not errors.
+
+This script:
+  1. Confirms sandwich / lasagna / omelet piece and qns from catalog.sqlite.
+  2. Judges each of those 6 legal values plus 5 extreme controls.
+  3. Reports whether the judge is a safe absurdity filter at gray-zone scale.
+
+Run:  .venv/bin/python scripts/gray_zone_probe.py
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import sys
+import time
+import urllib.request
+from dataclasses import dataclass
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(SCRIPTS))
+
+from nutrienv.harness.react import DEEPSEEK_CHAT_URL, load_dotenv_keys  # noqa: E402
+from nutrienv.world.catalog_store import GOLD_CATALOG_PATH, load_catalog  # noqa: E402
+from portion_judge_probe import (  # noqa: E402
+    JUDGE_SYSTEM,
+    K,
+    MODEL,
+    TEMPERATURE,
+    THRESHOLD,
+    parse_verdict,
+)
+
+load_dotenv_keys(ROOT / ".env.local")
+
+# v4-flash spends completion tokens on reasoning first. The 15/15 script's
+# max_tokens=120 is enough for extreme cases; gray-zone thinking overflows
+# and returns empty content (finish_reason=length). 512 leaves room for JSON.
+MAX_TOKENS = 512
+PARSE_RETRIES = 2
+
+# Claude's measured triples; abort if catalog no longer matches.
+EXPECTED_PORTIONS = {
+    "2706880": {"piece": 175.0, "qns": 115.0},  # sandwich, 1.5x
+    "2708750": {"piece": 206.0, "qns": 250.0},  # lasagna, 1.2x
+    "2707198": {"piece": 55.0, "qns": 110.0},   # omelet, 2.0x
+}
+
+GRAY_FOODS = (
+    ("sandwich", "2706880", "sandwich"),
+    ("lasagna", "2708750", "lasagna"),
+    ("omelet", "2707198", "omelet"),
+)
+
+
+@dataclass(frozen=True)
+class Case:
+    case_id: str
+    food: str
+    grams: float
+    group: str          # gray | absurd | normal
+    source: str
+    expect_accept: bool
+
+
+@dataclass
+class Result:
+    case: Case
+    verdicts: list[str]
+    reasons: list[str]
+    ok_frac: float
+    accepted: bool
+
+    @property
+    def match(self) -> bool:
+        return self.accepted == self.case.expect_accept
+
+
+def _ratio(a: float, b: float) -> str:
+    hi, lo = (a, b) if a >= b else (b, a)
+    return f"{hi / lo:.2f}x"
+
+
+def confirm_catalog() -> dict[str, dict]:
+    """Load catalog and require the documented piece/qns triples."""
+    catalog = load_catalog(GOLD_CATALOG_PATH)
+    found: dict[str, dict] = {}
+    for label, fdc_id, _diary in GRAY_FOODS:
+        food = catalog[fdc_id]
+        portions = food["portions"]
+        piece = float(portions["piece"])
+        qns = float(portions["qns"])
+        expected = EXPECTED_PORTIONS[fdc_id]
+        if piece != expected["piece"] or qns != expected["qns"]:
+            raise SystemExit(
+                f"catalog drift for {label} ({fdc_id}): "
+                f"piece={piece} qns={qns}, expected {expected}"
+            )
+        found[fdc_id] = {
+            "label": label,
+            "name": food["name"],
+            "piece": piece,
+            "qns": qns,
+            "ratio": _ratio(piece, qns),
+        }
+    return found
+
+
+def build_cases(confirmed: dict[str, dict]) -> list[Case]:
+    cases: list[Case] = []
+    for label, fdc_id, diary in GRAY_FOODS:
+        info = confirmed[fdc_id]
+        for key in ("piece", "qns"):
+            grams = info[key]
+            cases.append(
+                Case(
+                    case_id=f"{label}-{key}-{grams:g}",
+                    food=diary,
+                    grams=grams,
+                    group="gray",
+                    source=f"FNDDS {key} (fdc {fdc_id}, {info['name']})",
+                    expect_accept=True,
+                )
+            )
+    cases.extend(
+        [
+            Case("ctrl-steak-030", "steak (beef)", 30.0, "absurd",
+                 "15/15 known-bad (FNDDS slice/piece=30; QNS=160)", False),
+            Case("ctrl-banana-010", "banana", 10.0, "absurd",
+                 "15/15 known-bad (FNDDS piece/QNS=126)", False),
+            Case("ctrl-oil-100", "olive oil", 100.0, "absurd",
+                 "15/15 known-bad (~7 tbsp)", False),
+            Case("ctrl-steak-160", "steak (beef)", 160.0, "normal",
+                 "15/15 known-good (FNDDS QNS=160)", True),
+            Case("ctrl-banana-126", "banana", 126.0, "normal",
+                 "15/15 known-good (FNDDS piece/QNS=126)", True),
+        ]
+    )
+    return cases
+
+
+def call_judge(food: str, grams: float) -> str:
+    """Same request as portion_judge_probe.call_judge, more completion room."""
+    payload = {
+        "model": MODEL,
+        "messages": [
+            {"role": "system", "content": JUDGE_SYSTEM},
+            {"role": "user", "content": f'Diary entry: "I ate {grams:g} g of {food}."'},
+        ],
+        "temperature": TEMPERATURE,
+        "max_tokens": MAX_TOKENS,
+    }
+    req = urllib.request.Request(
+        DEEPSEEK_CHAT_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {os.environ['DEEPSEEK_API_KEY']}",
+        },
+        method="POST",
+    )
+    last: Exception | None = None
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=60.0) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+            return body["choices"][0]["message"]["content"]
+        except Exception as exc:  # noqa: BLE001 - retry network noise
+            last = exc
+            time.sleep(2 ** attempt)
+    raise RuntimeError(f"request failed: {last}")
+
+
+def run_case(case: Case) -> Result:
+    verdicts: list[str] = []
+    reasons: list[str] = []
+    for _ in range(K):
+        verdict: str | None = None
+        text = ""
+        for _retry in range(1 + PARSE_RETRIES):
+            text = call_judge(case.food, case.grams)
+            verdict = parse_verdict(text)
+            if verdict is not None:
+                break
+            time.sleep(0.15)
+        verdicts.append("parse_fail" if verdict is None else verdict)
+        if verdict is not None:
+            match = re.search(r'"reason"\s*:\s*"([^"]*)"', text)
+            if match:
+                reasons.append(match.group(1))
+        time.sleep(0.15)
+    n_valid = sum(v != "parse_fail" for v in verdicts)
+    ok_frac = (verdicts.count("ok") / n_valid) if n_valid else 0.0
+    return Result(
+        case=case,
+        verdicts=verdicts,
+        reasons=reasons,
+        ok_frac=ok_frac,
+        accepted=n_valid > 0 and ok_frac >= THRESHOLD,
+    )
+
+
+def _print_row(result: Result) -> None:
+    case = result.case
+    expected = "ok" if case.expect_accept else "BAD"
+    accepted = "YES" if result.accepted else "no "
+    match = "OK" if result.match else "XX"
+    print(
+        f"{case.case_id:24} {case.grams:7g} g {case.food:16} "
+        f"group={case.group:6} expected={expected:3}  "
+        f"ok_frac={result.ok_frac:.2f}  accepted={accepted}  match={match}  "
+        f"verdicts={result.verdicts}"
+    )
+
+
+def conclude(results: list[Result]) -> str:
+    gray = [r for r in results if r.case.group == "gray"]
+    absurd = [r for r in results if r.case.group == "absurd"]
+    normal = [r for r in results if r.case.group == "normal"]
+    gray_ok = all(r.accepted for r in gray)
+    absurd_rej = all(not r.accepted for r in absurd)
+    normal_ok = all(r.accepted for r in normal)
+    killed = [r for r in gray if not r.accepted]
+    leaked = [r for r in absurd if r.accepted]
+
+    print("\n--- sample reasons ---")
+    for result in results:
+        sample = result.reasons[0] if result.reasons else "(none)"
+        print(f"{result.case.case_id:24} {sample[:90]}")
+
+    print(
+        f"\ngray accepted: {sum(r.accepted for r in gray)}/{len(gray)}"
+        f"   absurd rejected: {sum(not r.accepted for r in absurd)}/{len(absurd)}"
+        f"   normal accepted: {sum(r.accepted for r in normal)}/{len(normal)}"
+    )
+    if killed:
+        print("false-kills: " + ", ".join(r.case.case_id for r in killed))
+    if leaked:
+        print("false-accepts: " + ", ".join(r.case.case_id for r in leaked))
+
+    if gray_ok and absurd_rej:
+        verdict = (
+            "VERDICT: GATE_SAFE — all 6 legal FNDDS values accepted, "
+            "all absurd controls rejected"
+        )
+    elif killed:
+        verdict = (
+            "VERDICT: GATE_NEEDS_ADJUSTMENT — legal FNDDS values false-killed: "
+            + ", ".join(r.case.case_id for r in killed)
+        )
+    else:
+        verdict = (
+            "VERDICT: mixed — gray all accepted="
+            f"{gray_ok}, absurd all rejected={absurd_rej}, "
+            f"normal all accepted={normal_ok}"
+        )
+    print(verdict)
+    return verdict
+
+
+def main() -> None:
+    confirmed = confirm_catalog()
+    print(
+        f"model={MODEL}  K={K}  threshold={THRESHOLD}  "
+        f"max_tokens={MAX_TOKENS}  prompt=portion_judge_probe.JUDGE_SYSTEM"
+    )
+    print(f"catalog={GOLD_CATALOG_PATH}\n")
+    print("confirmed piece / qns:")
+    for fdc_id, info in confirmed.items():
+        print(
+            f"  {info['label']:10} fdc {fdc_id}  "
+            f"piece={info['piece']:g}  qns={info['qns']:g}  "
+            f"ratio={info['ratio']}  ({info['name']})"
+        )
+    print()
+
+    results = []
+    for case in build_cases(confirmed):
+        result = run_case(case)
+        results.append(result)
+        _print_row(result)
+    conclude(results)
+
+
+if __name__ == "__main__":
+    main()

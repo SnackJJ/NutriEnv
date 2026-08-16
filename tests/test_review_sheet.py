@@ -266,6 +266,14 @@ def test_grams_explained_null_when_ratio_is_not_clean() -> None:
     )
 
 
+def test_explain_grams_is_not_stolen_by_fl_oz(catalog) -> None:
+    # Design §6 step 1: 4 x fl_oz is an integer ratio but must not beat 0.5 cup.
+    assert (
+        brs.explain_grams("milk_whole", 122.0, catalog)
+        == "0.5 x cup (244.0 g) = 122.0 g"
+    )
+
+
 def test_three_point_five_oz_is_explained(sheet: dict) -> None:
     item = next(i for i in sheet["items"] if i["id"] == "v05-log-uc-salmon-3-5oz")
     row = item["expected"]["rows"][0]

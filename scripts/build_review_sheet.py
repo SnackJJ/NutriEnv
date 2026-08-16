@@ -69,9 +69,13 @@ def _canonical(catalog: FoodCatalog, food_id: str) -> str:
     return food_id
 
 
-# Only units resolve_portion can parse. Overlay keys such as qns/oz_yield
-# are catalog data, not query grammar (landing acceptance 5).
-_EXPLAIN_UNITS = frozenset(UNIT_SYNONYMS.values()) | {"g", "oz"}
+# Explicit whitelist. New grammar units (fl_oz, …) stay out of the gloss
+# unless they are closer to how the user spoke than cup/tbsp/slice/….
+# Do not derive this from UNIT_SYNONYMS: adding fl_oz would turn
+# milk_whole 122 g into "4 x fl_oz" instead of "0.5 x cup".
+_EXPLAIN_UNITS = frozenset(
+    {"cup", "tbsp", "tsp", "slice", "piece", "can", "serving", "g", "oz"}
+)
 
 
 def explain_grams(food_id: str, grams: float, catalog: object) -> str | None:

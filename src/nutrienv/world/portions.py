@@ -4,16 +4,20 @@ Env does not parse natural language and no Action calls this. It exists so a
 Generator or a harness can turn "half a cup of milk" into a number the same way
 every time, instead of asking a model to do arithmetic over a units table.
 
-Two spoken forms get a table-free treatment, because real users do not weigh
-food:
+Spoken serving and size words get a table lookup, because real users do not
+weigh food:
 
 * ``"a serving of X"`` (also bowl/plate/portion/order) reads as the food's
-  default FNDDS portion: ``piece``, else ``slice``, else ``cup``. No per-food
-  "serving" entry is needed, and a food that defines none of those has no
+  default FNDDS portion: FNDDS QNS (modifier 90000), else ``piece``, else
+  ``slice``, else ``cup``. Catalog does not write a ``serving`` key; no
+  per-food entry is needed, and a food that defines none of those has no
   serving ("a serving of olive oil" stays ``None``).
 * ``"a sandwich"`` / ``"two burritos"`` treat the dish noun itself as the
   unit, one default serving each, but only when the food's own name contains
   that noun, so the grammar cannot invent a unit out of thin air.
+* ``"thick"`` / ``"thin"`` / ``"regular"`` pick a different default serving
+  of the same food (``portions.thick`` etc.). They are not household
+  measures: a modifier next to slice/cup/piece/… is refused.
 
 The grammar is deliberately small and total: it never raises, and it returns
 ``None`` whenever it is not sure. ``None`` means "ask for grams", not "zero".
@@ -36,7 +40,8 @@ OUNCE_UNITS = frozenset({"oz", "ounce", "ounces"})
 
 #: Spoken unit -> the key a food's ``portions`` table uses. A missing
 #: ``serving`` key falls back to the food's default FNDDS portion, so dishes
-#: need no per-food entry to be ordered "a serving of ...".
+#: need no per-food entry to be ordered "a serving of ...". Catalog does
+#: not write a ``serving`` key by construction; the lookup is a hatch.
 UNIT_SYNONYMS: dict[str, str] = {
     "cup": "cup", "cups": "cup", "c": "cup",
     "tbsp": "tbsp", "tbsps": "tbsp", "tbs": "tbsp", "tb": "tbsp",
@@ -49,7 +54,28 @@ UNIT_SYNONYMS: dict[str, str] = {
     "serving": "serving", "servings": "serving",
     "portion": "serving", "portions": "serving",
     "bowl": "serving", "plate": "serving", "order": "serving",
+    "fl_oz": "fl_oz",  # after UNIT_BIGRAMS collapse
+    "floz": "fl_oz",
 }
+
+#: Multi-word spoken units, collapsed before the unit scan so "fl oz" cannot
+#: be eaten by the bare-ounce branch.
+UNIT_BIGRAMS: dict[tuple[str, str], str] = {
+    ("fl", "oz"): "fl_oz", ("fl", "ozs"): "fl_oz",
+    ("fluid", "ounce"): "fl_oz", ("fluid", "ounces"): "fl_oz",
+}
+
+#: Size words that pick a different FNDDS row of the *same* food-as-unit
+#: reading. Never a household measure: "a thick slice" is refused, because
+#: the catalog's thick/thin keys are not slice sizes (see design doc 2.1).
+MODIFIER_KEYS: dict[str, str] = {"thick": "thick", "thin": "thin", "regular": "regular"}
+
+#: Size words FNDDS has no separate key for. Recognised only so the grammar
+#: refuses instead of silently reading them as "one".
+REFUSED_MODIFIERS = frozenset(
+    {"large", "big", "huge", "jumbo", "giant", "small", "little", "medium",
+     "mini", "miniature", "tiny"}
+)
 
 #: Dish nouns people use as the unit of the dish itself: "a sandwich", "two
 #: burritos". A noun only counts when the food's own name contains it.
@@ -105,19 +131,33 @@ def resolve_portion(food_id: str, phrase: str, catalog: dict) -> float | None:
     if not isinstance(portions, dict):
         return None
 
-    tokens = _tokenize(phrase)
+    tokens = _collapse_unit_bigrams(_tokenize(phrase))
+    if _refuses_modifiers(tokens):
+        return None
     for index, token in enumerate(tokens):
+        span = tokens[:index]
+        modifier = _span_modifier(span)
         if token in GRAM_UNITS:
+            if modifier is not None:
+                return None
             grams_per_unit: object = 1.0
         elif token in OUNCE_UNITS:
+            if modifier is not None:
+                return None
             grams_per_unit = OUNCE_GRAMS
         else:
             key = UNIT_SYNONYMS.get(token)
             if key is None:
                 continue
-            if key not in portions:
+            if modifier is not None:
+                # Serving words bind the modifier; any explicit measure refuses.
+                if key != "serving":
+                    return None
+                grams_per_unit = portions.get(modifier)
+            elif key not in portions:
                 # "a serving of X" is the spoken form of the food's default
-                # portion; it needs no per-food table entry.
+                # portion; it needs no per-food table entry. Catalog does not
+                # write a serving key by construction.
                 if key != "serving":
                     continue
                 grams_per_unit = _serving_default(portions)
@@ -131,7 +171,7 @@ def resolve_portion(food_id: str, phrase: str, catalog: dict) -> float | None:
         if not math.isfinite(grams_per_unit) or grams_per_unit <= 0:
             return None
 
-        quantity = _parse_quantity(tokens[:index])
+        quantity = _parse_quantity(_without_modifiers(span))
         if quantity is None or quantity <= 0:
             return None
         return round(quantity * float(grams_per_unit), 2)
@@ -139,8 +179,8 @@ def resolve_portion(food_id: str, phrase: str, catalog: dict) -> float | None:
 
 
 def _serving_default(portions: Mapping[str, object]) -> float | None:
-    """The default FNDDS portion of a food, in grams: piece, else slice, else cup."""
-    for key in ("piece", "slice", "cup"):
+    """The default portion of a food, in grams: FNDDS QNS, else piece/slice/cup."""
+    for key in ("qns", "piece", "slice", "cup"):
         value = portions.get(key)
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             continue
@@ -164,13 +204,20 @@ def _dish_noun_grams(
     for index, token in enumerate(tokens):
         if not _noun_candidates(token) & _name_nouns(name):
             continue
-        grams_per_unit = _serving_default(portions)
-        if grams_per_unit is None:
+        span = tokens[:index]
+        modifier = _span_modifier(span)
+        if modifier is not None:
+            grams_per_unit = portions.get(modifier)
+        else:
+            grams_per_unit = _serving_default(portions)
+        if isinstance(grams_per_unit, bool) or not isinstance(grams_per_unit, (int, float)):
             return None
-        quantity = _leading_quantity(tokens[:index])
+        if not math.isfinite(grams_per_unit) or grams_per_unit <= 0:
+            return None
+        quantity = _leading_quantity(_without_modifiers(span))
         if quantity is None or quantity <= 0:
             return None
-        return round(quantity * grams_per_unit, 2)
+        return round(quantity * float(grams_per_unit), 2)
     return None
 
 
@@ -218,6 +265,38 @@ def _tokenize(phrase: str) -> list[str]:
     # A minus sign survives tokenizing so "-1 cups" parses as a negative
     # quantity and is rejected, rather than silently reading as "1 cups".
     return [token for token in (raw.strip(".") for raw in _SPLIT.split(text)) if token]
+
+
+def _collapse_unit_bigrams(tokens: list[str]) -> list[str]:
+    """Collapse spoken multi-word units before the unit scan."""
+    collapsed: list[str] = []
+    index = 0
+    while index < len(tokens):
+        pair = (tokens[index], tokens[index + 1]) if index + 1 < len(tokens) else None
+        if pair in UNIT_BIGRAMS:
+            collapsed.append(UNIT_BIGRAMS[pair])
+            index += 2
+            continue
+        collapsed.append(tokens[index])
+        index += 1
+    return collapsed
+
+
+def _refuses_modifiers(tokens: list[str]) -> bool:
+    if any(token in REFUSED_MODIFIERS for token in tokens):
+        return True
+    return len({MODIFIER_KEYS[token] for token in tokens if token in MODIFIER_KEYS}) > 1
+
+
+def _span_modifier(tokens: list[str]) -> str | None:
+    found = {MODIFIER_KEYS[token] for token in tokens if token in MODIFIER_KEYS}
+    if len(found) != 1:
+        return None
+    return next(iter(found))
+
+
+def _without_modifiers(tokens: list[str]) -> list[str]:
+    return [token for token in tokens if token not in MODIFIER_KEYS]
 
 
 def _parse_quantity(tokens: list[str]) -> float | None:
