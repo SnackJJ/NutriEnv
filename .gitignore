@@ -21,3 +21,6 @@ skills-lock.json
 reports/review-sheet.json
 reports/review-sheet.html
 reports/review_sheet_preview.html
+
+# generated FNDDS dry-run diff (regenerate with scripts/fndds_dry_run.py)
+reports/dry-run-drift.json

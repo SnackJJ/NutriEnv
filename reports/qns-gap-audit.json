@@ -1,0 +1,1756 @@
+{
+  "summary": {
+    "total_catalog_foods": 13224,
+    "foods_with_portions": 8466,
+    "foods_resolving_serving": 7819,
+    "foods_with_qns_in_catalog": 4589,
+    "foods_with_both_serving_and_qns": 4349,
+    "gold_foods_total": 25,
+    "gold_foods_in_survey_with_qns": 16,
+    "distribution": {
+      "exact_match_ratio_1x": 921,
+      "ratio_ge_2x": 1740,
+      "ratio_ge_5x": 503,
+      "ratio_ge_10x": 200
+    }
+  },
+  "top_50": [
+    {
+      "food_id": "2708448",
+      "name": "Cereal, O's, plain",
+      "current_serving": 0.1,
+      "qns": 30.0,
+      "gap": 29.9,
+      "ratio": 300.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709201",
+      "name": "Currants, dried",
+      "current_serving": 0.5,
+      "qns": 40.0,
+      "gap": 39.5,
+      "ratio": 80.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709270",
+      "name": "Watermelon, raw",
+      "current_serving": 6000.0,
+      "qns": 78.0,
+      "gap": 5922.0,
+      "ratio": 76.9231,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709803",
+      "name": "Radish",
+      "current_serving": 1.0,
+      "qns": 58.0,
+      "gap": 57.0,
+      "ratio": 58.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710163",
+      "name": "Butter replacement, powder",
+      "current_serving": 100.0,
+      "qns": 2.0,
+      "gap": 98.0,
+      "ratio": 50.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709754",
+      "name": "Puerto Rican seasoning with ham",
+      "current_serving": 240.0,
+      "qns": 5.0,
+      "gap": 235.0,
+      "ratio": 48.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709755",
+      "name": "Puerto Rican seasoning without ham and tomato sauce",
+      "current_serving": 240.0,
+      "qns": 5.0,
+      "gap": 235.0,
+      "ratio": 48.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710281",
+      "name": "Honey",
+      "current_serving": 320.0,
+      "qns": 7.0,
+      "gap": 313.0,
+      "ratio": 45.7143,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709851",
+      "name": "Green beans, cooked, from restaurant",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709855",
+      "name": "Green beans, NS as to form, cooked",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709856",
+      "name": "Green beans, fresh, cooked, fat added, NS as to fat type",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709857",
+      "name": "Green beans, frozen, cooked, fat added, NS as to fat type",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709858",
+      "name": "Green beans, canned, cooked, fat added, NS as to fat type",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709859",
+      "name": "Green beans, fresh, cooked with oil",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709860",
+      "name": "Green beans, fresh, cooked with butter or margarine",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709861",
+      "name": "Green beans, frozen, cooked with oil",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709862",
+      "name": "Green beans, frozen, cooked with butter or margarine",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709863",
+      "name": "Green beans, canned, cooked with oil",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709864",
+      "name": "Green beans, canned, cooked with butter or margarine",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709866",
+      "name": "Green beans, canned, reduced sodium, cooked, fat added, NS as to fat type",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709867",
+      "name": "Green beans, canned, reduced sodium, cooked with oil",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709868",
+      "name": "Green beans, canned, reduced sodium, cooked with butter or margarine",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709870",
+      "name": "Yellow string beans, cooked",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709852",
+      "name": "Green beans, fresh, cooked, no added fat",
+      "current_serving": 2.0,
+      "qns": 70.0,
+      "gap": 68.0,
+      "ratio": 35.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709853",
+      "name": "Green beans, frozen, cooked, no added fat",
+      "current_serving": 2.0,
+      "qns": 70.0,
+      "gap": 68.0,
+      "ratio": 35.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709854",
+      "name": "Green beans, canned, cooked, no added fat",
+      "current_serving": 2.0,
+      "qns": 70.0,
+      "gap": 68.0,
+      "ratio": 35.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709865",
+      "name": "Green beans, canned, reduced sodium, cooked, no added fat",
+      "current_serving": 2.0,
+      "qns": 70.0,
+      "gap": 68.0,
+      "ratio": 35.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709229",
+      "name": "Cherries, maraschino",
+      "current_serving": 160.0,
+      "qns": 5.0,
+      "gap": 155.0,
+      "ratio": 32.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708792",
+      "name": "Tortellini, cheese-filled, no sauce",
+      "current_serving": 4.8,
+      "qns": 150.0,
+      "gap": 145.2,
+      "ratio": 31.25,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710359",
+      "name": "Candy, gummy",
+      "current_serving": 2.0,
+      "qns": 60.0,
+      "gap": 58.0,
+      "ratio": 30.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2706185",
+      "name": "Pepperoni, NFS",
+      "current_serving": 2.0,
+      "qns": 56.0,
+      "gap": 54.0,
+      "ratio": 28.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2706186",
+      "name": "Pepperoni, reduced fat",
+      "current_serving": 2.0,
+      "qns": 56.0,
+      "gap": 54.0,
+      "ratio": 28.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2706187",
+      "name": "Pepperoni, reduced sodium",
+      "current_serving": 2.0,
+      "qns": 56.0,
+      "gap": 54.0,
+      "ratio": 28.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709786",
+      "name": "Garlic, raw",
+      "current_serving": 135.0,
+      "qns": 5.0,
+      "gap": 130.0,
+      "ratio": 27.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710196",
+      "name": "Salad dressing, NFS, for sandwiches",
+      "current_serving": 237.0,
+      "qns": 9.0,
+      "gap": 228.0,
+      "ratio": 26.3333,
+      "in_gold": false
+    },
+    {
+      "food_id": "2707440",
+      "name": "Natto",
+      "current_serving": 176.0,
+      "qns": 7.0,
+      "gap": 169.0,
+      "ratio": 25.1429,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710205",
+      "name": "Vegan mayonnaise",
+      "current_serving": 225.0,
+      "qns": 9.0,
+      "gap": 216.0,
+      "ratio": 25.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710220",
+      "name": "Mayonnaise, light",
+      "current_serving": 250.0,
+      "qns": 10.0,
+      "gap": 240.0,
+      "ratio": 25.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710257",
+      "name": "Sugar, NFS",
+      "current_serving": 200.0,
+      "qns": 8.0,
+      "gap": 192.0,
+      "ratio": 25.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710258",
+      "name": "Sugar, white, granulated or lump",
+      "current_serving": 200.0,
+      "qns": 8.0,
+      "gap": 192.0,
+      "ratio": 25.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710261",
+      "name": "Sugar, cinnamon",
+      "current_serving": 200.0,
+      "qns": 8.0,
+      "gap": 192.0,
+      "ratio": 25.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710172",
+      "name": "Sandwich spread",
+      "current_serving": 245.0,
+      "qns": 10.0,
+      "gap": 235.0,
+      "ratio": 24.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710204",
+      "name": "Mayonnaise, regular",
+      "current_serving": 220.0,
+      "qns": 9.0,
+      "gap": 211.0,
+      "ratio": 24.4444,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710221",
+      "name": "Mayonnaise, reduced fat,  with olive oil",
+      "current_serving": 220.0,
+      "qns": 9.0,
+      "gap": 211.0,
+      "ratio": 24.4444,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710260",
+      "name": "Sugar, brown",
+      "current_serving": 220.0,
+      "qns": 9.0,
+      "gap": 211.0,
+      "ratio": 24.4444,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710259",
+      "name": "Sugar, white, confectioner's, powdered",
+      "current_serving": 120.0,
+      "qns": 5.0,
+      "gap": 115.0,
+      "ratio": 24.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2705606",
+      "name": "Coffee creamer, powder",
+      "current_serving": 94.0,
+      "qns": 4.0,
+      "gap": 90.0,
+      "ratio": 23.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2705607",
+      "name": "Coffee creamer, powder, flavored",
+      "current_serving": 94.0,
+      "qns": 4.0,
+      "gap": 90.0,
+      "ratio": 23.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2705608",
+      "name": "Coffee creamer, powder, fat free",
+      "current_serving": 94.0,
+      "qns": 4.0,
+      "gap": 90.0,
+      "ratio": 23.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2705609",
+      "name": "Coffee creamer,powder, sugar free, flavored",
+      "current_serving": 94.0,
+      "qns": 4.0,
+      "gap": 90.0,
+      "ratio": 23.5,
+      "in_gold": false
+    }
+  ],
+  "top_50_by_ratio": [
+    {
+      "food_id": "2708448",
+      "name": "Cereal, O's, plain",
+      "current_serving": 0.1,
+      "qns": 30.0,
+      "gap": 29.9,
+      "ratio": 300.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709201",
+      "name": "Currants, dried",
+      "current_serving": 0.5,
+      "qns": 40.0,
+      "gap": 39.5,
+      "ratio": 80.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709270",
+      "name": "Watermelon, raw",
+      "current_serving": 6000.0,
+      "qns": 78.0,
+      "gap": 5922.0,
+      "ratio": 76.9231,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709803",
+      "name": "Radish",
+      "current_serving": 1.0,
+      "qns": 58.0,
+      "gap": 57.0,
+      "ratio": 58.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710163",
+      "name": "Butter replacement, powder",
+      "current_serving": 100.0,
+      "qns": 2.0,
+      "gap": 98.0,
+      "ratio": 50.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709754",
+      "name": "Puerto Rican seasoning with ham",
+      "current_serving": 240.0,
+      "qns": 5.0,
+      "gap": 235.0,
+      "ratio": 48.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709755",
+      "name": "Puerto Rican seasoning without ham and tomato sauce",
+      "current_serving": 240.0,
+      "qns": 5.0,
+      "gap": 235.0,
+      "ratio": 48.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710281",
+      "name": "Honey",
+      "current_serving": 320.0,
+      "qns": 7.0,
+      "gap": 313.0,
+      "ratio": 45.7143,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709851",
+      "name": "Green beans, cooked, from restaurant",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709855",
+      "name": "Green beans, NS as to form, cooked",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709856",
+      "name": "Green beans, fresh, cooked, fat added, NS as to fat type",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709857",
+      "name": "Green beans, frozen, cooked, fat added, NS as to fat type",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709858",
+      "name": "Green beans, canned, cooked, fat added, NS as to fat type",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709859",
+      "name": "Green beans, fresh, cooked with oil",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709860",
+      "name": "Green beans, fresh, cooked with butter or margarine",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709861",
+      "name": "Green beans, frozen, cooked with oil",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709862",
+      "name": "Green beans, frozen, cooked with butter or margarine",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709863",
+      "name": "Green beans, canned, cooked with oil",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709864",
+      "name": "Green beans, canned, cooked with butter or margarine",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709866",
+      "name": "Green beans, canned, reduced sodium, cooked, fat added, NS as to fat type",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709867",
+      "name": "Green beans, canned, reduced sodium, cooked with oil",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709868",
+      "name": "Green beans, canned, reduced sodium, cooked with butter or margarine",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709870",
+      "name": "Yellow string beans, cooked",
+      "current_serving": 2.0,
+      "qns": 73.0,
+      "gap": 71.0,
+      "ratio": 36.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709852",
+      "name": "Green beans, fresh, cooked, no added fat",
+      "current_serving": 2.0,
+      "qns": 70.0,
+      "gap": 68.0,
+      "ratio": 35.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709853",
+      "name": "Green beans, frozen, cooked, no added fat",
+      "current_serving": 2.0,
+      "qns": 70.0,
+      "gap": 68.0,
+      "ratio": 35.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709854",
+      "name": "Green beans, canned, cooked, no added fat",
+      "current_serving": 2.0,
+      "qns": 70.0,
+      "gap": 68.0,
+      "ratio": 35.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709865",
+      "name": "Green beans, canned, reduced sodium, cooked, no added fat",
+      "current_serving": 2.0,
+      "qns": 70.0,
+      "gap": 68.0,
+      "ratio": 35.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709229",
+      "name": "Cherries, maraschino",
+      "current_serving": 160.0,
+      "qns": 5.0,
+      "gap": 155.0,
+      "ratio": 32.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708792",
+      "name": "Tortellini, cheese-filled, no sauce",
+      "current_serving": 4.8,
+      "qns": 150.0,
+      "gap": 145.2,
+      "ratio": 31.25,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710359",
+      "name": "Candy, gummy",
+      "current_serving": 2.0,
+      "qns": 60.0,
+      "gap": 58.0,
+      "ratio": 30.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2706185",
+      "name": "Pepperoni, NFS",
+      "current_serving": 2.0,
+      "qns": 56.0,
+      "gap": 54.0,
+      "ratio": 28.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2706186",
+      "name": "Pepperoni, reduced fat",
+      "current_serving": 2.0,
+      "qns": 56.0,
+      "gap": 54.0,
+      "ratio": 28.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2706187",
+      "name": "Pepperoni, reduced sodium",
+      "current_serving": 2.0,
+      "qns": 56.0,
+      "gap": 54.0,
+      "ratio": 28.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709786",
+      "name": "Garlic, raw",
+      "current_serving": 135.0,
+      "qns": 5.0,
+      "gap": 130.0,
+      "ratio": 27.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710196",
+      "name": "Salad dressing, NFS, for sandwiches",
+      "current_serving": 237.0,
+      "qns": 9.0,
+      "gap": 228.0,
+      "ratio": 26.3333,
+      "in_gold": false
+    },
+    {
+      "food_id": "2707440",
+      "name": "Natto",
+      "current_serving": 176.0,
+      "qns": 7.0,
+      "gap": 169.0,
+      "ratio": 25.1429,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710205",
+      "name": "Vegan mayonnaise",
+      "current_serving": 225.0,
+      "qns": 9.0,
+      "gap": 216.0,
+      "ratio": 25.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710220",
+      "name": "Mayonnaise, light",
+      "current_serving": 250.0,
+      "qns": 10.0,
+      "gap": 240.0,
+      "ratio": 25.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710257",
+      "name": "Sugar, NFS",
+      "current_serving": 200.0,
+      "qns": 8.0,
+      "gap": 192.0,
+      "ratio": 25.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710258",
+      "name": "Sugar, white, granulated or lump",
+      "current_serving": 200.0,
+      "qns": 8.0,
+      "gap": 192.0,
+      "ratio": 25.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710261",
+      "name": "Sugar, cinnamon",
+      "current_serving": 200.0,
+      "qns": 8.0,
+      "gap": 192.0,
+      "ratio": 25.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710172",
+      "name": "Sandwich spread",
+      "current_serving": 245.0,
+      "qns": 10.0,
+      "gap": 235.0,
+      "ratio": 24.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710204",
+      "name": "Mayonnaise, regular",
+      "current_serving": 220.0,
+      "qns": 9.0,
+      "gap": 211.0,
+      "ratio": 24.4444,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710221",
+      "name": "Mayonnaise, reduced fat,  with olive oil",
+      "current_serving": 220.0,
+      "qns": 9.0,
+      "gap": 211.0,
+      "ratio": 24.4444,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710260",
+      "name": "Sugar, brown",
+      "current_serving": 220.0,
+      "qns": 9.0,
+      "gap": 211.0,
+      "ratio": 24.4444,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710259",
+      "name": "Sugar, white, confectioner's, powdered",
+      "current_serving": 120.0,
+      "qns": 5.0,
+      "gap": 115.0,
+      "ratio": 24.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2705606",
+      "name": "Coffee creamer, powder",
+      "current_serving": 94.0,
+      "qns": 4.0,
+      "gap": 90.0,
+      "ratio": 23.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2705607",
+      "name": "Coffee creamer, powder, flavored",
+      "current_serving": 94.0,
+      "qns": 4.0,
+      "gap": 90.0,
+      "ratio": 23.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2705608",
+      "name": "Coffee creamer, powder, fat free",
+      "current_serving": 94.0,
+      "qns": 4.0,
+      "gap": 90.0,
+      "ratio": 23.5,
+      "in_gold": false
+    },
+    {
+      "food_id": "2705609",
+      "name": "Coffee creamer,powder, sugar free, flavored",
+      "current_serving": 94.0,
+      "qns": 4.0,
+      "gap": 90.0,
+      "ratio": 23.5,
+      "in_gold": false
+    }
+  ],
+  "top_50_by_gap": [
+    {
+      "food_id": "2709270",
+      "name": "Watermelon, raw",
+      "current_serving": 6000.0,
+      "qns": 78.0,
+      "gap": 5922.0,
+      "ratio": 76.9231,
+      "in_gold": false
+    },
+    {
+      "food_id": "2707993",
+      "name": "Pie, NFS",
+      "current_serving": 2000.0,
+      "qns": 150.0,
+      "gap": 1850.0,
+      "ratio": 13.3333,
+      "in_gold": false
+    },
+    {
+      "food_id": "2707995",
+      "name": "Pie, apple",
+      "current_serving": 2000.0,
+      "qns": 150.0,
+      "gap": 1850.0,
+      "ratio": 13.3333,
+      "in_gold": false
+    },
+    {
+      "food_id": "2707997",
+      "name": "Pie, berry",
+      "current_serving": 2000.0,
+      "qns": 150.0,
+      "gap": 1850.0,
+      "ratio": 13.3333,
+      "in_gold": false
+    },
+    {
+      "food_id": "2707998",
+      "name": "Pie, blueberry",
+      "current_serving": 2000.0,
+      "qns": 150.0,
+      "gap": 1850.0,
+      "ratio": 13.3333,
+      "in_gold": false
+    },
+    {
+      "food_id": "2707999",
+      "name": "Pie, cherry",
+      "current_serving": 2000.0,
+      "qns": 150.0,
+      "gap": 1850.0,
+      "ratio": 13.3333,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708002",
+      "name": "Pie, peach",
+      "current_serving": 2000.0,
+      "qns": 150.0,
+      "gap": 1850.0,
+      "ratio": 13.3333,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708011",
+      "name": "Pie, pumpkin",
+      "current_serving": 2000.0,
+      "qns": 150.0,
+      "gap": 1850.0,
+      "ratio": 13.3333,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708012",
+      "name": "Pie, sweet potato",
+      "current_serving": 2000.0,
+      "qns": 150.0,
+      "gap": 1850.0,
+      "ratio": 13.3333,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708015",
+      "name": "Pie, pecan",
+      "current_serving": 2000.0,
+      "qns": 150.0,
+      "gap": 1850.0,
+      "ratio": 13.3333,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710374",
+      "name": "Coffee, NS as to brewed or instant",
+      "current_serving": 1800.0,
+      "qns": 360.0,
+      "gap": 1440.0,
+      "ratio": 5.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710452",
+      "name": "Coffee, brewed, decaffeinated",
+      "current_serving": 1800.0,
+      "qns": 360.0,
+      "gap": 1440.0,
+      "ratio": 5.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708698",
+      "name": "Pizza, cheese and vegetables, gluten-free thick crust",
+      "current_serving": 1548.0,
+      "qns": 298.0,
+      "gap": 1250.0,
+      "ratio": 5.1946,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708649",
+      "name": "Pizza with meat other than pepperoni, from restaurant or fast food, NS as to type of crust",
+      "current_serving": 1428.0,
+      "qns": 276.0,
+      "gap": 1152.0,
+      "ratio": 5.1739,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708648",
+      "name": "Pizza with meat other than pepperoni, from frozen, thick crust",
+      "current_serving": 1361.0,
+      "qns": 288.0,
+      "gap": 1073.0,
+      "ratio": 4.7257,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708691",
+      "name": "Pizza, cheese and vegetables, whole wheat thin crust",
+      "current_serving": 1326.0,
+      "qns": 266.0,
+      "gap": 1060.0,
+      "ratio": 4.985,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708697",
+      "name": "Pizza, cheese and vegetables, gluten-free thin crust",
+      "current_serving": 1326.0,
+      "qns": 266.0,
+      "gap": 1060.0,
+      "ratio": 4.985,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708629",
+      "name": "Pizza with cheese and extra vegetables, thin crust",
+      "current_serving": 1246.0,
+      "qns": 240.0,
+      "gap": 1006.0,
+      "ratio": 5.1917,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708678",
+      "name": "White pizza, cheese, with vegetables, thin crust",
+      "current_serving": 1218.0,
+      "qns": 212.0,
+      "gap": 1006.0,
+      "ratio": 5.7453,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708613",
+      "name": "Pizza, cheese, from frozen, thick crust",
+      "current_serving": 1255.0,
+      "qns": 266.0,
+      "gap": 989.0,
+      "ratio": 4.718,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709241",
+      "name": "Honeydew melon, raw",
+      "current_serving": 1000.0,
+      "qns": 78.0,
+      "gap": 922.0,
+      "ratio": 12.8205,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708628",
+      "name": "Pizza, cheese, with vegetables, from restaurant or fast food, thick crust",
+      "current_serving": 1192.0,
+      "qns": 298.0,
+      "gap": 894.0,
+      "ratio": 4.0,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708677",
+      "name": "White pizza, cheese, thick crust",
+      "current_serving": 1112.0,
+      "qns": 282.0,
+      "gap": 830.0,
+      "ratio": 3.9433,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708633",
+      "name": "Pizza, cheese, with fruit, medium crust",
+      "current_serving": 1098.0,
+      "qns": 274.0,
+      "gap": 824.0,
+      "ratio": 4.0073,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710567",
+      "name": "Fruit juice drink",
+      "current_serving": 1023.0,
+      "qns": 248.0,
+      "gap": 775.0,
+      "ratio": 4.125,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708660",
+      "name": "Pizza with meat and vegetables, from frozen, thin crust",
+      "current_serving": 961.0,
+      "qns": 205.0,
+      "gap": 756.0,
+      "ratio": 4.6878,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709336",
+      "name": "Fruit smoothie, with whole fruit, non-dairy",
+      "current_serving": 1080.0,
+      "qns": 324.0,
+      "gap": 756.0,
+      "ratio": 3.3333,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710146",
+      "name": "Fruit and vegetable smoothie, with dairy",
+      "current_serving": 1080.0,
+      "qns": 324.0,
+      "gap": 756.0,
+      "ratio": 3.3333,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710148",
+      "name": "Fruit and vegetable smoothie, non-dairy",
+      "current_serving": 1080.0,
+      "qns": 324.0,
+      "gap": 756.0,
+      "ratio": 3.3333,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710149",
+      "name": "Fruit and vegetable smoothie, non-dairy, added protein",
+      "current_serving": 1080.0,
+      "qns": 324.0,
+      "gap": 756.0,
+      "ratio": 3.3333,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708363",
+      "name": "Grits, NFS",
+      "current_serving": 965.0,
+      "qns": 240.0,
+      "gap": 725.0,
+      "ratio": 4.0208,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708365",
+      "name": "Grits, regular or quick, made with water, no added fat",
+      "current_serving": 965.0,
+      "qns": 240.0,
+      "gap": 725.0,
+      "ratio": 4.0208,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708434",
+      "name": "Cream of wheat, regular or quick, made with water, no added fat",
+      "current_serving": 965.0,
+      "qns": 240.0,
+      "gap": 725.0,
+      "ratio": 4.0208,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708435",
+      "name": "Cream of wheat, regular or quick, made with water, fat added",
+      "current_serving": 965.0,
+      "qns": 240.0,
+      "gap": 725.0,
+      "ratio": 4.0208,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708436",
+      "name": "Cream of wheat, instant, made with water, no added fat",
+      "current_serving": 965.0,
+      "qns": 240.0,
+      "gap": 725.0,
+      "ratio": 4.0208,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708437",
+      "name": "Cream of wheat, instant, made with water, fat added",
+      "current_serving": 965.0,
+      "qns": 240.0,
+      "gap": 725.0,
+      "ratio": 4.0208,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708663",
+      "name": "Pizza with meat and vegetables, from restaurant or fast food, thin crust",
+      "current_serving": 902.0,
+      "qns": 226.0,
+      "gap": 676.0,
+      "ratio": 3.9912,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710533",
+      "name": "Tea, iced, bottled, green",
+      "current_serving": 1023.0,
+      "qns": 360.0,
+      "gap": 663.0,
+      "ratio": 2.8417,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710536",
+      "name": "Soft drink, NFS",
+      "current_serving": 1023.0,
+      "qns": 372.0,
+      "gap": 651.0,
+      "ratio": 2.75,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710549",
+      "name": "Soft drink, cream soda",
+      "current_serving": 1023.0,
+      "qns": 372.0,
+      "gap": 651.0,
+      "ratio": 2.75,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710562",
+      "name": "Soft drink, cola, chocolate flavored",
+      "current_serving": 1023.0,
+      "qns": 372.0,
+      "gap": 651.0,
+      "ratio": 2.75,
+      "in_gold": false
+    },
+    {
+      "food_id": "2708665",
+      "name": "Pizza with meat and vegetables, from restaurant or fast food, thick crust",
+      "current_serving": 942.0,
+      "qns": 298.0,
+      "gap": 644.0,
+      "ratio": 3.1611,
+      "in_gold": false
+    },
+    {
+      "food_id": "2709892",
+      "name": "Cabbage, green, cooked with butter or margarine",
+      "current_serving": 710.0,
+      "qns": 78.0,
+      "gap": 632.0,
+      "ratio": 9.1026,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710516",
+      "name": "Tea, iced, brewed, black, pre-sweetened with low calorie sweetener",
+      "current_serving": 979.0,
+      "qns": 360.0,
+      "gap": 619.0,
+      "ratio": 2.7194,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710519",
+      "name": "Tea, iced, brewed, black, decaffeinated, pre-sweetened with low calorie sweetener",
+      "current_serving": 979.0,
+      "qns": 360.0,
+      "gap": 619.0,
+      "ratio": 2.7194,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710520",
+      "name": "Tea, iced, brewed, black, decaffeinated, unsweetened",
+      "current_serving": 979.0,
+      "qns": 360.0,
+      "gap": 619.0,
+      "ratio": 2.7194,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710523",
+      "name": "Tea, iced, brewed, green, unsweetened",
+      "current_serving": 979.0,
+      "qns": 360.0,
+      "gap": 619.0,
+      "ratio": 2.7194,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710530",
+      "name": "Tea, iced, bottled, black, decaffeinated, diet",
+      "current_serving": 979.0,
+      "qns": 360.0,
+      "gap": 619.0,
+      "ratio": 2.7194,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710532",
+      "name": "Tea, iced, bottled, black, decaffeinated, unsweetened",
+      "current_serving": 979.0,
+      "qns": 360.0,
+      "gap": 619.0,
+      "ratio": 2.7194,
+      "in_gold": false
+    },
+    {
+      "food_id": "2710535",
+      "name": "Tea, iced, bottled, green, unsweetened",
+      "current_serving": 979.0,
+      "qns": 360.0,
+      "gap": 619.0,
+      "ratio": 2.7194,
+      "in_gold": false
+    }
+  ],
+  "gold_foods": [
+    {
+      "slug": "almond",
+      "food_id": "168592",
+      "name": "Nuts, almonds, honey roasted, unblanched",
+      "portions": {
+        "cup": 144.0
+      },
+      "current_serving": 144.0,
+      "qns": null,
+      "gap": null,
+      "ratio": null,
+      "in_gold": true,
+      "data_source": "sr_legacy",
+      "notes": "No QNS in FNDDS survey (source: sr_legacy)"
+    },
+    {
+      "slug": "apple",
+      "food_id": "2709215",
+      "name": "Apple, raw",
+      "portions": {
+        "piece": 200.0,
+        "slice": 25.0,
+        "cup": 125.0
+      },
+      "current_serving": 200.0,
+      "qns": 200.0,
+      "gap": 0.0,
+      "ratio": 1.0,
+      "in_gold": true,
+      "data_source": "fndds_survey",
+      "notes": "Exact match with QNS (0 gap)"
+    },
+    {
+      "slug": "avocado",
+      "food_id": "2709223",
+      "name": "Avocado, raw",
+      "portions": {
+        "cup": 150.0,
+        "slice": 15.0
+      },
+      "current_serving": 15.0,
+      "qns": 30.0,
+      "gap": 15.0,
+      "ratio": 2.0,
+      "in_gold": true,
+      "data_source": "fndds_survey",
+      "notes": "Gap 15.0g (ratio 2.00x)"
+    },
+    {
+      "slug": "banana",
+      "food_id": "2709224",
+      "name": "Banana, raw",
+      "portions": {
+        "piece": 126.0,
+        "cup": 150.0,
+        "slice": 6.0
+      },
+      "current_serving": 126.0,
+      "qns": 126.0,
+      "gap": 0.0,
+      "ratio": 1.0,
+      "in_gold": true,
+      "data_source": "fndds_survey",
+      "notes": "Exact match with QNS (0 gap)"
+    },
+    {
+      "slug": "beef",
+      "food_id": "171793",
+      "name": "Beef, ground, 90% lean meat / 10% fat, patty, cooked, pan-broiled",
+      "portions": {},
+      "current_serving": null,
+      "qns": null,
+      "gap": null,
+      "ratio": null,
+      "in_gold": true,
+      "data_source": "sr_legacy",
+      "notes": "Empty portions table (no serving); No QNS in FNDDS survey (source: sr_legacy)"
+    },
+    {
+      "slug": "black_beans",
+      "food_id": "173735",
+      "name": "Beans, black, mature seeds, cooked, boiled, without salt",
+      "portions": {
+        "cup": 172.0
+      },
+      "current_serving": 172.0,
+      "qns": null,
+      "gap": null,
+      "ratio": null,
+      "in_gold": true,
+      "data_source": "sr_legacy",
+      "notes": "No QNS in FNDDS survey (source: sr_legacy)"
+    },
+    {
+      "slug": "broccoli",
+      "food_id": "2709643",
+      "name": "Broccoli, raw",
+      "portions": {
+        "cup": 90.0,
+        "piece": 10.0
+      },
+      "current_serving": 10.0,
+      "qns": 45.0,
+      "gap": 35.0,
+      "ratio": 4.5,
+      "in_gold": true,
+      "data_source": "fndds_survey",
+      "notes": "Gap 35.0g (ratio 4.50x)"
+    },
+    {
+      "slug": "cheddar",
+      "food_id": "2705709",
+      "name": "Cheese, Cheddar",
+      "portions": {
+        "cup": 132.0,
+        "slice": 21.0
+      },
+      "current_serving": 21.0,
+      "qns": 21.0,
+      "gap": 0.0,
+      "ratio": 1.0,
+      "in_gold": true,
+      "data_source": "fndds_survey",
+      "notes": "Exact match with QNS (0 gap)"
+    },
+    {
+      "slug": "chicken_breast",
+      "food_id": "171477",
+      "name": "Chicken, broilers or fryers, breast, meat only, cooked, roasted",
+      "portions": {
+        "cup": 140.0
+      },
+      "current_serving": 140.0,
+      "qns": null,
+      "gap": null,
+      "ratio": null,
+      "in_gold": true,
+      "data_source": "sr_legacy",
+      "notes": "No QNS in FNDDS survey (source: sr_legacy)"
+    },
+    {
+      "slug": "egg",
+      "food_id": "2707152",
+      "name": "Egg, whole, raw",
+      "portions": {
+        "piece": 50.0,
+        "cup": 245.0
+      },
+      "current_serving": 50.0,
+      "qns": 50.0,
+      "gap": 0.0,
+      "ratio": 1.0,
+      "in_gold": true,
+      "data_source": "fndds_survey",
+      "notes": "Exact match with QNS (0 gap)"
+    },
+    {
+      "slug": "greek_yogurt",
+      "food_id": "2705424",
+      "name": "Yogurt, Greek, nonfat milk, plain",
+      "portions": {
+        "cup": 245.0
+      },
+      "current_serving": 245.0,
+      "qns": 150.0,
+      "gap": 95.0,
+      "ratio": 1.6333,
+      "in_gold": true,
+      "data_source": "fndds_survey",
+      "notes": "Gap 95.0g (ratio 1.63x)"
+    },
+    {
+      "slug": "milk_whole",
+      "food_id": "2705385",
+      "name": "Milk, whole",
+      "portions": {
+        "cup": 244.0
+      },
+      "current_serving": 244.0,
+      "qns": 244.0,
+      "gap": 0.0,
+      "ratio": 1.0,
+      "in_gold": true,
+      "data_source": "fndds_survey",
+      "notes": "Exact match with QNS (0 gap)"
+    },
+    {
+      "slug": "oats",
+      "food_id": "2708489",
+      "name": "Oats, raw",
+      "portions": {
+        "cup": 80.0
+      },
+      "current_serving": 80.0,
+      "qns": 10.0,
+      "gap": 70.0,
+      "ratio": 8.0,
+      "in_gold": true,
+      "data_source": "fndds_survey",
+      "notes": "Gap 70.0g (ratio 8.00x)"
+    },
+    {
+      "slug": "olive_oil",
+      "food_id": "171413",
+      "name": "Oil, olive, salad or cooking",
+      "portions": {
+        "tbsp": 13.5,
+        "cup": 216.0,
+        "tsp": 4.5
+      },
+      "current_serving": 216.0,
+      "qns": null,
+      "gap": null,
+      "ratio": null,
+      "in_gold": true,
+      "data_source": "sr_legacy",
+      "notes": "No QNS in FNDDS survey (source: sr_legacy)"
+    },
+    {
+      "slug": "orange",
+      "food_id": "2709171",
+      "name": "Orange, raw",
+      "portions": {
+        "cup": 180.0,
+        "slice": 15.0
+      },
+      "current_serving": 15.0,
+      "qns": 154.0,
+      "gap": 139.0,
+      "ratio": 10.2667,
+      "in_gold": true,
+      "data_source": "fndds_survey",
+      "notes": "Gap 139.0g (ratio 10.27x)"
+    },
+    {
+      "slug": "pasta",
+      "food_id": "2708357",
+      "name": "Pasta, cooked",
+      "portions": {
+        "cup": 140.0
+      },
+      "current_serving": 140.0,
+      "qns": 140.0,
+      "gap": 0.0,
+      "ratio": 1.0,
+      "in_gold": true,
+      "data_source": "fndds_survey",
+      "notes": "Exact match with QNS (0 gap)"
+    },
+    {
+      "slug": "peanut_butter",
+      "food_id": "2707537",
+      "name": "Peanut butter",
+      "portions": {
+        "tbsp": 16.0
+      },
+      "current_serving": null,
+      "qns": 32.0,
+      "gap": null,
+      "ratio": null,
+      "in_gold": true,
+      "data_source": "fndds_survey",
+      "notes": "No piece/slice/cup fallback in portions ['tbsp']"
+    },
+    {
+      "slug": "potato",
+      "food_id": "2709383",
+      "name": "Potato, baked, NFS",
+      "portions": {
+        "cup": 130.0,
+        "piece": 230.0
+      },
+      "current_serving": 230.0,
+      "qns": 285.0,
+      "gap": 55.0,
+      "ratio": 1.2391,
+      "in_gold": true,
+      "data_source": "fndds_survey",
+      "notes": "Gap 55.0g (ratio 1.24x)"
+    },
+    {
+      "slug": "salmon",
+      "food_id": "171998",
+      "name": "Fish, salmon, Atlantic, wild, cooked, dry heat",
+      "portions": {},
+      "current_serving": null,
+      "qns": null,
+      "gap": null,
+      "ratio": null,
+      "in_gold": true,
+      "data_source": "sr_legacy",
+      "notes": "Empty portions table (no serving); No QNS in FNDDS survey (source: sr_legacy)"
+    },
+    {
+      "slug": "shrimp",
+      "food_id": "175180",
+      "name": "Crustaceans, shrimp, cooked",
+      "portions": {},
+      "current_serving": null,
+      "qns": null,
+      "gap": null,
+      "ratio": null,
+      "in_gold": true,
+      "data_source": "sr_legacy",
+      "notes": "Empty portions table (no serving); No QNS in FNDDS survey (source: sr_legacy)"
+    },
+    {
+      "slug": "soy_milk",
+      "food_id": "2705404",
+      "name": "Soy milk, sweetened",
+      "portions": {
+        "cup": 244.0
+      },
+      "current_serving": 244.0,
+      "qns": 244.0,
+      "gap": 0.0,
+      "ratio": 1.0,
+      "in_gold": true,
+      "data_source": "fndds_survey",
+      "notes": "Exact match with QNS (0 gap)"
+    },
+    {
+      "slug": "spinach",
+      "food_id": "2709614",
+      "name": "Spinach, raw",
+      "portions": {
+        "cup": 25.0
+      },
+      "current_serving": 25.0,
+      "qns": 13.0,
+      "gap": 12.0,
+      "ratio": 1.9231,
+      "in_gold": true,
+      "data_source": "fndds_survey",
+      "notes": "Gap 12.0g (ratio 1.92x)"
+    },
+    {
+      "slug": "tofu",
+      "food_id": "172448",
+      "name": "Tofu, firm, prepared with calcium sulfate and magnesium chloride (nigari)",
+      "portions": {
+        "cup": 126.0
+      },
+      "current_serving": 126.0,
+      "qns": null,
+      "gap": null,
+      "ratio": null,
+      "in_gold": true,
+      "data_source": "sr_legacy",
+      "notes": "No QNS in FNDDS survey (source: sr_legacy)"
+    },
+    {
+      "slug": "tuna",
+      "food_id": "171986",
+      "name": "Fish, tuna, light, canned in water, without salt, drained solids",
+      "portions": {
+        "can": 165.0
+      },
+      "current_serving": null,
+      "qns": null,
+      "gap": null,
+      "ratio": null,
+      "in_gold": true,
+      "data_source": "sr_legacy",
+      "notes": "No piece/slice/cup fallback in portions ['can']; No QNS in FNDDS survey (source: sr_legacy)"
+    },
+    {
+      "slug": "white_rice",
+      "food_id": "2708408",
+      "name": "Rice, white, cooked, no added fat",
+      "portions": {
+        "cup": 158.0
+      },
+      "current_serving": 158.0,
+      "qns": 118.0,
+      "gap": 40.0,
+      "ratio": 1.339,
+      "in_gold": true,
+      "data_source": "fndds_survey",
+      "notes": "Gap 40.0g (ratio 1.34x)"
+    }
+  ]
+}

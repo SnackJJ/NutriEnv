@@ -15,7 +15,12 @@ from nutrienv.world.types import LedgerRow, ledger_totals, normalize_tags
 from .generator import Task
 from .realizations import EVALUATE_ROWS, UPDATE_ROWS
 
-__all__ = ["validate_draft", "semantic_key", "fitting_plan"]
+__all__ = [
+    "validate_draft",
+    "validate_oracle_grams",
+    "semantic_key",
+    "fitting_plan",
+]
 
 _WINDOW_LEAK = re.compile(r"\b(?:kcal|protein_g|carb_g|fat_g)\s+\d")
 _SLUG = re.compile(r"\b[a-z]+_[a-z0-9_]+\b")
@@ -168,6 +173,34 @@ def _matches_portion_table(food_id: str, grams: float, catalog) -> bool:
             for quantity in (0.5, 1.0, 1.5, 2.0):
                 candidates.add(round(quantity * float(one), 2))
     return round(float(grams), 2) in candidates
+
+
+def validate_oracle_grams(task: Task) -> list[str]:
+    """Return issues for Oracle grams that lack a deterministic portion anchor.
+
+    This check deliberately reads the Oracle rather than trying to recover a
+    realization row from the query, so it also covers independently authored
+    queries such as LLM pipeline drafts.
+    """
+    issues: list[str] = []
+    items = []
+    if task.oracle.ledger_tail:
+        items.extend(
+            (f"ledger_tail[{index}]", row.food_id, row.grams)
+            for index, row in enumerate(task.oracle.ledger_tail)
+        )
+    if task.oracle.last_plan:
+        items.extend(
+            (f"last_plan[{index}]", str(item["food_id"]), item["grams"])
+            for index, item in enumerate(task.oracle.last_plan)
+        )
+
+    for location, food_id, grams in items:
+        if not _matches_portion_table(food_id, grams, task.s0.catalog):
+            issues.append(
+                f"oracle {location} grams {grams} for {food_id} do not match portion table"
+            )
+    return issues
 
 
 def validate_draft(task: Task) -> list[str]:
