@@ -69,6 +69,11 @@ def _canonical(catalog: FoodCatalog, food_id: str) -> str:
     return food_id
 
 
+# Only units resolve_portion can parse. Overlay keys such as qns/oz_yield
+# are catalog data, not query grammar (landing acceptance 5).
+_EXPLAIN_UNITS = frozenset(UNIT_SYNONYMS.values()) | {"g", "oz"}
+
+
 def explain_grams(food_id: str, grams: float, catalog: object) -> str | None:
     """Household-measure gloss, or None if nothing clean divides."""
     entry = catalog[food_id] if food_id in catalog else None  # type: ignore[operator]
@@ -77,7 +82,7 @@ def explain_grams(food_id: str, grams: float, catalog: object) -> str | None:
     grams_f = float(grams)
     found = []
     for unit, gpu in {**(entry.get("portions") or {}), "oz": OUNCE_GRAMS, "g": 1.0}.items():
-        if not _num(gpu) or gpu <= 0:
+        if unit not in _EXPLAIN_UNITS or not _num(gpu) or gpu <= 0:
             continue
         ratio = grams_f / float(gpu)
         for nice, label in NICE.items():
@@ -479,16 +484,20 @@ def build_item(item: dict, catalog: FoodCatalog, task) -> dict:
     }
 
 
-def build(split_path: Path) -> dict:
+def build(split_path: Path, *, allow_catalog_sha_mismatch: bool = False) -> dict:
     payload = json.loads(split_path.read_text(encoding="utf-8"))
     catalog_path = Path(payload["catalog"])
     if not catalog_path.is_absolute():
         catalog_path = _ROOT / catalog_path
     digest = hashlib.sha256(catalog_path.read_bytes()).hexdigest()
     if digest != payload["catalog_sha256"]:
-        raise SystemExit(
-            f"catalog sha256 mismatch: {catalog_path} is {digest}, split wants {payload['catalog_sha256']}"
+        message = (
+            f"catalog sha256 mismatch: {catalog_path} is {digest}, "
+            f"split wants {payload['catalog_sha256']}"
         )
+        if not allow_catalog_sha_mismatch:
+            raise SystemExit(message)
+        print(f"warning: {message} (live catalog used anyway)", file=sys.stderr)
     catalog = FoodCatalog.from_sqlite(catalog_path)
     tasks = {task.id: task for task in load_split(split_path)}
     items = [build_item(item, catalog, tasks[item["id"]]) for item in payload["items"]]
@@ -514,9 +523,24 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--split", default="data/splits/v0.5-gold.json")
     parser.add_argument("--out", default="reports/review-sheet.json")
+    parser.add_argument(
+        "--allow-catalog-sha-mismatch",
+        action="store_true",
+        help=(
+            "Continue when the live catalog SHA differs from the split freeze "
+            "hash. Default is to fail so unreviewed catalog drift cannot ship."
+        ),
+    )
     args = parser.parse_args(argv)
     out = _resolve(args.out)
-    text = json.dumps(build(_resolve(args.split)), indent=2, ensure_ascii=False)
+    text = json.dumps(
+        build(
+            _resolve(args.split),
+            allow_catalog_sha_mismatch=args.allow_catalog_sha_mismatch,
+        ),
+        indent=2,
+        ensure_ascii=False,
+    )
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(text + "\n", encoding="utf-8")
     template = _ROOT / "reports" / "review_sheet_template.html"

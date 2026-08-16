@@ -126,6 +126,37 @@ _UNIT_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\bbanana\b|\begg\b|\bmedium\b|\blarge\b|\bsmall\b"), "piece"),
 ]
 
+# Safe-overlay policy (adjudication trap A, strict option (a)):
+# Old-class keys are frozen by the legacy _collect_portions scan (zip file
+# order, first-wins). Ordinary overlay rows must never insert a missing
+# old-class key. The only extra write path for an old-class key is a
+# compound FNDDS "piece/slice" row filling the side the legacy scan missed.
+_OLD_PORTION_KEYS = frozenset({"cup", "tbsp", "tsp", "slice", "piece", "can"})
+# serving is not written this round. resolve_portion already maps
+# serving/portion/bowl/plate/order onto portions["serving"] and falls
+# back to piece→slice→cup when that key is absent. Wiring a catalog
+# serving value is a later standalone project (react.py handbook +
+# phrase→key→grams tests must land in the same change).
+_NEW_PORTION_KEYS = frozenset(
+    {
+        "thick",
+        "thin",
+        "regular",
+        "oz",
+        "oz_yield",
+        "fl_oz",
+        "cubic_inch",
+        "qns",
+    }
+)
+_QNS_MODIFIER = "90000"
+_HOUSEHOLD_UNITS: list[tuple[re.Pattern[str], str]] = _UNIT_PATTERNS[:6]
+_PIECE_WORD = re.compile(r"\bpieces?\b")
+_SLICE_WORD = re.compile(r"\bslices?\b")
+_FL_OZ_UNIT_ROW = re.compile(r"^1\s+fl\.?\s*oz\b")
+_CUBIC_INCH = re.compile(r"\bcubic inch(?:es)?\b")
+_OZ_UNIT_ROW = re.compile(r"^1\s+oz\b")
+
 
 def _open_zip_dir(zip_path: Path) -> zipfile.ZipFile:
     return zipfile.ZipFile(zip_path)
@@ -199,6 +230,86 @@ def _collect_portions(zf: zipfile.ZipFile) -> dict[str, dict[str, float]]:
     return out
 
 
+def _row_sort_key(row: dict[str, str]) -> tuple[str, int, int]:
+    try:
+        seq = int(row.get("seq_num") or 0)
+    except ValueError:
+        seq = 0
+    try:
+        portion_id = int(row.get("id") or 0)
+    except ValueError:
+        portion_id = 0
+    return (row.get("fdc_id") or "", seq, portion_id)
+
+
+def _overlay_keys(description: str, modifier: str) -> list[str]:
+    """Keys the safe overlay may write from one FNDDS row.
+
+    Compound ``piece/slice`` is the only path that may emit an old-class key.
+    Physical ounce rows (``1 oz, cooked``) and yield rows (``1 oz yields``)
+    are split so they cannot first-wins into the same ``oz`` key (trap B).
+    ``fl_oz`` is only the true unit row that starts with ``1 fl oz``;
+    container totals such as ``1 soda (10 fl oz)`` are not per-fl_oz grams.
+    """
+    desc = (description or "").strip()
+    desc_l = desc.lower()
+    blob = " ".join(part for part in (desc_l, (modifier or "").strip()) if part)
+    if (modifier or "") == _QNS_MODIFIER or desc_l.startswith("quantity not"):
+        return ["qns"]
+    if not blob or "guideline" in blob:
+        return []
+    if "mashed" in blob or ("sliced" in blob and "cup" in blob):
+        return []
+    if _PIECE_WORD.search(desc_l) and _SLICE_WORD.search(desc_l):
+        return ["piece", "slice"]
+    if any(pattern.search(blob) for pattern, _key in _HOUSEHOLD_UNITS):
+        return []
+    if _FL_OZ_UNIT_ROW.match(desc_l):
+        return ["fl_oz"]
+    if _OZ_UNIT_ROW.match(desc_l):
+        return ["oz_yield"] if "yield" in desc_l else ["oz"]
+    if _CUBIC_INCH.search(desc_l):
+        return ["cubic_inch"]
+    if re.search(r"\bthick\b", desc_l):
+        return ["thick"]
+    if re.search(r"\bthin\b", desc_l):
+        return ["thin"]
+    if re.search(r"\bregular\b", desc_l):
+        return ["regular"]
+    return []
+
+
+def _apply_safe_overlay(
+    zf: zipfile.ZipFile, portions: dict[str, dict[str, float]]
+) -> None:
+    """Append new FNDDS keys onto already-frozen old-class portions.
+
+    New keys first-win after a stable ``(fdc_id, seq_num, portion id)`` sort.
+    Existing keys are never overwritten (``_merge_portion`` first-wins).
+    """
+    if not _zip_has(zf, "food_portion.csv"):
+        return
+    rows = list(_iter_csv(zf, "food_portion.csv"))
+    rows.sort(key=_row_sort_key)
+    for row in rows:
+        try:
+            grams = float(row.get("gram_weight") or "")
+        except ValueError:
+            continue
+        keys = _overlay_keys(
+            row.get("portion_description") or "", row.get("modifier") or ""
+        )
+        if not keys:
+            continue
+        bucket = portions.setdefault(row["fdc_id"], {})
+        for key in keys:
+            if key in _OLD_PORTION_KEYS and key not in {"piece", "slice"}:
+                raise RuntimeError(f"safe overlay must not write old-class key {key!r}")
+            if key not in _OLD_PORTION_KEYS and key not in _NEW_PORTION_KEYS:
+                raise RuntimeError(f"unknown overlay key {key!r}")
+            _merge_portion(bucket, key, grams)
+
+
 def _collect_nutrients(zf: zipfile.ZipFile) -> dict[str, dict[str, float]]:
     out: dict[str, dict[str, float]] = {}
     for row in _iter_csv(zf, "food_nutrient.csv"):
@@ -222,9 +333,12 @@ def _ingest_pack(
     *,
     default_type: str,
     foods: dict[str, dict],
+    overlay: bool = False,
 ) -> None:
     nutrients = _collect_nutrients(zf)
     portions = _collect_portions(zf)
+    if overlay:
+        _apply_safe_overlay(zf, portions)
     for row in _iter_csv(zf, "food.csv"):
         fdc_id = row["fdc_id"]
         name = (row.get("description") or "").strip()
@@ -343,7 +457,12 @@ def build(include_branded: bool, dest: Path | None = None) -> Path:
             if branded:
                 _ingest_branded(zf, foods)
             else:
-                _ingest_pack(zf, default_type=default_type, foods=foods)
+                _ingest_pack(
+                    zf,
+                    default_type=default_type,
+                    foods=foods,
+                    overlay=default_type == "survey_fndds_food",
+                )
     aliases = _assign_staples(foods)
     out = dest or _DB
     out.parent.mkdir(parents=True, exist_ok=True)

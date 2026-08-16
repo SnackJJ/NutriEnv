@@ -17,7 +17,9 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 from nutrienv.bench.generator import Generator
@@ -33,7 +35,10 @@ from nutrienv.bench.realizations import (
     UNIT_CONVERT_ROWS,
     UPDATE_ROWS,
 )
+from nutrienv.bench.split import _item as split_item
+from nutrienv.bench.validator import validate_oracle_grams
 from nutrienv.world.catalog_store import load_catalog
+from nutrienv.world.portions import OUNCE_GRAMS, resolve_portion
 from nutrienv.world.types import LedgerRow, Profile, WorldState
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,6 +51,25 @@ GOLD_WINDOWS = {"kcal": (1800.0, 2200.0), "protein_g": (90.0, 140.0)}
 # yesterday row, a row in some other slot today, and a row in the target slot
 # under a different food. Reused verbatim so log items stay one shape.
 FUZZY_DISTRACTORS = {"apple": 182.0, "orange": 131.0, "oats": 60.0, "banana": 118.0}
+
+_MASS_IN_QUERY = re.compile(
+    r"\b(?P<quantity>\d+(?:\.\d+)?|half|quarter|one|two|three|four)"
+    r"\s*(?:an?\s+)?(?P<unit>g|grams?|oz|ounces?)\b",
+    re.IGNORECASE,
+)
+_QUARTER_PORTION_IN_QUERY = re.compile(
+    r"\b(?:a\s+)?quarter(?:\s+of\s+a)?\s+"
+    r"(?:cups?|tablespoons?|tbsp|teaspoons?|tsp|slices?|pieces?|cans?)\b",
+    re.IGNORECASE,
+)
+_QUERY_QUANTITIES = {
+    "half": 0.5,
+    "quarter": 0.25,
+    "one": 1.0,
+    "two": 2.0,
+    "three": 3.0,
+    "four": 4.0,
+}
 
 
 INCREMENTS = {
@@ -584,6 +608,74 @@ def evaluate_items(catalog: dict, wanted, tag: str) -> list[dict]:
     return items
 
 
+def _query_mass_grams(query: str) -> set[float]:
+    """Return gram amounts directly and unambiguously stated in ``query``."""
+    values = set()
+    for match in _MASS_IN_QUERY.finditer(query):
+        raw_quantity = match.group("quantity").lower()
+        quantity = _QUERY_QUANTITIES.get(raw_quantity)
+        if quantity is None:
+            quantity = float(raw_quantity)
+        unit = match.group("unit").lower()
+        grams = quantity if unit in {"g", "gram", "grams"} else quantity * OUNCE_GRAMS
+        values.add(round(grams, 2))
+    return values
+
+
+def _query_anchors_item(task, food_id: str, grams: float) -> bool:
+    if round(float(grams), 2) in _query_mass_grams(task.query):
+        return True
+    for match in _QUARTER_PORTION_IN_QUERY.finditer(task.query):
+        resolved = resolve_portion(food_id, match.group(0), task.s0.catalog)
+        if resolved is not None and round(float(grams), 2) == round(resolved, 2):
+            return True
+    return False
+
+
+def _portion_anchor_task(task):
+    """Project away grams already anchored explicitly by the spoken query."""
+    ledger_tail = task.oracle.ledger_tail
+    if ledger_tail:
+        ledger_tail = [
+            row
+            for row in ledger_tail
+            if not _query_anchors_item(task, row.food_id, row.grams)
+        ]
+    last_plan = task.oracle.last_plan
+    if last_plan:
+        last_plan = [
+            item
+            for item in last_plan
+            if not _query_anchors_item(
+                task, str(item["food_id"]), float(item["grams"])
+            )
+        ]
+    return replace(
+        task,
+        oracle=replace(
+            task.oracle,
+            ledger_tail=ledger_tail,
+            last_plan=last_plan,
+        ),
+    )
+
+
+def freeze_split(payload: dict, target: Path, catalog) -> None:
+    """Validate Oracle gram anchors, then write one frozen split payload."""
+    issues = []
+    for raw_item in payload["items"]:
+        task = _portion_anchor_task(split_item(raw_item, catalog))
+        issues.extend(
+            f"{task.id}: {issue}" for issue in validate_oracle_grams(task)
+        )
+    if issues:
+        raise ValueError("oracle grams gate failed:\n" + "\n".join(issues))
+    target.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
 def build(version: str) -> None:
     spec = INCREMENTS[version]
     tag = "v" + version[1:].replace(".", "")      # v0.2 -> v02
@@ -614,7 +706,7 @@ def build(version: str) -> None:
         "items": parent["items"] + new,
     }
     target = SPLITS / f"{version}-gold.json"
-    target.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    freeze_split(payload, target, catalog)
     print(
         f"wrote {target.relative_to(ROOT)}: {len(parent['items'])} KEEP + "
         f"{len(new)} new = {len(payload['items'])}"

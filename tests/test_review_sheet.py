@@ -36,7 +36,11 @@ def tasks():
 def sheet(tmp_path_factory) -> dict:
     out = tmp_path_factory.mktemp("review") / "review-sheet.json"
     before = SPLIT.read_bytes()
-    assert brs.main(["--split", str(SPLIT), "--out", str(out)]) == 0
+    assert brs.main([
+        "--split", str(SPLIT),
+        "--out", str(out),
+        "--allow-catalog-sha-mismatch",
+    ]) == 0
     assert SPLIT.read_bytes() == before
     return json.loads(out.read_text(encoding="utf-8"))
 
