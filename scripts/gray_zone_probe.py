@@ -15,38 +15,32 @@ Run:  .venv/bin/python scripts/gray_zone_probe.py
 
 from __future__ import annotations
 
-import json
-import os
 import re
 import sys
 import time
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(SCRIPTS))
 
-from nutrienv.harness.react import DEEPSEEK_CHAT_URL, load_dotenv_keys  # noqa: E402
-from nutrienv.world.catalog_store import GOLD_CATALOG_PATH, load_catalog  # noqa: E402
-from portion_judge_probe import (  # noqa: E402
-    JUDGE_SYSTEM,
-    K,
+from nutrienv.bench.grams_gate import (  # noqa: E402
+    MAX_TOKENS,
     MODEL,
     TEMPERATURE,
-    THRESHOLD,
-    parse_verdict,
+    judge_once,
 )
+from nutrienv.harness.react import load_dotenv_keys  # noqa: E402
+from nutrienv.world.catalog_store import GOLD_CATALOG_PATH, load_catalog  # noqa: E402
 
 load_dotenv_keys(ROOT / ".env.local")
 
 # v4-flash spends completion tokens on reasoning first. The 15/15 script's
 # max_tokens=120 is enough for extreme cases; gray-zone thinking overflows
-# and returns empty content (finish_reason=length). 512 leaves room for JSON.
-MAX_TOKENS = 512
+# and returns empty content (finish_reason=length). 512 lives in grams_gate.
 PARSE_RETRIES = 2
+K = 5
+THRESHOLD = 0.6
 
 # Claude's measured triples; abort if catalog no longer matches.
 EXPECTED_PORTIONS = {
@@ -148,50 +142,16 @@ def build_cases(confirmed: dict[str, dict]) -> list[Case]:
     return cases
 
 
-def call_judge(food: str, grams: float) -> str:
-    """Same request as portion_judge_probe.call_judge, more completion room."""
-    payload = {
-        "model": MODEL,
-        "messages": [
-            {"role": "system", "content": JUDGE_SYSTEM},
-            {"role": "user", "content": f'Diary entry: "I ate {grams:g} g of {food}."'},
-        ],
-        "temperature": TEMPERATURE,
-        "max_tokens": MAX_TOKENS,
-    }
-    req = urllib.request.Request(
-        DEEPSEEK_CHAT_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {os.environ['DEEPSEEK_API_KEY']}",
-        },
-        method="POST",
-    )
-    last: Exception | None = None
-    for attempt in range(3):
-        try:
-            with urllib.request.urlopen(req, timeout=60.0) as resp:
-                body = json.loads(resp.read().decode("utf-8"))
-            return body["choices"][0]["message"]["content"]
-        except Exception as exc:  # noqa: BLE001 - retry network noise
-            last = exc
-            time.sleep(2 ** attempt)
-    raise RuntimeError(f"request failed: {last}")
-
-
 def run_case(case: Case) -> Result:
     verdicts: list[str] = []
     reasons: list[str] = []
     for _ in range(K):
-        verdict: str | None = None
-        text = ""
-        for _retry in range(1 + PARSE_RETRIES):
-            text = call_judge(case.food, case.grams)
-            verdict = parse_verdict(text)
-            if verdict is not None:
-                break
-            time.sleep(0.15)
+        verdict, text = judge_once(
+            case.food,
+            case.grams,
+            parse_retries=PARSE_RETRIES,
+            retry_sleep=0.15,
+        )
         verdicts.append("parse_fail" if verdict is None else verdict)
         if verdict is not None:
             match = re.search(r'"reason"\s*:\s*"([^"]*)"', text)
@@ -271,7 +231,7 @@ def main() -> None:
     confirmed = confirm_catalog()
     print(
         f"model={MODEL}  K={K}  threshold={THRESHOLD}  "
-        f"max_tokens={MAX_TOKENS}  prompt=portion_judge_probe.JUDGE_SYSTEM"
+        f"max_tokens={MAX_TOKENS}  prompt=grams_gate.JUDGE_SYSTEM"
     )
     print(f"catalog={GOLD_CATALOG_PATH}\n")
     print("confirmed piece / qns:")

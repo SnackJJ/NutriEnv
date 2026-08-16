@@ -152,6 +152,19 @@ def test_modifier_missing_catalog_key_is_none():
 
 
 @pytest.mark.parametrize(
+    ("food_id", "phrase"),
+    [
+        ("2705824", "a thick thin steak"),
+        ("2705824", "a thick thin"),
+        ("2705824", "a regular thin steak"),
+    ],
+)
+def test_mutex_modifiers_return_none(live_catalog, food_id, phrase):
+    """Two size words in one phrase refuse (design §2.1.2)."""
+    assert resolve_portion(food_id, phrase, live_catalog) is None
+
+
+@pytest.mark.parametrize(
     ("food_id", "phrase", "grams"),
     [
         ("milk_whole", "8 fl oz", 244.0),              # F1
@@ -202,6 +215,22 @@ def test_catalog_only_keys_stay_out_of_grammar(live_catalog, food_id, phrase, gr
     assert resolve_portion(food_id, phrase, live_catalog) == grams
     assert "cubic_inch" not in UNIT_SYNONYMS
     assert "oz_yield" not in UNIT_SYNONYMS
+
+
+@pytest.mark.parametrize(
+    ("food_id", "phrase", "grams"),
+    [
+        ("pasta", "1 oz dry", None),
+        ("pasta", "2 oz raw", None),
+        ("oats", "a cup of uncooked oats", None),
+        ("pasta", "2 oz", 56.7),
+        ("pasta", "150 g chicken", 150.0),
+        ("oats", "a cup", 80.0),  # ns-oatmeal phrase; "uncooked" is in the query
+    ],
+)
+def test_refuses_state_words_after_unit(live_catalog, food_id, phrase, grams):
+    """Design §6 5a: dry/raw/uncooked after a unit refuse; bare units stay."""
+    assert resolve_portion(food_id, phrase, live_catalog) == grams
 
 
 def test_manual_expressions_all_resolve(live_catalog):

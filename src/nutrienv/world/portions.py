@@ -18,6 +18,8 @@ weigh food:
 * ``"thick"`` / ``"thin"`` / ``"regular"`` pick a different default serving
   of the same food (``portions.thick`` etc.). They are not household
   measures: a modifier next to slice/cup/piece/… is refused.
+* State words after a unit (``dry`` / ``raw`` / ``uncooked`` / ``dried``)
+  refuse: ``"1 oz dry"`` is not an ounce of the cooked food.
 
 The grammar is deliberately small and total: it never raises, and it returns
 ``None`` whenever it is not sure. ``None`` means "ask for grams", not "zero".
@@ -76,6 +78,14 @@ REFUSED_MODIFIERS = frozenset(
     {"large", "big", "huge", "jumbo", "giant", "small", "little", "medium",
      "mini", "miniature", "tiny"}
 )
+
+#: State words after a unit. The catalog food is the cooked/as-eaten form;
+#: "1 oz dry" is a different quantity (design §6 5a), so the grammar asks.
+_REFUSED_AFTER_UNIT = frozenset({
+    "dry", "dried", "drying",
+    "raw",
+    "uncooked", "uncook",
+})
 
 #: Dish nouns people use as the unit of the dish itself: "a sandwich", "two
 #: burritos". A noun only counts when the food's own name contains it.
@@ -165,6 +175,9 @@ def resolve_portion(food_id: str, phrase: str, catalog: dict) -> float | None:
                     continue
             else:
                 grams_per_unit = portions[key]
+
+        if _refuses_after_unit(tokens[index + 1:]):
+            return None
 
         if isinstance(grams_per_unit, bool) or not isinstance(grams_per_unit, (int, float)):
             return None
@@ -286,6 +299,10 @@ def _refuses_modifiers(tokens: list[str]) -> bool:
     if any(token in REFUSED_MODIFIERS for token in tokens):
         return True
     return len({MODIFIER_KEYS[token] for token in tokens if token in MODIFIER_KEYS}) > 1
+
+
+def _refuses_after_unit(tokens: list[str]) -> bool:
+    return any(token in _REFUSED_AFTER_UNIT for token in tokens)
 
 
 def _span_modifier(tokens: list[str]) -> str | None:
