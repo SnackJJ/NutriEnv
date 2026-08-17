@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Build the local FDC sqlite catalog from official CSV zips.
 
-Runtime reads only ``data/fdc/catalog.sqlite``. This script is the freeze step.
+Default path is the v0.5 safe-overlay freeze (``data/fdc/catalog.sqlite``).
+Full FNDDS strategy (seq_num first-wins) writes a *new* file:
+
+    .venv/bin/python scripts/build_fdc_catalog.py --out data/fdc/catalog-v1.sqlite
+
+``--full`` without ``--out``, or ``--full`` targeting catalog.sqlite, is refused.
 """
 
 from __future__ import annotations
@@ -156,6 +161,22 @@ _SLICE_WORD = re.compile(r"\bslices?\b")
 _FL_OZ_UNIT_ROW = re.compile(r"^1\s+fl\.?\s*oz\b")
 _CUBIC_INCH = re.compile(r"\bcubic inch(?:es)?\b")
 _OZ_UNIT_ROW = re.compile(r"^1\s+oz\b")
+_SIZE_AS_PIECE = re.compile(r"\bbanana\b|\begg\b|\bmedium\b|\blarge\b|\bsmall\b")
+# Full-strategy new keys (catalog-v1). Household units win first, so
+# "1 large or thick slice" never reaches this list. fl_oz is listed
+# before oz so "1 fl oz" is not stored as oz. oz skips package rows.
+_FULL_NEW_UNITS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\bthick\b"), "thick"),
+    (re.compile(r"\bthin\b"), "thin"),
+    (re.compile(r"\bregular\b"), "regular"),
+    (re.compile(r"\bcubic inch(?:es)?\b"), "cubic_inch"),
+    (re.compile(r"\bfl\.?\s*oz\b"), "fl_oz"),
+    (
+        re.compile(r"\boz\b(?!\s+(?:container|bag|bottle|package|cup)\b)"),
+        "oz",
+    ),
+    (re.compile(r"\b(?:single\s+)?servings?\b"), "serving"),
+]
 
 
 def _open_zip_dir(zip_path: Path) -> zipfile.ZipFile:
@@ -310,6 +331,74 @@ def _apply_safe_overlay(
             _merge_portion(bucket, key, grams)
 
 
+def _portion_keys_full(description: str, modifier: str) -> list[str]:
+    """Keys one FNDDS row writes under the full (catalog-v1) strategy.
+
+    Matches the dry-run POLICY in ``scripts/fndds_dry_run.py``: QNS,
+    compound piece/slice dual-write, household before size/new units,
+    ``oz`` not ``oz_yield``, package rows not oz.
+    """
+    desc = (description or "").strip()
+    blob = " ".join(part for part in (desc, modifier or "") if part).lower()
+    if (modifier or "") == _QNS_MODIFIER or desc.lower().startswith("quantity not"):
+        return ["qns"]
+    if not blob or "guideline" in blob:
+        return []
+    if "mashed" in blob or ("sliced" in blob and "cup" in blob):
+        return []
+
+    keys: list[str] = []
+    if _PIECE_WORD.search(blob) and _SLICE_WORD.search(blob):
+        keys.extend(("piece", "slice"))
+
+    for pattern, key in _HOUSEHOLD_UNITS:
+        if key in keys:
+            continue
+        if pattern.search(blob):
+            keys.append(key)
+            break
+    if keys:
+        return keys
+
+    if _SIZE_AS_PIECE.search(blob):
+        return ["piece"]
+
+    for pattern, key in _FULL_NEW_UNITS:
+        if pattern.search(blob):
+            return [key]
+    return []
+
+
+def collect_portions_full(
+    rows: list[dict[str, str]],
+) -> dict[str, dict[str, float]]:
+    """Full FNDDS scan: sort by (fdc_id, seq_num, id), first-wins per key.
+
+    Public so the dry-run parity test can call the builder scan without
+    going through zip ingest or sqlite. gram_weight <= 0 is dropped.
+    """
+    ordered = sorted(rows, key=_row_sort_key)
+    out: dict[str, dict[str, float]] = {}
+    for row in ordered:
+        fdc_id = row.get("fdc_id") or ""
+        keys = _portion_keys_full(
+            row.get("portion_description") or "", row.get("modifier") or ""
+        )
+        try:
+            grams = float(row.get("gram_weight") or "")
+        except ValueError:
+            continue
+        for key in keys:
+            _merge_portion(out.setdefault(fdc_id, {}), key, grams)
+    return out
+
+
+def _collect_portions_full(zf: zipfile.ZipFile) -> dict[str, dict[str, float]]:
+    if not _zip_has(zf, "food_portion.csv"):
+        return {}
+    return collect_portions_full(list(_iter_csv(zf, "food_portion.csv")))
+
+
 def _collect_nutrients(zf: zipfile.ZipFile) -> dict[str, dict[str, float]]:
     out: dict[str, dict[str, float]] = {}
     for row in _iter_csv(zf, "food_nutrient.csv"):
@@ -334,11 +423,15 @@ def _ingest_pack(
     default_type: str,
     foods: dict[str, dict],
     overlay: bool = False,
+    full: bool = False,
 ) -> None:
     nutrients = _collect_nutrients(zf)
-    portions = _collect_portions(zf)
-    if overlay:
-        _apply_safe_overlay(zf, portions)
+    if full:
+        portions = _collect_portions_full(zf)
+    else:
+        portions = _collect_portions(zf)
+        if overlay:
+            _apply_safe_overlay(zf, portions)
     for row in _iter_csv(zf, "food.csv"):
         fdc_id = row["fdc_id"]
         name = (row.get("description") or "").strip()
@@ -438,7 +531,16 @@ def _assign_staples(foods: dict[str, dict]) -> dict[str, str]:
     return aliases
 
 
-def build(include_branded: bool, dest: Path | None = None) -> Path:
+def build(
+    include_branded: bool,
+    dest: Path | None = None,
+    full: bool = False,
+) -> Path:
+    if full and (dest is None or dest.resolve() == _DB.resolve()):
+        raise ValueError(
+            "full strategy must write a new file (--out); "
+            "refusing to overwrite catalog.sqlite"
+        )
     foods: dict[str, dict] = {}
     packs = [
         (_RAW / "fndds.zip" if (_RAW / "fndds.zip").is_file() else _RAW / "survey.zip", "survey_fndds_food", False),
@@ -457,11 +559,13 @@ def build(include_branded: bool, dest: Path | None = None) -> Path:
             if branded:
                 _ingest_branded(zf, foods)
             else:
+                use_full = full and default_type == "survey_fndds_food"
                 _ingest_pack(
                     zf,
                     default_type=default_type,
                     foods=foods,
-                    overlay=default_type == "survey_fndds_food",
+                    overlay=default_type == "survey_fndds_food" and not use_full,
+                    full=use_full,
                 )
     aliases = _assign_staples(foods)
     out = dest or _DB
@@ -519,8 +623,17 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--branded", action="store_true")
     parser.add_argument("--out", type=Path, default=None)
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Full FNDDS strategy (seq_num first-wins). Requires --out.",
+    )
     args = parser.parse_args()
-    build(include_branded=args.branded, dest=args.out)
+    dest = args.out
+    full = args.full or (dest is not None and dest.name == "catalog-v1.sqlite")
+    if full and dest is None:
+        parser.error("full strategy requires --out PATH (refusing to overwrite catalog.sqlite)")
+    build(include_branded=args.branded, dest=dest, full=full)
 
 
 if __name__ == "__main__":
