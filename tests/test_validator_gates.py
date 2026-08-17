@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from nutrienv.bench.pipeline.resolver import resolve_candidate
+from nutrienv.bench.pipeline.types import Candidate
 from nutrienv.bench.realize import (
     GOLD_WINDOWS,
     Oracle,
@@ -154,19 +156,57 @@ def test_conflict_gate_rejects_satisfiable_windows_and_empty_s0_plan():
     assert any("unsatisfiable" in item or "satisfiable" in item for item in validate_draft(good))
 
 
-def test_evaluate_gate_rejects_query_that_maps_to_no_row():
-    """D4: a rewritten query that matches no realization Row is rejected.
+def test_evaluate_gate_accepts_rewritten_query_when_grams_anchored():
+    """F1/R1: D4 is semantic gram backresolve, not query↔Row verbatim.
 
-    The old gate ran gram backresolve only when some EVALUATE_ROWS item
-    had ``item.query == task.query``. A paraphrase that still names every
-    plan food would otherwise pass silently.
+    The old gate rejected any paraphrase that did not match an
+    EVALUATE_ROWS query byte-for-byte. A rewritten query that keeps the
+    oracle grams and still names every plan food must now pass.
     """
     good = _task(EVALUATE_ROWS[0])
     assert validate_draft(good) == []
     rewritten = replace(good, query="Today, " + good.query)
     assert not any(row.query == rewritten.query for row in EVALUATE_ROWS)
+    assert validate_draft(rewritten) == []
+
+
+def test_evaluate_gate_rejects_rewritten_query_with_off_table_grams():
+    """D4 stays fail-closed: a rewritten query cannot smuggle off-table grams."""
+    good = _task(EVALUATE_ROWS[0])
+    tweaked = [dict(item) for item in good.oracle.last_plan]
+    tweaked[0] = {**tweaked[0], "grams": float(tweaked[0]["grams"]) + 50.0}
+    rewritten = replace(
+        good,
+        query="Today, " + good.query,
+        oracle=replace(good.oracle, last_plan=tweaked),
+    )
+    assert not any(row.query == rewritten.query for row in EVALUATE_ROWS)
     issues = validate_draft(rewritten)
-    assert any("realization row" in item or "D4" in item for item in issues)
+    assert any("portion table" in item for item in issues)
+
+
+def test_evaluate_gate_accepts_llm_style_query_when_grams_anchored():
+    """An LLM evaluate query realized through the pipeline must pass the gate."""
+    query = (
+        "Does this work as my dinner: a can of tuna, a cup of rice, "
+        "and a cup of broccoli?"
+    )
+    candidate = Candidate(
+        items=(("tuna", "a can"), ("rice", "a cup"), ("broccoli", "a cup")),
+        query=query,
+        family="evaluate",
+        persona="everyday",
+    )
+    task, rejected = resolve_candidate(
+        candidate,
+        catalog=load_catalog(),
+        task_id="r1-eval-llm-dinner",
+        seen=set(),
+    )
+    assert rejected is None
+    assert task is not None
+    assert not any(row.query == task.query for row in EVALUATE_ROWS)
+    assert validate_draft(task) == []
 
 
 def test_evaluate_gate_rejects_instead_wrong_grams_and_unmentioned_food():

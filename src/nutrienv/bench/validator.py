@@ -9,12 +9,11 @@ from __future__ import annotations
 import itertools
 import re
 
-from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals, normalize_tags
 
 from .generator import Task
 from .portion_table import matches_portion_table
-from .realizations import EVALUATE_ROWS, UPDATE_ROWS
+from .realizations import UPDATE_ROWS
 from .windows import any_pair_unsatisfiable
 
 __all__ = [
@@ -43,6 +42,9 @@ _SPELLED_MAGNITUDE = (
     ("twenty", 20.0),
 )
 _NUMBER = re.compile(r"(?<!\d)(\d+(?:\.\d+)?)(?!\d)")
+# v0.5 evaluate items speak raw gram phrases ("200g chicken"). Those
+# amounts are query-traceable but not named PortionFact multiples.
+_EXPLICIT_GRAMS = re.compile(r"(?<!\d)(\d+(?:\.\d+)?)\s*g(?:rams?)?\b")
 # Split an update query into clauses so each window's delta and direction
 # stay attached to the noun they were spoken with. A comma starts a clause
 # only when the next words look like one (window noun or direction verb).
@@ -570,18 +572,17 @@ def _validate_evaluate(task: Task, query: str) -> list[str]:
     if not plan:
         issues.append("evaluate last_plan is empty")
         return issues
-    row = next((item for item in EVALUATE_ROWS if item.query == task.query), None)
-    if row is None:
-        issues.append("evaluate query does not map to a realization row (D4)")
-    elif len(row.items) != len(plan):
-        issues.append("evaluate last_plan does not match the row")
-    else:
-        for (food_id, phrase), item in zip(row.items, plan):
-            grams = resolve_portion(food_id, phrase, task.s0.catalog)
-            if grams is None or float(item["grams"]) != float(grams):
-                issues.append(
-                    f"evaluate grams {item.get('grams')} != resolve_portion {grams}"
-                )
+    spoken_grams = {round(float(match), 2) for match in _EXPLICIT_GRAMS.findall(query)}
+    for item in plan:
+        food_id = str(item["food_id"])
+        grams = item["grams"]
+        if matches_portion_table(food_id, grams, task.s0.catalog):
+            continue
+        if round(float(grams), 2) in spoken_grams:
+            continue
+        issues.append(
+            f"evaluate grams {grams} for {food_id} do not match portion table"
+        )
     for item in plan:
         food_id = str(item["food_id"])
         entry = task.s0.catalog.get(food_id) or {}
