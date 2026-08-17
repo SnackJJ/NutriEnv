@@ -22,8 +22,13 @@ GOLD_SPLIT_PATH = _ROOT / "data" / "splits" / "v0-gold.json"
 EXAM_SPLIT_PATH = _ROOT / "data" / "splits" / "v0.5-gold.json"
 
 
-def load_split(path: Path | str | None = None) -> list[Task]:
-    """Read a frozen JSON split and attach the local catalog to every S0."""
+def load_split(path: Path | str | None = None, *, catalog=None) -> list[Task]:
+    """Read a frozen JSON split and attach a catalog to every S0.
+
+    ``catalog=None`` loads :func:`load_catalog` with no path (the gold sqlite).
+    Pass a catalog object when the caller has already resolved and verified
+    the file that must be attached.
+    """
     target = Path(path) if path is not None else EXAM_SPLIT_PATH
     if not target.is_file():
         raise FileNotFoundError(f"split not found: {target}")
@@ -31,7 +36,8 @@ def load_split(path: Path | str | None = None) -> list[Task]:
     items = payload.get("items")
     if not isinstance(items, list) or not items:
         raise ValueError("split must contain a non-empty items list")
-    catalog = load_catalog()
+    if catalog is None:
+        catalog = load_catalog()
     return [_item(entry, catalog) for entry in items]
 
 
@@ -40,7 +46,8 @@ def load_exam(path: Path | str | None = None) -> list[Task]:
 
     Unlike :func:`load_split`, this checks ``version``, a non-empty ``items``
     list, that the recorded catalog file exists (resolved from the repo root),
-    and that ``sha256(catalog bytes)`` matches ``catalog_sha256``.
+    and that ``sha256(catalog bytes)`` matches ``catalog_sha256``. The
+    verified catalog file is the one attached to every Task.
     """
     target = Path(path) if path is not None else EXAM_SPLIT_PATH
     if not target.is_file():
@@ -70,7 +77,8 @@ def load_exam(path: Path | str | None = None) -> list[Task]:
         raise ValueError(
             f"exam catalog sha256 mismatch: file={digest} split={digest_field}"
         )
-    return load_split(target)
+    catalog = load_catalog(catalog_path)
+    return load_split(target, catalog=catalog)
 
 
 def _item(entry: object, catalog: dict) -> Task:

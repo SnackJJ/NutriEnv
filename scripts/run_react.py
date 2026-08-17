@@ -12,7 +12,7 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT / "src"))
 
-from nutrienv.bench import EXAM_SPLIT_PATH, load_split  # noqa: E402
+from nutrienv.bench import load_exam, load_split  # noqa: E402
 from nutrienv.harness.react import REACT_VERSIONS, ReActHarness  # noqa: E402
 from nutrienv.io.dotenv import load_dotenv_keys  # noqa: E402
 from nutrienv.harness.runner import DEFAULT_MAX_STEPS, run_split  # noqa: E402
@@ -26,8 +26,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--split",
-        default=str(EXAM_SPLIT_PATH),
-        help="frozen split JSON (default: data/splits/v0.5-gold.json)",
+        default=None,
+        help="frozen split JSON (default: published 240-item exam (v0.5-gold) via load_exam)",
     )
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument(
@@ -71,6 +71,13 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def load_react_tasks(split_path: Path | str | None = None):
+    """Default exam is fail-closed; an explicit path uses the generic loader."""
+    if split_path is None:
+        return load_exam()
+    return load_split(split_path)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     extra = [
@@ -81,6 +88,7 @@ def main(argv: list[str] | None = None) -> int:
     load_dotenv_keys(_ROOT / ".env.local", *extra)
 
     use_factory = args.seed is not None or args.n is not None
+    task_ids = None
     if use_factory:
         if args.seed is None or args.n is None:
             print("draft factory mode needs both --seed and --n", file=sys.stderr)
@@ -90,17 +98,21 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         split_path = None
+        if args.ids:
+            task_ids = [item.strip() for item in args.ids.split(",") if item.strip()]
     else:
-        split_path = args.split
-
-    task_ids = None
-    if args.ids:
-        task_ids = [item.strip() for item in args.ids.split(",") if item.strip()]
-    elif args.limit is not None and split_path is not None:
-        if args.limit < 1:
-            print("--limit must be >= 1", file=sys.stderr)
-            return 2
-        task_ids = [task.id for task in load_split(split_path)[: args.limit]]
+        # Fail closed before constructing the harness: default exam uses
+        # load_exam (catalog path + sha). An explicit --split is historical
+        # and stays on the generic loader.
+        tasks = load_react_tasks(args.split)
+        split_path = None if args.split is None else args.split
+        if args.ids:
+            task_ids = [item.strip() for item in args.ids.split(",") if item.strip()]
+        elif args.limit is not None:
+            if args.limit < 1:
+                print("--limit must be >= 1", file=sys.stderr)
+                return 2
+            task_ids = [task.id for task in tasks[: args.limit]]
 
     harness = ReActHarness(
         model=args.model,
