@@ -117,29 +117,17 @@ def _dashscope(model_id: str, *, disabled: bool = False) -> ChatModel:
     )
 
 
-def _deepseek_via_dashscope(
-    model_id: str, *, fallback_model_id: str | None = None, disabled: bool = False
-) -> ChatModel:
-    return ChatModel(
-        model_id=model_id,
-        url=DASHSCOPE_CHAT_URL,
-        api_key_env="DASHSCOPE_API_KEY",
-        fallback_url=DEEPSEEK_CHAT_URL,
-        fallback_model_id=fallback_model_id or model_id,
-        fallback_api_key_env="DEEPSEEK_API_KEY",
-        disabled=disabled,
-    )
+def _deepseek_via_dashscope(model_id: str, *, disabled: bool = False) -> ChatModel:
+    """DeepSeek snapshot ids are hosted on DashScope. No api.deepseek.com path."""
+    return _dashscope(model_id, disabled=disabled)
 
 
-# Roadmap expander pool. Primary = 百炼/DashScope; DeepSeek ids fall back
-# to api.deepseek.com if the DashScope model id is missing or out of quota.
+# Roadmap expander pool. All ids, including DeepSeek snapshots, are 百炼/DashScope.
 EXPANDER_MODELS: dict[str, ChatModel] = {
     "qwen3.8-2.4t-a95b": _dashscope("qwen3.8-2.4t-a95b"),
     "qwen3.8-max": _dashscope("qwen3.8-max"),
     "deepseek-v4-pro-0813": _deepseek_via_dashscope("deepseek-v4-pro-0813"),
-    "deepseek-v4-flash-0731": _deepseek_via_dashscope(
-        "deepseek-v4-flash-0731", fallback_model_id="deepseek-v4-flash"
-    ),
+    "deepseek-v4-flash-0731": _deepseek_via_dashscope("deepseek-v4-flash-0731"),
     "glm-5.2": _dashscope("glm-5.2"),
     "kimi-k2.7-code": _dashscope("kimi-k2.7-code"),
 }
@@ -174,9 +162,10 @@ def complete_chat(
 ) -> str:
     """POST one completion for ``model_id``. Network-class errors are retried.
 
-    DeepSeek ids try DashScope first, then the DeepSeek-direct fallback.
+    Registered expander ids (including DeepSeek snapshots) use DashScope only.
     Missing API keys and exhausted retries raise; they are not swallowed.
-    ``attempt`` is ``auto`` (primary then fallback), ``primary``, or ``fallback``.
+    ``attempt`` is ``auto`` (primary then optional ChatModel fallback),
+    ``primary``, or ``fallback``.
     """
     load_dotenv_keys(_ROOT / ".env.local")
     spec = lookup_chat_model(model_id)

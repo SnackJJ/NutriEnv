@@ -75,3 +75,32 @@ small one-egg omelet, small but still a plausible real portion.」
 
 未改阈值、未回退模型。旧模型对照数字来自历史报告，本轮未再花预算重跑
 `deepseek-v4-flash`（新模型已过 gate，回退条款不触发）。
+
+## 4. 端点已统一 DashScope（2026-08-17）
+
+`deepseek-v4-flash-0731` 经百炼重验灰区三对 → **全过**。
+
+流水线（expander 注册 id / `call_judge` / review `_route`）不再走
+`api.deepseek.com`。judge 默认仍是 `deepseek-v4-flash-0731`，只改端点。
+未改 K / threshold / 模型。`NUTRIENV_JUDGE_MODEL` 只换模型 id，端点一律
+DashScope。
+
+复跑：`.venv/bin/python scripts/gray_zone_probe.py`（2026-08-18，exit 0）。
+
+| 用例 | 克数 | ok 比例 | 判定 | 对/错 |
+|---|---:|---:|---|---|
+| sandwich-piece-175 | 175 | 1.00 | 接受 | ✓ |
+| sandwich-qns-115 | 115 | 1.00 | 接受 | ✓ |
+| lasagna-piece-206 | 206 | 1.00 | 接受 | ✓ |
+| lasagna-qns-250 | 250 | 1.00 | 接受 | ✓ |
+| omelet-piece-55 | 55 | **0.80** | 接受 | ✓ |
+| omelet-qns-110 | 110 | 1.00 | 接受 | ✓ |
+| ctrl-steak-030 | 30 | 0.00 | 拒绝 | ✓ |
+| ctrl-banana-010 | 10 | 0.00 | 拒绝 | ✓ |
+| ctrl-oil-100 | 100 | 0.00 | 拒绝 | ✓ |
+| ctrl-steak-160 | 160 | 1.00 | 接受 | ✓ |
+| ctrl-banana-126 | 126 | 1.00 | 接受 | ✓ |
+
+灰区 6/6 接受（均 `ok_frac ≥ 0.6`）；荒谬对照 3/3 拒绝；正常对照 2/2 接受；
+`parse_fail` = 0。`omelet-piece-55` 仍是 4× ok / 1× suspect（0.80），与
+§2 同分布。GATE_SAFE，无需裁决。

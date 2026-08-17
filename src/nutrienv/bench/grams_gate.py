@@ -16,7 +16,6 @@ from pathlib import Path
 
 from nutrienv.io.chat import (
     DASHSCOPE_CHAT_URL,
-    DEEPSEEK_CHAT_URL,
     JUDGE_RETRY_ON,
     post_chat_completion,
 )
@@ -48,11 +47,7 @@ MAX_TOKENS = 512
 DEFAULT_K = 5
 DEFAULT_THRESHOLD = 0.6
 
-# Official api.deepseek.com ids. Dated snapshot ids (…-0731) and Qwen live
-# on DashScope; posting 0731 to DeepSeek returns invalid_request_error.
-_DEEPSEEK_NATIVE_MODELS = frozenset(
-    {"deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat"}
-)
+# All judge models, including DeepSeek snapshot ids, post to DashScope.
 
 #: Judge prompt shared with scripts/portion_judge_probe.py and
 #: scripts/gray_zone_probe.py; both import it from here.
@@ -96,10 +91,7 @@ def call_judge(food: str, grams: float) -> str:
     """One chat completion. Network noise is retried three times."""
     load_dotenv_keys(_ROOT / ".env.local")
     model = judge_model()
-    if model in _DEEPSEEK_NATIVE_MODELS:
-        url, api_key = DEEPSEEK_CHAT_URL, os.environ["DEEPSEEK_API_KEY"]
-    else:
-        url, api_key = DASHSCOPE_CHAT_URL, os.environ["DASHSCOPE_API_KEY"]
+    url, api_key = DASHSCOPE_CHAT_URL, os.environ["DASHSCOPE_API_KEY"]
     payload = {
         "model": model,
         "messages": [

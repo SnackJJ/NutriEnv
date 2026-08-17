@@ -14,7 +14,7 @@ from nutrienv.bench.grams_gate import (
     plausibility_gate,
     sample_verdicts,
 )
-from nutrienv.io.chat import DASHSCOPE_CHAT_URL, DEEPSEEK_CHAT_URL
+from nutrienv.io.chat import DASHSCOPE_CHAT_URL
 
 
 def _catalog():
@@ -142,7 +142,6 @@ def _capture_post(monkeypatch):
 
     monkeypatch.setattr("nutrienv.bench.grams_gate.post_chat_completion", fake_post)
     monkeypatch.setenv("DASHSCOPE_API_KEY", "dash-dummy")
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "ds-dummy")
     return captured
 
 
@@ -157,13 +156,13 @@ def test_call_judge_default_posts_to_dashscope(monkeypatch) -> None:
     assert captured["max_tokens"] == 512
 
 
-def test_call_judge_native_deepseek_override_stays_on_deepseek(monkeypatch) -> None:
+def test_call_judge_deepseek_override_stays_on_dashscope(monkeypatch) -> None:
     captured = _capture_post(monkeypatch)
     monkeypatch.setenv("NUTRIENV_JUDGE_MODEL", "deepseek-v4-flash")
     call_judge("steak", 160.0)
     assert captured["model"] == "deepseek-v4-flash"
-    assert captured["url"] == DEEPSEEK_CHAT_URL
-    assert captured["api_key"] == "ds-dummy"
+    assert captured["url"] == DASHSCOPE_CHAT_URL
+    assert captured["api_key"] == "dash-dummy"
 
 
 def test_call_judge_qwen_override_uses_dashscope(monkeypatch) -> None:

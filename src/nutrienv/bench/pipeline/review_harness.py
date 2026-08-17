@@ -107,7 +107,6 @@ from nutrienv.bench.pipeline.types import QUANTITY_MULTIPLES, Reviewer
 from nutrienv.bench.realize import Task
 from nutrienv.io.chat import (
     DASHSCOPE_CHAT_URL,
-    DEEPSEEK_CHAT_URL,
     JUDGE_RETRY_ON,
     post_chat_completion,
 )
@@ -406,20 +405,12 @@ def _live_caller(model_id: str) -> ReviewFn:
     return call
 
 
-def _route(model_id: str) -> tuple[str, str]:
-    lowered = model_id.lower()
-    dashscope = any(
-        tag in lowered for tag in ("qwen", "glm", "kimi", "dashscope", "aliyuncs")
-    )
-    if dashscope:
-        key = os.environ.get("DASHSCOPE_API_KEY")
-        if not key:
-            raise RuntimeError("DASHSCOPE_API_KEY is not set")
-        return DASHSCOPE_CHAT_URL, key
-    key = os.environ.get("DEEPSEEK_API_KEY")
+def _route(_model_id: str) -> tuple[str, str]:
+    # All reviewer ids, including DeepSeek snapshots, post to DashScope.
+    key = os.environ.get("DASHSCOPE_API_KEY")
     if not key:
-        raise RuntimeError("DEEPSEEK_API_KEY is not set")
-    return DEEPSEEK_CHAT_URL, key
+        raise RuntimeError("DASHSCOPE_API_KEY is not set")
+    return DASHSCOPE_CHAT_URL, key
 
 
 def _oracle_pairs(task: Task) -> list[tuple[str, float]]:

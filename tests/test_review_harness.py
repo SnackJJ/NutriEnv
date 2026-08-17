@@ -14,13 +14,16 @@ from nutrienv.bench.pipeline.review_harness import (
     REASON_LOW_CONSISTENCY,
     REASON_LOW_ENTAILMENT,
     REASON_UNPARSEABLE,
+    _route,
     aggregate_reviews,
+    call_reviewer,
     format_review_prompt,
     make_reviewer,
     parse_review,
     resolved_items,
     review_candidates,
 )
+from nutrienv.io.chat import DASHSCOPE_CHAT_URL
 from nutrienv.bench.realize import Oracle, Task
 from nutrienv.world.types import LedgerRow, Profile, WorldState
 
@@ -298,3 +301,38 @@ def test_low_consistency_threshold_constant() -> None:
     assert LOW_CONSISTENCY == 2.0
     assert LOW_ENTAILMENT == 2.0
     assert DISAGREEMENT_THRESHOLD == 2.0
+
+
+def test_route_always_uses_dashscope(monkeypatch) -> None:
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "dash-dummy")
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    for model_id in ("deepseek-v4-flash", "deepseek-v4-flash-0731", "qwen3.8-max"):
+        url, key = _route(model_id)
+        assert url == DASHSCOPE_CHAT_URL
+        assert key == "dash-dummy"
+
+
+def test_route_requires_dashscope_key(monkeypatch) -> None:
+    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="DASHSCOPE_API_KEY is not set"):
+        _route("deepseek-v4-flash-0731")
+
+
+def test_call_reviewer_posts_to_dashscope(monkeypatch) -> None:
+    captured: dict = {}
+
+    def fake_post(url, payload, api_key, **_kwargs):
+        captured["url"] = url
+        captured["model"] = payload["model"]
+        captured["api_key"] = api_key
+        return '{"consistency": 5, "naturalness": 5, "entailment": 5, "reason": "ok"}'
+
+    monkeypatch.setattr(
+        "nutrienv.bench.pipeline.review_harness.post_chat_completion", fake_post
+    )
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "dash-dummy")
+    text = call_reviewer("deepseek-v4-flash", "prompt")
+    assert "consistency" in text
+    assert captured["url"] == DASHSCOPE_CHAT_URL
+    assert captured["model"] == "deepseek-v4-flash"
+    assert captured["api_key"] == "dash-dummy"
