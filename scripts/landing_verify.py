@@ -34,12 +34,14 @@ from nutrienv.bench.realizations import (  # noqa: E402
     UNIT_CONVERT_ROWS,
     UPDATE_ROWS,
 )
-from nutrienv.bench.split import load_split  # noqa: E402
-from nutrienv.bench.validator import validate_draft  # noqa: E402
+from nutrienv.bench.split import load_exam, load_split  # noqa: E402
+from nutrienv.bench.validator import validate_draft, validate_oracle_grams  # noqa: E402
 from nutrienv.world.catalog_store import load_catalog  # noqa: E402
 from nutrienv.world.portions import resolve_portion  # noqa: E402
 
 _SPLIT = _ROOT / "data" / "splits" / "v0.5-gold.json"
+_V10_SPLIT = _ROOT / "data" / "splits" / "v1.0-gold.json"
+_V10_N = 20
 _OLD_KEYS = builder._OLD_PORTION_KEYS
 _GOLD_SOURCES = (
     ("s0", "ledger"),
@@ -291,15 +293,42 @@ def main(argv: list[str] | None = None) -> int:
         for row in oz_bad[:10]:
             print(f"  {row['fdc_id']} {row['portions']}")
 
+    v10_n, v10_draft_bad, v10_grams_bad = verify_v10_exam(_V10_SPLIT)
+    print(f"v1.0-gold load_exam: {v10_n} items")
+    print(f"v1.0-gold validate_draft: {v10_n} items, {len(v10_draft_bad)} failing")
+    print(f"v1.0-gold validate_oracle_grams: {v10_n} items, {len(v10_grams_bad)} failing")
+    if v10_draft_bad:
+        print("V10 VALIDATE FAILURES:")
+        for item_id, issues in v10_draft_bad[:10]:
+            print(f"  {item_id} {issues}")
+    if v10_grams_bad:
+        print("V10 ORACLE GRAMS FAILURES:")
+        for item_id, issues in v10_grams_bad[:10]:
+            print(f"  {item_id} {issues}")
+
     ok = (
         not old_key_drifts
         and not replay_fail
         and not validate_bad
         and not oz_bad
         and replay_ok > 0
+        and v10_n == _V10_N
+        and not v10_draft_bad
+        and not v10_grams_bad
     )
     print("RESULT:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
+
+
+def verify_v10_exam(path: Path | None = None) -> tuple[int, list, list]:
+    """load_exam the v1.0 split and run validate_draft + oracle-grams on every item."""
+    target = Path(path) if path is not None else _V10_SPLIT
+    tasks = load_exam(target)
+    draft_bad = [(task.id, issues) for task in tasks if (issues := validate_draft(task))]
+    grams_bad = [
+        (task.id, issues) for task in tasks if (issues := validate_oracle_grams(task))
+    ]
+    return len(tasks), draft_bad, grams_bad
 
 
 if __name__ == "__main__":

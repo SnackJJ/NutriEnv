@@ -14,10 +14,19 @@ _WINDOW_LEAK = re.compile(r"\b(?:kcal|protein_g|carb_g|fat_g)\s+\d")
 _SLUG = re.compile(r"\b[a-z]+_[a-z0-9_]+\b")
 
 
-def test_load_split_default_is_the_240() -> None:
-    tasks = load_split()
+def test_load_split_v05_is_the_240() -> None:
+    tasks = load_split(Path("data/splits/v0.5-gold.json"))
     assert len(tasks) == 240
     assert len({task.id for task in tasks}) == 240
+
+
+def test_load_split_default_is_v10_pilot() -> None:
+    from nutrienv.bench.split import EXAM_SPLIT_PATH
+
+    assert EXAM_SPLIT_PATH.name == "v1.0-gold.json"
+    tasks = load_split()
+    assert len(tasks) == 20
+    assert len({task.id for task in tasks}) == 20
 
 
 def test_gold_split_exists_and_loads() -> None:

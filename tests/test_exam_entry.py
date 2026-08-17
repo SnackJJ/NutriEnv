@@ -19,21 +19,35 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import run_react  # noqa: E402
 
 V05 = Path("data/splits/v0.5-gold.json")
+V10 = Path("data/splits/v1.0-gold.json")
 
-ALLOCATION = {
+V05_ALLOCATION = {
     "log": 48,
     "recommend": 72,
     "evaluate": 48,
     "update": 36,
     "constrain": 36,
 }
+V10_ALLOCATION = {
+    "log": 14,
+    "evaluate": 6,
+}
 
 
-def test_default_exam_is_240_with_allocation() -> None:
+def test_default_exam_is_v10_pilot() -> None:
+    from nutrienv.bench.split import EXAM_SPLIT_PATH
+
+    assert EXAM_SPLIT_PATH == V10.resolve() or EXAM_SPLIT_PATH.name == "v1.0-gold.json"
     tasks = load_exam()
+    assert len(tasks) == 20
+    assert len({task.id for task in tasks}) == 20
+    assert collections.Counter(task.family for task in tasks) == V10_ALLOCATION
+
+
+def test_v05_exam_still_loads_240_by_path() -> None:
+    tasks = load_exam(V05)
     assert len(tasks) == 240
-    assert len({task.id for task in tasks}) == 240
-    assert collections.Counter(task.family for task in tasks) == ALLOCATION
+    assert collections.Counter(task.family for task in tasks) == V05_ALLOCATION
 
 
 def test_exam_missing_catalog_raises(tmp_path: Path) -> None:
@@ -154,7 +168,7 @@ def test_load_exam_rejects_non_sqlite_catalog(tmp_path: Path) -> None:
 
 def test_load_react_tasks_default_is_load_exam() -> None:
     tasks = run_react.load_react_tasks()
-    assert len(tasks) == 240
+    assert len(tasks) == 20
 
 
 def test_run_react_default_path_fails_closed_before_harness(

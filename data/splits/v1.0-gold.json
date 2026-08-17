@@ -10,19 +10,14 @@
         "ledger_tail": [
           {
             "eaten_at": "today-lunch",
-            "food_id": "2709389",
-            "grams": 130.0
-          },
-          {
-            "eaten_at": "today-lunch",
-            "food_id": "2707665",
-            "grams": 45.0
+            "food_id": "2705832",
+            "grams": 240.0
           }
         ],
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Please log a piece of Potato, and a serving of Roll for lunch.",
+      "query": "Please log a thick serving of beef.",
       "s0": {
         "ledger": [
           {
@@ -65,19 +60,14 @@
         "ledger_tail": [
           {
             "eaten_at": "today-lunch",
-            "food_id": "2708185",
-            "grams": 45.0
-          },
-          {
-            "eaten_at": "today-lunch",
-            "food_id": "2708911",
-            "grams": 250.0
+            "food_id": "2705828",
+            "grams": 180.0
           }
         ],
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Please log a piece of Crackers, and a cup of Pasta for lunch.",
+      "query": "Please log that I had a thin serving of beef.",
       "s0": {
         "ledger": [
           {
@@ -120,19 +110,14 @@
         "ledger_tail": [
           {
             "eaten_at": "today-lunch",
-            "food_id": "173732",
-            "grams": 249.0
-          },
-          {
-            "eaten_at": "today-lunch",
-            "food_id": "2710044",
-            "grams": 176.0
+            "food_id": "2705385",
+            "grams": 30.5
           }
         ],
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Please log a cup of Beans, and a cup of Chiles rellenos for lunch.",
+      "query": "Please log 1 fl oz of milk for lunch.",
       "s0": {
         "ledger": [
           {
@@ -166,11 +151,861 @@
       "situations": [
         "multi_item_log"
       ]
+    },
+    {
+      "family": "log",
+      "id": "v10-log-0004",
+      "oracle": {
+        "ledger": "s0_plus_tail",
+        "ledger_tail": [
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2705404",
+            "grams": 244.0
+          }
+        ],
+        "profile": "s0"
+      },
+      "persona": "everyday",
+      "query": "I had a cup of soy milk.",
+      "s0": {
+        "ledger": [
+          {
+            "eaten_at": "yesterday-snack",
+            "food_id": "2709215",
+            "grams": 182.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709171",
+            "grams": 131.0
+          }
+        ],
+        "profile": {
+          "allergies": [
+            "peanut"
+          ],
+          "user_id": "v10-log-0004",
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        }
+      },
+      "situations": [
+        "multi_item_log"
+      ]
+    },
+    {
+      "family": "log",
+      "id": "v10-log-0005",
+      "oracle": {
+        "ledger": "s0_plus_tail",
+        "ledger_tail": [
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2707709",
+            "grams": 24.0
+          }
+        ],
+        "profile": "s0"
+      },
+      "persona": "everyday",
+      "query": "Log a slice of whole wheat bread.",
+      "s0": {
+        "ledger": [
+          {
+            "eaten_at": "yesterday-snack",
+            "food_id": "2709215",
+            "grams": 182.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709171",
+            "grams": 131.0
+          }
+        ],
+        "profile": {
+          "allergies": [
+            "peanut"
+          ],
+          "user_id": "v10-log-0005",
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        }
+      },
+      "situations": [
+        "multi_item_log"
+      ]
+    },
+    {
+      "family": "log",
+      "id": "v10-log-0006",
+      "oracle": {
+        "ledger": "s0_plus_tail",
+        "ledger_tail": [
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2708489",
+            "grams": 10.0
+          }
+        ],
+        "profile": "s0"
+      },
+      "persona": "everyday",
+      "query": "I had a serving of oatmeal this morning, please log it.",
+      "s0": {
+        "ledger": [
+          {
+            "eaten_at": "yesterday-snack",
+            "food_id": "2709215",
+            "grams": 182.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709171",
+            "grams": 131.0
+          }
+        ],
+        "profile": {
+          "allergies": [
+            "peanut"
+          ],
+          "user_id": "v10-log-0006",
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        }
+      },
+      "situations": [
+        "multi_item_log"
+      ]
+    },
+    {
+      "family": "log",
+      "id": "v10-log-0007",
+      "oracle": {
+        "ledger": "s0_plus_tail",
+        "ledger_tail": [
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2707152",
+            "grams": 50.0
+          }
+        ],
+        "profile": "s0"
+      },
+      "persona": "gym",
+      "query": "Please log a piece of eggs for lunch.",
+      "s0": {
+        "ledger": [
+          {
+            "eaten_at": "yesterday-snack",
+            "food_id": "2709215",
+            "grams": 182.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709171",
+            "grams": 131.0
+          }
+        ],
+        "profile": {
+          "allergies": [
+            "peanut"
+          ],
+          "user_id": "v10-log-0007",
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        }
+      },
+      "situations": [
+        "multi_item_log"
+      ]
+    },
+    {
+      "family": "log",
+      "id": "v10-log-0008",
+      "oracle": {
+        "ledger": "s0_plus_tail",
+        "ledger_tail": [
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "171477",
+            "grams": 140.0
+          }
+        ],
+        "profile": "s0"
+      },
+      "persona": "gym",
+      "query": "Log a cup of chicken for my training meal.",
+      "s0": {
+        "ledger": [
+          {
+            "eaten_at": "yesterday-snack",
+            "food_id": "2709215",
+            "grams": 182.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709171",
+            "grams": 131.0
+          }
+        ],
+        "profile": {
+          "allergies": [
+            "peanut"
+          ],
+          "user_id": "v10-log-0008",
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        }
+      },
+      "situations": [
+        "multi_item_log"
+      ]
+    },
+    {
+      "family": "evaluate",
+      "id": "v10-evaluate-0009",
+      "oracle": {
+        "last_plan": [
+          {
+            "food_id": "171986",
+            "grams": 165.0
+          },
+          {
+            "food_id": "2708408",
+            "grams": 158.0
+          },
+          {
+            "food_id": "2709643",
+            "grams": 90.0
+          }
+        ],
+        "ledger": "s0",
+        "plan_must_fit_windows": true,
+        "profile": "s0"
+      },
+      "persona": "everyday",
+      "query": "Evaluate this as my plan: a can of tuna, a cup of rice, and a cup of broccoli.",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "allergies": [
+            "peanut"
+          ],
+          "user_id": "v10-evaluate-0009",
+          "windows": {
+            "kcal": [
+              280.0,
+              590.0
+            ],
+            "protein_g": [
+              30.0,
+              70.0
+            ]
+          }
+        }
+      },
+      "situations": []
+    },
+    {
+      "family": "evaluate",
+      "id": "v10-evaluate-0010",
+      "oracle": {
+        "last_plan": [
+          {
+            "food_id": "172448",
+            "grams": 126.0
+          },
+          {
+            "food_id": "2708408",
+            "grams": 158.0
+          },
+          {
+            "food_id": "2709614",
+            "grams": 25.0
+          }
+        ],
+        "ledger": "s0",
+        "plan_must_fit_windows": true,
+        "profile": "s0"
+      },
+      "persona": "everyday",
+      "query": "Submit this as the plan: a cup of tofu, a cup of rice, and a cup of spinach.",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "allergies": [
+            "peanut"
+          ],
+          "user_id": "v10-evaluate-0010",
+          "windows": {
+            "kcal": [
+              150.0,
+              460.0
+            ],
+            "protein_g": [
+              0.0,
+              40.0
+            ]
+          }
+        }
+      },
+      "situations": []
+    },
+    {
+      "family": "evaluate",
+      "id": "v10-evaluate-0011",
+      "oracle": {
+        "last_plan": [
+          {
+            "food_id": "2707152",
+            "grams": 100.0
+          },
+          {
+            "food_id": "2708489",
+            "grams": 80.0
+          }
+        ],
+        "ledger": "s0",
+        "plan_must_fit_windows": true,
+        "profile": "s0"
+      },
+      "persona": "everyday",
+      "query": "Evaluate this as my plan: two eggs and a cup of oats.",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "allergies": [
+            "peanut"
+          ],
+          "user_id": "v10-evaluate-0011",
+          "windows": {
+            "kcal": [
+              290.0,
+              600.0
+            ],
+            "protein_g": [
+              0.0,
+              40.0
+            ]
+          }
+        }
+      },
+      "situations": []
+    },
+    {
+      "family": "evaluate",
+      "id": "v10-evaluate-0012",
+      "oracle": {
+        "last_plan": [
+          {
+            "food_id": "2709224",
+            "grams": 126.0
+          },
+          {
+            "food_id": "2705424",
+            "grams": 150.0
+          }
+        ],
+        "ledger": "s0",
+        "plan_must_fit_windows": true,
+        "profile": "s0"
+      },
+      "persona": "gym",
+      "query": "Check this snack for me: a banana and 150g of Greek yogurt.",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "allergies": [
+            "peanut"
+          ],
+          "user_id": "v10-evaluate-0012",
+          "windows": {
+            "kcal": [
+              60.0,
+              370.0
+            ],
+            "protein_g": [
+              0.0,
+              40.0
+            ]
+          }
+        }
+      },
+      "situations": []
+    },
+    {
+      "family": "evaluate",
+      "id": "v10-evaluate-0013",
+      "oracle": {
+        "last_plan": [
+          {
+            "food_id": "2709223",
+            "grams": 150.0
+          },
+          {
+            "food_id": "2707152",
+            "grams": 100.0
+          },
+          {
+            "food_id": "2709614",
+            "grams": 25.0
+          }
+        ],
+        "ledger": "s0",
+        "plan_must_fit_windows": true,
+        "profile": "s0"
+      },
+      "persona": "everyday",
+      "query": "Does this work as brunch: a cup of avocado, two eggs, and a cup of spinach?",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "allergies": [
+            "peanut"
+          ],
+          "user_id": "v10-evaluate-0013",
+          "windows": {
+            "kcal": [
+              230.0,
+              540.0
+            ],
+            "protein_g": [
+              0.0,
+              40.0
+            ]
+          }
+        }
+      },
+      "situations": []
+    },
+    {
+      "family": "evaluate",
+      "id": "v10-evaluate-0014",
+      "oracle": {
+        "last_plan": [
+          {
+            "food_id": "2705385",
+            "grams": 244.0
+          },
+          {
+            "food_id": "2708489",
+            "grams": 56.7
+          }
+        ],
+        "ledger": "s0",
+        "plan_must_fit_windows": true,
+        "profile": "s0"
+      },
+      "persona": "gym",
+      "query": "Evaluate this as breakfast: a cup of milk and about 2 ounces of oats.",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "allergies": [
+            "peanut"
+          ],
+          "user_id": "v10-evaluate-0014",
+          "windows": {
+            "kcal": [
+              210.0,
+              520.0
+            ],
+            "protein_g": [
+              0.0,
+              40.0
+            ]
+          }
+        }
+      },
+      "situations": []
+    },
+    {
+      "family": "log",
+      "id": "v10-log-0015",
+      "oracle": {
+        "ledger": "s0_plus_tail",
+        "ledger_tail": [
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709215",
+            "grams": 165.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2705709",
+            "grams": 9.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2707537",
+            "grams": 16.0
+          }
+        ],
+        "profile": "s0"
+      },
+      "persona": "everyday",
+      "query": "Please log that I ate one apple, one slice of cheddar cheese, and one tablespoon of peanut butter.",
+      "s0": {
+        "ledger": [
+          {
+            "eaten_at": "yesterday-snack",
+            "food_id": "2709215",
+            "grams": 182.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709171",
+            "grams": 131.0
+          }
+        ],
+        "profile": {
+          "allergies": [],
+          "user_id": "v10-log-0015",
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        }
+      },
+      "situations": [
+        "multi_item_log"
+      ]
+    },
+    {
+      "family": "log",
+      "id": "v10-log-0016",
+      "oracle": {
+        "ledger": "s0_plus_tail",
+        "ledger_tail": [
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2707152",
+            "grams": 100.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2705709",
+            "grams": 9.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709224",
+            "grams": 126.0
+          }
+        ],
+        "profile": "s0"
+      },
+      "persona": "everyday",
+      "query": "I ate 2 eggs, 1 slice of cheddar cheese, and a banana for breakfast.",
+      "s0": {
+        "ledger": [
+          {
+            "eaten_at": "yesterday-snack",
+            "food_id": "2709215",
+            "grams": 182.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709171",
+            "grams": 131.0
+          }
+        ],
+        "profile": {
+          "allergies": [
+            "peanut"
+          ],
+          "user_id": "v10-log-0016",
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        }
+      },
+      "situations": [
+        "multi_item_log"
+      ]
+    },
+    {
+      "family": "log",
+      "id": "v10-log-0017",
+      "oracle": {
+        "ledger": "s0_plus_tail",
+        "ledger_tail": [
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "171986",
+            "grams": 165.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709383",
+            "grams": 230.0
+          }
+        ],
+        "profile": "s0"
+      },
+      "persona": "everyday",
+      "query": "Please log a can of canned tuna, and a piece of baked potato for lunch.",
+      "s0": {
+        "ledger": [
+          {
+            "eaten_at": "yesterday-snack",
+            "food_id": "2709215",
+            "grams": 182.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709171",
+            "grams": 131.0
+          }
+        ],
+        "profile": {
+          "allergies": [
+            "peanut"
+          ],
+          "user_id": "v10-log-0017",
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        }
+      },
+      "situations": [
+        "multi_item_log"
+      ]
+    },
+    {
+      "family": "log",
+      "id": "v10-log-0018",
+      "oracle": {
+        "ledger": "s0_plus_tail",
+        "ledger_tail": [
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2708357",
+            "grams": 280.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "171477",
+            "grams": 140.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709643",
+            "grams": 90.0
+          }
+        ],
+        "profile": "s0"
+      },
+      "persona": "everyday",
+      "query": "I had two cups of spaghetti with a cup of grilled chicken and a cup of broccoli for dinner.",
+      "s0": {
+        "ledger": [
+          {
+            "eaten_at": "yesterday-snack",
+            "food_id": "2709215",
+            "grams": 182.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709171",
+            "grams": 131.0
+          }
+        ],
+        "profile": {
+          "allergies": [
+            "peanut"
+          ],
+          "user_id": "v10-log-0018",
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        }
+      },
+      "situations": [
+        "multi_item_log"
+      ]
+    },
+    {
+      "family": "log",
+      "id": "v10-log-0019",
+      "oracle": {
+        "ledger": "s0_plus_tail",
+        "ledger_tail": [
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2708357",
+            "grams": 140.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2705709",
+            "grams": 9.0
+          }
+        ],
+        "profile": "s0"
+      },
+      "persona": "gym",
+      "query": "Please log a cup of spaghetti, and a slice of cheddar cheese for lunch.",
+      "s0": {
+        "ledger": [
+          {
+            "eaten_at": "yesterday-snack",
+            "food_id": "2709215",
+            "grams": 182.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709171",
+            "grams": 131.0
+          }
+        ],
+        "profile": {
+          "allergies": [
+            "peanut"
+          ],
+          "user_id": "v10-log-0019",
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        }
+      },
+      "situations": [
+        "multi_item_log"
+      ]
+    },
+    {
+      "family": "log",
+      "id": "v10-log-0020",
+      "oracle": {
+        "ledger": "s0_plus_tail",
+        "ledger_tail": [
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "171477",
+            "grams": 140.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2708408",
+            "grams": 158.0
+          }
+        ],
+        "profile": "s0"
+      },
+      "persona": "gym",
+      "query": "Please log a cup of chicken, and a cup of rice for lunch.",
+      "s0": {
+        "ledger": [
+          {
+            "eaten_at": "yesterday-snack",
+            "food_id": "2709215",
+            "grams": 182.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709171",
+            "grams": 131.0
+          }
+        ],
+        "profile": {
+          "allergies": [
+            "peanut"
+          ],
+          "user_id": "v10-log-0020",
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        }
+      },
+      "situations": [
+        "multi_item_log"
+      ]
     }
   ],
-  "notes": "v1.0-gold tracer-bullet freeze from run_batch (sampler sampler-v1, seed 20260817).",
-  "persona": "everyday",
-  "sampler_rule_version": "sampler-v1",
+  "notes": "v1.0-gold 20-item pilot freeze (seed 20260817; evaluate D4 uses EVALUATE_ROWS fallbacks).",
+  "sampler_rule_version": "pilot-20-plan-v1",
   "seed": 20260817,
   "version": "v1.0-gold"
 }

@@ -1,0 +1,2452 @@
+{
+  "accepted_by_model": {
+    "deepseek-v4-flash-0731": 1,
+    "deepseek-v4-pro-0813": 2,
+    "evaluate-row": 6,
+    "fallback-table": 5,
+    "glm-5.2": 2,
+    "kimi-k2.7-code": 1,
+    "qwen3.8-2.4t-a95b": 2,
+    "qwen3.8-max": 1
+  },
+  "accepted_ids": [
+    "v10-log-0001",
+    "v10-log-0002",
+    "v10-log-0003",
+    "v10-log-0004",
+    "v10-log-0005",
+    "v10-log-0006",
+    "v10-log-0007",
+    "v10-log-0008",
+    "v10-evaluate-0009",
+    "v10-evaluate-0010",
+    "v10-evaluate-0011",
+    "v10-evaluate-0012",
+    "v10-evaluate-0013",
+    "v10-evaluate-0014",
+    "v10-log-0015",
+    "v10-log-0016",
+    "v10-log-0017",
+    "v10-log-0018",
+    "v10-log-0019",
+    "v10-log-0020"
+  ],
+  "catalog": "data/fdc/catalog-v1.sqlite",
+  "catalog_sha256": "f49e4f904905abbb8b4ebb02c908935f01776280a2c00b3de1a3e890cad5ae91",
+  "coverage": {
+    "cup": 17,
+    "fl_oz": 1,
+    "qns": 2,
+    "slice": 4,
+    "thick": 1,
+    "thin": 1
+  },
+  "disabled_models": [],
+  "family_counts": {
+    "evaluate": 6,
+    "log": 14
+  },
+  "freeze_sha256": "2af8a24fd21d1cd9ca58fec2662a76e32b8b2a15cccb5f6002184b3dd2d83398",
+  "gym_grams_note": "resolve_portion accepts '150 g' / '150 grams', but validate_oracle_grams requires a catalog-v1 PortionFact multiple (×0.5/1/1.5/2, plus 2 oz). Gym items therefore stay on PortionFact keys unless the gram amount is already a table value (e.g. greek yogurt 150 g = qns).",
+  "handbook_gaps": [],
+  "meta": [
+    {
+      "fallback": false,
+      "family": "log",
+      "foods": [
+        {
+          "food_id": "2705832",
+          "grams": 240.0,
+          "key": "thick",
+          "name": "Beef, steak, sirloin, NS as to fat eaten"
+        }
+      ],
+      "kind": "single",
+      "model": "kimi-k2.7-code",
+      "persona": "everyday",
+      "query": "Please log a thick serving of beef.",
+      "slot_id": "log-s-thick",
+      "task_id": "v10-log-0001"
+    },
+    {
+      "fallback": false,
+      "family": "log",
+      "foods": [
+        {
+          "food_id": "2705828",
+          "grams": 180.0,
+          "key": "thin",
+          "name": "Beef, steak, ribeye, NS as to fat eaten"
+        }
+      ],
+      "kind": "single",
+      "model": "qwen3.8-2.4t-a95b",
+      "persona": "everyday",
+      "query": "Please log that I had a thin serving of beef.",
+      "slot_id": "log-s-thin",
+      "task_id": "v10-log-0002"
+    },
+    {
+      "fallback": true,
+      "family": "log",
+      "foods": [
+        {
+          "food_id": "2705385",
+          "grams": 30.5,
+          "key": "fl_oz",
+          "name": "Milk, whole"
+        }
+      ],
+      "kind": "single",
+      "model": "fallback-table",
+      "persona": "everyday",
+      "query": "Please log 1 fl oz of milk for lunch.",
+      "slot_id": "log-s-floz",
+      "task_id": "v10-log-0003"
+    },
+    {
+      "fallback": false,
+      "family": "log",
+      "foods": [
+        {
+          "food_id": "2705404",
+          "grams": 244.0,
+          "key": "cup",
+          "name": "Soy milk, sweetened"
+        }
+      ],
+      "kind": "single",
+      "model": "deepseek-v4-pro-0813",
+      "persona": "everyday",
+      "query": "I had a cup of soy milk.",
+      "slot_id": "log-s-cup",
+      "task_id": "v10-log-0004"
+    },
+    {
+      "fallback": false,
+      "family": "log",
+      "foods": [
+        {
+          "food_id": "2707709",
+          "grams": 24.0,
+          "key": "slice",
+          "name": "Bread, whole wheat"
+        }
+      ],
+      "kind": "single",
+      "model": "deepseek-v4-flash-0731",
+      "persona": "everyday",
+      "query": "Log a slice of whole wheat bread.",
+      "slot_id": "log-s-slice",
+      "task_id": "v10-log-0005"
+    },
+    {
+      "fallback": false,
+      "family": "log",
+      "foods": [
+        {
+          "food_id": "2708489",
+          "grams": 10.0,
+          "key": "qns",
+          "name": "Oats, raw"
+        }
+      ],
+      "kind": "single",
+      "model": "glm-5.2",
+      "persona": "everyday",
+      "query": "I had a serving of oatmeal this morning, please log it.",
+      "slot_id": "log-s-qns",
+      "task_id": "v10-log-0006"
+    },
+    {
+      "fallback": true,
+      "family": "log",
+      "foods": [
+        {
+          "food_id": "2707152",
+          "grams": 50.0,
+          "key": "piece",
+          "name": "Egg, whole, raw"
+        }
+      ],
+      "kind": "single",
+      "model": "fallback-table",
+      "persona": "gym",
+      "query": "Please log a piece of eggs for lunch.",
+      "slot_id": "log-s-egg",
+      "task_id": "v10-log-0007"
+    },
+    {
+      "fallback": false,
+      "family": "log",
+      "foods": [
+        {
+          "food_id": "171477",
+          "grams": 140.0,
+          "key": "cup",
+          "name": "Chicken, broilers or fryers, breast, meat only, cooked, roasted"
+        }
+      ],
+      "kind": "single",
+      "model": "qwen3.8-2.4t-a95b",
+      "persona": "gym",
+      "query": "Log a cup of chicken for my training meal.",
+      "slot_id": "log-s-chk",
+      "task_id": "v10-log-0008"
+    },
+    {
+      "fallback": true,
+      "family": "evaluate",
+      "foods": [
+        {
+          "food_id": "171986",
+          "grams": 165.0,
+          "key": "can",
+          "name": "Fish, tuna, light, canned in water, without salt, drained solids"
+        },
+        {
+          "food_id": "2708408",
+          "grams": 158.0,
+          "key": "cup",
+          "name": "Rice, white, cooked, no added fat"
+        },
+        {
+          "food_id": "2709643",
+          "grams": 90.0,
+          "key": "cup",
+          "name": "Broccoli, raw"
+        }
+      ],
+      "kind": "meal",
+      "model": "evaluate-row",
+      "persona": "everyday",
+      "query": "Evaluate this as my plan: a can of tuna, a cup of rice, and a cup of broccoli.",
+      "slot_id": "eval-01",
+      "task_id": "v10-evaluate-0009"
+    },
+    {
+      "fallback": true,
+      "family": "evaluate",
+      "foods": [
+        {
+          "food_id": "172448",
+          "grams": 126.0,
+          "key": "cup",
+          "name": "Tofu, firm, prepared with calcium sulfate and magnesium chloride (nigari)"
+        },
+        {
+          "food_id": "2708408",
+          "grams": 158.0,
+          "key": "cup",
+          "name": "Rice, white, cooked, no added fat"
+        },
+        {
+          "food_id": "2709614",
+          "grams": 25.0,
+          "key": "cup",
+          "name": "Spinach, raw"
+        }
+      ],
+      "kind": "meal",
+      "model": "evaluate-row",
+      "persona": "everyday",
+      "query": "Submit this as the plan: a cup of tofu, a cup of rice, and a cup of spinach.",
+      "slot_id": "eval-02",
+      "task_id": "v10-evaluate-0010"
+    },
+    {
+      "fallback": true,
+      "family": "evaluate",
+      "foods": [
+        {
+          "food_id": "2707152",
+          "grams": 100.0,
+          "key": "piece",
+          "name": "Egg, whole, raw"
+        },
+        {
+          "food_id": "2708489",
+          "grams": 80.0,
+          "key": "cup",
+          "name": "Oats, raw"
+        }
+      ],
+      "kind": "meal",
+      "model": "evaluate-row",
+      "persona": "everyday",
+      "query": "Evaluate this as my plan: two eggs and a cup of oats.",
+      "slot_id": "eval-03",
+      "task_id": "v10-evaluate-0011"
+    },
+    {
+      "fallback": true,
+      "family": "evaluate",
+      "foods": [
+        {
+          "food_id": "2709224",
+          "grams": 126.0,
+          "key": "piece",
+          "name": "Banana, raw"
+        },
+        {
+          "food_id": "2705424",
+          "grams": 150.0,
+          "key": "qns",
+          "name": "Yogurt, Greek, nonfat milk, plain"
+        }
+      ],
+      "kind": "meal",
+      "model": "evaluate-row",
+      "persona": "gym",
+      "query": "Check this snack for me: a banana and 150g of Greek yogurt.",
+      "slot_id": "eval-04",
+      "task_id": "v10-evaluate-0012"
+    },
+    {
+      "fallback": true,
+      "family": "evaluate",
+      "foods": [
+        {
+          "food_id": "2709223",
+          "grams": 150.0,
+          "key": "cup",
+          "name": "Avocado, raw"
+        },
+        {
+          "food_id": "2707152",
+          "grams": 100.0,
+          "key": "piece",
+          "name": "Egg, whole, raw"
+        },
+        {
+          "food_id": "2709614",
+          "grams": 25.0,
+          "key": "cup",
+          "name": "Spinach, raw"
+        }
+      ],
+      "kind": "meal",
+      "model": "evaluate-row",
+      "persona": "everyday",
+      "query": "Does this work as brunch: a cup of avocado, two eggs, and a cup of spinach?",
+      "slot_id": "eval-05",
+      "task_id": "v10-evaluate-0013"
+    },
+    {
+      "fallback": true,
+      "family": "evaluate",
+      "foods": [
+        {
+          "food_id": "2705385",
+          "grams": 244.0,
+          "key": "cup",
+          "name": "Milk, whole"
+        },
+        {
+          "food_id": "2708489",
+          "grams": 56.7,
+          "key": "oz",
+          "name": "Oats, raw"
+        }
+      ],
+      "kind": "meal",
+      "model": "evaluate-row",
+      "persona": "gym",
+      "query": "Evaluate this as breakfast: a cup of milk and about 2 ounces of oats.",
+      "slot_id": "eval-06",
+      "task_id": "v10-evaluate-0014"
+    },
+    {
+      "fallback": false,
+      "family": "log",
+      "foods": [
+        {
+          "food_id": "2709215",
+          "grams": 165.0,
+          "key": "piece",
+          "name": "Apple, raw"
+        },
+        {
+          "food_id": "2705709",
+          "grams": 9.0,
+          "key": "slice",
+          "name": "Cheese, Cheddar"
+        },
+        {
+          "food_id": "2707537",
+          "grams": 16.0,
+          "key": "tbsp",
+          "name": "Peanut butter"
+        }
+      ],
+      "kind": "meal",
+      "model": "qwen3.8-max",
+      "persona": "everyday",
+      "query": "Please log that I ate one apple, one slice of cheddar cheese, and one tablespoon of peanut butter.",
+      "slot_id": "log-m-01",
+      "task_id": "v10-log-0015"
+    },
+    {
+      "fallback": false,
+      "family": "log",
+      "foods": [
+        {
+          "food_id": "2707152",
+          "grams": 100.0,
+          "key": "piece",
+          "name": "Egg, whole, raw"
+        },
+        {
+          "food_id": "2705709",
+          "grams": 9.0,
+          "key": "slice",
+          "name": "Cheese, Cheddar"
+        },
+        {
+          "food_id": "2709224",
+          "grams": 126.0,
+          "key": "piece",
+          "name": "Banana, raw"
+        }
+      ],
+      "kind": "meal",
+      "model": "deepseek-v4-pro-0813",
+      "persona": "everyday",
+      "query": "I ate 2 eggs, 1 slice of cheddar cheese, and a banana for breakfast.",
+      "slot_id": "log-m-02",
+      "task_id": "v10-log-0016"
+    },
+    {
+      "fallback": true,
+      "family": "log",
+      "foods": [
+        {
+          "food_id": "171986",
+          "grams": 165.0,
+          "key": "can",
+          "name": "Fish, tuna, light, canned in water, without salt, drained solids"
+        },
+        {
+          "food_id": "2709383",
+          "grams": 230.0,
+          "key": "piece",
+          "name": "Potato, baked, NFS"
+        }
+      ],
+      "kind": "meal",
+      "model": "fallback-table",
+      "persona": "everyday",
+      "query": "Please log a can of canned tuna, and a piece of baked potato for lunch.",
+      "slot_id": "log-m-03",
+      "task_id": "v10-log-0017"
+    },
+    {
+      "fallback": false,
+      "family": "log",
+      "foods": [
+        {
+          "food_id": "2708357",
+          "grams": 280.0,
+          "key": "cup",
+          "name": "Pasta, cooked"
+        },
+        {
+          "food_id": "171477",
+          "grams": 140.0,
+          "key": "cup",
+          "name": "Chicken, broilers or fryers, breast, meat only, cooked, roasted"
+        },
+        {
+          "food_id": "2709643",
+          "grams": 90.0,
+          "key": "cup",
+          "name": "Broccoli, raw"
+        }
+      ],
+      "kind": "meal",
+      "model": "glm-5.2",
+      "persona": "everyday",
+      "query": "I had two cups of spaghetti with a cup of grilled chicken and a cup of broccoli for dinner.",
+      "slot_id": "log-m-04",
+      "task_id": "v10-log-0018"
+    },
+    {
+      "fallback": true,
+      "family": "log",
+      "foods": [
+        {
+          "food_id": "2708357",
+          "grams": 140.0,
+          "key": "cup",
+          "name": "Pasta, cooked"
+        },
+        {
+          "food_id": "2705709",
+          "grams": 9.0,
+          "key": "slice",
+          "name": "Cheese, Cheddar"
+        }
+      ],
+      "kind": "meal",
+      "model": "fallback-table",
+      "persona": "gym",
+      "query": "Please log a cup of spaghetti, and a slice of cheddar cheese for lunch.",
+      "slot_id": "log-m-05",
+      "task_id": "v10-log-0019"
+    },
+    {
+      "fallback": true,
+      "family": "log",
+      "foods": [
+        {
+          "food_id": "171477",
+          "grams": 140.0,
+          "key": "cup",
+          "name": "Chicken, broilers or fryers, breast, meat only, cooked, roasted"
+        },
+        {
+          "food_id": "2708408",
+          "grams": 158.0,
+          "key": "cup",
+          "name": "Rice, white, cooked, no added fat"
+        }
+      ],
+      "kind": "meal",
+      "model": "fallback-table",
+      "persona": "gym",
+      "query": "Please log a cup of chicken, and a cup of rice for lunch.",
+      "slot_id": "log-m-06",
+      "task_id": "v10-log-0020"
+    }
+  ],
+  "n_accepted": 20,
+  "path": "/home/jzq/Projects/nutri-env/data/splits/v1.0-gold.json",
+  "payload": {
+    "catalog": "data/fdc/catalog-v1.sqlite",
+    "catalog_sha256": "f49e4f904905abbb8b4ebb02c908935f01776280a2c00b3de1a3e890cad5ae91",
+    "items": [
+      {
+        "family": "log",
+        "id": "v10-log-0001",
+        "oracle": {
+          "ledger": "s0_plus_tail",
+          "ledger_tail": [
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2705832",
+              "grams": 240.0
+            }
+          ],
+          "profile": "s0"
+        },
+        "persona": "everyday",
+        "query": "Please log a thick serving of beef.",
+        "s0": {
+          "ledger": [
+            {
+              "eaten_at": "yesterday-snack",
+              "food_id": "2709215",
+              "grams": 182.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709171",
+              "grams": 131.0
+            }
+          ],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-log-0001",
+            "windows": {
+              "kcal": [
+                1800.0,
+                2200.0
+              ],
+              "protein_g": [
+                90.0,
+                140.0
+              ]
+            }
+          }
+        },
+        "situations": [
+          "multi_item_log"
+        ]
+      },
+      {
+        "family": "log",
+        "id": "v10-log-0002",
+        "oracle": {
+          "ledger": "s0_plus_tail",
+          "ledger_tail": [
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2705828",
+              "grams": 180.0
+            }
+          ],
+          "profile": "s0"
+        },
+        "persona": "everyday",
+        "query": "Please log that I had a thin serving of beef.",
+        "s0": {
+          "ledger": [
+            {
+              "eaten_at": "yesterday-snack",
+              "food_id": "2709215",
+              "grams": 182.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709171",
+              "grams": 131.0
+            }
+          ],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-log-0002",
+            "windows": {
+              "kcal": [
+                1800.0,
+                2200.0
+              ],
+              "protein_g": [
+                90.0,
+                140.0
+              ]
+            }
+          }
+        },
+        "situations": [
+          "multi_item_log"
+        ]
+      },
+      {
+        "family": "log",
+        "id": "v10-log-0003",
+        "oracle": {
+          "ledger": "s0_plus_tail",
+          "ledger_tail": [
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2705385",
+              "grams": 30.5
+            }
+          ],
+          "profile": "s0"
+        },
+        "persona": "everyday",
+        "query": "Please log 1 fl oz of milk for lunch.",
+        "s0": {
+          "ledger": [
+            {
+              "eaten_at": "yesterday-snack",
+              "food_id": "2709215",
+              "grams": 182.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709171",
+              "grams": 131.0
+            }
+          ],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-log-0003",
+            "windows": {
+              "kcal": [
+                1800.0,
+                2200.0
+              ],
+              "protein_g": [
+                90.0,
+                140.0
+              ]
+            }
+          }
+        },
+        "situations": [
+          "multi_item_log"
+        ]
+      },
+      {
+        "family": "log",
+        "id": "v10-log-0004",
+        "oracle": {
+          "ledger": "s0_plus_tail",
+          "ledger_tail": [
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2705404",
+              "grams": 244.0
+            }
+          ],
+          "profile": "s0"
+        },
+        "persona": "everyday",
+        "query": "I had a cup of soy milk.",
+        "s0": {
+          "ledger": [
+            {
+              "eaten_at": "yesterday-snack",
+              "food_id": "2709215",
+              "grams": 182.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709171",
+              "grams": 131.0
+            }
+          ],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-log-0004",
+            "windows": {
+              "kcal": [
+                1800.0,
+                2200.0
+              ],
+              "protein_g": [
+                90.0,
+                140.0
+              ]
+            }
+          }
+        },
+        "situations": [
+          "multi_item_log"
+        ]
+      },
+      {
+        "family": "log",
+        "id": "v10-log-0005",
+        "oracle": {
+          "ledger": "s0_plus_tail",
+          "ledger_tail": [
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2707709",
+              "grams": 24.0
+            }
+          ],
+          "profile": "s0"
+        },
+        "persona": "everyday",
+        "query": "Log a slice of whole wheat bread.",
+        "s0": {
+          "ledger": [
+            {
+              "eaten_at": "yesterday-snack",
+              "food_id": "2709215",
+              "grams": 182.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709171",
+              "grams": 131.0
+            }
+          ],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-log-0005",
+            "windows": {
+              "kcal": [
+                1800.0,
+                2200.0
+              ],
+              "protein_g": [
+                90.0,
+                140.0
+              ]
+            }
+          }
+        },
+        "situations": [
+          "multi_item_log"
+        ]
+      },
+      {
+        "family": "log",
+        "id": "v10-log-0006",
+        "oracle": {
+          "ledger": "s0_plus_tail",
+          "ledger_tail": [
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2708489",
+              "grams": 10.0
+            }
+          ],
+          "profile": "s0"
+        },
+        "persona": "everyday",
+        "query": "I had a serving of oatmeal this morning, please log it.",
+        "s0": {
+          "ledger": [
+            {
+              "eaten_at": "yesterday-snack",
+              "food_id": "2709215",
+              "grams": 182.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709171",
+              "grams": 131.0
+            }
+          ],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-log-0006",
+            "windows": {
+              "kcal": [
+                1800.0,
+                2200.0
+              ],
+              "protein_g": [
+                90.0,
+                140.0
+              ]
+            }
+          }
+        },
+        "situations": [
+          "multi_item_log"
+        ]
+      },
+      {
+        "family": "log",
+        "id": "v10-log-0007",
+        "oracle": {
+          "ledger": "s0_plus_tail",
+          "ledger_tail": [
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2707152",
+              "grams": 50.0
+            }
+          ],
+          "profile": "s0"
+        },
+        "persona": "gym",
+        "query": "Please log a piece of eggs for lunch.",
+        "s0": {
+          "ledger": [
+            {
+              "eaten_at": "yesterday-snack",
+              "food_id": "2709215",
+              "grams": 182.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709171",
+              "grams": 131.0
+            }
+          ],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-log-0007",
+            "windows": {
+              "kcal": [
+                1800.0,
+                2200.0
+              ],
+              "protein_g": [
+                90.0,
+                140.0
+              ]
+            }
+          }
+        },
+        "situations": [
+          "multi_item_log"
+        ]
+      },
+      {
+        "family": "log",
+        "id": "v10-log-0008",
+        "oracle": {
+          "ledger": "s0_plus_tail",
+          "ledger_tail": [
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "171477",
+              "grams": 140.0
+            }
+          ],
+          "profile": "s0"
+        },
+        "persona": "gym",
+        "query": "Log a cup of chicken for my training meal.",
+        "s0": {
+          "ledger": [
+            {
+              "eaten_at": "yesterday-snack",
+              "food_id": "2709215",
+              "grams": 182.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709171",
+              "grams": 131.0
+            }
+          ],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-log-0008",
+            "windows": {
+              "kcal": [
+                1800.0,
+                2200.0
+              ],
+              "protein_g": [
+                90.0,
+                140.0
+              ]
+            }
+          }
+        },
+        "situations": [
+          "multi_item_log"
+        ]
+      },
+      {
+        "family": "evaluate",
+        "id": "v10-evaluate-0009",
+        "oracle": {
+          "last_plan": [
+            {
+              "food_id": "171986",
+              "grams": 165.0
+            },
+            {
+              "food_id": "2708408",
+              "grams": 158.0
+            },
+            {
+              "food_id": "2709643",
+              "grams": 90.0
+            }
+          ],
+          "ledger": "s0",
+          "plan_must_fit_windows": true,
+          "profile": "s0"
+        },
+        "persona": "everyday",
+        "query": "Evaluate this as my plan: a can of tuna, a cup of rice, and a cup of broccoli.",
+        "s0": {
+          "ledger": [],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-evaluate-0009",
+            "windows": {
+              "kcal": [
+                280.0,
+                590.0
+              ],
+              "protein_g": [
+                30.0,
+                70.0
+              ]
+            }
+          }
+        },
+        "situations": []
+      },
+      {
+        "family": "evaluate",
+        "id": "v10-evaluate-0010",
+        "oracle": {
+          "last_plan": [
+            {
+              "food_id": "172448",
+              "grams": 126.0
+            },
+            {
+              "food_id": "2708408",
+              "grams": 158.0
+            },
+            {
+              "food_id": "2709614",
+              "grams": 25.0
+            }
+          ],
+          "ledger": "s0",
+          "plan_must_fit_windows": true,
+          "profile": "s0"
+        },
+        "persona": "everyday",
+        "query": "Submit this as the plan: a cup of tofu, a cup of rice, and a cup of spinach.",
+        "s0": {
+          "ledger": [],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-evaluate-0010",
+            "windows": {
+              "kcal": [
+                150.0,
+                460.0
+              ],
+              "protein_g": [
+                0.0,
+                40.0
+              ]
+            }
+          }
+        },
+        "situations": []
+      },
+      {
+        "family": "evaluate",
+        "id": "v10-evaluate-0011",
+        "oracle": {
+          "last_plan": [
+            {
+              "food_id": "2707152",
+              "grams": 100.0
+            },
+            {
+              "food_id": "2708489",
+              "grams": 80.0
+            }
+          ],
+          "ledger": "s0",
+          "plan_must_fit_windows": true,
+          "profile": "s0"
+        },
+        "persona": "everyday",
+        "query": "Evaluate this as my plan: two eggs and a cup of oats.",
+        "s0": {
+          "ledger": [],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-evaluate-0011",
+            "windows": {
+              "kcal": [
+                290.0,
+                600.0
+              ],
+              "protein_g": [
+                0.0,
+                40.0
+              ]
+            }
+          }
+        },
+        "situations": []
+      },
+      {
+        "family": "evaluate",
+        "id": "v10-evaluate-0012",
+        "oracle": {
+          "last_plan": [
+            {
+              "food_id": "2709224",
+              "grams": 126.0
+            },
+            {
+              "food_id": "2705424",
+              "grams": 150.0
+            }
+          ],
+          "ledger": "s0",
+          "plan_must_fit_windows": true,
+          "profile": "s0"
+        },
+        "persona": "gym",
+        "query": "Check this snack for me: a banana and 150g of Greek yogurt.",
+        "s0": {
+          "ledger": [],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-evaluate-0012",
+            "windows": {
+              "kcal": [
+                60.0,
+                370.0
+              ],
+              "protein_g": [
+                0.0,
+                40.0
+              ]
+            }
+          }
+        },
+        "situations": []
+      },
+      {
+        "family": "evaluate",
+        "id": "v10-evaluate-0013",
+        "oracle": {
+          "last_plan": [
+            {
+              "food_id": "2709223",
+              "grams": 150.0
+            },
+            {
+              "food_id": "2707152",
+              "grams": 100.0
+            },
+            {
+              "food_id": "2709614",
+              "grams": 25.0
+            }
+          ],
+          "ledger": "s0",
+          "plan_must_fit_windows": true,
+          "profile": "s0"
+        },
+        "persona": "everyday",
+        "query": "Does this work as brunch: a cup of avocado, two eggs, and a cup of spinach?",
+        "s0": {
+          "ledger": [],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-evaluate-0013",
+            "windows": {
+              "kcal": [
+                230.0,
+                540.0
+              ],
+              "protein_g": [
+                0.0,
+                40.0
+              ]
+            }
+          }
+        },
+        "situations": []
+      },
+      {
+        "family": "evaluate",
+        "id": "v10-evaluate-0014",
+        "oracle": {
+          "last_plan": [
+            {
+              "food_id": "2705385",
+              "grams": 244.0
+            },
+            {
+              "food_id": "2708489",
+              "grams": 56.7
+            }
+          ],
+          "ledger": "s0",
+          "plan_must_fit_windows": true,
+          "profile": "s0"
+        },
+        "persona": "gym",
+        "query": "Evaluate this as breakfast: a cup of milk and about 2 ounces of oats.",
+        "s0": {
+          "ledger": [],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-evaluate-0014",
+            "windows": {
+              "kcal": [
+                210.0,
+                520.0
+              ],
+              "protein_g": [
+                0.0,
+                40.0
+              ]
+            }
+          }
+        },
+        "situations": []
+      },
+      {
+        "family": "log",
+        "id": "v10-log-0015",
+        "oracle": {
+          "ledger": "s0_plus_tail",
+          "ledger_tail": [
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709215",
+              "grams": 165.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2705709",
+              "grams": 9.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2707537",
+              "grams": 16.0
+            }
+          ],
+          "profile": "s0"
+        },
+        "persona": "everyday",
+        "query": "Please log that I ate one apple, one slice of cheddar cheese, and one tablespoon of peanut butter.",
+        "s0": {
+          "ledger": [
+            {
+              "eaten_at": "yesterday-snack",
+              "food_id": "2709215",
+              "grams": 182.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709171",
+              "grams": 131.0
+            }
+          ],
+          "profile": {
+            "allergies": [],
+            "user_id": "v10-log-0015",
+            "windows": {
+              "kcal": [
+                1800.0,
+                2200.0
+              ],
+              "protein_g": [
+                90.0,
+                140.0
+              ]
+            }
+          }
+        },
+        "situations": [
+          "multi_item_log"
+        ]
+      },
+      {
+        "family": "log",
+        "id": "v10-log-0016",
+        "oracle": {
+          "ledger": "s0_plus_tail",
+          "ledger_tail": [
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2707152",
+              "grams": 100.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2705709",
+              "grams": 9.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709224",
+              "grams": 126.0
+            }
+          ],
+          "profile": "s0"
+        },
+        "persona": "everyday",
+        "query": "I ate 2 eggs, 1 slice of cheddar cheese, and a banana for breakfast.",
+        "s0": {
+          "ledger": [
+            {
+              "eaten_at": "yesterday-snack",
+              "food_id": "2709215",
+              "grams": 182.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709171",
+              "grams": 131.0
+            }
+          ],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-log-0016",
+            "windows": {
+              "kcal": [
+                1800.0,
+                2200.0
+              ],
+              "protein_g": [
+                90.0,
+                140.0
+              ]
+            }
+          }
+        },
+        "situations": [
+          "multi_item_log"
+        ]
+      },
+      {
+        "family": "log",
+        "id": "v10-log-0017",
+        "oracle": {
+          "ledger": "s0_plus_tail",
+          "ledger_tail": [
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "171986",
+              "grams": 165.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709383",
+              "grams": 230.0
+            }
+          ],
+          "profile": "s0"
+        },
+        "persona": "everyday",
+        "query": "Please log a can of canned tuna, and a piece of baked potato for lunch.",
+        "s0": {
+          "ledger": [
+            {
+              "eaten_at": "yesterday-snack",
+              "food_id": "2709215",
+              "grams": 182.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709171",
+              "grams": 131.0
+            }
+          ],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-log-0017",
+            "windows": {
+              "kcal": [
+                1800.0,
+                2200.0
+              ],
+              "protein_g": [
+                90.0,
+                140.0
+              ]
+            }
+          }
+        },
+        "situations": [
+          "multi_item_log"
+        ]
+      },
+      {
+        "family": "log",
+        "id": "v10-log-0018",
+        "oracle": {
+          "ledger": "s0_plus_tail",
+          "ledger_tail": [
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2708357",
+              "grams": 280.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "171477",
+              "grams": 140.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709643",
+              "grams": 90.0
+            }
+          ],
+          "profile": "s0"
+        },
+        "persona": "everyday",
+        "query": "I had two cups of spaghetti with a cup of grilled chicken and a cup of broccoli for dinner.",
+        "s0": {
+          "ledger": [
+            {
+              "eaten_at": "yesterday-snack",
+              "food_id": "2709215",
+              "grams": 182.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709171",
+              "grams": 131.0
+            }
+          ],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-log-0018",
+            "windows": {
+              "kcal": [
+                1800.0,
+                2200.0
+              ],
+              "protein_g": [
+                90.0,
+                140.0
+              ]
+            }
+          }
+        },
+        "situations": [
+          "multi_item_log"
+        ]
+      },
+      {
+        "family": "log",
+        "id": "v10-log-0019",
+        "oracle": {
+          "ledger": "s0_plus_tail",
+          "ledger_tail": [
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2708357",
+              "grams": 140.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2705709",
+              "grams": 9.0
+            }
+          ],
+          "profile": "s0"
+        },
+        "persona": "gym",
+        "query": "Please log a cup of spaghetti, and a slice of cheddar cheese for lunch.",
+        "s0": {
+          "ledger": [
+            {
+              "eaten_at": "yesterday-snack",
+              "food_id": "2709215",
+              "grams": 182.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709171",
+              "grams": 131.0
+            }
+          ],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-log-0019",
+            "windows": {
+              "kcal": [
+                1800.0,
+                2200.0
+              ],
+              "protein_g": [
+                90.0,
+                140.0
+              ]
+            }
+          }
+        },
+        "situations": [
+          "multi_item_log"
+        ]
+      },
+      {
+        "family": "log",
+        "id": "v10-log-0020",
+        "oracle": {
+          "ledger": "s0_plus_tail",
+          "ledger_tail": [
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "171477",
+              "grams": 140.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2708408",
+              "grams": 158.0
+            }
+          ],
+          "profile": "s0"
+        },
+        "persona": "gym",
+        "query": "Please log a cup of chicken, and a cup of rice for lunch.",
+        "s0": {
+          "ledger": [
+            {
+              "eaten_at": "yesterday-snack",
+              "food_id": "2709215",
+              "grams": 182.0
+            },
+            {
+              "eaten_at": "today-lunch",
+              "food_id": "2709171",
+              "grams": 131.0
+            }
+          ],
+          "profile": {
+            "allergies": [
+              "peanut"
+            ],
+            "user_id": "v10-log-0020",
+            "windows": {
+              "kcal": [
+                1800.0,
+                2200.0
+              ],
+              "protein_g": [
+                90.0,
+                140.0
+              ]
+            }
+          }
+        },
+        "situations": [
+          "multi_item_log"
+        ]
+      }
+    ],
+    "notes": "v1.0-gold 20-item pilot freeze (seed 20260817; evaluate D4 uses EVALUATE_ROWS fallbacks).",
+    "sampler_rule_version": "pilot-20-plan-v1",
+    "seed": 20260817,
+    "version": "v1.0-gold"
+  },
+  "persona_counts": {
+    "everyday": 14,
+    "gym": 6
+  },
+  "plan": [
+    {
+      "evaluate_seed": null,
+      "family": "log",
+      "food_ids": [
+        "2705832"
+      ],
+      "kind": "single",
+      "persona": "everyday",
+      "slot_id": "log-s-thick",
+      "target_key": "thick"
+    },
+    {
+      "evaluate_seed": null,
+      "family": "log",
+      "food_ids": [
+        "2705828"
+      ],
+      "kind": "single",
+      "persona": "everyday",
+      "slot_id": "log-s-thin",
+      "target_key": "thin"
+    },
+    {
+      "evaluate_seed": null,
+      "family": "log",
+      "food_ids": [
+        "milk_whole"
+      ],
+      "kind": "single",
+      "persona": "everyday",
+      "slot_id": "log-s-floz",
+      "target_key": "fl_oz"
+    },
+    {
+      "evaluate_seed": null,
+      "family": "log",
+      "food_ids": [
+        "soy_milk"
+      ],
+      "kind": "single",
+      "persona": "everyday",
+      "slot_id": "log-s-cup",
+      "target_key": "cup"
+    },
+    {
+      "evaluate_seed": null,
+      "family": "log",
+      "food_ids": [
+        "whole_wheat_bread"
+      ],
+      "kind": "single",
+      "persona": "everyday",
+      "slot_id": "log-s-slice",
+      "target_key": "slice"
+    },
+    {
+      "evaluate_seed": null,
+      "family": "log",
+      "food_ids": [
+        "oats"
+      ],
+      "kind": "single",
+      "persona": "everyday",
+      "slot_id": "log-s-qns",
+      "target_key": "qns"
+    },
+    {
+      "evaluate_seed": null,
+      "family": "log",
+      "food_ids": [
+        "egg"
+      ],
+      "kind": "single",
+      "persona": "gym",
+      "slot_id": "log-s-egg",
+      "target_key": "piece"
+    },
+    {
+      "evaluate_seed": null,
+      "family": "log",
+      "food_ids": [
+        "chicken_breast"
+      ],
+      "kind": "single",
+      "persona": "gym",
+      "slot_id": "log-s-chk",
+      "target_key": "cup"
+    },
+    {
+      "evaluate_seed": null,
+      "family": "log",
+      "food_ids": [
+        "apple",
+        "cheddar",
+        "peanut_butter"
+      ],
+      "kind": "meal",
+      "persona": "everyday",
+      "slot_id": "log-m-01",
+      "target_key": null
+    },
+    {
+      "evaluate_seed": null,
+      "family": "log",
+      "food_ids": [
+        "banana",
+        "orange",
+        "avocado"
+      ],
+      "kind": "meal",
+      "persona": "everyday",
+      "slot_id": "log-m-02",
+      "target_key": null
+    },
+    {
+      "evaluate_seed": null,
+      "family": "log",
+      "food_ids": [
+        "tuna",
+        "potato",
+        "olive_oil"
+      ],
+      "kind": "meal",
+      "persona": "everyday",
+      "slot_id": "log-m-03",
+      "target_key": null
+    },
+    {
+      "evaluate_seed": null,
+      "family": "log",
+      "food_ids": [
+        "pasta",
+        "spinach",
+        "broccoli"
+      ],
+      "kind": "meal",
+      "persona": "everyday",
+      "slot_id": "log-m-04",
+      "target_key": null
+    },
+    {
+      "evaluate_seed": null,
+      "family": "log",
+      "food_ids": [
+        "pasta",
+        "cheddar",
+        "orange"
+      ],
+      "kind": "meal",
+      "persona": "gym",
+      "slot_id": "log-m-05",
+      "target_key": null
+    },
+    {
+      "evaluate_seed": null,
+      "family": "log",
+      "food_ids": [
+        "chicken_breast",
+        "white_rice",
+        "broccoli"
+      ],
+      "kind": "meal",
+      "persona": "gym",
+      "slot_id": "log-m-06",
+      "target_key": null
+    },
+    {
+      "evaluate_seed": "ev-tuna-rice",
+      "family": "evaluate",
+      "food_ids": [
+        "tuna",
+        "white_rice",
+        "broccoli"
+      ],
+      "kind": "meal",
+      "persona": "everyday",
+      "slot_id": "eval-01",
+      "target_key": null
+    },
+    {
+      "evaluate_seed": "ev-tofu-rice",
+      "family": "evaluate",
+      "food_ids": [
+        "tofu",
+        "white_rice",
+        "spinach"
+      ],
+      "kind": "meal",
+      "persona": "everyday",
+      "slot_id": "eval-02",
+      "target_key": null
+    },
+    {
+      "evaluate_seed": "ev-egg-oats",
+      "family": "evaluate",
+      "food_ids": [
+        "egg",
+        "oats"
+      ],
+      "kind": "meal",
+      "persona": "everyday",
+      "slot_id": "eval-03",
+      "target_key": null
+    },
+    {
+      "evaluate_seed": "ev-gold-snack",
+      "family": "evaluate",
+      "food_ids": [
+        "banana",
+        "greek_yogurt"
+      ],
+      "kind": "meal",
+      "persona": "gym",
+      "slot_id": "eval-04",
+      "target_key": null
+    },
+    {
+      "evaluate_seed": "ev-tri-avocado-eggs-spin",
+      "family": "evaluate",
+      "food_ids": [
+        "avocado",
+        "egg",
+        "spinach"
+      ],
+      "kind": "meal",
+      "persona": "everyday",
+      "slot_id": "eval-05",
+      "target_key": null
+    },
+    {
+      "evaluate_seed": "ev-pair-milk-oats-oz",
+      "family": "evaluate",
+      "food_ids": [
+        "milk_whole",
+        "oats"
+      ],
+      "kind": "meal",
+      "persona": "gym",
+      "slot_id": "eval-06",
+      "target_key": null
+    }
+  ],
+  "produced_by_model": {
+    "deepseek-v4-flash-0731": 3,
+    "deepseek-v4-pro-0813": 3,
+    "glm-5.2": 3,
+    "kimi-k2.7-code": 4,
+    "qwen3.8-2.4t-a95b": 4,
+    "qwen3.8-max": 3
+  },
+  "rejected": [
+    {
+      "fallback": false,
+      "family": "log",
+      "model": "qwen3.8-max",
+      "persona": "everyday",
+      "query": "Log that I drank 8 fl oz of milk.",
+      "reason": "coverage_miss:fl_oz",
+      "slot_id": "log-s-floz"
+    },
+    {
+      "fallback": false,
+      "family": "log",
+      "model": "kimi-k2.7-code",
+      "persona": "gym",
+      "query": "Log three eggs for my training meal.",
+      "reason": "implausible",
+      "slot_id": "log-s-egg"
+    },
+    {
+      "fallback": false,
+      "family": "evaluate",
+      "model": "qwen3.8-max",
+      "persona": "everyday",
+      "query": "Can you evaluate my meal of a can of canned tuna, a cup of rice, and a cup of broccoli florets?",
+      "reason": "validate_draft:evaluate query does not map to a realization row (D4)",
+      "slot_id": "eval-01"
+    },
+    {
+      "fallback": false,
+      "family": "evaluate",
+      "model": "deepseek-v4-pro-0813",
+      "persona": "everyday",
+      "query": "Can you assess my meal of a cup of firm tofu, a cup of cooked rice, and a cup of baby spinach?",
+      "reason": "validate_draft:evaluate query does not map to a realization row (D4)",
+      "slot_id": "eval-02"
+    },
+    {
+      "fallback": false,
+      "family": "evaluate",
+      "model": "deepseek-v4-flash-0731",
+      "persona": "everyday",
+      "query": "I'm planning to eat 2 eggs, 1 cup of oatmeal, and 1 banana — can you evaluate this meal?",
+      "reason": "unresolvable",
+      "slot_id": "eval-03"
+    },
+    {
+      "fallback": false,
+      "family": "evaluate",
+      "model": "glm-5.2",
+      "persona": "gym",
+      "query": "I'm planning to eat 150 grams of grilled chicken with a cup of broccoli and two eggs after my workout — how does this meal look?",
+      "reason": "unresolvable",
+      "slot_id": "eval-04"
+    },
+    {
+      "fallback": false,
+      "family": "evaluate",
+      "model": "kimi-k2.7-code",
+      "persona": "everyday",
+      "query": "Please evaluate my meal of two eggs, a cup of baby spinach, and a serving of avocado.",
+      "reason": "unresolvable",
+      "slot_id": "eval-05"
+    },
+    {
+      "fallback": false,
+      "family": "evaluate",
+      "model": "qwen3.8-2.4t-a95b",
+      "persona": "gym",
+      "query": "Can you evaluate my plan for 150 g of chicken with a cup of broccoli florets and a cup of oatmeal?",
+      "reason": "implausible",
+      "slot_id": "eval-06"
+    },
+    {
+      "fallback": false,
+      "family": "log",
+      "model": "deepseek-v4-flash-0731",
+      "persona": "everyday",
+      "query": "",
+      "reason": "schema",
+      "slot_id": "log-m-03"
+    },
+    {
+      "fallback": false,
+      "family": "log",
+      "model": "kimi-k2.7-code",
+      "persona": "gym",
+      "query": "Log a cup of spaghetti, a cup of grilled chicken, and a cup of broccoli florets.",
+      "reason": "duplicate",
+      "slot_id": "log-m-05"
+    },
+    {
+      "fallback": false,
+      "family": "log",
+      "model": "qwen3.8-2.4t-a95b",
+      "persona": "gym",
+      "query": "Please log my training meal of 150 g grilled chicken, a cup steamed rice, and a cup broccoli florets.",
+      "reason": "implausible",
+      "slot_id": "log-m-06"
+    }
+  ],
+  "rejection_reasons": {
+    "coverage_miss": 1,
+    "duplicate": 1,
+    "implausible": 3,
+    "schema": 1,
+    "unresolvable": 3,
+    "validate_draft": 2
+  },
+  "review": {
+    "anomalies": [
+      {
+        "id": "v10-log-0001",
+        "reasons": [
+          "unparseable",
+          "low_consistency",
+          "low_entailment"
+        ]
+      },
+      {
+        "id": "v10-log-0006",
+        "reasons": [
+          "unparseable"
+        ]
+      },
+      {
+        "id": "v10-log-0007",
+        "reasons": [
+          "disagreement"
+        ]
+      },
+      {
+        "id": "v10-log-0018",
+        "reasons": [
+          "unparseable"
+        ]
+      }
+    ],
+    "per_candidate": {
+      "v10-evaluate-0009": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 0.0,
+          "entailment": 5.0,
+          "naturalness": 5.0,
+          "reasons": [],
+          "unparseable": []
+        },
+        "anomaly": false,
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query exactly names each resolved portion amount and food, with no contradictions."
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query naturally lists each food with spoken measures that exactly match the authoritative portion keys and contains no contradictions."
+          }
+        }
+      },
+      "v10-evaluate-0010": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 0.0,
+          "entailment": 5.0,
+          "naturalness": 5.0,
+          "reasons": [],
+          "unparseable": []
+        },
+        "anomaly": false,
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query explicitly names one cup of each food, exactly matching the resolved one-cup portion keys and amounts."
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query naturally requests one cup of each specified food, directly matching the resolved portion keys without any contradictions."
+          }
+        }
+      },
+      "v10-evaluate-0011": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 0.0,
+          "entailment": 5.0,
+          "naturalness": 5.0,
+          "reasons": [],
+          "unparseable": []
+        },
+        "anomaly": false,
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query exactly names the resolved portion amounts and foods without contradiction."
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query explicitly states the exact quantities and portion keys resolved in the authoritative table using natural, conversational phrasing without contradictions."
+          }
+        }
+      },
+      "v10-evaluate-0012": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 0.0,
+          "entailment": 5.0,
+          "naturalness": 5.0,
+          "reasons": [],
+          "unparseable": []
+        },
+        "anomaly": false,
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query names a banana and 150g of Greek yogurt, matching the resolved one piece and one 150g qns without contradiction."
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query naturally requests a banana and 150g of Greek yogurt, perfectly aligning with the resolved portion facts without contradictions."
+          }
+        }
+      },
+      "v10-evaluate-0013": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 0.0,
+          "entailment": 5.0,
+          "naturalness": 5.0,
+          "reasons": [],
+          "unparseable": []
+        },
+        "anomaly": false,
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query's spoken amounts match the resolved portions exactly and contain no contradictions."
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query precisely matches all resolved portion keys and quantities while sounding like natural meal-planning speech."
+          }
+        }
+      },
+      "v10-evaluate-0014": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 0.0,
+          "entailment": 5.0,
+          "naturalness": 5.0,
+          "reasons": [],
+          "unparseable": []
+        },
+        "anomaly": false,
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query's cup of milk and 2 ounces of oats exactly match the resolved cup and 56.7 g amounts, with natural breakfast phrasing and no contradictions."
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query naturally specifies the exact quantities resolved in the table without any contradictions."
+          }
+        }
+      },
+      "v10-log-0001": {
+        "aggregate": {
+          "consistency": 1.0,
+          "disagreement": 0.0,
+          "entailment": 1.0,
+          "naturalness": 5.0,
+          "reasons": [
+            "unparseable",
+            "low_consistency",
+            "low_entailment"
+          ],
+          "unparseable": [
+            "deepseek-v4-flash"
+          ]
+        },
+        "anomaly": "unparseable,low_consistency,low_entailment",
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": null,
+            "entailment": null,
+            "naturalness": null,
+            "reason": "unparseable",
+            "unparseable": true
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 1.0,
+            "entailment": 1.0,
+            "naturalness": 5.0,
+            "reason": "The query requests a \"thick\" serving which directly contradicts the resolved \"thin\" portion keys, though the phrasing is highly natural for a food diary."
+          }
+        }
+      },
+      "v10-log-0002": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 0.0,
+          "entailment": 5.0,
+          "naturalness": 5.0,
+          "reasons": [],
+          "unparseable": []
+        },
+        "anomaly": false,
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query's 'thin serving of beef' matches the resolved thin portion key and implies no contradiction."
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query directly matches the resolved portion key and quantity without any contradictions or unnatural phrasing."
+          }
+        }
+      },
+      "v10-log-0003": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 1.0,
+          "entailment": 5.0,
+          "naturalness": 4.5,
+          "reasons": [],
+          "unparseable": []
+        },
+        "anomaly": false,
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 4.0,
+            "reason": "The query directly names 1 fl oz of milk, matching the resolved portion amount and key exactly with no contradiction."
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query explicitly requests the exact unit and quantity specified in the authoritative portion fact without any contradictions or unnatural phrasing."
+          }
+        }
+      },
+      "v10-log-0004": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 0.0,
+          "entailment": 5.0,
+          "naturalness": 5.0,
+          "reasons": [],
+          "unparseable": []
+        },
+        "anomaly": false,
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query directly states a cup of soy milk, matching the resolved portion key and quantity exactly."
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query naturally describes eating one cup of soy milk, which directly matches the resolved portion key and quantity without contradiction."
+          }
+        }
+      },
+      "v10-log-0005": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 0.0,
+          "entailment": 5.0,
+          "naturalness": 5.0,
+          "reasons": [],
+          "unparseable": []
+        },
+        "anomaly": false,
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query naturally names exactly the resolved food, measure, and quantity with no contradiction."
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query directly matches the resolved portion key and quantity while using natural food-diary phrasing without contradictions."
+          }
+        }
+      },
+      "v10-log-0006": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 0.0,
+          "entailment": 5.0,
+          "naturalness": 5.0,
+          "reasons": [
+            "unparseable"
+          ],
+          "unparseable": [
+            "deepseek-v4-flash"
+          ]
+        },
+        "anomaly": "unparseable",
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": null,
+            "entailment": null,
+            "naturalness": null,
+            "reason": "unparseable",
+            "unparseable": true
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query's \"a serving\" aligns with the \"qns\" key, uses natural diary phrasing, and contains no contradictions."
+          }
+        }
+      },
+      "v10-log-0007": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 4.0,
+          "entailment": 5.0,
+          "naturalness": 3.0,
+          "reasons": [
+            "disagreement"
+          ],
+          "unparseable": []
+        },
+        "anomaly": "disagreement",
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 1.0,
+            "reason": "The query names 'a piece' matching the resolved amount and portion key, but 'a piece of eggs' is unnatural speech."
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query naturally requests exactly one piece of egg, aligning perfectly with the resolved portion key and quantity while containing no contradictions."
+          }
+        }
+      },
+      "v10-log-0008": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 1.0,
+          "entailment": 5.0,
+          "naturalness": 4.5,
+          "reasons": [],
+          "unparseable": []
+        },
+        "anomaly": false,
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 4.0,
+            "reason": "The query explicitly says 'a cup' and the resolved portion is 1 cup of chicken, with no contradictory details."
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query explicitly requests a cup of chicken, which directly matches the resolved portion key and quantity without any contradictions or unnatural phrasing."
+          }
+        }
+      },
+      "v10-log-0015": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 0.0,
+          "entailment": 5.0,
+          "naturalness": 5.0,
+          "reasons": [],
+          "unparseable": []
+        },
+        "anomaly": false,
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The user's spoken amounts and foods exactly match the resolved PortionFact keys and quantities."
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query naturally specifies each food and its exact portion measure, aligning perfectly with the resolved keys."
+          }
+        }
+      },
+      "v10-log-0016": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 0.0,
+          "entailment": 5.0,
+          "naturalness": 5.0,
+          "reasons": [],
+          "unparseable": []
+        },
+        "anomaly": false,
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query exactly names the resolved amounts and foods, with no contradictions."
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query precisely matches all resolved portion keys and quantities using natural, everyday food-diary phrasing with no contradictions."
+          }
+        }
+      },
+      "v10-log-0017": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 0.0,
+          "entailment": 5.0,
+          "naturalness": 5.0,
+          "reasons": [],
+          "unparseable": []
+        },
+        "anomaly": false,
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query clearly names a can of tuna and a piece of baked potato, exactly matching the resolved portion keys and amounts without contradiction."
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query explicitly uses the exact portion keys 'can' and 'piece' that match the resolved facts without any contradiction."
+          }
+        }
+      },
+      "v10-log-0018": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 0.0,
+          "entailment": 5.0,
+          "naturalness": 5.0,
+          "reasons": [
+            "unparseable"
+          ],
+          "unparseable": [
+            "deepseek-v4-flash"
+          ]
+        },
+        "anomaly": "unparseable",
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": null,
+            "entailment": null,
+            "naturalness": null,
+            "reason": "unparseable",
+            "unparseable": true
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query precisely matches the resolved quantities and units while using natural, everyday language without contradictions."
+          }
+        }
+      },
+      "v10-log-0019": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 0.0,
+          "entailment": 5.0,
+          "naturalness": 5.0,
+          "reasons": [],
+          "unparseable": []
+        },
+        "anomaly": false,
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query explicitly names the resolved cup and slice portions for spaghetti and cheddar cheese, with no contradictions."
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query naturally requests exact portions that directly match the authoritative resolved keys without any contradictions."
+          }
+        }
+      },
+      "v10-log-0020": {
+        "aggregate": {
+          "consistency": 5.0,
+          "disagreement": 0.0,
+          "entailment": 5.0,
+          "naturalness": 5.0,
+          "reasons": [],
+          "unparseable": []
+        },
+        "anomaly": false,
+        "models": {
+          "deepseek-v4-flash": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query clearly asks for one cup each of chicken and rice, exactly matching the resolved portion keys and amounts."
+          },
+          "qwen3.7-flash-2026-07-15": {
+            "consistency": 5.0,
+            "entailment": 5.0,
+            "naturalness": 5.0,
+            "reason": "The query explicitly requests one cup each of the resolved foods, perfectly matching the portion keys and quantities without contradiction."
+          }
+        }
+      }
+    }
+  },
+  "seed": 20260817,
+  "version": "v1.0-gold"
+}

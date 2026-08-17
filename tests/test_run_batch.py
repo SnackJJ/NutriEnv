@@ -219,7 +219,7 @@ def test_catalog_sha_mismatch_raises(tmp_path: Path) -> None:
 def test_sample_v10_gold_loads_via_load_exam() -> None:
     assert V10.is_file()
     tasks = load_exam(V10)
-    assert 2 <= len(tasks) <= 5
+    assert len(tasks) == 20
     assert {task.family for task in tasks} <= {"log", "evaluate"}
     payload = V10.read_text(encoding="utf-8")
     assert '"version": "v1.0-gold"' in payload
