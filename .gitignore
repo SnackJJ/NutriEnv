@@ -24,3 +24,6 @@ reports/review_sheet_preview.html
 
 # generated FNDDS dry-run diff (regenerate with scripts/fndds_dry_run.py)
 reports/dry-run-drift.json
+
+# local issue tracker scratch space (regenerate from spec/ADRs)
+.scratch/
