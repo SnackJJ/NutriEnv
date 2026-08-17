@@ -120,16 +120,26 @@ LLM 用的是真实世界份量常识：30g → "约一盎司，远小于正常�
   但误杀 = 丢弃候选（丢多样性），不会产生错误 Oracle，可接受。
 - LLM judge 是**过滤器**不是**答案定义者**：160g 仍由 FNDDS QNS 定义，judge 只是认可它。
 
-## 4. 完整流水线形态
+## 4. 完整流水线形态（已定稿，逆向采样 + LLM 组餐）
 
 ```
-LLM 提案 (food, 表达)          → 候选
-代码从完整 FNDDS 表算克数       → 锚点（含 QNS serving 默认）
-LLM judge 查 plausibility      → 重复 K 次 + 阈值，过滤荒谬值
-resolve_portion 反解验证       → 表达 ↔ 克数一致性
-validate_draft                 → 漏题/可达性/过敏原
-materialize_split 冻结         → 新增量（v0.6-gold）
+Sampler（代码）  从 FNDDS 抽超量食物池（含 PortionFact 备选），batch seed 可复现
+Expander（LLM）  从池中组合理的一餐 + 写自然语言 query（多模型轮换增多样性）
+Resolver（代码） 每个食物表达反解回 PortionFact；任一失败 → 拒（fail-closed）
+                 + 包含性 / 泄漏 / 手册对称 / 近重（食物 id 多集哈希）检查
+Judge（LLM 小模型） plausibility：白名单先过，表外 K=5/0.6 采样（灰区验收后封门）
+validate_draft（代码） 漏题/可达/过敏原；query↔Row 反解强制（查不到即拒）
+Review harness（LLM）  多子代理评审（一致性/自然度/蕴含）+ 汇总，人只审异常
+Freezer（代码）  冻结 v1.0-gold.json（绑定 catalog-v1 sha），EXAM_SPLIT_PATH 改指
 ```
+
+- 保留规则：组餐有组合多样性 → 每池保留 ≤3 条；素材固定（单食物）→ 择优 1 题。
+- Profile：代码按 persona 生成 S0（数值代码定），LLM 只润色人设文本；gym 人设
+  混报克数 + PortionFact，仅重度健身全克数。
+- 复合题（ADR 0012）：240 基础配额之外另加，多 Oracle 判分。
+- 试点 20 题 = 8 单食物 log（择优）+ 6 多食物 log 一餐（保留多条）+ 6 evaluate 一餐，
+  覆盖 qns/thick/thin/fl_oz/cup/slice 各 ≥1 + gym explicit-grams 混报。
+- 实施细节与验收标准见 `reports/v1.0-candidate-pipeline-roadmap.md`。
 
 ## 5. 必须同步处理的三处隐患
 
@@ -149,14 +159,14 @@ materialize_split 冻结         → 新增量（v0.6-gold）
 - CHARTER：判分规则一字不动，`Pass ⇔ end state == Oracle` 保留。
 - ADR 0006：考试仍是冻结 split 文件；LLM 产物必须先冻结再上报，不 live 生成。
 
-## 7. 建议执行顺序
+## 7. 执行顺序（v1.0 路线，详见 roadmap 报告）
 
-1. **完整 FNDDS 接入**（改 `build_fdc_catalog.py` 的 `_portion_key` + 保留 QNS，重建 catalog）
-   ——**先跑不落盘的 dry-run**，列出"哪些食物的克数会变"，确认冻结 split 零漂移再落地
-2. **差距审计清单**：当前解析 vs QNS 差距最大的食物列表（+ LLM judge 对齐率验证）
-3. **短语级测试**："a thick steak" / "一块厚切牛排" 等真实表述的档位歧义判别
-4. **judge 灰区用例**（sandwich/lasagna/omelet 三对，1.2–2.0×）过了再封 gate
-5. **LLM 扩写层**：给定 (food_id, phrase, family) 只写 query（realizations 分列机制已支持）
-6. **judge 封装成 gate** + LLM review harness（多子代理评审 + 汇总），接进提案流水线
-
-每步有冻结边界，可回滚到上一冻结版本。
+1. **D4 + 公开 realize 缝**：query↔Row 反解改强制；Generator 推导抽为公开 `realize()`；
+   Generator 退役归档
+2. **完整 FNDDS catalog 重建**：dry-run（`scripts/fndds_dry_run.py`）→ codex 审查 →
+   主 agent 裁决 → 构建为**新文件** `catalog-v1.sqlite`（不覆盖旧文件，v0.5 回归不破）
+3. **Sampler + Expander + Resolver**：逆向采样与组餐管线（多模型路由，百炼平台）
+4. **judge 换模型 + 灰区重验**：deepseek-v4-flash-0731 / qwen3.7-flash-2026-07-15，
+   sandwich 1.5× / lasagna 1.2× / omelet 2.0× 三对重跑
+5. **试点 20 题**：全链（含 LLM review harness）→ 人审 → 冻结 v1.0-gold.json
+6. **扩量 + 复合题配额**（ADR 0012）
