@@ -109,7 +109,25 @@ def test_run_split_rejects_bad_workers() -> None:
     import pytest
 
     with pytest.raises(ValueError, match="workers"):
-        run_split(n=1, seed=0, workers=0)
+        run_split(workers=0)
+
+
+def test_run_split_rejects_retired_factory() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="draft factory retired"):
+        run_split(n=1, seed=0)
+
+
+def test_run_split_default_loads_exam() -> None:
+    from nutrienv.bench import load_exam
+
+    first = load_exam()[0].id
+    result = run_split(task_ids=[first])
+    assert result["split"] is None
+    assert result["seed"] is None
+    assert result["n"] == 1
+    assert result["details"][0]["id"] == first
 
 
 def test_run_split_workers_match_serial_results() -> None:

@@ -1,4 +1,4 @@
-"""Realize-seam contracts that used to live on the retired Generator factory."""
+"""Realize-seam contracts for table-driven task materialization."""
 
 from __future__ import annotations
 

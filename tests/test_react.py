@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from nutrienv.bench.generator import Oracle
+from nutrienv.bench import Oracle
 from nutrienv.harness.react import (
     ReActHarness,
     _parse_action,

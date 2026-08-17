@@ -8,12 +8,10 @@ from pathlib import Path
 from .catalog import FoodCatalog
 from .catalog_fixture import demo_catalog
 
-__all__ = ["GOLD_CATALOG_PATH", "SNAPSHOT_PATH", "load_catalog"]
+__all__ = ["GOLD_CATALOG_PATH", "load_catalog"]
 
 _ROOT = Path(__file__).resolve().parents[3]
 GOLD_CATALOG_PATH = _ROOT / "data" / "fdc" / "catalog.sqlite"
-# Legacy 27-staple JSON. Kept so older docs still resolve; load_catalog prefers sqlite.
-SNAPSHOT_PATH = _ROOT / "data" / "catalog-snapshot.json"
 
 
 def load_catalog(path: Path | str | None = None) -> FoodCatalog:

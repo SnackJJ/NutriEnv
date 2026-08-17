@@ -61,14 +61,15 @@ def run_split(
     """Run a frozen split and return Pass / pass^k.
 
     With no ``split_path``, this loads the published 240-item exam via
-    :func:`load_exam`. The Generator factory (``seed``/``n``) is retired;
-    those arguments raise if no ``split_path`` is given. ``k`` independent
-    episodes are run per Task. ``pass_rate`` is the fraction of those
-    episodes that Pass. ``pass_at_k`` (pass@k) is the fraction of Tasks that
-    Pass on at least one of the k episodes. ``pass_k`` (pass^k) is the
-    fraction that Pass on every episode. ``workers`` runs Tasks concurrently
-    (each Task keeps its own Env and harness clone). Published numbers
-    should use a frozen file.
+    :func:`load_exam`. ``seed`` and ``n`` remain on the signature so older
+    callers still bind; any non-None value raises (the draft factory is
+    retired — use a frozen split). ``k`` independent episodes are run per
+    Task. ``pass_rate`` is the fraction of those episodes that Pass.
+    ``pass_at_k`` (pass@k) is the fraction of Tasks that Pass on at least
+    one of the k episodes. ``pass_k`` (pass^k) is the fraction that Pass
+    on every episode. ``workers`` runs Tasks concurrently (each Task keeps
+    its own Env and harness clone). Published numbers should use a frozen
+    file.
 
     ``reset`` receives a :class:`HarnessView` (id, family, persona, situations,
     query) unless ``leak_oracle`` is True, in which case it receives the full
@@ -81,14 +82,12 @@ def run_split(
     if isinstance(workers, bool) or not isinstance(workers, int) or workers < 1:
         raise ValueError("workers must be an int >= 1")
 
+    if seed is not None or n is not None:
+        raise ValueError("draft factory retired; use a frozen split")
     if split_path is not None:
         tasks = load_split(split_path)
-    elif seed is None and n is None:
-        tasks = load_exam()
     else:
-        raise ValueError(
-            "the Generator factory is retired; pass split_path or omit seed/n to load the exam"
-        )
+        tasks = load_exam()
     if task_ids is not None:
         wanted = set(task_ids)
         tasks = [task for task in tasks if task.id in wanted]

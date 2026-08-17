@@ -1,7 +1,7 @@
 """World layer: profile, ledger, catalog."""
 
 from .catalog import FoodCatalog, SEARCH_LIMIT
-from .catalog_store import GOLD_CATALOG_PATH, SNAPSHOT_PATH, load_catalog
+from .catalog_store import GOLD_CATALOG_PATH, load_catalog
 from .dri import DRI_REFERENCE
 from .portions import GRAM_UNITS, OUNCE_GRAMS, OUNCE_UNITS, UNIT_SYNONYMS, resolve_portion
 from .types import (
@@ -27,7 +27,6 @@ __all__ = [
     "FoodCatalog",
     "SEARCH_LIMIT",
     "GOLD_CATALOG_PATH",
-    "SNAPSHOT_PATH",
     "load_catalog",
     "normalize_tags",
     "normalize_window",

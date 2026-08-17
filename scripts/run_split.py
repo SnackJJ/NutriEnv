@@ -18,15 +18,13 @@ from nutrienv.harness.runner import run_split  # noqa: E402
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run a NutriEnv seed split against ScriptHarness (model=script)."
+        description="Run a frozen NutriEnv split against ScriptHarness (model=script)."
     )
     parser.add_argument(
         "--split",
         default=None,
-        help="frozen split JSON (published exam). If omitted, --seed and --n sample.",
+        help="frozen split JSON (default: published 240-item exam via load_exam)",
     )
-    parser.add_argument("--seed", type=int, default=None, help="factory split seed")
-    parser.add_argument("--n", type=int, default=None, help="factory split size")
     parser.add_argument("--k", type=int, default=1, help="episodes per task (pass^k)")
     parser.add_argument(
         "--workers",
@@ -42,8 +40,6 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     result = run_split(
-        seed=args.seed,
-        n=args.n,
         k=args.k,
         family=args.family,
         situation=args.situation,
