@@ -30,7 +30,7 @@ from nutrienv.bench.grams_gate import (  # noqa: E402
     TEMPERATURE,
     judge_once,
 )
-from nutrienv.harness.react import load_dotenv_keys  # noqa: E402
+from nutrienv.io.dotenv import load_dotenv_keys  # noqa: E402
 from nutrienv.world.catalog_store import GOLD_CATALOG_PATH, load_catalog  # noqa: E402
 
 load_dotenv_keys(ROOT / ".env.local")

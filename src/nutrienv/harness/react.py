@@ -5,11 +5,14 @@ from __future__ import annotations
 import json
 import os
 import re
-import time
-import urllib.error
-import urllib.request
-from http.client import IncompleteRead
-from pathlib import Path
+
+from nutrienv.io.chat import (
+    DASHSCOPE_CHAT_URL,
+    DEEPSEEK_CHAT_URL,
+    REACT_RETRY_ON,
+    post_chat_completion,
+)
+from nutrienv.io.dotenv import load_dotenv_keys
 
 from .protocol import Harness
 from .runner import DEFAULT_MAX_STEPS
@@ -89,20 +92,6 @@ def react_manual(version: str) -> str:
     return _MANUALS[version]
 
 
-def load_dotenv_keys(*paths: Path) -> None:
-    """Load KEY=value from files into os.environ if the key is unset."""
-    for path in paths:
-        if not path.is_file():
-            continue
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if not line or line.lstrip().startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            key, value = key.strip(), value.strip().strip('"').strip("'")
-            if key and key not in os.environ:
-                os.environ[key] = value
-
-
 def context_messages(messages: list[dict], *, limit: int = _CONTEXT_LIMIT) -> list[dict]:
     """Keep the system manual and the Task line when the window slides.
 
@@ -176,13 +165,6 @@ def oracle_hint(oracle: object) -> str:
         "Issue the matching Env writes. Do not change unmentioned fields.\n"
         + json.dumps(payload, default=str)
     )
-
-
-DEEPSEEK_CHAT_URL = "https://api.deepseek.com/v1/chat/completions"
-DASHSCOPE_CHAT_URL = (
-    "https://llm-dhaosul25kqjxu10.cn-beijing.maas.aliyuncs.com"
-    "/compatible-mode/v1/chat/completions"
-)
 
 
 def _looks_like_qwen(model: str, base_url: str) -> bool:
@@ -276,26 +258,15 @@ class ReActHarness(Harness):
             "temperature": 0.0,
             **self.extra_body,
         }
-        body = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
+        return post_chat_completion(
             self.base_url,
-            data=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}",
-            },
-            method="POST",
+            payload,
+            self.api_key,
+            timeout=self.timeout,
+            retries=3,
+            retry_on=REACT_RETRY_ON,
+            error_prefix="DeepSeek request failed after retries",
         )
-        last_error: Exception | None = None
-        for attempt in range(3):
-            try:
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    payload = json.loads(resp.read().decode("utf-8"))
-                return payload["choices"][0]["message"]["content"]
-            except (IncompleteRead, urllib.error.URLError, TimeoutError, OSError) as exc:
-                last_error = exc
-                time.sleep(2 ** attempt)
-        raise RuntimeError(f"DeepSeek request failed after retries: {last_error}") from last_error
 
 
 def _parse_action(text: str) -> dict:

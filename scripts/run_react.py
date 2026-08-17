@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -12,11 +13,8 @@ _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT / "src"))
 
 from nutrienv.bench import EXAM_SPLIT_PATH, load_split  # noqa: E402
-from nutrienv.harness.react import (  # noqa: E402
-    REACT_VERSIONS,
-    ReActHarness,
-    load_dotenv_keys,
-)
+from nutrienv.harness.react import REACT_VERSIONS, ReActHarness  # noqa: E402
+from nutrienv.io.dotenv import load_dotenv_keys  # noqa: E402
 from nutrienv.harness.runner import DEFAULT_MAX_STEPS, run_split  # noqa: E402
 
 DEFAULT_MODEL = "deepseek-v4-flash"
@@ -75,11 +73,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    load_dotenv_keys(
-        _ROOT / ".env.local",
-        Path("/home/jzq/Projects/NutriBuddy/.env.local"),
-        Path("/home/jzq/Projects/NutriMind/.env"),
-    )
+    extra = [
+        Path(item)
+        for item in (os.environ.get("NUTRIENV_DOTENV") or "").split(os.pathsep)
+        if item
+    ]
+    load_dotenv_keys(_ROOT / ".env.local", *extra)
 
     use_factory = args.seed is not None or args.n is not None
     if use_factory:

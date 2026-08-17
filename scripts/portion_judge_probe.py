@@ -21,7 +21,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from nutrienv.harness.react import DEEPSEEK_CHAT_URL, load_dotenv_keys  # noqa: E402
+from nutrienv.io.chat import DEEPSEEK_CHAT_URL  # noqa: E402
+from nutrienv.io.dotenv import load_dotenv_keys  # noqa: E402
 
 load_dotenv_keys(ROOT / ".env.local")
 

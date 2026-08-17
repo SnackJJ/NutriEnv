@@ -8,15 +8,14 @@ and the gate do not each own a copy.
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import time
-import urllib.request
 from collections.abc import Callable
 from pathlib import Path
 
-from nutrienv.harness.react import DEEPSEEK_CHAT_URL, load_dotenv_keys
+from nutrienv.io.chat import DEEPSEEK_CHAT_URL, JUDGE_RETRY_ON, post_chat_completion
+from nutrienv.io.dotenv import load_dotenv_keys
 
 from .portion_table import matches_portion_table
 
@@ -85,25 +84,15 @@ def call_judge(food: str, grams: float) -> str:
         "temperature": TEMPERATURE,
         "max_tokens": MAX_TOKENS,
     }
-    req = urllib.request.Request(
+    return post_chat_completion(
         DEEPSEEK_CHAT_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {os.environ['DEEPSEEK_API_KEY']}",
-        },
-        method="POST",
+        payload,
+        os.environ["DEEPSEEK_API_KEY"],
+        timeout=60.0,
+        retries=3,
+        retry_on=JUDGE_RETRY_ON,
+        error_prefix="request failed",
     )
-    last: Exception | None = None
-    for attempt in range(3):
-        try:
-            with urllib.request.urlopen(req, timeout=60.0) as resp:
-                body = json.loads(resp.read().decode("utf-8"))
-            return body["choices"][0]["message"]["content"]
-        except Exception as exc:  # noqa: BLE001 - retry network noise
-            last = exc
-            time.sleep(2 ** attempt)
-    raise RuntimeError(f"request failed: {last}")
 
 
 def judge_once(
