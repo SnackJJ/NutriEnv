@@ -21,13 +21,18 @@ from nutrienv.bench.realizations import (
     leftover_key,
     recommend_key,
 )
+from nutrienv.bench.realize import material_from_row, realize, spoken_query
 from nutrienv.bench.validator import semantic_key, validate_draft
 from nutrienv.bench.windows import any_pair_unsatisfiable
-from nutrienv.bench import Generator
-from nutrienv.bench.generator import Task
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals
+
+
+def _task(row, *, catalog=None):
+    foods = catalog if catalog is not None else load_catalog()
+    material = material_from_row(row, catalog=foods)
+    return realize(material, spoken_query(row), catalog=foods)
 
 
 def test_fuzzy_table_resolves_and_keys_are_unique():
@@ -100,22 +105,15 @@ def test_evaluate_windows_are_derived_from_live_totals():
         assert not hasattr(row, "windows")
 
 
-def test_fuzzy_seeds_change_semantic_key():
-    keys = {
-        semantic_key(Generator().sample(seed, situation="fuzzy_portion"))
-        for seed in range(20)
-    }
+def test_fuzzy_rows_change_semantic_key():
+    keys = {semantic_key(_task(row)) for row in FUZZY_ROWS[:20]}
     assert len(keys) > 1
-    assert Generator().sample(3, situation="fuzzy_portion") == Generator().sample(
-        3, situation="fuzzy_portion"
-    )
+    first = FUZZY_ROWS[0]
+    assert _task(first) == _task(first)
 
 
-def test_leftover_seeds_change_semantic_key():
-    keys = {
-        semantic_key(Generator().sample(seed, persona="leftover"))
-        for seed in range(20)
-    }
+def test_leftover_rows_change_semantic_key():
+    keys = {semantic_key(_task(row)) for row in LEFTOVER_ROWS[:20]}
     assert len(keys) > 1
 
 
@@ -143,14 +141,9 @@ def test_evaluate_rows_cover_tiers_and_resolve():
                 phrase,
             )
 
-    generator = Generator()
-    knobs = generator._difficulty(None)
-    base = generator._make_s0(0, knobs)
     keys = []
     for row in EVALUATE_ROWS:
-        s0 = _fresh_s0(base)
-        query, oracle = generator._evaluate_from_row(s0, row)
-        task = Task("draft", "evaluate", query, s0, oracle)
+        task = _task(row)
         assert validate_draft(task) == [], (row.seed_id, validate_draft(task))
         keys.append(semantic_key(task))
     assert len(keys) == len(EVALUATE_ROWS)
@@ -180,106 +173,36 @@ def test_evaluate_rows_cover_tiers_and_resolve():
 
 
 def test_all_update_rows_have_distinct_semantic_keys():
-    generator = Generator()
-    knobs = generator._difficulty(None)
-    base = generator._make_s0(0, knobs)
-    keys = []
-    for row in UPDATE_ROWS:
-        s0 = _fresh_s0(base)
-        query, oracle = generator._update_from_row(s0, row)
-        keys.append(semantic_key(Task("draft", "update", query, s0, oracle)))
+    keys = [semantic_key(_task(row)) for row in UPDATE_ROWS]
     assert len(keys) == len(UPDATE_ROWS)
     assert len(set(keys)) == len(UPDATE_ROWS)
 
 
-def test_update_constrain_evaluate_seeds_change_semantic_key():
-    update_keys = {
-        semantic_key(Generator().sample(seed, family="update"))
-        for seed in range(20)
-    }
-    constrain_keys = {
-        semantic_key(Generator().sample(seed, family="constrain"))
-        for seed in range(20)
-    }
-    evaluate_keys = {
-        semantic_key(Generator().sample(seed, family="evaluate"))
-        for seed in range(20)
-    }
+def test_update_constrain_evaluate_rows_change_semantic_key():
+    update_keys = {semantic_key(_task(row)) for row in UPDATE_ROWS[:20]}
+    constrain_keys = {semantic_key(_task(row)) for row in CONSTRAIN_ROWS[:20]}
+    evaluate_keys = {semantic_key(_task(row)) for row in EVALUATE_ROWS[:20]}
     assert len(update_keys) > 1
     assert len(constrain_keys) > 1
     assert len(evaluate_keys) > 1
 
 
-def _fresh_s0(base):
-    from nutrienv.world.types import WorldState
-
-    return WorldState(
-        profile=base.profile,
-        ledger=list(base.ledger),
-        catalog=base.catalog,
-        last_plan=list(base.last_plan),
-    )
-
-
 def test_every_table_row_materializes_to_a_clean_draft():
-    from nutrienv.bench.generator import Task
-
-    generator = Generator()
-    knobs = generator._difficulty(None)
-    base = generator._make_s0(0, knobs)
-
-    def check(family, persona, query, oracle, s0, situations=()):
-        task = Task("draft", family, query, s0, oracle, situations, persona)
-        assert validate_draft(task) == [], (family, query, validate_draft(task))
-
-    for row in RECOMMEND_ROWS:
-        s0 = _fresh_s0(base)
-        query, oracle = generator._recommend_from_row(s0, row)
-        check("recommend", row.persona, query, oracle, s0)
-
-    for row in LEFTOVER_ROWS:
-        s0 = _fresh_s0(base)
-        query, oracle = generator._leftover_from_row(s0, row)
-        check("recommend", "leftover", query, oracle, s0)
-
-    for row in UPDATE_ROWS:
-        s0 = _fresh_s0(base)
-        query, oracle = generator._update_from_row(s0, row)
-        check("update", "everyday", query, oracle, s0)
-
-    for row in CONSTRAIN_ROWS:
-        s0 = _fresh_s0(base)
-        if row.kind == "condition":
-            query, oracle = generator._condition_from_row(s0, row)
-            check("constrain", "everyday", query, oracle, s0, ("condition_suitability",))
-        else:
-            query, oracle = generator._conflict_from_row(s0, row)
-            check("constrain", "everyday", query, oracle, s0, ("conflict_windows",))
-
-    for row in EVALUATE_ROWS:
-        s0 = _fresh_s0(base)
-        query, oracle = generator._evaluate_from_row(s0, row)
-        check("evaluate", "everyday", query, oracle, s0)
-
-    for row in MULTI_ITEM_LOG_ROWS:
-        s0 = _fresh_s0(base)
-        query, oracle = generator._multi_item_from_row(s0, row)
-        check("log", "everyday", query, oracle, s0, ("multi_item_log",))
-
-    for row in UNIT_CONVERT_ROWS:
-        s0 = _fresh_s0(base)
-        query, oracle = generator._unit_convert_from_row(s0, row)
-        check("log", "everyday", query, oracle, s0, ("unit_convert",))
-
-    for row in NEAR_SYNONYM_ROWS:
-        s0 = _fresh_s0(base)
-        query, oracle = generator._near_synonym_from_row(s0, row)
-        check("log", "everyday", query, oracle, s0, ("near_synonym",))
-
-    for row in LEDGER_GAP_ROWS:
-        s0 = _fresh_s0(base)
-        query, oracle = generator._ledger_gap_from_row(s0, row)
-        check("log", "everyday", query, oracle, s0, ("ledger_gap",))
+    tables = (
+        RECOMMEND_ROWS,
+        LEFTOVER_ROWS,
+        UPDATE_ROWS,
+        CONSTRAIN_ROWS,
+        EVALUATE_ROWS,
+        MULTI_ITEM_LOG_ROWS,
+        UNIT_CONVERT_ROWS,
+        NEAR_SYNONYM_ROWS,
+        LEDGER_GAP_ROWS,
+    )
+    for table in tables:
+        for row in table:
+            task = _task(row)
+            assert validate_draft(task) == [], (row.seed_id, validate_draft(task))
 
 
 def test_recommend_table_covers_declared_axes():
@@ -385,25 +308,18 @@ def test_allergen_conflict_rows_are_infeasible_only_with_the_allergy():
 
 
 def test_all_recommend_rows_have_distinct_semantic_keys():
-    generator = Generator()
-    knobs = generator._difficulty(None)
-    base = generator._make_s0(0, knobs)
-    keys = []
-    for row in RECOMMEND_ROWS:
-        s0 = _fresh_s0(base)
-        query, oracle = generator._recommend_from_row(s0, row)
-        keys.append(semantic_key(Task("draft", "recommend", query, s0, oracle, (), row.persona)))
+    keys = [semantic_key(_task(row)) for row in RECOMMEND_ROWS]
     assert len(keys) == len(RECOMMEND_ROWS)
     assert len(set(keys)) == len(RECOMMEND_ROWS)
 
 
 def test_validator_accepts_table_drafts_and_rejects_leaks():
-    good = Generator().sample(2, situation="fuzzy_portion")
+    good = _task(FUZZY_ROWS[0])
     assert validate_draft(good) == []
-    leftover = Generator().sample(5, persona="leftover")
+    leftover = _task(LEFTOVER_ROWS[0])
     assert validate_draft(leftover) == []
 
-    leaked = Generator().sample(2, situation="fuzzy_portion")
+    leaked = _task(FUZZY_ROWS[0])
     object.__setattr__(leaked, "query", "Log milk_whole please, kcal 1800")
     object.__setattr__(leaked, "family", "recommend")
     issues = validate_draft(leaked)
@@ -481,16 +397,17 @@ def test_update_table_covers_new_axes():
     assert len(preset) >= 2
 
 
-def test_log_situation_seeds_change_semantic_key():
-    for situation in ("multi_item_log", "unit_convert", "near_synonym", "ledger_gap"):
-        keys = {
-            semantic_key(Generator().sample(seed, situation=situation))
-            for seed in range(20)
-        }
+def test_log_situation_rows_change_semantic_key():
+    tables = {
+        "multi_item_log": MULTI_ITEM_LOG_ROWS,
+        "unit_convert": UNIT_CONVERT_ROWS,
+        "near_synonym": NEAR_SYNONYM_ROWS,
+        "ledger_gap": LEDGER_GAP_ROWS,
+    }
+    for situation, table in tables.items():
+        keys = {semantic_key(_task(row)) for row in table}
         assert len(keys) > 1, situation
-        assert Generator().sample(3, situation=situation) == Generator().sample(
-            3, situation=situation
-        )
+        assert _task(table[0]) == _task(table[0])
 
 
 def test_realizations_source_does_not_import_validator() -> None:
@@ -554,13 +471,10 @@ def test_realizations_public_names_match_legacy_all() -> None:
 def test_log_situation_builders_are_table_backed():
     import inspect
 
-    from nutrienv.bench.generator import Generator as Gen
+    from nutrienv.bench import realize as realize_mod
 
-    assert "MULTI_ITEM_LOG_ROWS" in inspect.getsource(Gen._build_situation_multi_item_log)
-    assert "UNIT_CONVERT_ROWS" in inspect.getsource(Gen._build_situation_unit_convert)
-    assert "NEAR_SYNONYM_ROWS" in inspect.getsource(Gen._build_situation_near_synonym)
-    assert "LEDGER_GAP_ROWS" in inspect.getsource(Gen._build_situation_ledger_gap)
-    assert "60 g rolled oats" not in inspect.getsource(Gen._build_situation_multi_item_log)
-    assert "2 ounces of oats" not in inspect.getsource(Gen._build_situation_unit_convert)
-    assert "prawns" not in inspect.getsource(Gen._build_situation_near_synonym)
-    assert "150 g chicken breast" not in inspect.getsource(Gen._build_situation_ledger_gap)
+    source = inspect.getsource(realize_mod)
+    assert "60 g rolled oats" not in source
+    assert "2 ounces of oats" not in source
+    assert "prawns" not in source
+    assert "150 g chicken breast" not in source

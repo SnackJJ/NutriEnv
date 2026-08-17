@@ -1,32 +1,68 @@
-import pytest
+"""Realize-seam contracts that used to live on the retired Generator factory."""
 
-from nutrienv.bench import Generator, SITUATIONS, Situation
-from nutrienv.bench.realizations import FUZZY_ROWS, NEAR_SYNONYM_ROWS, UNIT_CONVERT_ROWS, UPDATE_ROWS
+from __future__ import annotations
+
+from nutrienv.bench.realize import material_from_row, realize, spoken_query
+from nutrienv.bench.realizations import (
+    CONSTRAIN_ROWS,
+    EVALUATE_ROWS,
+    FUZZY_ROWS,
+    LEDGER_GAP_ROWS,
+    LEFTOVER_ROWS,
+    MULTI_ITEM_LOG_ROWS,
+    NEAR_SYNONYM_ROWS,
+    RECOMMEND_ROWS,
+    UNIT_CONVERT_ROWS,
+    UPDATE_ROWS,
+)
+from nutrienv.bench.situations import SITUATIONS
+from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals
 
 
-def test_sample_is_deterministic_and_uses_all_families():
-    generator = Generator()
-    assert generator.sample(42, "update") == generator.sample(42, "update")
-    tasks = generator.generate_split(9, 12)
-    assert {task.family for task in tasks} == {
-        "lookup", "log", "recommend", "evaluate", "update", "constrain"
+def _task(row, *, catalog=None):
+    foods = catalog if catalog is not None else load_catalog()
+    material = material_from_row(row, catalog=foods)
+    return realize(material, spoken_query(row), catalog=foods)
+
+
+def _row(table, seed_id: str):
+    return next(item for item in table if item.seed_id == seed_id)
+
+
+def test_realize_covers_every_situation():
+    by_situation = {
+        "fuzzy_portion": FUZZY_ROWS[0],
+        "multi_item_log": _row(MULTI_ITEM_LOG_ROWS, "mi-lunch-chicken-rice"),
+        "condition_suitability": next(
+            row for row in CONSTRAIN_ROWS if row.kind == "condition"
+        ),
+        "unit_convert": UNIT_CONVERT_ROWS[0],
+        "near_synonym": NEAR_SYNONYM_ROWS[0],
+        "conflict_windows": next(
+            row for row in CONSTRAIN_ROWS if row.kind == "conflict"
+        ),
+        "ledger_gap": _row(LEDGER_GAP_ROWS, "lg-miss-breakfast"),
     }
-    assert len({task.id for task in tasks}) == len(tasks)
+    assert set(by_situation) == set(SITUATIONS)
+    tasks = [_task(row) for row in by_situation.values()]
+    assert {task.situations[0] for task in tasks} == set(SITUATIONS)
+    assert all(len(task.s0.catalog) >= 15 for task in tasks)
 
-
-def test_log_oracle_contains_only_new_rows():
-    task = Generator().sample(5, "log", {"ledger_gaps": 3})
-    assert any(row.eaten_at == "yesterday-snack" for row in task.s0.ledger)
-    assert len(task.oracle.ledger_tail) == 3
-    assert all(isinstance(row, LedgerRow) for row in task.oracle.ledger_tail)
-    assert task.oracle.ledger_tail != task.s0.ledger
+    condition = _task(next(row for row in CONSTRAIN_ROWS if row.seed_id == "co-gold-shrimp"))
+    assert condition.family == "constrain"
+    assert condition.s0.profile.allergies
+    assert condition.oracle.last_plan == []
+    assert condition.oracle.allow_empty_plan is False
+    assert condition.oracle.plan_must_be_safe
+    assert condition.oracle.plan_must_fit_windows
+    assert condition.s0.profile.windows["kcal"][1] <= 800
 
 
 def test_update_oracle_normalizes_and_preserves_unmentioned_fields():
-    task = Generator().sample(3, "update")
-    row = next(item for item in UPDATE_ROWS if item.query == task.query)
+    task = _task(_row(UPDATE_ROWS, "up-gold-both"))
+    row = _row(UPDATE_ROWS, "up-gold-both")
     added = set(task.oracle.profile.allergies) - set(task.s0.profile.allergies)
     removed = set(task.s0.profile.allergies) - set(task.oracle.profile.allergies)
     assert added == set(row.add_allergens)
@@ -40,97 +76,53 @@ def test_update_oracle_normalizes_and_preserves_unmentioned_fields():
         if key in (row.window_shifts or {}):
             continue
         assert task.oracle.profile.windows[key] == bounds
-    if row.set_plan_preset is not None:
-        assert task.oracle.profile.plan_preset == row.set_plan_preset
-    else:
-        assert task.oracle.profile.plan_preset == task.s0.profile.plan_preset
+    assert task.oracle.profile.plan_preset == task.s0.profile.plan_preset
     assert task.oracle.profile.medications == task.s0.profile.medications
     assert task.oracle.profile.version == task.s0.profile.version
     assert task.oracle.profile.user_id == task.s0.profile.user_id
     assert "shrimp" not in task.oracle.profile.allergies
 
 
-def test_difficulty_changes_s0_not_action_availability():
-    easy = Generator().sample(1, "log", {"ledger_gaps": 1})
-    hard = Generator().sample(
-        1,
-        "log",
-        {"ledger_gaps": 4, "name_ambiguity": 3},
-    )
-    assert len(hard.s0.ledger) >= 4
-    assert sum("rice" in food["aliases"] for food in hard.s0.catalog.values()) > 1
-    assert easy.s0.catalog is not None
-
-
-def test_same_seed_and_situation_is_deterministic():
-    generator = Generator()
-    for situation in SITUATIONS:
-        assert generator.sample(21, situation=situation) == generator.sample(
-            21, situation=situation
-        )
-
-
-def test_every_situation_has_a_fixture_backed_task():
-    generator = Generator()
-    tasks = [generator.sample(100 + index, situation=name) for index, name in enumerate(SITUATIONS)]
-    assert {task.situations[0] for task in tasks} == set(SITUATIONS)
-    assert all(len(task.s0.catalog) >= 15 for task in tasks)
-
-    condition = generator.sample(7, situation=Situation.CONDITION_SUITABILITY)
-    assert condition.family == "constrain"
-    assert condition.s0.profile.allergies
-    assert condition.oracle.last_plan == []
-    assert condition.oracle.allow_empty_plan is False
-    assert condition.oracle.plan_must_be_safe
-    assert condition.oracle.plan_must_fit_windows
-    assert condition.s0.profile.windows["kcal"][1] <= 800
-
-
 def test_situation_realizations_have_concrete_oracles():
-    generator = Generator()
-    fuzzy = generator.sample(1, situation="fuzzy_portion")
-    spec = next(row for row in FUZZY_ROWS if row.utterance == fuzzy.query)
+    spec = FUZZY_ROWS[0]
+    fuzzy = _task(spec)
     food = fuzzy.s0.catalog.canonical_id(spec.food_id)
     grams = resolve_portion(spec.food_id, spec.phrase, fuzzy.s0.catalog)
     assert fuzzy.oracle.ledger_tail == [LedgerRow(food, grams, spec.slot)]
 
-    converted = generator.sample(1, situation="unit_convert")
-    unit_row = next(item for item in UNIT_CONVERT_ROWS if item.utterance == converted.query)
+    unit_row = UNIT_CONVERT_ROWS[0]
+    converted = _task(unit_row)
     unit_food = converted.s0.catalog.canonical_id(unit_row.food_id)
     unit_grams = resolve_portion(unit_row.food_id, unit_row.phrase, converted.s0.catalog)
     assert converted.oracle.ledger_tail == [LedgerRow(unit_food, unit_grams, unit_row.slot)]
 
-    split = generator.generate_split(2, 3, situation="near_synonym")
-    assert all(task.situations == ("near_synonym",) for task in split)
-    assert all(task.family == "log" for task in split)
-
 
 def test_log_drafts_pin_profile_and_full_ledger():
-    for kwargs in (
-        {"family": "log"},
-        {"situation": "fuzzy_portion"},
-        {"situation": "multi_item_log"},
-        {"situation": "unit_convert"},
-        {"situation": "ledger_gap"},
-    ):
-        task = Generator().sample(5, **kwargs)
-        assert task.oracle.profile == task.s0.profile, kwargs
+    rows = [
+        FUZZY_ROWS[0],
+        MULTI_ITEM_LOG_ROWS[0],
+        UNIT_CONVERT_ROWS[0],
+        LEDGER_GAP_ROWS[0],
+    ]
+    for row in rows:
+        task = _task(row)
+        assert task.oracle.profile == task.s0.profile, row.seed_id
         assert task.oracle.ledger_tail
-        assert task.oracle.ledger == (*task.s0.ledger, *task.oracle.ledger_tail), kwargs
-        assert task.s0.ledger, kwargs
-        slots = {row.eaten_at for row in task.s0.ledger}
-        needed = {row.eaten_at for row in task.oracle.ledger_tail}
+        assert task.oracle.ledger == (*task.s0.ledger, *task.oracle.ledger_tail), row.seed_id
+        assert task.s0.ledger, row.seed_id
+        slots = {item.eaten_at for item in task.s0.ledger}
+        needed = {item.eaten_at for item in task.oracle.ledger_tail}
         if "ledger_gap" in task.situations:
             assert any(slot.startswith("today-") for slot in slots)
             assert needed.isdisjoint(slots)
         else:
-            assert needed <= slots, (kwargs, needed, slots)
+            assert needed <= slots, (row.seed_id, needed, slots)
             assert any(slot.endswith("-snack") or slot.startswith("yesterday-") for slot in slots)
 
 
 def test_fuzzy_and_unit_grams_come_from_resolve_portion():
-    fuzzy = Generator().sample(1, situation="fuzzy_portion")
-    spec = next(row for row in FUZZY_ROWS if row.utterance == fuzzy.query)
+    spec = FUZZY_ROWS[0]
+    fuzzy = _task(spec)
     assert fuzzy.oracle.ledger_tail[0].food_id == fuzzy.s0.catalog.canonical_id(
         spec.food_id
     )
@@ -138,22 +130,22 @@ def test_fuzzy_and_unit_grams_come_from_resolve_portion():
         spec.food_id, spec.phrase, fuzzy.s0.catalog
     )
 
-    converted = Generator().sample(1, situation="unit_convert")
-    unit_row = next(item for item in UNIT_CONVERT_ROWS if item.utterance == converted.query)
+    unit_row = UNIT_CONVERT_ROWS[0]
+    converted = _task(unit_row)
     assert converted.oracle.ledger_tail[0].grams == resolve_portion(
         unit_row.food_id, unit_row.phrase, converted.s0.catalog
     )
 
 
 def test_non_log_drafts_pin_unchanged_ledger():
-    for family in ("update", "recommend", "evaluate"):
-        task = Generator().sample(3, family)
-        assert task.oracle.ledger == tuple(task.s0.ledger), family
+    update = _task(_row(UPDATE_ROWS, "up-gold-both"))
+    recommend = _task(next(row for row in RECOMMEND_ROWS if row.persona == "everyday"))
+    evaluate = _task(EVALUATE_ROWS[0])
+    for task in (update, recommend, evaluate):
+        assert task.oracle.ledger == tuple(task.s0.ledger), task.family
         assert task.oracle.profile is not None
-    update = Generator().sample(3, "update")
     assert update.oracle.profile != update.s0.profile
     assert "shrimp" not in update.oracle.profile.allergies
-    recommend = Generator().sample(3, "recommend")
     assert recommend.oracle.last_plan == []
     assert recommend.oracle.plan_must_be_safe
     assert recommend.oracle.plan_must_fit_windows
@@ -161,7 +153,8 @@ def test_non_log_drafts_pin_unchanged_ledger():
 
 
 def test_conflict_windows_starts_with_a_violating_plan():
-    task = Generator().sample(8, situation="conflict_windows")
+    row = next(item for item in CONSTRAIN_ROWS if item.kind == "conflict")
+    task = _task(row)
     assert task.s0.last_plan
     assert task.oracle.ledger == tuple(task.s0.ledger)
     assert task.oracle.allow_empty_plan
@@ -170,8 +163,8 @@ def test_conflict_windows_starts_with_a_violating_plan():
 
 
 def test_near_synonym_logs_the_catalog_food():
-    task = Generator().sample(1, situation="near_synonym")
-    row = next(item for item in NEAR_SYNONYM_ROWS if item.utterance == task.query)
+    row = NEAR_SYNONYM_ROWS[0]
+    task = _task(row)
     assert task.family == "log"
     assert row.spoken.lower() in task.query.lower()
     assert row.food_id not in task.query.lower()
@@ -187,7 +180,7 @@ def test_generated_update_rejects_a_junk_log():
     from nutrienv.bench.scorer import Scorer
     from nutrienv.env import NutriEnv
 
-    task = Generator().sample(3, "update")
+    task = _task(_row(UPDATE_ROWS, "up-gold-both"))
     env = NutriEnv()
     env.reset(task.s0)
     env.step(
@@ -215,28 +208,22 @@ def test_generated_update_rejects_a_junk_log():
     assert score["tag"] == "log_miss"
 
 
-def test_leftover_persona_only_pairs_with_recommend():
-    with pytest.raises(ValueError, match="leftover"):
-        Generator().sample(1, family="log", persona="leftover")
-    cut = Generator().sample(1, family="recommend", persona="cut")
-    assert cut.persona == "cut"
-    assert cut.family == "recommend"
-    implied = Generator().sample(4, persona="leftover")
-    assert implied.family == "recommend"
-    assert implied.persona == "leftover"
-
-
-@pytest.mark.parametrize("persona", ["cut", "gym", "flex", "htn"])
-def test_table_personas_only_pair_with_recommend(persona):
-    with pytest.raises(ValueError, match=persona):
-        Generator().sample(0, family="log", persona=persona)
-    task = Generator().sample(1, family="recommend", persona=persona)
-    assert task.persona == persona
+def test_leftover_material_is_recommend_only():
+    task = _task(LEFTOVER_ROWS[0])
     assert task.family == "recommend"
+    assert task.persona == "leftover"
+
+
+def test_table_personas_realize_as_recommend():
+    for persona in ("cut", "gym", "flex", "htn"):
+        row = next(item for item in RECOMMEND_ROWS if item.persona == persona)
+        task = _task(row)
+        assert task.persona == persona
+        assert task.family == "recommend"
 
 
 def test_leftover_recommend_uses_remainder_plan_windows():
-    task = Generator().sample(11, family="recommend", persona="leftover")
+    task = _task(LEFTOVER_ROWS[0])
     assert task.persona == "leftover"
     assert task.family == "recommend"
     assert task.s0.ledger

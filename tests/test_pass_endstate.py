@@ -1,8 +1,8 @@
-"""Hand-in Pass: end state vs Oracle, plus Generator determinism."""
+"""Hand-in Pass: end state vs Oracle, plus realize determinism."""
 
 from __future__ import annotations
 
-from nutrienv.bench import Generator, Oracle, Scorer
+from nutrienv.bench import Oracle, Scorer
 from nutrienv.env import NutriEnv
 from nutrienv.world.catalog_fixture import demo_catalog, demo_state
 from nutrienv.world.types import Profile, WorldState
@@ -69,15 +69,13 @@ def test_submit_plan_in_windows_and_safe_passes() -> None:
 
 
 def test_update_pass_requires_every_oracle_field() -> None:
-    from nutrienv.bench.generator import Task
+    from nutrienv.bench.realize import material_from_row, realize, spoken_query
     from nutrienv.bench.realizations import UPDATE_ROWS
 
     row = next(item for item in UPDATE_ROWS if item.seed_id == "up-milk-kcal-200")
     assert row.add_allergens and row.window_shifts
-    generator = Generator()
-    s0 = generator._make_s0(0, generator._difficulty(None))
-    query, oracle = generator._update_from_row(s0, row)
-    task = Task("draft", "update", query, s0, oracle)
+    task = realize(material_from_row(row), spoken_query(row))
+    oracle = task.oracle
     assert task.oracle.profile.allergies != task.s0.profile.allergies
     assert task.oracle.profile.windows != task.s0.profile.windows
     assert "shrimp" not in task.oracle.profile.allergies
@@ -110,14 +108,13 @@ def test_update_pass_requires_every_oracle_field() -> None:
     assert scorer.score(env.state(), oracle).passed is False
 
 
-def test_generator_deterministic_for_the_same_seed() -> None:
-    gen = Generator()
-    first = gen.generate(42)
-    second = gen.generate(42)
-    assert first.query == second.query
-    assert first.family == second.family
-    assert first.s0.profile == second.s0.profile
-    assert first.s0.catalog == second.s0.catalog
-    assert first.s0.ledger == second.s0.ledger
-    assert first.s0.last_plan == second.s0.last_plan
-    assert first.oracle == second.oracle
+def test_realize_is_deterministic_for_the_same_material() -> None:
+    from nutrienv.bench.realize import material_from_row, realize, spoken_query
+    from nutrienv.bench.realizations import UPDATE_ROWS
+
+    row = next(item for item in UPDATE_ROWS if item.seed_id == "up-milk-kcal-200")
+    material = material_from_row(row)
+    query = spoken_query(row)
+    first = realize(material, query)
+    second = realize(material, query)
+    assert first == second

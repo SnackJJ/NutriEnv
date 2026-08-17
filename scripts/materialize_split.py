@@ -2,8 +2,8 @@
 
 The exam is never hand-authored. Every new item is derived from a row in
 ``bench/realizations.py`` plus the live catalog, and its query/oracle pair is
-built by the same ``Generator._*_from_row`` helpers the factory uses, so a
-frozen file cannot drift from the table that produced it.
+built by the public ``realize(material, query)`` seam, so a frozen file
+cannot drift from the table that produced it.
 
 Each increment copies its parent's items unchanged and appends a reviewed
 slice. Every published increment stays reproducible from this one file:
@@ -22,7 +22,7 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 
-from nutrienv.bench.generator import Generator
+from nutrienv.bench.realize import GOLD_WINDOWS, material_from_row, realize, spoken_query
 from nutrienv.bench.realizations import (
     CONSTRAIN_ROWS,
     EVALUATE_ROWS,
@@ -37,20 +37,14 @@ from nutrienv.bench.realizations import (
 )
 from nutrienv.bench.split import _item as split_item
 from nutrienv.bench.validator import validate_oracle_grams
+from nutrienv.world.catalog import canonical_food_id
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.portions import OUNCE_GRAMS, resolve_portion
-from nutrienv.world.types import LedgerRow, Profile, WorldState
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SPLITS = ROOT / "data" / "splits"
 CATALOG = ROOT / "data" / "fdc" / "catalog.sqlite"
-
-GOLD_WINDOWS = {"kcal": (1800.0, 2200.0), "protein_g": (90.0, 140.0)}
-
-# v0.1 curated the S0 of a fuzzy log item as three distractor rows: a
-# yesterday row, a row in some other slot today, and a row in the target slot
-# under a different food. Reused verbatim so log items stay one shape.
-FUZZY_DISTRACTORS = {"apple": 182.0, "orange": 131.0, "oats": 60.0, "banana": 118.0}
 
 _MASS_IN_QUERY = re.compile(
     r"\b(?P<quantity>\d+(?:\.\d+)?|half|quarter|one|two|three|four)"
@@ -262,18 +256,7 @@ def _rows(table, wanted):
     return [index[seed_id] for seed_id in wanted]
 
 
-def _state(catalog: dict, user_id: str, allergies: tuple[str, ...]) -> WorldState:
-    """A gold-style S0: profile only, empty ledger, no preset."""
-    profile = Profile(
-        user_id=user_id,
-        allergies=allergies,
-        windows=dict(GOLD_WINDOWS),
-        plan_preset={},
-    )
-    return WorldState(profile=profile, ledger=[], catalog=catalog, last_plan=[])
-
-
-def _profile_json(profile: Profile) -> dict:
+def _profile_json(profile) -> dict:
     out: dict = {
         "user_id": profile.user_id,
         "allergies": list(profile.allergies),
@@ -289,33 +272,27 @@ def _window_json(windows: dict) -> dict:
 
 
 def log_items(catalog: dict, wanted, tag: str) -> list[dict]:
-    gen = Generator()
     items = []
     for row in _rows(FUZZY_ROWS, wanted):
-        stem = row.seed_id.removeprefix("fz-")
-        grams = gen._require_portion(row.food_id, row.phrase, catalog)
-        # A distractor in the target slot must not be the food being logged,
-        # or the oracle tail would be ambiguous with what S0 already holds.
-        same_slot = "banana" if row.food_id == "oats" else "oats"
-        other_slot = "today-lunch" if row.slot == "today-breakfast" else "today-breakfast"
-        ledger = [
-            {"food_id": "apple", "grams": FUZZY_DISTRACTORS["apple"], "eaten_at": "yesterday-snack"},
-            {"food_id": "orange", "grams": FUZZY_DISTRACTORS["orange"], "eaten_at": other_slot},
-            {"food_id": same_slot, "grams": FUZZY_DISTRACTORS[same_slot], "eaten_at": row.slot},
-        ]
+        material = material_from_row(row, tag=tag, catalog=catalog)
+        task = realize(material, spoken_query(row), catalog=catalog)
+        tail = task.oracle.ledger_tail[0]
         items.append({
-            "id": f"{tag}-log-fz-{stem}",
-            "family": "log",
-            "persona": "everyday",
-            "situations": ["fuzzy_portion"],
-            "query": row.utterance,
+            "id": task.id,
+            "family": task.family,
+            "persona": task.persona,
+            "situations": list(task.situations),
+            "query": task.query,
             "s0": {
-                "profile": _profile_json(_state(catalog, f"{tag}-fz-{stem}", ("peanut",)).profile),
-                "ledger": ledger,
+                "profile": _profile_json(task.s0.profile),
+                "ledger": [
+                    {"food_id": food_id, "grams": grams, "eaten_at": eaten_at}
+                    for food_id, grams, eaten_at in material.ledger
+                ],
             },
             "oracle": {
                 "ledger_tail": [
-                    {"food_id": row.food_id, "grams": grams, "eaten_at": row.slot}
+                    {"food_id": row.food_id, "grams": tail.grams, "eaten_at": row.slot}
                 ],
                 "profile": "s0",
                 "ledger": "s0_plus_tail",
@@ -325,21 +302,18 @@ def log_items(catalog: dict, wanted, tag: str) -> list[dict]:
 
 
 def leftover_items(catalog: dict, wanted, tag: str) -> list[dict]:
-    gen = Generator()
     items = []
     for row in _rows(LEFTOVER_ROWS, wanted):
-        stem = row.seed_id.removeprefix("lo-")
-        # Leftover S0 carries no baseline allergy: the row is the whole story.
-        s0 = _state(catalog, f"{tag}-lo-{stem}", ())
-        query, oracle = gen._leftover_from_row(s0, row)
+        material = material_from_row(row, tag=tag, catalog=catalog)
+        task = realize(material, spoken_query(row), catalog=catalog)
         items.append({
-            "id": f"{tag}-rec-lo-{stem}",
-            "family": "recommend",
-            "persona": "leftover",
-            "situations": [],
-            "query": query,
+            "id": task.id,
+            "family": task.family,
+            "persona": task.persona,
+            "situations": list(task.situations),
+            "query": task.query,
             "s0": {
-                "profile": _profile_json(s0.profile),
+                "profile": _profile_json(task.s0.profile),
                 # Serialize the table's slugs, matching v0.1's file style; the
                 # loader canonicalizes to FDC ids when it reads the split.
                 "ledger": [
@@ -352,7 +326,7 @@ def leftover_items(catalog: dict, wanted, tag: str) -> list[dict]:
                 "last_plan": [],
                 "plan_must_be_safe": True,
                 "plan_must_fit_windows": True,
-                "plan_windows": _window_json(oracle.plan_windows),
+                "plan_windows": _window_json(task.oracle.plan_windows),
                 "ledger": "s0",
             },
         })
@@ -360,50 +334,46 @@ def leftover_items(catalog: dict, wanted, tag: str) -> list[dict]:
 
 
 def update_items(catalog: dict, wanted, tag: str) -> list[dict]:
-    gen = Generator()
     items = []
     for row in _rows(UPDATE_ROWS, wanted):
-        stem = row.seed_id.removeprefix("up-")
-        s0 = _state(catalog, f"{tag}-upd-{stem}", ("peanut",))
-        query, oracle = gen._update_from_row(s0, row)
+        material = material_from_row(row, tag=tag, catalog=catalog)
+        task = realize(material, spoken_query(row), catalog=catalog)
         diff: dict = {}
-        if oracle.profile.allergies != s0.profile.allergies:
-            diff["allergies"] = list(oracle.profile.allergies)
+        if task.oracle.profile.allergies != task.s0.profile.allergies:
+            diff["allergies"] = list(task.oracle.profile.allergies)
         moved = {
             key: list(bounds)
-            for key, bounds in oracle.profile.windows.items()
-            if bounds != s0.profile.windows.get(key)
+            for key, bounds in task.oracle.profile.windows.items()
+            if bounds != task.s0.profile.windows.get(key)
         }
         if moved:
             diff["windows"] = moved
-        if oracle.profile.plan_preset != s0.profile.plan_preset:
-            diff["plan_preset"] = copy.deepcopy(oracle.profile.plan_preset)
+        if task.oracle.profile.plan_preset != task.s0.profile.plan_preset:
+            diff["plan_preset"] = copy.deepcopy(task.oracle.profile.plan_preset)
         items.append({
-            "id": f"{tag}-upd-{stem}",
-            "family": "update",
-            "persona": "cut" if row.s0_plan_preset else "everyday",
-            "situations": [],
-            "query": query,
-            "s0": {"profile": _profile_json(s0.profile), "ledger": []},
+            "id": task.id,
+            "family": task.family,
+            "persona": task.persona,
+            "situations": list(task.situations),
+            "query": task.query,
+            "s0": {"profile": _profile_json(task.s0.profile), "ledger": []},
             "oracle": {"profile": diff, "ledger": "s0"},
         })
     return items
 
 
 def recommend_items(catalog: dict, wanted, tag: str) -> list[dict]:
-    gen = Generator()
     items = []
     for row in _rows(RECOMMEND_ROWS, wanted):
-        stem = row.seed_id.removeprefix("rec-")
-        s0 = _state(catalog, f"{tag}-rec-{stem}", ())
-        query, _oracle = gen._recommend_from_row(s0, row)
+        material = material_from_row(row, tag=tag, catalog=catalog)
+        task = realize(material, spoken_query(row), catalog=catalog)
         items.append({
-            "id": f"{tag}-rec-{stem}",
-            "family": "recommend",
-            "persona": row.persona,
-            "situations": [],
-            "query": query,
-            "s0": {"profile": _profile_json(s0.profile), "ledger": []},
+            "id": task.id,
+            "family": task.family,
+            "persona": task.persona,
+            "situations": list(task.situations),
+            "query": task.query,
+            "s0": {"profile": _profile_json(task.s0.profile), "ledger": []},
             "oracle": {
                 "profile": "s0",
                 "last_plan": [],
@@ -415,29 +385,23 @@ def recommend_items(catalog: dict, wanted, tag: str) -> list[dict]:
     return items
 
 
-def _log_item(tag: str, situation: str, stem: str, query: str,
-              ledger: list[dict], tail: list[dict], catalog: dict) -> dict:
-    # The gold log items carry a baseline peanut allergy, but never one the
-    # logged meal itself trips. The Ledger is descriptive and recording an
-    # allergen you actually ate is legitimate, yet it invites the agent to stop
-    # and warn instead of logging, which is noise the item does not need.
-    carried: set[str] = set()
-    for row in tail:
-        carried.update(catalog[row["food_id"]].get("allergen_tags") or [])
-    allergies = [tag_ for tag_ in ("peanut",) if tag_ not in carried]
+def _freeze_log(task, material, tail: list[dict]) -> dict:
     return {
-        "id": f"{tag}-log-{stem}",
-        "family": "log",
-        "persona": "everyday",
-        "situations": [situation],
-        "query": query,
+        "id": task.id,
+        "family": task.family,
+        "persona": task.persona,
+        "situations": list(task.situations),
+        "query": task.query,
         "s0": {
             "profile": {
-                "user_id": f"{tag}-{stem}",
-                "allergies": allergies,
+                "user_id": task.s0.profile.user_id,
+                "allergies": list(task.s0.profile.allergies),
                 "windows": {key: list(bounds) for key, bounds in GOLD_WINDOWS.items()},
             },
-            "ledger": ledger,
+            "ledger": [
+                {"food_id": food_id, "grams": grams, "eaten_at": eaten_at}
+                for food_id, grams, eaten_at in material.ledger
+            ],
         },
         "oracle": {
             "ledger_tail": tail,
@@ -447,92 +411,74 @@ def _log_item(tag: str, situation: str, stem: str, query: str,
     }
 
 
-def _distractors(slot: str) -> list[dict]:
-    """The two-row S0 the gold log items use: a yesterday row, and a row in the
-    target slot under a different food so the tail is not the only thing there."""
-    return [
-        {"food_id": "apple", "grams": FUZZY_DISTRACTORS["apple"], "eaten_at": "yesterday-snack"},
-        {"food_id": "orange", "grams": FUZZY_DISTRACTORS["orange"], "eaten_at": slot},
-    ]
-
-
 def multi_item_items(catalog: dict, wanted, tag: str) -> list[dict]:
-    gen = Generator()
     items = []
     for row in _rows(MULTI_ITEM_LOG_ROWS, wanted):
-        stem = row.seed_id
+        material = material_from_row(row, tag=tag, catalog=catalog)
+        task = realize(material, spoken_query(row), catalog=catalog)
         tail = [
-            {
-                "food_id": food_id,
-                "grams": gen._require_portion(food_id, phrase, catalog),
-                "eaten_at": row.slot,
-            }
-            for food_id, phrase in row.items
+            {"food_id": food_id, "grams": item.grams, "eaten_at": row.slot}
+            for (food_id, _phrase), item in zip(row.items, task.oracle.ledger_tail)
         ]
-        items.append(_log_item(tag, "multi_item_log", stem, row.query,
-                               _distractors(row.slot), tail, catalog))
+        items.append(_freeze_log(task, material, tail))
     return items
 
 
 def unit_convert_items(catalog: dict, wanted, tag: str) -> list[dict]:
-    gen = Generator()
     items = []
     for row in _rows(UNIT_CONVERT_ROWS, wanted):
+        material = material_from_row(row, tag=tag, catalog=catalog)
+        task = realize(material, spoken_query(row), catalog=catalog)
         tail = [{
             "food_id": row.food_id,
-            "grams": gen._require_portion(row.food_id, row.phrase, catalog),
+            "grams": task.oracle.ledger_tail[0].grams,
             "eaten_at": row.slot,
         }]
-        items.append(_log_item(tag, "unit_convert", row.seed_id, row.utterance,
-                               _distractors(row.slot), tail, catalog))
+        items.append(_freeze_log(task, material, tail))
     return items
 
 
 def near_synonym_items(catalog: dict, wanted, tag: str) -> list[dict]:
-    gen = Generator()
     items = []
     for row in _rows(NEAR_SYNONYM_ROWS, wanted):
+        material = material_from_row(row, tag=tag, catalog=catalog)
+        task = realize(material, spoken_query(row), catalog=catalog)
         tail = [{
             "food_id": row.food_id,
-            "grams": gen._require_portion(row.food_id, row.phrase, catalog),
+            "grams": task.oracle.ledger_tail[0].grams,
             "eaten_at": row.slot,
         }]
-        items.append(_log_item(tag, "near_synonym", row.seed_id, row.utterance,
-                               _distractors(row.slot), tail, catalog))
+        items.append(_freeze_log(task, material, tail))
     return items
 
 
 def ledger_gap_items(catalog: dict, wanted, tag: str) -> list[dict]:
-    gen = Generator()
     items = []
     for row in _rows(LEDGER_GAP_ROWS, wanted):
-        food_id, phrase, slot = row.missing
+        material = material_from_row(row, tag=tag, catalog=catalog)
+        task = realize(material, spoken_query(row), catalog=catalog)
+        food_id, _phrase, slot = row.missing
         tail = [{
             "food_id": food_id,
-            "grams": gen._require_portion(food_id, phrase, catalog),
+            "grams": task.oracle.ledger_tail[0].grams,
             "eaten_at": slot,
         }]
-        ledger = [
-            {"food_id": f, "grams": float(g), "eaten_at": s} for f, g, s in row.surround
-        ]
-        items.append(_log_item(tag, "ledger_gap", row.seed_id, row.query, ledger, tail, catalog))
+        items.append(_freeze_log(task, material, tail))
     return items
 
 
 def constrain_items(catalog: dict, conditions, conflicts, tag: str) -> list[dict]:
-    gen = Generator()
     items = []
     for row in _rows(CONSTRAIN_ROWS, conditions):
-        stem = row.seed_id.removeprefix("co-")
-        s0 = _state(catalog, f"{tag}-cond-{stem}", ())
-        query, _oracle = gen._condition_from_row(s0, row)
+        material = material_from_row(row, tag=tag, catalog=catalog)
+        task = realize(material, spoken_query(row), catalog=catalog)
         items.append({
-            "id": f"{tag}-cond-{stem}",
-            "family": "constrain",
-            "persona": "everyday",
-            "situations": ["condition_suitability"],
-            "query": query,
-            "s0": {"profile": _profile_json(s0.profile), "ledger": []},
+            "id": task.id,
+            "family": task.family,
+            "persona": task.persona,
+            "situations": list(task.situations),
+            "query": task.query,
+            "s0": {"profile": _profile_json(task.s0.profile), "ledger": []},
             "oracle": {
                 "profile": "s0",
                 "last_plan": [],
@@ -543,17 +489,16 @@ def constrain_items(catalog: dict, conditions, conflicts, tag: str) -> list[dict
             },
         })
     for row in _rows(CONSTRAIN_ROWS, conflicts):
-        stem = row.seed_id.removeprefix("cf-")
-        s0 = _state(catalog, f"{tag}-conf-{stem}", ())
-        query, _oracle = gen._conflict_from_row(s0, row)
+        material = material_from_row(row, tag=tag, catalog=catalog)
+        task = realize(material, spoken_query(row), catalog=catalog)
         items.append({
-            "id": f"{tag}-conf-{stem}",
-            "family": "constrain",
-            "persona": "everyday",
-            "situations": ["conflict_windows"],
-            "query": query,
+            "id": task.id,
+            "family": task.family,
+            "persona": task.persona,
+            "situations": list(task.situations),
+            "query": task.query,
             "s0": {
-                "profile": _profile_json(s0.profile),
+                "profile": _profile_json(task.s0.profile),
                 "ledger": [],
                 "last_plan": [
                     {"food_id": food_id, "grams": grams}
@@ -573,31 +518,22 @@ def constrain_items(catalog: dict, conditions, conflicts, tag: str) -> list[dict
 
 
 def evaluate_items(catalog: dict, wanted, tag: str) -> list[dict]:
-    gen = Generator()
     items = []
     for row in _rows(EVALUATE_ROWS, wanted):
-        stem = row.seed_id.removeprefix("ev-")
-        # Gold evaluate items carry a baseline allergy, but never one that the
-        # named meal itself trips: the agent passes by submitting that exact
-        # plan, so a collision would make the item unpassable rather than hard.
-        carried = set()
-        for food_id, _phrase in row.items:
-            carried.update(catalog[food_id].get("allergen_tags") or [])
-        allergies = tuple(tag_ for tag_ in ("peanut",) if tag_ not in carried)
-        s0 = _state(catalog, f"{tag}-eval-{stem}", allergies)
-        query, oracle = gen._evaluate_from_row(s0, row)
-        grams = {item["food_id"]: item["grams"] for item in oracle.last_plan}
+        material = material_from_row(row, tag=tag, catalog=catalog)
+        task = realize(material, spoken_query(row), catalog=catalog)
+        grams = {item["food_id"]: item["grams"] for item in task.oracle.last_plan}
         plan = [
-            {"food_id": food_id, "grams": grams[gen._food_id(s0, food_id)]}
+            {"food_id": food_id, "grams": grams[canonical_food_id(catalog, food_id)]}
             for food_id, _phrase in row.items
         ]
         items.append({
-            "id": f"{tag}-eval-{stem}",
-            "family": "evaluate",
-            "persona": "everyday",
-            "situations": [],
-            "query": query,
-            "s0": {"profile": _profile_json(s0.profile), "ledger": []},
+            "id": task.id,
+            "family": task.family,
+            "persona": task.persona,
+            "situations": list(task.situations),
+            "query": task.query,
+            "s0": {"profile": _profile_json(task.s0.profile), "ledger": []},
             "oracle": {
                 "profile": "s0",
                 "last_plan": plan,
@@ -676,7 +612,7 @@ def freeze_split(payload: dict, target: Path, catalog) -> None:
     )
 
 
-def build(version: str) -> None:
+def build(version: str, *, target: Path | None = None) -> Path:
     spec = INCREMENTS[version]
     tag = "v" + version[1:].replace(".", "")      # v0.2 -> v02
     catalog = load_catalog()
@@ -705,12 +641,13 @@ def build(version: str) -> None:
         "notes": spec["notes"],
         "items": parent["items"] + new,
     }
-    target = SPLITS / f"{version}-gold.json"
-    freeze_split(payload, target, catalog)
+    dest = target if target is not None else SPLITS / f"{version}-gold.json"
+    freeze_split(payload, dest, catalog)
     print(
-        f"wrote {target.relative_to(ROOT)}: {len(parent['items'])} KEEP + "
+        f"wrote {dest}: {len(parent['items'])} KEEP + "
         f"{len(new)} new = {len(payload['items'])}"
     )
+    return dest
 
 
 if __name__ == "__main__":

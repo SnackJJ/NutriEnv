@@ -4,27 +4,48 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from nutrienv.bench import Generator
-from nutrienv.bench.generator import Oracle, Task
-from nutrienv.bench.realizations import CONSTRAIN_ROWS, EVALUATE_ROWS, UPDATE_ROWS
+from nutrienv.bench.realize import (
+    GOLD_WINDOWS,
+    Oracle,
+    Task,
+    material_from_row,
+    realize,
+    spoken_query,
+)
+from nutrienv.bench.realizations import CONSTRAIN_ROWS, EVALUATE_ROWS, LEFTOVER_ROWS, UPDATE_ROWS
 from nutrienv.bench.validator import fitting_plan, validate_draft
 from nutrienv.bench.windows import windows_unsatisfiable
 from nutrienv.world.catalog_store import load_catalog
-from nutrienv.world.types import normalize_tags
+from nutrienv.world.types import Profile, WorldState, normalize_tags
 
 
-def _sample_until(family: str, predicate, limit: int = 80, **kwargs):
-    generator = Generator()
-    for seed in range(limit):
-        task = generator.sample(seed, family=family, **kwargs)
+def _task(row):
+    return realize(material_from_row(row), spoken_query(row))
+
+
+def _update_until(predicate):
+    for row in UPDATE_ROWS:
+        task = _task(row)
         if predicate(task):
             return task
-    raise AssertionError(f"no {family} task matched in {limit} seeds")
+    raise AssertionError("no update row matched")
+
+
+def _draft_s0() -> WorldState:
+    return WorldState(
+        profile=Profile(
+            user_id="draft",
+            allergies=("peanut",),
+            windows=dict(GOLD_WINDOWS),
+        ),
+        ledger=[],
+        catalog=load_catalog(),
+        last_plan=[],
+    )
 
 
 def _custom_update(query: str, *, add_allergens=(), window_shifts=None) -> Task:
-    generator = Generator()
-    s0 = generator._make_s0(0, generator._difficulty(None))
+    s0 = _draft_s0()
     allergies = list(s0.profile.allergies)
     for tag in add_allergens:
         if tag not in allergies:
@@ -48,7 +69,7 @@ def _custom_update(query: str, *, add_allergens=(), window_shifts=None) -> Task:
 
 
 def test_update_gate_rejects_mismatched_delta_and_accepts_gold_both():
-    good = _sample_until("update", lambda task: "200" in task.query and "shrimp" in task.query.lower())
+    good = _update_until(lambda task: "200" in task.query and "shrimp" in task.query.lower())
     assert validate_draft(good) == []
 
     s0_kcal = good.s0.profile.windows["kcal"]
@@ -81,8 +102,7 @@ def test_update_gold_shaped_shellfish_kcal_row_exists():
         "reacted to shrimp" in row.query.lower() and "200" in row.query
         for row in UPDATE_ROWS
     )
-    task = _sample_until(
-        "update",
+    task = _update_until(
         lambda item: "reacted to shrimp" in item.query.lower() and "200" in item.query,
     )
     assert "shellfish" in task.oracle.profile.allergies
@@ -95,7 +115,7 @@ def test_update_gold_shaped_shellfish_kcal_row_exists():
 
 
 def test_condition_gate_rejects_wrong_oracle_and_wide_windows():
-    good = Generator().sample(7, situation="condition_suitability")
+    good = _task(next(row for row in CONSTRAIN_ROWS if row.kind == "condition"))
     assert validate_draft(good) == []
     assert good.oracle.last_plan == []
     assert good.oracle.allow_empty_plan is False
@@ -117,7 +137,7 @@ def test_condition_gate_rejects_wrong_oracle_and_wide_windows():
 
 
 def test_conflict_gate_rejects_satisfiable_windows_and_empty_s0_plan():
-    good = Generator().sample(8, situation="conflict_windows")
+    good = _task(next(row for row in CONSTRAIN_ROWS if row.kind == "conflict"))
     assert validate_draft(good) == []
     assert good.s0.last_plan
     assert good.oracle.last_plan is None
@@ -135,7 +155,7 @@ def test_conflict_gate_rejects_satisfiable_windows_and_empty_s0_plan():
 
 
 def test_evaluate_gate_rejects_instead_wrong_grams_and_unmentioned_food():
-    good = Generator().sample(4, family="evaluate")
+    good = _task(EVALUATE_ROWS[0])
     assert validate_draft(good) == []
     assert good.oracle.last_plan
 
@@ -197,10 +217,7 @@ def test_window_delta_rejects_an_unrelated_number_and_asymmetric_bounds():
 
 def test_update_oracle_must_perform_every_declared_mutation():
     row = next(item for item in UPDATE_ROWS if item.seed_id == "up-milk-kcal-200")
-    generator = Generator()
-    s0 = generator._make_s0(0, generator._difficulty(None))
-    query, oracle = generator._update_from_row(s0, row)
-    good = Task("draft", "update", query, s0, oracle)
+    good = _task(row)
     assert validate_draft(good) == []
 
     dropped = replace(
@@ -218,7 +235,7 @@ def test_update_oracle_must_perform_every_declared_mutation():
 
 
 def test_structural_contracts_reject_missing_oracle_fields():
-    conflict = Generator().sample(8, situation="conflict_windows")
+    conflict = _task(next(row for row in CONSTRAIN_ROWS if row.kind == "conflict"))
     assert validate_draft(conflict) == []
     assert validate_draft(
         replace(conflict, oracle=replace(conflict.oracle, plan_must_fit_windows=False))
@@ -226,12 +243,12 @@ def test_structural_contracts_reject_missing_oracle_fields():
     assert validate_draft(replace(conflict, oracle=replace(conflict.oracle, profile=None)))
     assert validate_draft(replace(conflict, oracle=replace(conflict.oracle, ledger=None)))
 
-    evaluate = Generator().sample(4, family="evaluate")
+    evaluate = _task(EVALUATE_ROWS[0])
     assert validate_draft(evaluate) == []
     assert validate_draft(replace(evaluate, oracle=replace(evaluate.oracle, profile=None)))
     assert validate_draft(replace(evaluate, oracle=replace(evaluate.oracle, ledger=None)))
 
-    update = Generator().sample(3, family="update")
+    update = _task(next(row for row in UPDATE_ROWS if row.add_allergens))
     assert validate_draft(update) == []
     assert validate_draft(replace(update, oracle=replace(update.oracle, ledger=None)))
 
@@ -246,10 +263,7 @@ def test_spelled_window_magnitude_is_accepted():
 
 def test_evaluate_gate_rejects_a_plan_that_hits_s0_allergies():
     row = next(item for item in EVALUATE_ROWS if item.seed_id == "ev-single-pb-tbsp")
-    generator = Generator()
-    s0 = generator._make_s0(0, generator._difficulty(None))
-    query, oracle = generator._evaluate_from_row(s0, row)
-    task = Task("draft", "evaluate", query, s0, oracle)
+    task = _task(row)
     assert validate_draft(task) == []
     task.s0.profile = replace(task.s0.profile, allergies=("peanut",))
     issues = validate_draft(task)
@@ -257,24 +271,13 @@ def test_evaluate_gate_rejects_a_plan_that_hits_s0_allergies():
 
 
 def test_factory_evaluate_rows_are_not_unpassable():
-    generator = Generator()
-    knobs = generator._difficulty(None)
-    base = generator._make_s0(0, knobs)
-    from nutrienv.world.types import WorldState
-
     for row in EVALUATE_ROWS:
-        s0 = WorldState(
-            profile=base.profile,
-            ledger=list(base.ledger),
-            catalog=base.catalog,
-            last_plan=list(base.last_plan),
-        )
-        query, oracle = generator._evaluate_from_row(s0, row)
-        issues = validate_draft(Task("draft", "evaluate", query, s0, oracle))
+        task = _task(row)
+        issues = validate_draft(task)
         assert issues == [], (row.seed_id, issues)
-        allergies = set(s0.profile.allergies)
-        for item in oracle.last_plan:
-            tags = set((s0.catalog.get(item["food_id"]) or {}).get("allergen_tags") or [])
+        allergies = set(task.s0.profile.allergies)
+        for item in task.oracle.last_plan:
+            tags = set((task.s0.catalog.get(item["food_id"]) or {}).get("allergen_tags") or [])
             assert not tags & allergies, (row.seed_id, item, tags & allergies)
 
 
@@ -307,8 +310,7 @@ def test_conflict_table_has_non_ramp_rows():
 
 
 def _recommend_draft(windows, allergies=(), query="What should I eat tonight?"):
-    generator = Generator()
-    s0 = generator._make_s0(0, generator._difficulty(None))
+    s0 = _draft_s0()
     s0.profile = replace(s0.profile, windows=dict(windows), allergies=allergies)
     s0.ledger = []
     return Task(
@@ -355,7 +357,7 @@ def test_recommend_gate_searches_the_oracle_profile():
 
 
 def test_leftover_gate_keeps_plan_windows_precedence():
-    task = Generator().sample(11, family="recommend", persona="leftover")
+    task = _task(LEFTOVER_ROWS[0])
     assert validate_draft(task) == []
     task = replace(
         task,
@@ -402,7 +404,7 @@ def test_every_frozen_item_still_validates():
 
 
 def test_update_gate_rejects_undeclared_preset_change():
-    good = _sample_until("update", lambda task: "200" in task.query and "shrimp" in task.query.lower())
+    good = _update_until(lambda task: "200" in task.query and "shrimp" in task.query.lower())
     assert validate_draft(good) == []
     broken = replace(
         good,
@@ -477,9 +479,6 @@ def test_update_gate_rejects_swapped_two_window_directions():
 
 
 def test_declared_update_axes_are_accepted():
-    generator = Generator()
-    knobs = generator._difficulty(None)
-    base = generator._make_s0(0, knobs)
     wanted = {
         "up-rm-peanut",
         "up-floor-protein-20",
@@ -490,16 +489,7 @@ def test_declared_update_axes_are_accepted():
     for row in UPDATE_ROWS:
         if row.seed_id not in wanted:
             continue
-        from nutrienv.world.types import WorldState
-
-        s0 = WorldState(
-            profile=base.profile,
-            ledger=list(base.ledger),
-            catalog=base.catalog,
-            last_plan=list(base.last_plan),
-        )
-        query, oracle = generator._update_from_row(s0, row)
-        issues = validate_draft(Task("draft", "update", query, s0, oracle))
+        issues = validate_draft(_task(row))
         assert issues == [], (row.seed_id, issues)
 
 
@@ -544,7 +534,7 @@ def test_windows_unsatisfiable_accepts_any_nutrient_pair():
 
 
 def test_conflict_gate_rejects_a_satisfiable_other_pair():
-    good = Generator().sample(8, situation="conflict_windows")
+    good = _task(next(row for row in CONSTRAIN_ROWS if row.kind == "conflict"))
     good.s0.profile = replace(
         good.s0.profile,
         allergies=(),

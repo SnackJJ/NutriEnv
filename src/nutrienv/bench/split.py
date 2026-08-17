@@ -11,7 +11,7 @@ from nutrienv.world.catalog import canonical_food_id
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.types import LedgerRow, Profile, WorldState, normalize_tags, normalize_window
 
-from .generator import FAMILIES, Oracle, Task
+from .realize import FAMILIES, Oracle, Task
 from .situations import SITUATIONS
 
 __all__ = ["GOLD_SPLIT_PATH", "EXAM_SPLIT_PATH", "load_split", "load_exam"]

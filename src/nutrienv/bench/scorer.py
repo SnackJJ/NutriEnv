@@ -6,7 +6,7 @@ import math
 
 from nutrienv.world.types import LedgerRow, Profile, WorldState, normalize_tags
 
-from .generator import Oracle
+from .realize import Oracle
 
 __all__ = ["Scorer"]
 

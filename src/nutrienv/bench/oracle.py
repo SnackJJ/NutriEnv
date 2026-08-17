@@ -1,5 +1,5 @@
-"""Compatibility import for the canonical Oracle in :mod:`generator`."""
+"""Compatibility import for the canonical Oracle in :mod:`realize`."""
 
-from .generator import Oracle
+from .realize import Oracle
 
 __all__ = ["Oracle"]

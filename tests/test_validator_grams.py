@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from nutrienv.bench import Generator
+from nutrienv.bench.realize import material_from_row, realize, spoken_query
+from nutrienv.bench.realizations import FUZZY_ROWS
 from nutrienv.bench.validator import validate_oracle_grams
 
 
 def _fuzzy_task():
-    return Generator().sample(0, situation="fuzzy_portion")
+    row = FUZZY_ROWS[0]
+    material = material_from_row(row)
+    return realize(material, spoken_query(row))
 
 
 def test_oracle_grams_accepts_portion_table_amount():

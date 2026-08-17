@@ -6,7 +6,9 @@ from nutrienv.harness.runner import HARNESS_LABEL, MODEL_LABEL, run_split
 
 
 def test_run_split_finishes_and_writes_manifest() -> None:
-    result = run_split(n=6, seed=0)
+    from nutrienv.bench import GOLD_SPLIT_PATH
+
+    result = run_split(split_path=GOLD_SPLIT_PATH, task_ids=["v0-update-kcal-001"])
     assert 0.0 <= result["pass_rate"] <= 1.0
     manifest = result["manifest"]
     assert manifest["env"]

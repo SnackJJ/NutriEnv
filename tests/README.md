@@ -29,7 +29,7 @@ python scripts/build_fdc_catalog.py --branded
 
 ## What Pass means
 
-**Pass** is the Bench headline: a binary Hand-in verdict for one Task. After the episode, the scorer compares the world's end state to the Task Oracle (from the frozen split, or from the Generator factory in tests).
+**Pass** is the Bench headline: a binary Hand-in verdict for one Task. After the episode, the scorer compares the world's end state to the Task Oracle (from the frozen split, or from `realize(material, query)` in tests).
 
 - Writes apply immediately. Pass ⇔ the Task's hard checks hold on that end state.
 - The Oracle is derived from `(S0, query)`. Fields the query asks to change must match; fields it does not mention must stay as S0.
