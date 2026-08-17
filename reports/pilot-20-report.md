@@ -61,6 +61,10 @@ Deterministic 20-slot table in `scripts/run_pilot_20.py:build_pool_plan`. Single
 | qwen3.8-2.4t-a95b | 4 | 2 |
 | qwen3.8-max | 3 | 1 |
 
+### Notes / provenance
+
+6 evaluate items used the `evaluate-row` (EVALUATE_ROWS) fallback; 4 log items used `fallback-table` (v10-log-0003 / 0017 / 0019 / 0020). The frozen `data/splits/v1.0-gold.json` `notes` field currently mentions only the evaluate fallback; it will be corrected on the next deliberate re-freeze (must go through the overwrite guard via `--force` or `--drop` / `--replace-slot`). `run_pilot_20.py` now writes both counts into `notes`.
+
 ## Review-harness anomalies (人审 input)
 
 The first freeze keeps every gate-passed item. Drop after review with `scripts/run_pilot_20.py --drop <id,...>`.
@@ -155,9 +159,10 @@ resolve_portion accepts '150 g' / '150 grams', but validate_oracle_grams require
 
 ```
 .venv/bin/python scripts/run_pilot_20.py --drop <id,...>
+.venv/bin/python scripts/run_pilot_20.py --force
 ```
 
-Reads `reports/pilot-20-state.json`, drops those ids, rewrites `data/splits/v1.0-gold.json` and this report. No network.
+`--drop` / `--replace-slot` rewrite the existing freeze with `overwrite=True`. A full re-run onto a different payload needs `--force`. Without it, `freeze_tasks` refuses to replace `data/splits/v1.0-gold.json`. Reads `reports/pilot-20-state.json`, drops those ids, rewrites the freeze and this report. No network.
 
 ## Landing / exam switch
 

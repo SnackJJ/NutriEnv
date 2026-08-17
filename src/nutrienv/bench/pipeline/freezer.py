@@ -30,6 +30,7 @@ def freeze_tasks(
     catalog_sha: str | None = None,
     output_path: Path | str | None = None,
     extra: Mapping[str, object] | None = None,
+    overwrite: bool = False,
 ) -> tuple[dict, Path]:
     """Validate oracle grams, then write a deterministic frozen payload."""
     if not tasks:
@@ -55,11 +56,14 @@ def freeze_tasks(
     target = Path(output_path) if output_path is not None else repo_root() / DEFAULT_FREEZE_RELPATH
     if not target.is_absolute():
         target = repo_root() / target
+    blob = json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
+    if target.exists() and not overwrite and target.read_bytes() != blob.encode("utf-8"):
+        raise FileExistsError(
+            f"refusing to overwrite existing frozen split {target} "
+            "(pass overwrite=True)"
+        )
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(
-        json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    target.write_text(blob, encoding="utf-8")
     return payload, target
 
 

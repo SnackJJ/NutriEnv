@@ -4,10 +4,11 @@
 Full chain: Sampler (fixed pool plan) → Expander (live, multi-model) →
 Resolver → Judge → validate_draft → Review harness → Freezer.
 
-    .venv/bin/python scripts/run_pilot_20.py
+    .venv/bin/python scripts/run_pilot_20.py --force
     .venv/bin/python scripts/run_pilot_20.py --drop v10-log-0003,v10-eval-0016
 
-``--drop`` re-freezes the last accepted set without calling the network.
+A first freeze onto an existing different file needs ``--force``.
+``--drop`` / ``--replace-slot`` re-freeze with overwrite=True (deliberate rewrite).
 """
 
 from __future__ import annotations
@@ -662,10 +663,12 @@ class PilotRunner:
         catalog,
         synthetic: bool = False,
         output_path: Path | None = None,
+        overwrite: bool = False,
     ) -> None:
         self.catalog = catalog
         self.synthetic = synthetic
         self.output_path = output_path or (_ROOT / DEFAULT_FREEZE_RELPATH)
+        self.overwrite = overwrite
         self.digest = catalog_digest(catalog)
         self.food_index = build_food_index(catalog)
         self.plan = build_pool_plan()
@@ -706,12 +709,17 @@ class PilotRunner:
         else:
             reviewer = make_reviewer()
             self.review = dict(reviewer(self.accepted))
+        n_eval = sum(1 for item in self.meta if item.model == "evaluate-row")
+        n_table = sum(
+            1 for item in self.meta if item.model in {"fallback-table", "fallback"}
+        )
         extra = {
             "seed": SEED,
             "sampler_rule_version": "pilot-20-plan-v1",
             "notes": (
                 f"{PIPELINE_VERSION} 20-item pilot freeze "
-                f"(seed {SEED}; evaluate D4 uses EVALUATE_ROWS fallbacks)."
+                f"(seed {SEED}; evaluate D4 uses EVALUATE_ROWS fallbacks "
+                f"({n_eval} items); {n_table} log items used fallback-table)."
             ),
         }
         payload, path = freeze_tasks(
@@ -721,6 +729,7 @@ class PilotRunner:
             catalog_sha=self.digest,
             output_path=self.output_path,
             extra=extra,
+            overwrite=self.overwrite,
         )
         state = self._state(payload, str(path))
         _write_json(_ROOT / STATE_RELPATH, state)
@@ -1500,6 +1509,7 @@ def refreeze_from_state(state: dict, *, catalog, output_path: Path) -> dict:
         catalog_sha=catalog_digest(catalog),
         output_path=output_path,
         extra=extra,
+        overwrite=True,
     )
     tmp.unlink(missing_ok=True)
     state["payload"] = payload
@@ -1549,6 +1559,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--synthetic",
         action="store_true",
         help="offline path: table phrases + EVALUATE_ROWS, no live LLM",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="overwrite an existing freeze when the new payload would differ",
     )
     parser.add_argument(
         "--output",
@@ -1632,7 +1647,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     runner = PilotRunner(
-        catalog=catalog, synthetic=args.synthetic, output_path=args.output
+        catalog=catalog,
+        synthetic=args.synthetic,
+        output_path=args.output,
+        overwrite=args.force,
     )
     try:
         runner.run()

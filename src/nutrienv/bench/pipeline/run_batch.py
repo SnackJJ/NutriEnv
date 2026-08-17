@@ -165,6 +165,7 @@ def run_batch(
         catalog_sha=digest,
         output_path=spec["output_path"],
         extra=extra,
+        overwrite=spec["overwrite"],
     )
     return BatchResult(
         payload=payload,
@@ -242,6 +243,7 @@ def write_tracer_sample(
         "model_route": {},
         "catalog": CATALOG_V1_RELPATH,
         "output_path": output_path or (repo_root() / DEFAULT_FREEZE_RELPATH),
+        "overwrite": False,
     }
     return run_batch(
         spec,
@@ -342,6 +344,9 @@ def _parse_spec(batch_spec: Mapping) -> dict:
     version = batch_spec.get("version")
     if version is not None and (not isinstance(version, str) or not version):
         raise ValueError("batch_spec.version must be a non-empty string")
+    overwrite = batch_spec.get("overwrite", False)
+    if not isinstance(overwrite, bool):
+        raise ValueError("batch_spec.overwrite must be a bool")
     return {
         "seed": int(batch_spec["seed"]),
         "catalog_sha": str(batch_spec["catalog_sha"]),
@@ -351,6 +356,7 @@ def _parse_spec(batch_spec: Mapping) -> dict:
         "output_path": output_path,
         "catalog_field": catalog_field,
         "version": version,
+        "overwrite": overwrite,
     }
 
 
