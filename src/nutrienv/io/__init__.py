@@ -5,6 +5,10 @@ from .chat import (
     DEEPSEEK_CHAT_URL,
     JUDGE_RETRY_ON,
     REACT_RETRY_ON,
+    ChatModel,
+    EXPANDER_MODELS,
+    complete_chat,
+    lookup_chat_model,
     post_chat_completion,
 )
 from .dotenv import load_dotenv_keys
@@ -15,5 +19,9 @@ __all__ = [
     "DASHSCOPE_CHAT_URL",
     "REACT_RETRY_ON",
     "JUDGE_RETRY_ON",
+    "ChatModel",
+    "EXPANDER_MODELS",
+    "complete_chat",
+    "lookup_chat_model",
     "post_chat_completion",
 ]

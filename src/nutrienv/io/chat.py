@@ -3,16 +3,26 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from http.client import IncompleteRead
+from pathlib import Path
+
+from .dotenv import load_dotenv_keys
 
 __all__ = [
     "DEEPSEEK_CHAT_URL",
     "DASHSCOPE_CHAT_URL",
     "REACT_RETRY_ON",
     "JUDGE_RETRY_ON",
+    "ChatModel",
+    "EXPANDER_MODELS",
+    "complete_chat",
+    "lookup_chat_model",
     "post_chat_completion",
 ]
 
@@ -57,8 +67,163 @@ def post_chat_completion(
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
-            return body["choices"][0]["message"]["content"]
+            return _message_text(body)
         except retry_on as exc:
             last_error = exc
             time.sleep(2 ** attempt)
     raise RuntimeError(f"{error_prefix}: {last_error}") from last_error
+
+
+_ROOT = Path(__file__).resolve().parents[3]
+_DASHSCOPE_HINTS = ("qwen", "glm", "kimi", "dashscope", "aliyuncs")
+
+
+def _message_text(body: Mapping) -> str:
+    """Prefer ``content``; reasoner models sometimes leave it empty."""
+    try:
+        message = body["choices"][0]["message"]
+    except (KeyError, IndexError, TypeError):
+        return ""
+    if not isinstance(message, Mapping):
+        return ""
+    content = message.get("content")
+    if isinstance(content, str) and content.strip():
+        return content
+    reasoning = message.get("reasoning_content")
+    if isinstance(reasoning, str) and reasoning.strip():
+        return reasoning
+    return content if isinstance(content, str) else ""
+
+
+@dataclass(frozen=True)
+class ChatModel:
+    """One chat-completions identity plus optional fallback provider."""
+
+    model_id: str
+    url: str
+    api_key_env: str
+    fallback_url: str | None = None
+    fallback_model_id: str | None = None
+    fallback_api_key_env: str | None = None
+    disabled: bool = False
+
+
+def _dashscope(model_id: str, *, disabled: bool = False) -> ChatModel:
+    return ChatModel(
+        model_id=model_id,
+        url=DASHSCOPE_CHAT_URL,
+        api_key_env="DASHSCOPE_API_KEY",
+        disabled=disabled,
+    )
+
+
+def _deepseek_via_dashscope(
+    model_id: str, *, fallback_model_id: str | None = None, disabled: bool = False
+) -> ChatModel:
+    return ChatModel(
+        model_id=model_id,
+        url=DASHSCOPE_CHAT_URL,
+        api_key_env="DASHSCOPE_API_KEY",
+        fallback_url=DEEPSEEK_CHAT_URL,
+        fallback_model_id=fallback_model_id or model_id,
+        fallback_api_key_env="DEEPSEEK_API_KEY",
+        disabled=disabled,
+    )
+
+
+# Roadmap expander pool. Primary = 百炼/DashScope; DeepSeek ids fall back
+# to api.deepseek.com if the DashScope model id is missing or out of quota.
+EXPANDER_MODELS: dict[str, ChatModel] = {
+    "qwen3.8-2.4t-a95b": _dashscope("qwen3.8-2.4t-a95b"),
+    "qwen3.8-max": _dashscope("qwen3.8-max"),
+    "deepseek-v4-pro-0813": _deepseek_via_dashscope("deepseek-v4-pro-0813"),
+    "deepseek-v4-flash-0731": _deepseek_via_dashscope(
+        "deepseek-v4-flash-0731", fallback_model_id="deepseek-v4-flash"
+    ),
+    "glm-5.2": _dashscope("glm-5.2"),
+    "kimi-k2.7-code": _dashscope("kimi-k2.7-code"),
+}
+
+
+def lookup_chat_model(model_id: str) -> ChatModel:
+    """Registry hit, or a heuristic route for an unlisted id."""
+    known = EXPANDER_MODELS.get(model_id)
+    if known is not None:
+        return known
+    lowered = model_id.lower()
+    if any(tag in lowered for tag in _DASHSCOPE_HINTS):
+        return _dashscope(model_id)
+    return ChatModel(
+        model_id=model_id,
+        url=DEEPSEEK_CHAT_URL,
+        api_key_env="DEEPSEEK_API_KEY",
+    )
+
+
+def complete_chat(
+    model_id: str,
+    messages: Sequence[Mapping[str, str]],
+    *,
+    temperature: float = 0.7,
+    max_tokens: int = 768,
+    timeout: float = 60.0,
+    retries: int = 3,
+    retry_on: tuple[type[BaseException], ...] = REACT_RETRY_ON,
+    allow_fallback: bool = True,
+    attempt: str = "auto",
+) -> str:
+    """POST one completion for ``model_id``. Network-class errors are retried.
+
+    DeepSeek ids try DashScope first, then the DeepSeek-direct fallback.
+    Missing API keys and exhausted retries raise; they are not swallowed.
+    ``attempt`` is ``auto`` (primary then fallback), ``primary``, or ``fallback``.
+    """
+    load_dotenv_keys(_ROOT / ".env.local")
+    spec = lookup_chat_model(model_id)
+    if spec.disabled:
+        raise RuntimeError(f"expander model disabled: {model_id}")
+    primary = (spec.url, spec.model_id, spec.api_key_env)
+    fallback = None
+    if spec.fallback_url and spec.fallback_api_key_env:
+        fallback = (
+            spec.fallback_url,
+            spec.fallback_model_id or spec.model_id,
+            spec.fallback_api_key_env,
+        )
+    if attempt == "primary" or (attempt == "auto" and not allow_fallback):
+        attempts = [primary]
+    elif attempt == "fallback":
+        if fallback is None:
+            raise RuntimeError(f"{model_id} has no fallback provider")
+        attempts = [fallback]
+    elif attempt == "auto":
+        attempts = [primary] + ([fallback] if allow_fallback and fallback else [])
+    else:
+        raise ValueError(f"unknown complete_chat attempt {attempt!r}")
+    last_error: Exception | None = None
+    for url, mid, key_env in attempts:
+        api_key = os.environ.get(key_env)
+        if not api_key:
+            last_error = RuntimeError(f"{key_env} is not set")
+            continue
+        payload = {
+            "model": mid,
+            "messages": [dict(item) for item in messages],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        try:
+            text = post_chat_completion(
+                url,
+                payload,
+                api_key,
+                timeout=timeout,
+                retries=retries,
+                retry_on=retry_on,
+                error_prefix=f"{mid} request failed",
+            )
+        except RuntimeError as exc:
+            last_error = exc
+            continue
+        return text or ""
+    raise RuntimeError(f"{model_id} request failed: {last_error}") from last_error
