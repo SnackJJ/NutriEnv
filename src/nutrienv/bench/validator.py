@@ -51,6 +51,8 @@ _CLAUSE_SPLIT = re.compile(
     r"|,\s+(?=(?:my|the)\s+(?:calorie|kcal|caloric|protein)"
     r"|(?:up|raise|increase|lower|reduce|move|take|bring|bump)\b)"
 )
+
+
 def semantic_key(task: Task) -> tuple:
     if task.situations == ("fuzzy_portion",) and task.oracle.ledger_tail:
         row = task.oracle.ledger_tail[0]

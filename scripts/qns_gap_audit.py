@@ -16,7 +16,7 @@ from nutrienv.world.portions import resolve_portion
 
 ROOT = Path(__file__).resolve().parents[1]
 SURVEY_ZIP_PATH = ROOT / "data" / "fdc" / "raw" / "survey.zip"
-GOLD_SPLIT_PATH = ROOT / "data" / "splits" / "v0.5-gold.json"
+EXAM_SPLIT_PATH = ROOT / "data" / "splits" / "v0.5-gold.json"
 REPORT_OUTPUT_PATH = ROOT / "reports" / "qns-gap-audit.json"
 
 
@@ -86,7 +86,7 @@ def run_audit():
     total_qns = len(qns_map)
 
     print("Extracting gold foods from v0.5-gold.json...")
-    gold_fdc_ids, gold_fdc_to_slug, gold_slug_list = extract_gold_foods(GOLD_SPLIT_PATH, catalog)
+    gold_fdc_ids, gold_fdc_to_slug, gold_slug_list = extract_gold_foods(EXAM_SPLIT_PATH, catalog)
 
     matched_items = []
     foods_with_portions = 0

@@ -133,6 +133,25 @@ def test_load_exam_attaches_the_validated_catalog(tmp_path: Path) -> None:
     assert not any(row["food_id"] == "milk_whole" for row in milk_hits)
 
 
+def test_load_exam_rejects_non_sqlite_catalog(tmp_path: Path) -> None:
+    # A SHA-correct but non-.sqlite catalog would make load_catalog silently
+    # fall back to the 15-food demo fixture; the exam must fail closed instead.
+    import shutil
+
+    real = Path("data/fdc/catalog.sqlite")
+    fake = tmp_path / "catalog.db"
+    shutil.copyfile(real, fake)
+    digest = hashlib.sha256(fake.read_bytes()).hexdigest()
+    assert digest == hashlib.sha256(real.read_bytes()).hexdigest()
+    payload = json.loads(V05.read_text(encoding="utf-8"))
+    payload["catalog"] = str(fake)
+    payload["catalog_sha256"] = digest
+    dest = tmp_path / "exam.json"
+    dest.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match=r"\.sqlite"):
+        load_exam(dest)
+
+
 def test_load_react_tasks_default_is_load_exam() -> None:
     tasks = run_react.load_react_tasks()
     assert len(tasks) == 240

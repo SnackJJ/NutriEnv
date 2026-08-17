@@ -22,7 +22,11 @@ DEFAULT_MODEL = "deepseek-v4-flash"
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run a frozen NutriEnv split with ReActHarness (DeepSeek)."
+        description=(
+            "Run a frozen NutriEnv split with ReActHarness (DeepSeek). "
+            "API keys come from data/.env.local plus any files listed in the "
+            "NUTRIENV_DOTENV environment variable (pathsep-separated)."
+        )
     )
     parser.add_argument(
         "--split",

@@ -42,8 +42,8 @@ MAX_TOKENS = 512
 DEFAULT_K = 5
 DEFAULT_THRESHOLD = 0.6
 
-#: Same prompt as scripts/portion_judge_probe.py. Duplicated here because
-#: that script is not a library and is outside this change's file list.
+#: Judge prompt shared with scripts/portion_judge_probe.py and
+#: scripts/gray_zone_probe.py; both import it from here.
 JUDGE_SYSTEM = """You are a nutritionist auditing a food diary for plausible
 portion amounts. A user wrote the diary entry below. Judge whether the stated
 amount in grams is a plausible portion of that food that a real person would

@@ -45,9 +45,11 @@ def load_exam(path: Path | str | None = None) -> list[Task]:
     """Load the published 240-item exam. Fail closed on catalog identity.
 
     Unlike :func:`load_split`, this checks ``version``, a non-empty ``items``
-    list, that the recorded catalog file exists (resolved from the repo root),
-    and that ``sha256(catalog bytes)`` matches ``catalog_sha256``. The
-    verified catalog file is the one attached to every Task.
+    list, that the recorded catalog file exists (resolved from the repo root)
+    and is a ``.sqlite`` file (``load_catalog`` would otherwise silently fall
+    back to the demo fixture), and that ``sha256(catalog bytes)`` matches
+    ``catalog_sha256``. The verified catalog file is the one attached to
+    every Task.
     """
     target = Path(path) if path is not None else EXAM_SPLIT_PATH
     if not target.is_file():
@@ -72,6 +74,10 @@ def load_exam(path: Path | str | None = None) -> list[Task]:
         catalog_path = _ROOT / catalog_field
     if not catalog_path.is_file():
         raise FileNotFoundError(f"exam catalog not found: {catalog_path}")
+    if catalog_path.suffix != ".sqlite":
+        raise ValueError(
+            f"exam catalog must be a .sqlite file, got: {catalog_path}"
+        )
     digest = hashlib.sha256(catalog_path.read_bytes()).hexdigest()
     if digest != digest_field:
         raise ValueError(
