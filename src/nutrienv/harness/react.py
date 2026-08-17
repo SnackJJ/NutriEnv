@@ -6,6 +6,7 @@ import json
 import os
 import re
 
+from nutrienv.actions.schemas import OPS
 from nutrienv.io.chat import (
     DASHSCOPE_CHAT_URL,
     DEEPSEEK_CHAT_URL,
@@ -15,7 +16,7 @@ from nutrienv.io.chat import (
 from nutrienv.io.dotenv import load_dotenv_keys
 
 from .protocol import Harness
-from .runner import DEFAULT_MAX_STEPS
+from .runner import DEFAULT_MAX_STEPS, FINISH_OPS
 
 __all__ = [
     "ReActHarness",
@@ -26,18 +27,7 @@ __all__ = [
     "react_manual",
 ]
 
-_OPS = (
-    "search_foods",
-    "get_food",
-    "get_profile",
-    "get_ledger",
-    "get_dri",
-    "log_meal",
-    "submit_plan",
-    "update_profile",
-    "update_plan",
-    "finish",
-)
+_OPS = frozenset(OPS) | FINISH_OPS
 
 _CONTEXT_LIMIT = 12
 

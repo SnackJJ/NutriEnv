@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import copy
 import math
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 
 __all__ = [
@@ -63,7 +64,7 @@ class WorldState:
 
     profile: Profile
     ledger: list[LedgerRow] = field(default_factory=list)
-    catalog: dict = field(default_factory=dict)
+    catalog: Mapping[str, dict] = field(default_factory=dict)
     last_plan: list = field(default_factory=list)
 
 

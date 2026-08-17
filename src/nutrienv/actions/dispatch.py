@@ -13,6 +13,7 @@ import copy
 import re
 from dataclasses import replace
 
+from ..world.catalog import canonical_food_id
 from ..world.dri import BASIS, DRI_REFERENCE
 from ..world.types import (
     ImplausibleQuantity,
@@ -84,10 +85,7 @@ def _resolve_food(state: WorldState, value: object) -> str:
     food_id = as_nonempty_str(value, "food_id")
     if food_id not in state.catalog:
         raise ActionError("unknown_food", f"no such food_id: {food_id!r}")
-    canonical = getattr(state.catalog, "canonical_id", None)
-    if callable(canonical):
-        return canonical(food_id)
-    return food_id
+    return canonical_food_id(state.catalog, food_id)
 
 
 # --- reads ------------------------------------------------------------------

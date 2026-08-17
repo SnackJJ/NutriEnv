@@ -21,8 +21,6 @@ import copy
 
 from .types import Profile, WorldState
 
-NUTRIENT_KEYS = ("kcal", "protein_g", "carb_g", "fat_g", "fiber_g", "sodium_mg")
-
 _CATALOG: dict[str, dict] = {
     "peanut_butter": {
         "name": "Peanut butter, smooth",

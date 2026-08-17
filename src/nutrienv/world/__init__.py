@@ -5,7 +5,9 @@ from .catalog_store import GOLD_CATALOG_PATH, SNAPSHOT_PATH, load_catalog
 from .dri import DRI_REFERENCE
 from .portions import GRAM_UNITS, OUNCE_GRAMS, OUNCE_UNITS, UNIT_SYNONYMS, resolve_portion
 from .types import (
+    ImplausibleQuantity,
     LedgerRow,
+    MAX_ITEM_GRAMS,
     Profile,
     WorldState,
     food_view,
@@ -39,4 +41,6 @@ __all__ = [
     "GRAM_UNITS",
     "OUNCE_GRAMS",
     "OUNCE_UNITS",
+    "ImplausibleQuantity",
+    "MAX_ITEM_GRAMS",
 ]

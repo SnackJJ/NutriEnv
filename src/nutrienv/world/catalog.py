@@ -14,7 +14,7 @@ import sqlite3
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 
-__all__ = ["FoodCatalog", "SEARCH_LIMIT"]
+__all__ = ["FoodCatalog", "SEARCH_LIMIT", "canonical_food_id"]
 
 SEARCH_LIMIT = 25
 _TOKEN = re.compile(r"[a-z0-9]+")
@@ -22,6 +22,14 @@ _TOKEN = re.compile(r"[a-z0-9]+")
 
 def _tokens(text: str) -> list[str]:
     return _TOKEN.findall(text.lower().replace("_", " "))
+
+
+def canonical_food_id(catalog, food_id: str) -> str:
+    """Resolve a minted slug or id when the catalog can; else return it."""
+    resolver = getattr(catalog, "canonical_id", None)
+    if callable(resolver) and food_id in catalog:
+        return str(resolver(food_id))
+    return food_id
 
 
 class FoodCatalog(Mapping[str, dict]):

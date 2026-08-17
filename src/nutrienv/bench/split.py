@@ -7,6 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from nutrienv.world.catalog import canonical_food_id
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.types import LedgerRow, Profile, WorldState, normalize_tags, normalize_window
 
@@ -140,18 +141,11 @@ def _profile(value: object, *, default_user: str) -> Profile:
     )
 
 
-def _canonical_food_id(food_id: str, catalog: object) -> str:
-    resolver = getattr(catalog, "canonical_id", None)
-    if callable(resolver) and food_id in catalog:  # type: ignore[operator]
-        return str(resolver(food_id))
-    return food_id
-
-
 def _row(value: object, catalog: object) -> LedgerRow:
     if not isinstance(value, dict):
         raise ValueError("ledger row must be an object")
     return LedgerRow(
-        _canonical_food_id(str(value["food_id"]), catalog),
+        canonical_food_id(catalog, str(value["food_id"])),
         float(value["grams"]),
         str(value["eaten_at"]),
     )
@@ -162,7 +156,7 @@ def _plan_item(value: object, catalog: object) -> dict:
         raise ValueError("plan item must be an object")
     item = copy.deepcopy(value)
     if "food_id" in item:
-        item["food_id"] = _canonical_food_id(str(item["food_id"]), catalog)
+        item["food_id"] = canonical_food_id(catalog, str(item["food_id"]))
     return item
 
 

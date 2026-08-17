@@ -8,7 +8,15 @@ error, not silently ignored.
 
 from __future__ import annotations
 
-__all__ = ["ActionError", "ACTION_SCHEMAS", "OPS", "validate_envelope"]
+__all__ = [
+    "ActionError",
+    "ACTION_SCHEMAS",
+    "OPS",
+    "validate_envelope",
+    "as_nonempty_str",
+    "as_dict",
+    "as_list",
+]
 
 # op -> (required arg names, optional arg names)
 ACTION_SCHEMAS: dict[str, tuple[frozenset[str], frozenset[str]]] = {

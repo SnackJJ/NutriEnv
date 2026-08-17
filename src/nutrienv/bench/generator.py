@@ -11,6 +11,7 @@ import copy
 import random
 from dataclasses import dataclass, replace
 
+from nutrienv.world.catalog import canonical_food_id
 from nutrienv.world.catalog_fixture import demo_state
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.portions import resolve_portion
@@ -268,10 +269,7 @@ class Generator:
 
     @staticmethod
     def _food_id(s0: WorldState, food_id: str) -> str:
-        resolver = getattr(s0.catalog, "canonical_id", None)
-        if callable(resolver) and food_id in s0.catalog:
-            return resolver(food_id)
-        return food_id
+        return canonical_food_id(s0.catalog, food_id)
 
     @classmethod
     def _log_oracle(cls, s0: WorldState, tail: list[LedgerRow]) -> Oracle:

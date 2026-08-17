@@ -1,4 +1,4 @@
-from nutrienv.world.catalog import FoodCatalog, SEARCH_LIMIT
+from nutrienv.world.catalog import FoodCatalog, SEARCH_LIMIT, canonical_food_id
 from nutrienv.world.catalog_fixture import demo_catalog
 from nutrienv.world.catalog_store import GOLD_CATALOG_PATH, load_catalog
 
@@ -26,3 +26,14 @@ def test_load_catalog_prefers_fdc_snapshot_when_built():
         assert len(hits) <= SEARCH_LIMIT
         assert catalog.canonical_id("oats") == "2708489"
         assert catalog.canonical_id("chicken_breast") == "171477"
+
+
+def test_canonical_food_id_foodcatalog() -> None:
+    catalog = load_catalog()
+    assert canonical_food_id(catalog, "oats") == catalog.canonical_id("oats")
+
+
+def test_canonical_food_id_plain_dict() -> None:
+    catalog = {"oats": {"name": "Rolled oats"}}
+    assert canonical_food_id(catalog, "oats") == "oats"
+    assert canonical_food_id(catalog, "missing") == "missing"
