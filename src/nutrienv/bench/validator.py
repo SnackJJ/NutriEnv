@@ -571,16 +571,17 @@ def _validate_evaluate(task: Task, query: str) -> list[str]:
         issues.append("evaluate last_plan is empty")
         return issues
     row = next((item for item in EVALUATE_ROWS if item.query == task.query), None)
-    if row is not None:
-        if len(row.items) != len(plan):
-            issues.append("evaluate last_plan does not match the row")
-        else:
-            for (food_id, phrase), item in zip(row.items, plan):
-                grams = resolve_portion(food_id, phrase, task.s0.catalog)
-                if grams is None or float(item["grams"]) != float(grams):
-                    issues.append(
-                        f"evaluate grams {item.get('grams')} != resolve_portion {grams}"
-                    )
+    if row is None:
+        issues.append("evaluate query does not map to a realization row (D4)")
+    elif len(row.items) != len(plan):
+        issues.append("evaluate last_plan does not match the row")
+    else:
+        for (food_id, phrase), item in zip(row.items, plan):
+            grams = resolve_portion(food_id, phrase, task.s0.catalog)
+            if grams is None or float(item["grams"]) != float(grams):
+                issues.append(
+                    f"evaluate grams {item.get('grams')} != resolve_portion {grams}"
+                )
     for item in plan:
         food_id = str(item["food_id"])
         entry = task.s0.catalog.get(food_id) or {}

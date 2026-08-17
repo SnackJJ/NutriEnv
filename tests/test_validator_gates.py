@@ -154,6 +154,21 @@ def test_conflict_gate_rejects_satisfiable_windows_and_empty_s0_plan():
     assert any("unsatisfiable" in item or "satisfiable" in item for item in validate_draft(good))
 
 
+def test_evaluate_gate_rejects_query_that_maps_to_no_row():
+    """D4: a rewritten query that matches no realization Row is rejected.
+
+    The old gate ran gram backresolve only when some EVALUATE_ROWS item
+    had ``item.query == task.query``. A paraphrase that still names every
+    plan food would otherwise pass silently.
+    """
+    good = _task(EVALUATE_ROWS[0])
+    assert validate_draft(good) == []
+    rewritten = replace(good, query="Today, " + good.query)
+    assert not any(row.query == rewritten.query for row in EVALUATE_ROWS)
+    issues = validate_draft(rewritten)
+    assert any("realization row" in item or "D4" in item for item in issues)
+
+
 def test_evaluate_gate_rejects_instead_wrong_grams_and_unmentioned_food():
     good = _task(EVALUATE_ROWS[0])
     assert validate_draft(good) == []
@@ -399,7 +414,7 @@ def test_every_frozen_item_still_validates():
 
     from nutrienv.bench.split import load_split
 
-    for task in load_split(Path("data/splits/v0.3-gold.json")):
+    for task in load_split(Path("data/splits/v0.5-gold.json")):
         assert validate_draft(task) == [], (task.id, validate_draft(task))
 
 
