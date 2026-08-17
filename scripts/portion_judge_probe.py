@@ -21,8 +21,8 @@ sys.path.insert(0, str(ROOT / "src"))
 from nutrienv.bench.grams_gate import (  # noqa: E402
     DEFAULT_K,
     DEFAULT_THRESHOLD,
-    MODEL,
     accept_from_verdicts,
+    judge_model,
     sample_verdicts,
 )
 from nutrienv.io.dotenv import load_dotenv_keys  # noqa: E402
@@ -53,7 +53,7 @@ CASES = [
 
 
 def main() -> None:
-    print(f"model={MODEL}  K={K}  threshold={THRESHOLD}\n")
+    print(f"model={judge_model()}  K={K}  threshold={THRESHOLD}\n")
     rows = []
     for case_id, food, grams, expected, note in CASES:
         raws: list[str] = []

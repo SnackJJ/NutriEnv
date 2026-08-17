@@ -1,5 +1,9 @@
 # judge 灰区用例实验
 
+> 2026-08-17 重验（issue 08，默认模型 `deepseek-v4-flash-0731`）已过 gate，
+> 见 `reports/gray-zone-probe-v1.md`。下文是换模型前、`deepseek-v4-flash`
+> 的历史记录（omelet-piece-55 误杀 0.40），保留作对照。
+
 judge 封 gate 的前置验证（`docs/llm-generated-exam-data.md` 第 3 节；
 `docs/adjudication-report.md` 验收清单第 7 条）。
 

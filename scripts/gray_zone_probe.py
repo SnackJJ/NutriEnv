@@ -6,9 +6,10 @@ The 15/15 experiment in portion_judge_probe.py only tested extreme gaps
 those pairs are legal FNDDS portion keys (piece vs QNS), not errors.
 
 This script:
-  1. Confirms sandwich / lasagna / omelet piece and qns from catalog.sqlite.
+  1. Confirms sandwich / lasagna / omelet piece and qns from catalog-v1.sqlite.
   2. Judges each of those 6 legal values plus 5 extreme controls.
   3. Reports whether the judge is a safe absurdity filter at gray-zone scale.
+  4. Exits non-zero if any ground-truth assertion fails (the gate).
 
 Run:  .venv/bin/python scripts/gray_zone_probe.py
 """
@@ -26,15 +27,17 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from nutrienv.bench.grams_gate import (  # noqa: E402
     MAX_TOKENS,
-    MODEL,
     TEMPERATURE,
     accept_from_verdicts,
+    judge_model,
     sample_verdicts,
 )
 from nutrienv.io.dotenv import load_dotenv_keys  # noqa: E402
-from nutrienv.world.catalog_store import GOLD_CATALOG_PATH, load_catalog  # noqa: E402
+from nutrienv.world.catalog_store import load_catalog  # noqa: E402
 
 load_dotenv_keys(ROOT / ".env.local")
+
+CATALOG_V1_PATH = ROOT / "data" / "fdc" / "catalog-v1.sqlite"
 
 # v4-flash spends completion tokens on reasoning first. The 15/15 script's
 # max_tokens=120 is enough for extreme cases; gray-zone thinking overflows
@@ -86,8 +89,8 @@ def _ratio(a: float, b: float) -> str:
 
 
 def confirm_catalog() -> dict[str, dict]:
-    """Load catalog and require the documented piece/qns triples."""
-    catalog = load_catalog(GOLD_CATALOG_PATH)
+    """Load catalog-v1 and require the documented piece/qns triples."""
+    catalog = load_catalog(CATALOG_V1_PATH)
     found: dict[str, dict] = {}
     for label, fdc_id, _diary in GRAY_FOODS:
         food = catalog[fdc_id]
@@ -185,7 +188,7 @@ def _print_row(result: Result) -> None:
     )
 
 
-def conclude(results: list[Result]) -> str:
+def conclude(results: list[Result]) -> bool:
     gray = [r for r in results if r.case.group == "gray"]
     absurd = [r for r in results if r.case.group == "absurd"]
     normal = [r for r in results if r.case.group == "normal"]
@@ -194,6 +197,7 @@ def conclude(results: list[Result]) -> str:
     normal_ok = all(r.accepted for r in normal)
     killed = [r for r in gray if not r.accepted]
     leaked = [r for r in absurd if r.accepted]
+    missed = [r for r in normal if not r.accepted]
 
     print("\n--- sample reasons ---")
     for result in results:
@@ -209,11 +213,14 @@ def conclude(results: list[Result]) -> str:
         print("false-kills: " + ", ".join(r.case.case_id for r in killed))
     if leaked:
         print("false-accepts: " + ", ".join(r.case.case_id for r in leaked))
+    if missed:
+        print("normal-misses: " + ", ".join(r.case.case_id for r in missed))
 
-    if gray_ok and absurd_rej:
+    passed = gray_ok and absurd_rej and normal_ok
+    if passed:
         verdict = (
             "VERDICT: GATE_SAFE — all 6 legal FNDDS values accepted, "
-            "all absurd controls rejected"
+            "all absurd controls rejected, all normal controls accepted"
         )
     elif killed:
         verdict = (
@@ -227,16 +234,17 @@ def conclude(results: list[Result]) -> str:
             f"normal all accepted={normal_ok}"
         )
     print(verdict)
-    return verdict
+    return passed
 
 
 def main() -> None:
     confirmed = confirm_catalog()
     print(
-        f"model={MODEL}  K={K}  threshold={THRESHOLD}  "
-        f"max_tokens={MAX_TOKENS}  prompt=grams_gate.JUDGE_SYSTEM"
+        f"model={judge_model()}  K={K}  threshold={THRESHOLD}  "
+        f"temp={TEMPERATURE}  max_tokens={MAX_TOKENS}  "
+        f"prompt=grams_gate.JUDGE_SYSTEM"
     )
-    print(f"catalog={GOLD_CATALOG_PATH}\n")
+    print(f"catalog={CATALOG_V1_PATH}\n")
     print("confirmed piece / qns:")
     for fdc_id, info in confirmed.items():
         print(
@@ -251,7 +259,8 @@ def main() -> None:
         result = run_case(case)
         results.append(result)
         _print_row(result)
-    conclude(results)
+    if not conclude(results):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

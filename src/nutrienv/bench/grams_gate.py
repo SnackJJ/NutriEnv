@@ -14,7 +14,12 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from nutrienv.io.chat import DEEPSEEK_CHAT_URL, JUDGE_RETRY_ON, post_chat_completion
+from nutrienv.io.chat import (
+    DASHSCOPE_CHAT_URL,
+    DEEPSEEK_CHAT_URL,
+    JUDGE_RETRY_ON,
+    post_chat_completion,
+)
 from nutrienv.io.dotenv import load_dotenv_keys
 
 from .portion_table import matches_portion_table
@@ -27,6 +32,7 @@ __all__ = [
     "judge_once",
     "sample_verdicts",
     "accept_from_verdicts",
+    "judge_model",
     "MODEL",
     "TEMPERATURE",
     "MAX_TOKENS",
@@ -36,11 +42,17 @@ __all__ = [
 
 _ROOT = Path(__file__).resolve().parents[3]
 
-MODEL = "deepseek-v4-flash"
+MODEL = "deepseek-v4-flash-0731"
 TEMPERATURE = 0.7
 MAX_TOKENS = 512
 DEFAULT_K = 5
 DEFAULT_THRESHOLD = 0.6
+
+# Official api.deepseek.com ids. Dated snapshot ids (…-0731) and Qwen live
+# on DashScope; posting 0731 to DeepSeek returns invalid_request_error.
+_DEEPSEEK_NATIVE_MODELS = frozenset(
+    {"deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat"}
+)
 
 #: Judge prompt shared with scripts/portion_judge_probe.py and
 #: scripts/gray_zone_probe.py; both import it from here.
@@ -74,11 +86,22 @@ def parse_verdict(text: str) -> str | None:
     return None
 
 
+def judge_model() -> str:
+    """Active judge model. ``NUTRIENV_JUDGE_MODEL`` overrides the default."""
+    override = os.environ.get("NUTRIENV_JUDGE_MODEL", "").strip()
+    return override or MODEL
+
+
 def call_judge(food: str, grams: float) -> str:
-    """One DeepSeek chat completion. Network noise is retried three times."""
+    """One chat completion. Network noise is retried three times."""
     load_dotenv_keys(_ROOT / ".env.local")
+    model = judge_model()
+    if model in _DEEPSEEK_NATIVE_MODELS:
+        url, api_key = DEEPSEEK_CHAT_URL, os.environ["DEEPSEEK_API_KEY"]
+    else:
+        url, api_key = DASHSCOPE_CHAT_URL, os.environ["DASHSCOPE_API_KEY"]
     payload = {
-        "model": MODEL,
+        "model": model,
         "messages": [
             {"role": "system", "content": JUDGE_SYSTEM},
             {"role": "user", "content": f'Diary entry: "I ate {grams:g} g of {food}."'},
@@ -87,9 +110,9 @@ def call_judge(food: str, grams: float) -> str:
         "max_tokens": MAX_TOKENS,
     }
     return post_chat_completion(
-        DEEPSEEK_CHAT_URL,
+        url,
         payload,
-        os.environ["DEEPSEEK_API_KEY"],
+        api_key,
         timeout=60.0,
         retries=3,
         retry_on=JUDGE_RETRY_ON,

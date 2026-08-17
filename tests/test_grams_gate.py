@@ -3,10 +3,18 @@
 from __future__ import annotations
 
 from nutrienv.bench.grams_gate import (
+    DEFAULT_K,
+    DEFAULT_THRESHOLD,
+    MAX_TOKENS,
+    MODEL,
+    TEMPERATURE,
     accept_from_verdicts,
+    call_judge,
+    judge_model,
     plausibility_gate,
     sample_verdicts,
 )
+from nutrienv.io.chat import DASHSCOPE_CHAT_URL, DEEPSEEK_CHAT_URL
 
 
 def _catalog():
@@ -102,3 +110,66 @@ def test_sample_verdicts_calls_judge_k_times() -> None:
     verdicts = sample_verdicts("steak", 30.0, judge=fake, k=5, parse_retries=0)
     assert verdicts == ["ok"] * 5
     assert len(calls) == 5
+
+
+def test_default_model_and_parameters_unchanged() -> None:
+    assert MODEL == "deepseek-v4-flash-0731"
+    assert TEMPERATURE == 0.7
+    assert MAX_TOKENS == 512
+    assert DEFAULT_K == 5
+    assert DEFAULT_THRESHOLD == 0.6
+
+
+def test_judge_model_env_override(monkeypatch) -> None:
+    monkeypatch.delenv("NUTRIENV_JUDGE_MODEL", raising=False)
+    assert judge_model() == MODEL
+    monkeypatch.setenv("NUTRIENV_JUDGE_MODEL", "qwen3.7-flash-2026-07-15")
+    assert judge_model() == "qwen3.7-flash-2026-07-15"
+    monkeypatch.setenv("NUTRIENV_JUDGE_MODEL", "  ")
+    assert judge_model() == MODEL
+
+
+def _capture_post(monkeypatch):
+    captured: dict = {}
+
+    def fake_post(url, payload, api_key, **_kwargs):
+        captured["url"] = url
+        captured["model"] = payload["model"]
+        captured["temperature"] = payload["temperature"]
+        captured["max_tokens"] = payload["max_tokens"]
+        captured["api_key"] = api_key
+        return '{"verdict": "ok", "reason": "x"}'
+
+    monkeypatch.setattr("nutrienv.bench.grams_gate.post_chat_completion", fake_post)
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "dash-dummy")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "ds-dummy")
+    return captured
+
+
+def test_call_judge_default_posts_to_dashscope(monkeypatch) -> None:
+    captured = _capture_post(monkeypatch)
+    monkeypatch.delenv("NUTRIENV_JUDGE_MODEL", raising=False)
+    assert call_judge("steak", 160.0) == '{"verdict": "ok", "reason": "x"}'
+    assert captured["model"] == "deepseek-v4-flash-0731"
+    assert captured["url"] == DASHSCOPE_CHAT_URL
+    assert captured["api_key"] == "dash-dummy"
+    assert captured["temperature"] == 0.7
+    assert captured["max_tokens"] == 512
+
+
+def test_call_judge_native_deepseek_override_stays_on_deepseek(monkeypatch) -> None:
+    captured = _capture_post(monkeypatch)
+    monkeypatch.setenv("NUTRIENV_JUDGE_MODEL", "deepseek-v4-flash")
+    call_judge("steak", 160.0)
+    assert captured["model"] == "deepseek-v4-flash"
+    assert captured["url"] == DEEPSEEK_CHAT_URL
+    assert captured["api_key"] == "ds-dummy"
+
+
+def test_call_judge_qwen_override_uses_dashscope(monkeypatch) -> None:
+    captured = _capture_post(monkeypatch)
+    monkeypatch.setenv("NUTRIENV_JUDGE_MODEL", "qwen3.7-flash-2026-07-15")
+    call_judge("steak", 160.0)
+    assert captured["model"] == "qwen3.7-flash-2026-07-15"
+    assert captured["url"] == DASHSCOPE_CHAT_URL
+    assert captured["api_key"] == "dash-dummy"
