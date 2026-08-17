@@ -1,0 +1,160 @@
+"""Deterministic over-supply food pools from an injected catalog."""
+
+from __future__ import annotations
+
+import random
+from collections.abc import Mapping
+
+from nutrienv.world.catalog import canonical_food_id
+
+from .types import (
+    POOL_SIZE,
+    QUANTITY_MULTIPLES,
+    FoodPool,
+    PoolFood,
+    PortionAlternative,
+)
+
+__all__ = ["sample_pools", "portion_alternatives"]
+
+# Spoken forms resolve_portion can actually parse. Catalog-v1 also stores
+# cubic_inch; that key has no grammar, so the sampler drops it.
+_COUNTABLE: dict[str, tuple[str, str]] = {
+    "cup": ("cup", "cups"),
+    "tbsp": ("tablespoon", "tablespoons"),
+    "tsp": ("teaspoon", "teaspoons"),
+    "piece": ("piece", "pieces"),
+    "slice": ("slice", "slices"),
+    "can": ("can", "cans"),
+    "serving": ("serving", "servings"),
+}
+_MASS = {"oz": "oz", "fl_oz": "fl oz"}
+_MODIFIERS = frozenset({"thick", "thin", "regular"})
+
+
+def sample_pools(
+    catalog: Mapping,
+    *,
+    seed: int,
+    family: str,
+    n_pools: int,
+    pool_size: int = POOL_SIZE,
+) -> list[FoodPool]:
+    """Draw ``n_pools`` independent pools of ~``pool_size`` foods.
+
+    Uses ``random.Random(seed)`` only. Eligible foods are those with at least
+    one PortionFact the grammar can speak. Pool membership is sorted then
+    sampled so the same seed yields the same pools.
+    """
+    if n_pools <= 0:
+        return []
+    eligible = _eligible_foods(catalog)
+    if not eligible:
+        raise ValueError("catalog has no foods with speakable PortionFacts")
+    rng = random.Random(seed)
+    pools: list[FoodPool] = []
+    size = min(pool_size, len(eligible))
+    for index in range(n_pools):
+        picked = rng.sample(eligible, size)
+        foods = tuple(_pool_food(catalog, food_id) for food_id in picked)
+        pools.append(
+            FoodPool(
+                pool_id=f"{family}-{index:04d}",
+                family=family,
+                foods=foods,
+            )
+        )
+    return pools
+
+
+def portion_alternatives(entry: Mapping) -> tuple[PortionAlternative, ...]:
+    """Portion keys × {0.5, 1, 1.5, 2}, same multiples as the whitelist."""
+    portions = entry.get("portions") or {}
+    if not isinstance(portions, Mapping):
+        return ()
+    out: list[PortionAlternative] = []
+    has_serving = "serving" in portions
+    for key, grams_each in portions.items():
+        if not _numeric(grams_each):
+            continue
+        spoken_key = key
+        if key == "qns":
+            if has_serving:
+                continue
+            spoken_key = "serving"
+        if spoken_key not in _COUNTABLE and spoken_key not in _MASS and spoken_key not in _MODIFIERS:
+            continue
+        for quantity in QUANTITY_MULTIPLES:
+            phrase = _phrase(spoken_key, quantity)
+            if phrase is None:
+                continue
+            out.append(
+                PortionAlternative(
+                    key=str(key),
+                    quantity=float(quantity),
+                    phrase=phrase,
+                    grams=round(quantity * float(grams_each), 2),
+                )
+            )
+    return tuple(out)
+
+
+def _eligible_foods(catalog: Mapping) -> list[str]:
+    ids: list[str] = []
+    for food_id in catalog:
+        entry = catalog.get(food_id)
+        if not isinstance(entry, dict):
+            continue
+        if portion_alternatives(entry):
+            ids.append(canonical_food_id(catalog, food_id))
+    # Unique + sorted so rng.sample is independent of catalog iteration order.
+    return sorted(set(ids))
+
+
+def _pool_food(catalog: Mapping, food_id: str) -> PoolFood:
+    entry = catalog[food_id]
+    aliases = tuple(str(alias) for alias in (entry.get("aliases") or []) if alias)
+    return PoolFood(
+        food_id=food_id,
+        name=str(entry.get("name") or food_id),
+        aliases=aliases,
+        alternatives=portion_alternatives(entry),
+    )
+
+
+def _phrase(key: str, quantity: float) -> str | None:
+    if key in _MODIFIERS:
+        singular = f"{key} serving"
+        plural = f"{key} servings"
+        return _counted(quantity, singular, plural)
+    if key in _MASS:
+        unit = _MASS[key]
+        if quantity == 0.5:
+            return f"0.5 {unit}"
+        if quantity == 1.0:
+            return f"1 {unit}"
+        if quantity == 1.5:
+            return f"1.5 {unit}"
+        if quantity == 2.0:
+            return f"2 {unit}"
+        return None
+    pair = _COUNTABLE.get(key)
+    if pair is None:
+        return None
+    return _counted(quantity, pair[0], pair[1])
+
+
+def _counted(quantity: float, singular: str, plural: str) -> str | None:
+    if quantity == 0.5:
+        return f"half a {singular}"
+    if quantity == 1.0:
+        return f"a {singular}"
+    if quantity == 1.5:
+        return f"1.5 {plural}"
+    if quantity == 2.0:
+        return f"two {plural}"
+    return None
+
+
+def _numeric(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0

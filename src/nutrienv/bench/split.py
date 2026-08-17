@@ -20,6 +20,9 @@ _ROOT = Path(__file__).resolve().parents[3]
 # v0 calibration set, not the published 240-item exam.
 GOLD_SPLIT_PATH = _ROOT / "data" / "splits" / "v0-gold.json"
 EXAM_SPLIT_PATH = _ROOT / "data" / "splits" / "v0.5-gold.json"
+# load_exam accepts the payload's own version when it is a published exam.
+# EXAM_SPLIT_PATH stays on v0.5 until issue 10 switches the default.
+_EXAM_VERSIONS = frozenset({"v0.5-gold", "v1.0-gold"})
 
 
 def load_split(path: Path | str | None = None, *, catalog=None) -> list[Task]:
@@ -58,8 +61,10 @@ def load_exam(path: Path | str | None = None) -> list[Task]:
     if not isinstance(payload, dict):
         raise ValueError("exam payload must be an object")
     version = payload.get("version")
-    if version != "v0.5-gold":
-        raise ValueError(f"exam version must be 'v0.5-gold', got {version!r}")
+    if version not in _EXAM_VERSIONS:
+        raise ValueError(
+            f"exam version must be one of {sorted(_EXAM_VERSIONS)}, got {version!r}"
+        )
     items = payload.get("items")
     if not isinstance(items, list) or not items:
         raise ValueError("exam must contain a non-empty items list")
