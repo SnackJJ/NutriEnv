@@ -497,8 +497,58 @@ def test_realizations_source_does_not_import_validator() -> None:
     import re
     from pathlib import Path
 
-    source = Path("src/nutrienv/bench/realizations.py").read_text(encoding="utf-8")
-    assert re.search(r"import\s+.*validator", source) is None
+    root = Path("src/nutrienv/bench/realizations")
+    for path in root.rglob("*.py"):
+        source = path.read_text(encoding="utf-8")
+        assert re.search(r"import\s+.*validator", source) is None, path
+
+
+def test_realizations_public_names_match_legacy_all() -> None:
+    import nutrienv.bench.realizations as real
+
+    expected = [
+        "FuzzyRow",
+        "MultiItemLogRow",
+        "UnitConvertRow",
+        "NearSynonymRow",
+        "LedgerGapRow",
+        "LeftoverRow",
+        "UpdateRow",
+        "ConstrainRow",
+        "EvaluateRow",
+        "RecommendRow",
+        "FUZZY_ROWS",
+        "MULTI_ITEM_LOG_ROWS",
+        "UNIT_CONVERT_ROWS",
+        "NEAR_SYNONYM_ROWS",
+        "LEDGER_GAP_ROWS",
+        "LEFTOVER_ROWS",
+        "UPDATE_ROWS",
+        "CONSTRAIN_ROWS",
+        "EVALUATE_ROWS",
+        "RECOMMEND_ROWS",
+        "fuzzy_key",
+        "multi_item_log_key",
+        "unit_convert_key",
+        "near_synonym_key",
+        "ledger_gap_key",
+        "leftover_key",
+        "update_key",
+        "constrain_key",
+        "evaluate_key",
+        "recommend_key",
+        "evaluate_windows",
+        "assert_fuzzy_resolves",
+        "assert_log_situation_rows",
+        "assert_leftover_rows",
+        "assert_update_rows",
+        "assert_constrain_rows",
+        "assert_evaluate_rows",
+        "assert_recommend_rows",
+    ]
+    assert list(real.__all__) == expected
+    for name in expected:
+        assert hasattr(real, name), name
 
 
 def test_log_situation_builders_are_table_backed():
