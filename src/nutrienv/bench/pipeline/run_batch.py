@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -12,8 +13,9 @@ from nutrienv.bench.validator import fitting_plan, validate_draft
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.types import ledger_totals
 
-from .expander import coerce_candidates, synthetic_expander
+from .expander import LlmExpander, coerce_candidates, make_llm_expander, synthetic_expander
 from .freezer import freeze_tasks
+from .models import assign_model
 from .resolver import build_food_index, resolve_candidate
 from .sampler import sample_pools
 from .types import (
@@ -50,6 +52,10 @@ class BatchResult:
     accepted: list[Task] = field(default_factory=list)
     rejected: list[Rejected] = field(default_factory=list)
     review: Mapping[str, object] = field(default_factory=dict)
+    model_pools: dict[str, list[str]] = field(default_factory=dict)
+    model_accepted: dict[str, int] = field(default_factory=dict)
+    n_pools: int = 0
+    n_candidates: int = 0
 
 
 def pass_through_reviewer(candidates: Sequence[Task]) -> dict:
@@ -67,10 +73,13 @@ def run_batch(
     judge: Judge,
     reviewer: Reviewer,
     catalog,
+    workers: int = 1,
 ) -> BatchResult:
     """Run the candidate pipeline. LLM roles must be injected; no network."""
     if expander is None or judge is None or reviewer is None:
         raise ValueError("expander, judge, and reviewer must be injected")
+    if isinstance(workers, bool) or not isinstance(workers, int) or workers < 1:
+        raise ValueError("workers must be an int >= 1")
     spec = _parse_spec(batch_spec)
     digest = catalog_digest(catalog)
     if digest != spec["catalog_sha"]:
@@ -79,49 +88,20 @@ def run_batch(
         )
 
     persona = spec["persona"]
-    rejected: list[Rejected] = []
-    accepted: list[Task] = []
-    seen: set[tuple[str, ...]] = set()
     food_index = build_food_index(catalog)
-    seq = 0
-
-    for family, quota in spec["family_quotas"]:
-        pools = sample_pools(
-            catalog,
-            seed=_family_seed(spec["seed"], family),
-            family=family,
-            n_pools=quota,
-        )
-        for pool in pools:
-            raw = expander(pool, persona=persona, family=family)
-            candidates = coerce_candidates(
-                raw, family=family, persona=persona, pool_id=pool.pool_id
-            )
-            if not candidates:
-                rejected.append(Rejected("", "schema", family))
-                continue
-            for candidate in candidates:
-                seq += 1
-                task_id = f"v10-{family}-{seq:04d}"
-                task, reason = resolve_candidate(
-                    candidate,
-                    catalog=catalog,
-                    task_id=task_id,
-                    seen=seen,
-                    food_index=food_index,
-                )
-                if reason is not None:
-                    rejected.append(reason)
-                    continue
-                if _implausible(task, catalog, judge):
-                    rejected.append(Rejected(candidate.query, "implausible", family))
-                    continue
-                draft_issues = list(validate_draft(task))
-                draft_issues.extend(_composite_draft_issues(task))
-                if draft_issues:
-                    rejected.append(Rejected(candidate.query, "validate_draft", family))
-                    continue
-                accepted.append(task)
+    jobs = _build_jobs(spec, catalog)
+    expanders = _bind_expanders(jobs, expander, spec["seed"], workers=workers)
+    accepted, rejected, stats = _run_jobs(
+        jobs,
+        expanders=expanders,
+        persona=persona,
+        catalog=catalog,
+        food_index=food_index,
+        judge=judge,
+        prefix=spec["task_id_prefix"],
+        start_seq=spec["start_seq"],
+        workers=workers,
+    )
 
     review = reviewer(accepted)
     if (
@@ -156,6 +136,10 @@ def run_batch(
             accepted=[],
             rejected=rejected,
             review=review,
+            model_pools=stats["model_pools"],
+            model_accepted=stats["model_accepted"],
+            n_pools=stats["n_pools"],
+            n_candidates=stats["n_candidates"],
         )
 
     payload, path = freeze_tasks(
@@ -173,6 +157,10 @@ def run_batch(
         accepted=accepted,
         rejected=rejected,
         review=review,
+        model_pools=stats["model_pools"],
+        model_accepted=stats["model_accepted"],
+        n_pools=stats["n_pools"],
+        n_candidates=stats["n_candidates"],
     )
 
 
@@ -347,6 +335,17 @@ def _parse_spec(batch_spec: Mapping) -> dict:
     overwrite = batch_spec.get("overwrite", False)
     if not isinstance(overwrite, bool):
         raise ValueError("batch_spec.overwrite must be a bool")
+    prefix = batch_spec.get("task_id_prefix") or "v10"
+    if not isinstance(prefix, str) or not prefix.strip():
+        raise ValueError("batch_spec.task_id_prefix must be a non-empty string")
+    raw_seq = batch_spec.get("start_seq", 1)
+    if raw_seq is None:
+        raw_seq = 1
+    start_seq = int(raw_seq)
+    if start_seq < 1:
+        raise ValueError("batch_spec.start_seq must be >= 1")
+    total_quota = sum(count for _family, count in quotas)
+    model_quotas = _parse_model_quotas(batch_spec.get("model_quotas"), total_quota)
     return {
         "seed": int(batch_spec["seed"]),
         "catalog_sha": str(batch_spec["catalog_sha"]),
@@ -357,12 +356,319 @@ def _parse_spec(batch_spec: Mapping) -> dict:
         "catalog_field": catalog_field,
         "version": version,
         "overwrite": overwrite,
+        "task_id_prefix": prefix.strip(),
+        "start_seq": start_seq,
+        "model_quotas": model_quotas,
     }
 
 
 def _family_seed(seed: int, family: str) -> int:
     # Stable per-family stream so adding a family does not reshuffle another.
     return seed + (sum(ord(ch) for ch in family) * 1_000_003)
+
+
+@dataclass
+class _PoolJob:
+    family: str
+    pool: object
+    model: str | None
+    index: int
+
+
+@dataclass
+class _CandOut:
+    query: str
+    family: str
+    task: Task | None
+    resolve_reason: Rejected | None
+    key: tuple[str, ...] | None
+    implausible: bool
+    draft_fail: bool
+
+
+@dataclass
+class _PoolOut:
+    family: str
+    pool_id: str
+    model: str | None
+    schema_reject: bool
+    cands: list[_CandOut]
+
+
+def _parse_model_quotas(
+    raw: object, total_quota: int
+) -> list[tuple[str, int]] | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping) or not raw:
+        raise ValueError("batch_spec.model_quotas must be a non-empty mapping")
+    parsed: list[tuple[str, int]] = []
+    total = 0
+    for model, count in sorted(raw.items()):
+        if not isinstance(model, str) or not model.strip():
+            raise ValueError("batch_spec.model_quotas keys must be model ids")
+        n = int(count)
+        if n < 0:
+            raise ValueError(f"model quota for {model!r} must be >= 0")
+        if n == 0:
+            continue
+        parsed.append((model.strip(), n))
+        total += n
+    if not parsed:
+        raise ValueError("batch_spec.model_quotas must request at least one pool")
+    if total != total_quota:
+        raise ValueError(
+            f"model_quotas sum {total} != family_quotas total {total_quota}"
+        )
+    return parsed
+
+
+def _build_jobs(spec: Mapping, catalog) -> list[_PoolJob]:
+    jobs: list[_PoolJob] = []
+    for family, quota in spec["family_quotas"]:
+        pools = sample_pools(
+            catalog,
+            seed=_family_seed(spec["seed"], family),
+            family=family,
+            n_pools=quota,
+        )
+        for pool in pools:
+            jobs.append(
+                _PoolJob(family=family, pool=pool, model=None, index=len(jobs))
+            )
+    quotas = spec.get("model_quotas")
+    if quotas:
+        assigned: list[str] = []
+        for model, count in quotas:
+            assigned.extend([model] * count)
+        if len(assigned) != len(jobs):
+            raise ValueError(
+                f"model_quotas sum {len(assigned)} != sampled pools {len(jobs)}"
+            )
+        for job, model in zip(jobs, assigned, strict=True):
+            job.model = model
+    return jobs
+
+
+def _bind_expanders(
+    jobs: Sequence[_PoolJob],
+    expander: Expander,
+    seed: int,
+    *,
+    workers: int,
+) -> dict[str | None, Expander]:
+    bound: dict[str | None, Expander] = {None: expander}
+    models = [job.model for job in jobs]
+    if all(model is None for model in models):
+        if (
+            workers > 1
+            and isinstance(expander, LlmExpander)
+            and len(jobs) > 1
+        ):
+            for job in jobs:
+                model = assign_model(job.index, expander._route, seed=expander._seed)
+                job.model = model
+            return _bind_expanders(jobs, expander, seed, workers=1)
+        return bound
+    for model in models:
+        if model is None or model in bound:
+            continue
+        if isinstance(expander, LlmExpander):
+            bound[model] = make_llm_expander(
+                model_route=[model],
+                seed=seed,
+                complete=expander._complete,
+                parse_retries=expander._parse_retries,
+            )
+        else:
+            bound[model] = expander
+    return bound
+
+
+def _expand_one(
+    job: _PoolJob, expander: Expander, persona: str
+) -> tuple[_PoolJob, list]:
+    raw = expander(job.pool, persona=persona, family=job.family)
+    candidates = coerce_candidates(
+        raw, family=job.family, persona=persona, pool_id=job.pool.pool_id
+    )
+    return job, candidates
+
+
+def _finish_one(
+    job: _PoolJob,
+    tagged: Sequence[tuple[object, str]],
+    *,
+    catalog,
+    food_index: Mapping[str, str],
+    judge: Judge,
+) -> _PoolOut:
+    if not tagged:
+        return _PoolOut(
+            family=job.family,
+            pool_id=job.pool.pool_id,
+            model=job.model,
+            schema_reject=True,
+            cands=[],
+        )
+    local_seen: set[tuple[str, ...]] = set()
+    cands: list[_CandOut] = []
+    for candidate, task_id in tagged:
+        before = set(local_seen)
+        task, reason = resolve_candidate(
+            candidate,
+            catalog=catalog,
+            task_id=task_id,
+            seen=local_seen,
+            food_index=food_index,
+        )
+        occupied = local_seen - before
+        key = next(iter(occupied), None)
+        implausible = False
+        draft_fail = False
+        if reason is None and task is not None:
+            if _implausible(task, catalog, judge):
+                implausible = True
+            else:
+                draft_issues = list(validate_draft(task))
+                draft_issues.extend(_composite_draft_issues(task))
+                if draft_issues:
+                    draft_fail = True
+        cands.append(
+            _CandOut(
+                query=candidate.query,
+                family=job.family,
+                task=task,
+                resolve_reason=reason,
+                key=key,
+                implausible=implausible,
+                draft_fail=draft_fail,
+            )
+        )
+    return _PoolOut(
+        family=job.family,
+        pool_id=job.pool.pool_id,
+        model=job.model,
+        schema_reject=False,
+        cands=cands,
+    )
+
+
+def _assign_task_ids(
+    expanded: Sequence[tuple[_PoolJob, list]],
+    *,
+    prefix: str,
+    start_seq: int,
+) -> list[tuple[_PoolJob, list[tuple[object, str]]]]:
+    seq = start_seq
+    planned: list[tuple[_PoolJob, list[tuple[object, str]]]] = []
+    for job, candidates in expanded:
+        tagged: list[tuple[object, str]] = []
+        for candidate in candidates:
+            tagged.append((candidate, f"{prefix}-{job.family}-{seq:04d}"))
+            seq += 1
+        planned.append((job, tagged))
+    return planned
+
+
+def _assemble(
+    pool_outs: Sequence[_PoolOut],
+) -> tuple[list[Task], list[Rejected], dict[str, object]]:
+    seen: set[tuple[str, ...]] = set()
+    accepted: list[Task] = []
+    rejected: list[Rejected] = []
+    model_accepted: dict[str, int] = {}
+    model_pools: dict[str, list[str]] = {}
+    n_candidates = 0
+    for pool_out in pool_outs:
+        if pool_out.model is not None:
+            model_pools.setdefault(pool_out.model, []).append(pool_out.pool_id)
+        if pool_out.schema_reject:
+            rejected.append(Rejected("", "schema", pool_out.family))
+            continue
+        n_candidates += len(pool_out.cands)
+        for item in pool_out.cands:
+            if item.key is not None:
+                if item.key in seen:
+                    rejected.append(Rejected(item.query, "duplicate", item.family))
+                    continue
+                seen.add(item.key)
+            if item.resolve_reason is not None:
+                rejected.append(item.resolve_reason)
+                continue
+            if item.implausible:
+                rejected.append(Rejected(item.query, "implausible", item.family))
+                continue
+            if item.draft_fail:
+                rejected.append(Rejected(item.query, "validate_draft", item.family))
+                continue
+            if item.task is None:
+                rejected.append(Rejected(item.query, "unresolvable", item.family))
+                continue
+            accepted.append(item.task)
+            if pool_out.model is not None:
+                model_accepted[pool_out.model] = model_accepted.get(pool_out.model, 0) + 1
+    return (
+        accepted,
+        rejected,
+        {
+            "model_pools": model_pools,
+            "model_accepted": model_accepted,
+            "n_pools": len(pool_outs),
+            "n_candidates": n_candidates,
+        },
+    )
+
+
+def _run_jobs(
+    jobs: Sequence[_PoolJob],
+    *,
+    expanders: Mapping[str | None, Expander],
+    persona: str,
+    catalog,
+    food_index: Mapping[str, str],
+    judge: Judge,
+    prefix: str,
+    start_seq: int,
+    workers: int,
+) -> tuple[list[Task], list[Rejected], dict[str, object]]:
+    if workers == 1:
+        expanded = [
+            _expand_one(job, expanders[job.model], persona) for job in jobs
+        ]
+        planned = _assign_task_ids(expanded, prefix=prefix, start_seq=start_seq)
+        finished = [
+            _finish_one(
+                job,
+                tagged,
+                catalog=catalog,
+                food_index=food_index,
+                judge=judge,
+            )
+            for job, tagged in planned
+        ]
+        return _assemble(finished)
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        expand_futures = [
+            pool.submit(_expand_one, job, expanders[job.model], persona)
+            for job in jobs
+        ]
+        expanded = [future.result() for future in expand_futures]
+        planned = _assign_task_ids(expanded, prefix=prefix, start_seq=start_seq)
+        finish_futures = [
+            pool.submit(
+                _finish_one,
+                job,
+                tagged,
+                catalog=catalog,
+                food_index=food_index,
+                judge=judge,
+            )
+            for job, tagged in planned
+        ]
+        finished = [future.result() for future in finish_futures]
+    return _assemble(finished)
 
 
 if __name__ == "__main__":
