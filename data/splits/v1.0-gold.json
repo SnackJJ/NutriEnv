@@ -117,7 +117,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Please log 1 fl oz of milk for lunch.",
+      "query": "I drank 1 fl oz of whole milk.",
       "s0": {
         "ledger": [
           {
@@ -425,7 +425,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Evaluate this as my plan: a can of tuna, a cup of rice, and a cup of broccoli.",
+      "query": "Please evaluate my planned meal of a can of tuna, one cup of rice, and one cup of broccoli florets.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -461,8 +461,8 @@
             "grams": 158.0
           },
           {
-            "food_id": "2709614",
-            "grams": 25.0
+            "food_id": "2709643",
+            "grams": 90.0
           }
         ],
         "ledger": "s0",
@@ -470,7 +470,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Submit this as the plan: a cup of tofu, a cup of rice, and a cup of spinach.",
+      "query": "Please evaluate my meal of one cup of firm tofu, one cup of steamed rice, and one cup of broccoli florets.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -480,8 +480,8 @@
           "user_id": "v10-evaluate-0010",
           "windows": {
             "kcal": [
-              150.0,
-              460.0
+              180.0,
+              490.0
             ],
             "protein_g": [
               0.0,
@@ -504,6 +504,10 @@
           {
             "food_id": "2708489",
             "grams": 80.0
+          },
+          {
+            "food_id": "2709215",
+            "grams": 165.0
           }
         ],
         "ledger": "s0",
@@ -511,7 +515,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Evaluate this as my plan: two eggs and a cup of oats.",
+      "query": "I'm planning to have two eggs, a cup of oatmeal, and an apple for breakfast — can you evaluate if this is a good meal?",
       "s0": {
         "ledger": [],
         "profile": {
@@ -521,8 +525,8 @@
           "user_id": "v10-evaluate-0011",
           "windows": {
             "kcal": [
-              290.0,
-              600.0
+              390.0,
+              700.0
             ],
             "protein_g": [
               0.0,
@@ -580,16 +584,16 @@
       "oracle": {
         "last_plan": [
           {
-            "food_id": "2709223",
-            "grams": 150.0
+            "food_id": "171477",
+            "grams": 140.0
           },
           {
-            "food_id": "2707152",
-            "grams": 100.0
+            "food_id": "2709643",
+            "grams": 90.0
           },
           {
-            "food_id": "2709614",
-            "grams": 25.0
+            "food_id": "2709215",
+            "grams": 165.0
           }
         ],
         "ledger": "s0",
@@ -597,7 +601,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Does this work as brunch: a cup of avocado, two eggs, and a cup of spinach?",
+      "query": "Can you evaluate my plan to have 1 cup of chicken, 1 cup of broccoli, and 1 piece of apple?",
       "s0": {
         "ledger": [],
         "profile": {
@@ -607,12 +611,12 @@
           "user_id": "v10-evaluate-0013",
           "windows": {
             "kcal": [
-              230.0,
-              540.0
+              210.0,
+              520.0
             ],
             "protein_g": [
-              0.0,
-              40.0
+              30.0,
+              70.0
             ]
           }
         }
@@ -625,12 +629,16 @@
       "oracle": {
         "last_plan": [
           {
+            "food_id": "2708489",
+            "grams": 80.0
+          },
+          {
             "food_id": "2705385",
             "grams": 244.0
           },
           {
-            "food_id": "2708489",
-            "grams": 56.7
+            "food_id": "2709224",
+            "grams": 126.0
           }
         ],
         "ledger": "s0",
@@ -638,7 +646,7 @@
         "profile": "s0"
       },
       "persona": "gym",
-      "query": "Evaluate this as breakfast: a cup of milk and about 2 ounces of oats.",
+      "query": "Can you evaluate my light training meal of a cup of oatmeal, a cup of milk, and one banana?",
       "s0": {
         "ledger": [],
         "profile": {
@@ -648,8 +656,8 @@
           "user_id": "v10-evaluate-0014",
           "windows": {
             "kcal": [
-              210.0,
-              520.0
+              420.0,
+              730.0
             ],
             "protein_g": [
               0.0,
@@ -786,19 +794,24 @@
         "ledger_tail": [
           {
             "eaten_at": "today-lunch",
-            "food_id": "171986",
-            "grams": 165.0
+            "food_id": "2709383",
+            "grams": 230.0
           },
           {
             "eaten_at": "today-lunch",
-            "food_id": "2709383",
-            "grams": 230.0
+            "food_id": "2705709",
+            "grams": 18.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709643",
+            "grams": 90.0
           }
         ],
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Please log a can of canned tuna, and a piece of baked potato for lunch.",
+      "query": "Log a baked potato with two slices of cheddar cheese and a cup of broccoli florets.",
       "s0": {
         "ledger": [
           {
@@ -963,12 +976,17 @@
             "eaten_at": "today-lunch",
             "food_id": "2708408",
             "grams": 158.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709643",
+            "grams": 90.0
           }
         ],
         "profile": "s0"
       },
       "persona": "gym",
-      "query": "Please log a cup of chicken, and a cup of rice for lunch.",
+      "query": "Log a cup of chicken, a cup of rice, and a cup of broccoli florets.",
       "s0": {
         "ledger": [
           {
@@ -1004,7 +1022,7 @@
       ]
     }
   ],
-  "notes": "v1.0-gold 20-item pilot freeze (seed 20260817; evaluate D4 uses EVALUATE_ROWS fallbacks). Dropped ['v10-log-0007'].",
+  "notes": "v1.0-gold 20-item pilot freeze (seed 20260817; 18/20 live LLM expansions; 2 still-fallback (eval-04, log-m-05)). Dropped ['v10-log-0007'].",
   "sampler_rule_version": "pilot-20-plan-v1",
   "seed": 20260817,
   "version": "v1.0-gold"

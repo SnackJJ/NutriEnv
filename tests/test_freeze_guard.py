@@ -16,7 +16,7 @@ V10 = ROOT / "data/splits/v1.0-gold.json"
 V05 = ROOT / "data/splits/v0.5-gold.json"
 CATALOG_V1 = ROOT / "data/fdc/catalog-v1.sqlite"
 
-V10_SHA256 = "0f463a4585a1630e0a5a44a5b5ff772830627b4a102613d917f07cb4cba558d2"
+V10_SHA256 = "39dc756c7c8ab7986f02e324b7e9e8f7099fcc68aa5b3c07870bf374a8a2c6ac"
 V05_SHA256 = "bb4f246044308670f567c24bc6b099e23f617268b532a088c27187dbda66e520"
 
 

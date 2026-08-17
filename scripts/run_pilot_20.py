@@ -6,14 +6,19 @@ Resolver → Judge → validate_draft → Review harness → Freezer.
 
     .venv/bin/python scripts/run_pilot_20.py --force
     .venv/bin/python scripts/run_pilot_20.py --drop v10-log-0003,v10-eval-0016
+    .venv/bin/python scripts/run_pilot_20.py --rerun-fallbacks --force
 
 A first freeze onto an existing different file needs ``--force``.
 ``--drop`` / ``--replace-slot`` re-freeze with overwrite=True (deliberate rewrite).
+``--rerun-fallbacks --force`` re-expands evaluate-row / fallback-table slots
+with the live multi-model expander (no table-phrase fallback) and rewrites
+the published exam. Already-LLM KEEP items stay byte-identical.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -75,6 +80,8 @@ EXPECTED_CATALOG_SHA = (
 )
 EXPAND_TIMEOUT = 120.0
 MODEL_FAIL_LIMIT = 2
+RERUN_RETRIES = 5
+FALLBACK_MODEL_IDS = frozenset({"evaluate-row", "fallback-table", "fallback"})
 
 # Deterministic filler list for ~8-food meal pools. All have speakable keys.
 FILLER_FOODS: tuple[str, ...] = (
@@ -101,9 +108,9 @@ FILLER_FOODS: tuple[str, ...] = (
     "whole_wheat_bread",
 )
 
-# Evaluate items cannot be LLM-authored: validate_draft D4 requires the query
-# to match a realizations EVALUATE_ROWS row exactly. Fallbacks are rows that
-# pass validate_draft + validate_oracle_grams against catalog-v1.
+# First-freeze evaluate seeds (EVALUATE_ROWS). R1 made D4 semantic, so
+# --rerun-fallbacks re-expands these slots with the live expander; the
+# row fallback remains only if every live retry fails.
 EVALUATE_FALLBACKS: tuple[str, ...] = (
     "ev-tuna-rice",
     "ev-tofu-rice",
@@ -147,6 +154,44 @@ class ItemMeta:
     fallback: bool
     foods: list[dict]
     query: str
+
+
+def is_fallback_model(model: object) -> bool:
+    return str(model or "") in FALLBACK_MODEL_IDS
+
+
+def fallback_meta_rows(state: Mapping) -> list[dict]:
+    return [
+        dict(row)
+        for row in (state.get("meta") or [])
+        if isinstance(row, Mapping) and is_fallback_model(row.get("model"))
+    ]
+
+
+def snapshot_keep_items(state: Mapping) -> dict[str, dict]:
+    """Deep-copy payload items whose expander model is a real model id."""
+    fallback_ids = {str(row.get("task_id")) for row in fallback_meta_rows(state)}
+    keep: dict[str, dict] = {}
+    for item in state.get("payload", {}).get("items") or []:
+        if not isinstance(item, Mapping):
+            continue
+        item_id = str(item.get("id") or "")
+        if item_id and item_id not in fallback_ids:
+            keep[item_id] = json.loads(json.dumps(item))
+    return keep
+
+
+def restore_keep_items(payload: Mapping, keep_items: Mapping[str, Mapping]) -> dict:
+    """Put KEEP item dicts back so a freeze round-trip cannot rewrite them."""
+    items = []
+    for item in payload.get("items") or []:
+        if not isinstance(item, Mapping):
+            continue
+        item_id = str(item.get("id") or "")
+        items.append(dict(keep_items[item_id]) if item_id in keep_items else dict(item))
+    out = dict(payload)
+    out["items"] = items
+    return out
 
 
 def build_pool_plan() -> tuple[SlotPlan, ...]:
@@ -1085,6 +1130,23 @@ def render_report(state: Mapping) -> str:
     if disabled:
         lines.append("")
         lines.append(f"Routed around mid-run: {', '.join(disabled)}.")
+    n_eval = int(accepted_m.get("evaluate-row", 0) or 0)
+    n_table = int(accepted_m.get("fallback-table", 0) or 0) + int(
+        accepted_m.get("fallback", 0) or 0
+    )
+    n_llm = int(state.get("n_accepted") or 0) - n_eval - n_table
+    lines.extend(
+        [
+            "",
+            "### Notes / provenance",
+            "",
+            f"{n_llm}/20 items are live LLM expansions; "
+            f"{n_eval} still `evaluate-row`; {n_table} still `fallback-table`.",
+        ]
+    )
+    rerun = state.get("rerun") or {}
+    if rerun:
+        lines.extend(_render_rerun_section(state, rerun))
     lines.extend(
         [
             "",
@@ -1221,20 +1283,26 @@ def render_report(state: Mapping) -> str:
             "",
             "## D4 / evaluate",
             "",
-            "`validate_draft` still requires evaluate queries to match an "
-            "`EVALUATE_ROWS` row (D4). Live expander queries therefore fail "
-            "that gate and the pilot accepts the planned realization-row "
-            "fallback. Resolver / Judge / `validate_oracle_grams` / review "
-            "still run on the accepted evaluate items.",
+            "R1 changed `_validate_evaluate` to semantic gram backresolve: "
+            "each plan item's grams must match a catalog PortionFact multiple "
+            "(or a spoken gram amount in the query), and each food must be "
+            "named. Evaluate queries no longer need to verbatim-match "
+            "`EVALUATE_ROWS`. `--rerun-fallbacks` re-expands former "
+            "evaluate-row / fallback-table slots with the live expander "
+            "under this gate.",
             "",
             "## Re-freeze",
             "",
             "```",
+            ".venv/bin/python scripts/run_pilot_20.py --rerun-fallbacks --force",
             ".venv/bin/python scripts/run_pilot_20.py --drop <id,...>",
+            ".venv/bin/python scripts/run_pilot_20.py --replace-slot <slot> --replace-id <id>",
             "```",
             "",
-            "Reads `reports/pilot-20-state.json`, drops those ids, rewrites "
-            "`data/splits/v1.0-gold.json` and this report. No network.",
+            "`--rerun-fallbacks --force` rewrites the published exam "
+            "(R2 overwrite guard passed explicitly). `--drop` / "
+            "`--replace-slot` also rewrite with `overwrite=True`. "
+            "Reads `reports/pilot-20-state.json`.",
             "",
             "## Landing / exam switch",
             "",
@@ -1247,7 +1315,113 @@ def render_report(state: Mapping) -> str:
             "",
         ]
     )
+    verification = state.get("verification")
+    if verification:
+        lines.extend(["", "## Verification (10c)", "", str(verification).rstrip(), ""])
+    freeze_sha = state.get("freeze_sha256")
+    if freeze_sha:
+        lines.extend(
+            [
+                "",
+                f"Freeze sha256 of `data/splits/v1.0-gold.json`: `{freeze_sha}`.",
+                "",
+            ]
+        )
     return "\n".join(lines) + "\n"
+
+
+def _render_rerun_section(state: Mapping, rerun: Mapping) -> list[str]:
+    lines = [
+        "",
+        "## Rerun fallbacks (issue 10c)",
+        "",
+        "Live multi-model expander, no table-phrase / evaluate-row fallback. "
+        f"Bounded retries per slot: {rerun.get('retries', RERUN_RETRIES)}. "
+        "KEEP (already-LLM) items were not re-expanded.",
+        "",
+        f"- replaced: {rerun.get('n_replaced', 0)}",
+        f"- still-fallback: {rerun.get('n_still_fallback', 0)}",
+    ]
+    still = rerun.get("still_fallback_slots") or []
+    if still:
+        lines.append(f"- still-fallback slots: {', '.join(str(item) for item in still)}")
+    disabled = rerun.get("disabled_models") or []
+    if disabled:
+        lines.append(f"- routed around: {', '.join(str(item) for item in disabled)}")
+    lines.extend(
+        [
+            "",
+            "| slot | id | previous | model | fallback | review | query |",
+            "|---|---|---|---|---|---|---|",
+        ]
+    )
+    for row in rerun.get("slots") or []:
+        query = str(row.get("query") or "").replace("|", "/")
+        lines.append(
+            f"| {row.get('slot_id')} | {row.get('task_id')} | "
+            f"{row.get('previous_model')} | {row.get('model')} | "
+            f"{row.get('fallback')} | {row.get('review_note')} | {query} |"
+        )
+    for row in rerun.get("slots") or []:
+        tries = row.get("attempts") or []
+        if not tries:
+            continue
+        lines.extend(
+            [
+                "",
+                f"Attempts for `{row.get('slot_id')}`:",
+                "",
+                "| attempt model | reason | query |",
+                "|---|---|---|",
+            ]
+        )
+        for attempt in tries:
+            lines.append(
+                f"| {attempt.get('model')} | {attempt.get('reason')} | "
+                f"{(attempt.get('query') or '').replace('|', '/')} |"
+            )
+    new_ids = {
+        str(row.get("task_id"))
+        for row in (rerun.get("slots") or [])
+        if row.get("accepted")
+    }
+    anomalies = [
+        row
+        for row in ((state.get("review") or {}).get("anomalies") or [])
+        if str(row.get("id")) in new_ids
+    ]
+    lines.extend(
+        [
+            "",
+            "### New-item review anomalies (人审 input)",
+            "",
+            "Freeze first with flags. Main agent may `--drop` / `--replace-slot` afterwards.",
+            "",
+        ]
+    )
+    if not new_ids:
+        lines.append("No new LLM items this rerun.")
+        return lines
+    if not anomalies:
+        lines.append("No anomalies flagged on the new items.")
+        return lines
+    per = ((state.get("review") or {}).get("per_candidate") or {})
+    lines.append("| id | reasons | scores | query |")
+    lines.append("|---|---|---|---|")
+    meta_by_id = {item.get("task_id"): item for item in (state.get("meta") or [])}
+    for row in anomalies:
+        reasons_s = ", ".join(str(item) for item in (row.get("reasons") or []))
+        detail = per.get(row.get("id")) or {}
+        aggregate = detail.get("aggregate") or {}
+        scores = (
+            f"c={aggregate.get('consistency')} n={aggregate.get('naturalness')} "
+            f"e={aggregate.get('entailment')} disagree={aggregate.get('disagreement')}"
+        )
+        query = (meta_by_id.get(row.get("id")) or {}).get("query") or ""
+        lines.append(
+            f"| {row.get('id')} | {reasons_s} | {scores} | {str(query).replace('|', '/')} |"
+        )
+    return lines
 
 
 def apply_drop(state: dict, dropped: Sequence[str]) -> dict:
@@ -1480,6 +1654,313 @@ def _replace_hint(slot: SlotPlan, pool: FoodPool) -> str:
     return _meal_hint()
 
 
+def _rerun_hint(slot: SlotPlan, pool: FoodPool) -> str:
+    if slot.kind == "single":
+        hint = _single_hint(slot, pool)
+        if slot.target_key == "fl_oz":
+            return (
+                hint
+                + " Prefer spoken forms like '1 fl oz', 'a fluid ounce', "
+                "or 'one fluid ounce'. Do not use cup, glass, or carton."
+            )
+        return hint
+    if slot.family == "evaluate":
+        return (
+            "Constraint: pick 2 or 3 foods that form one plausible meal. "
+            "Name every chosen food in the query. Use handbook measures "
+            "(cup, piece, slice, tbsp, tsp, can, serving, grams, ounces). "
+            "Write one natural evaluate/plan sentence."
+        )
+    return _meal_hint()
+
+
+def _replace_item(items: Sequence[Mapping], task_id: str, new_item: Mapping) -> list[dict]:
+    out: list[dict] = []
+    replaced = False
+    for item in items:
+        if str(item.get("id")) == task_id:
+            out.append(dict(new_item))
+            replaced = True
+        else:
+            out.append(dict(item))
+    if not replaced:
+        return _insert_item(out, dict(new_item), task_id)
+    return out
+
+
+def _replace_meta(meta: Sequence[Mapping], task_id: str, new_row: Mapping) -> list[dict]:
+    out = [dict(row) for row in meta if str(row.get("task_id")) != task_id]
+    insert_at = next(
+        (index for index, row in enumerate(out) if str(row.get("task_id") or "") > task_id),
+        len(out),
+    )
+    out.insert(insert_at, dict(new_row))
+    return out
+
+
+def _merge_slot_review(state: dict, task_id: str, review: Mapping) -> None:
+    review_state = dict(state.get("review") or {})
+    anomalies = [
+        dict(row)
+        for row in (review_state.get("anomalies") or [])
+        if str(row.get("id")) != task_id
+    ]
+    per_candidate = dict(review_state.get("per_candidate") or {})
+    per_candidate.update(review.get("per_candidate") or {})
+    for row in review.get("anomalies") or []:
+        if isinstance(row, Mapping):
+            anomalies.append(dict(row))
+    anomalies.sort(key=lambda row: str(row.get("id") or ""))
+    review_state["anomalies"] = anomalies
+    review_state["per_candidate"] = per_candidate
+    state["review"] = review_state
+
+
+def _try_live_slot(
+    runner: PilotRunner,
+    slot: SlotPlan,
+    *,
+    task_id: str,
+    retries: int,
+    seed_offset: int,
+) -> tuple[Task | None, str | None, list[dict[str, str]]]:
+    """Live expander for one slot. No table-phrase / evaluate-row fallback."""
+    pool = build_pool(runner.catalog, slot)
+    hint = _rerun_hint(slot, pool)
+    attempts: list[dict[str, str]] = []
+    for attempt in range(max(1, retries)):
+        route = runner._active_route()
+        model_id = assign_model(attempt, route, seed=SEED + seed_offset)
+        print(f"  attempt {attempt + 1}/{retries} model={model_id}")
+        try:
+            payload = _expand_live(
+                pool,
+                persona=slot.persona,
+                family=slot.family,
+                model_id=model_id,
+                hint=hint,
+            )
+            runner.produced[model_id] += 1
+        except Exception as exc:
+            runner._mark_fail(model_id)
+            attempts.append(
+                {
+                    "model": model_id,
+                    "query": "",
+                    "reason": f"expander_error:{type(exc).__name__}",
+                }
+            )
+            print(f"    expander raised: {exc}")
+            continue
+        query = str(payload.get("query") or "")
+        if awkward_query(query):
+            attempts.append({"model": model_id, "query": query, "reason": "awkward_query"})
+            print(f"    rejected awkward query: {query!r}")
+            continue
+        task, reason = runner._try_payload(
+            payload, slot=slot, task_id=task_id, model_id=model_id
+        )
+        if task is None:
+            attempts.append(
+                {"model": model_id, "query": query, "reason": reason or "rejected"}
+            )
+            print(f"    gate reject: {reason}")
+            continue
+        if awkward_query(task.query):
+            food_key = tuple(sorted(item["food_id"] for item in task_foods(task)))
+            runner.seen.discard(food_key)
+            attempts.append(
+                {"model": model_id, "query": task.query, "reason": "awkward_query"}
+            )
+            print(f"    rejected awkward resolved query: {task.query!r}")
+            continue
+        attempts.append(
+            {"model": model_id, "query": task.query, "reason": "accepted"}
+        )
+        return task, model_id, attempts
+    return None, None, attempts
+
+
+def rerun_fallback_slots(
+    state: dict,
+    *,
+    catalog,
+    retries: int = RERUN_RETRIES,
+) -> dict:
+    """Re-expand fallback slots with the live expander. KEEP items untouched.
+
+    Review flags are collected and do not block the freeze. A slot that
+    fails every retry keeps its previous fallback item (honest disclosure).
+    """
+    from nutrienv.bench.pipeline.freezer import task_to_item
+
+    targets = fallback_meta_rows(state)
+    if not targets:
+        print("no fallback slots to rerun")
+        state["rerun"] = {
+            "mode": "fallbacks",
+            "retries": retries,
+            "slots": [],
+            "n_replaced": 0,
+            "n_still_fallback": 0,
+            "still_fallback_slots": [],
+            "keep_ids": sorted(snapshot_keep_items(state)),
+            "disabled_models": [],
+        }
+        return state
+
+    keep_ids = {
+        str(row.get("task_id"))
+        for row in (state.get("meta") or [])
+        if not is_fallback_model(row.get("model"))
+    }
+    plan_by_id = {slot.slot_id: slot for slot in build_pool_plan()}
+    keep_payload = [
+        item
+        for item in (state["payload"].get("items") or [])
+        if str(item.get("id")) in keep_ids
+    ]
+    runner = PilotRunner(catalog=catalog, synthetic=False)
+    runner.seen = _food_sets_from_payload(keep_payload)
+    outcomes: list[dict] = []
+
+    for index, row in enumerate(targets):
+        slot_id = str(row.get("slot_id") or "")
+        task_id = str(row.get("task_id") or "")
+        previous_model = str(row.get("model") or "")
+        slot = plan_by_id.get(slot_id)
+        if slot is None:
+            raise SystemExit(f"unknown rerun slot {slot_id!r}")
+        print(f"[rerun {slot_id} {task_id}] previous={previous_model}")
+        task, model_id, attempts = _try_live_slot(
+            runner,
+            slot,
+            task_id=task_id,
+            retries=retries,
+            seed_offset=20_000 + index * 31,
+        )
+        if task is None or model_id is None:
+            old_item = next(
+                (
+                    item
+                    for item in (state["payload"].get("items") or [])
+                    if str(item.get("id")) == task_id
+                ),
+                None,
+            )
+            if old_item:
+                runner.seen |= _food_sets_from_payload([old_item])
+            outcomes.append(
+                {
+                    "slot_id": slot_id,
+                    "task_id": task_id,
+                    "previous_model": previous_model,
+                    "model": previous_model,
+                    "fallback": True,
+                    "accepted": False,
+                    "attempts": attempts,
+                    "review_note": "all_retries_failed",
+                    "query": row.get("query"),
+                }
+            )
+            print(f"  STILL-FALLBACK {slot_id} after {retries} retries")
+            continue
+
+        review: dict[str, object] = {}
+        review_note = "review_skipped"
+        try:
+            print(f"  reviewing {task.id} …")
+            review = dict(make_reviewer()([task]))
+            _ok, review_note = review_admissible(review, task.id)
+        except Exception as exc:
+            review_note = f"review_error:{type(exc).__name__}"
+            print(f"  review raised: {exc}")
+
+        new_item = task_to_item(task)
+        state["payload"]["items"] = _replace_item(
+            list(state["payload"].get("items") or []), task_id, new_item
+        )
+        foods = task_foods(task)
+        meta_row = asdict(
+            ItemMeta(
+                task_id=task.id,
+                slot_id=slot.slot_id,
+                family=task.family,
+                persona=task.persona,
+                kind=slot.kind,
+                model=model_id,
+                fallback=False,
+                foods=foods,
+                query=task.query,
+            )
+        )
+        state["meta"] = _replace_meta(list(state.get("meta") or []), task_id, meta_row)
+        _merge_slot_review(state, task_id, review)
+        outcomes.append(
+            {
+                "slot_id": slot_id,
+                "task_id": task.id,
+                "previous_model": previous_model,
+                "model": model_id,
+                "fallback": False,
+                "accepted": True,
+                "attempts": attempts,
+                "review_note": review_note,
+                "query": task.query,
+                "foods": foods,
+            }
+        )
+        print(f"  replaced {task.id} model={model_id} review={review_note}")
+        print(f"  query={task.query!r}")
+
+    produced = dict(state.get("produced_by_model") or {})
+    for model_id, count in runner.produced.items():
+        produced[model_id] = int(produced.get(model_id, 0)) + int(count)
+    state["produced_by_model"] = produced
+    state["accepted_by_model"] = dict(
+        Counter(str(row.get("model")) for row in (state.get("meta") or []))
+    )
+    state["accepted_ids"] = [row["task_id"] for row in state["meta"]]
+    state["n_accepted"] = len(state["payload"]["items"])
+    still = [row["slot_id"] for row in outcomes if row.get("fallback")]
+    state["rerun"] = {
+        "mode": "fallbacks",
+        "retries": retries,
+        "slots": outcomes,
+        "n_replaced": sum(1 for row in outcomes if row.get("accepted")),
+        "n_still_fallback": len(still),
+        "still_fallback_slots": still,
+        "keep_ids": sorted(keep_ids),
+        "disabled_models": sorted(runner.disabled),
+    }
+    if runner.disabled:
+        state["disabled_models"] = sorted(
+            set(state.get("disabled_models") or []) | set(runner.disabled)
+        )
+    n_llm = sum(
+        1 for row in state["meta"] if not is_fallback_model(row.get("model"))
+    )
+    n_fb = sum(1 for row in state["meta"] if is_fallback_model(row.get("model")))
+    payload = dict(state["payload"])
+    extra = (
+        f"; {n_fb} still-fallback ({', '.join(still)})" if n_fb else ""
+    )
+    payload["notes"] = (
+        f"{PIPELINE_VERSION} 20-item pilot freeze (seed {SEED}; "
+        f"{n_llm}/20 live LLM expansions{extra}). Dropped ['v10-log-0007']."
+    )
+    state["payload"] = payload
+    return state
+
+
+def write_freeze_payload(payload: Mapping, output_path: Path) -> str:
+    """Write a already-assembled freeze payload. Returns sha256 hex."""
+    blob = json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(blob, encoding="utf-8")
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
 def refreeze_from_state(state: dict, *, catalog, output_path: Path) -> dict:
     from nutrienv.bench.split import load_exam
 
@@ -1561,6 +2042,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="offline path: table phrases + EVALUATE_ROWS, no live LLM",
     )
     parser.add_argument(
+        "--rerun-fallbacks",
+        action="store_true",
+        help=(
+            "re-expand slots whose current model is evaluate-row / "
+            "fallback-table / fallback with the live multi-model expander "
+            "(no table-phrase fallback). Requires --force. KEEP items stay "
+            "byte-identical; a hard-failing slot keeps its previous item."
+        ),
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="overwrite an existing freeze when the new payload would differ",
@@ -1580,6 +2071,51 @@ def main(argv: list[str] | None = None) -> int:
     catalog = load_catalog(catalog_path)
     digest = catalog_digest(catalog)
     print(f"catalog-v1 sha256={digest}")
+
+    if args.rerun_fallbacks:
+        if not args.force:
+            raise SystemExit(
+                "--rerun-fallbacks rewrites the published exam; pass --force"
+            )
+        state_path = _ROOT / STATE_RELPATH
+        if not state_path.is_file():
+            raise SystemExit(f"missing state file {state_path}; run the pilot first")
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        keep_items = snapshot_keep_items(state)
+        print(
+            f"rerun-fallbacks: {len(fallback_meta_rows(state))} slots, "
+            f"{len(keep_items)} KEEP items"
+        )
+        state = rerun_fallback_slots(
+            state,
+            catalog=catalog,
+            retries=RERUN_RETRIES,
+        )
+        state = refreeze_from_state(state, catalog=catalog, output_path=args.output)
+        state["payload"] = restore_keep_items(state["payload"], keep_items)
+        for item_id, original in keep_items.items():
+            current = next(
+                (
+                    item
+                    for item in state["payload"]["items"]
+                    if str(item.get("id")) == item_id
+                ),
+                None,
+            )
+            if current != original:
+                raise SystemExit(f"KEEP item {item_id} drifted after re-freeze")
+        digest = write_freeze_payload(state["payload"], args.output)
+        state["freeze_sha256"] = digest
+        state["path"] = str(args.output)
+        _write_json(state_path, state)
+        (_ROOT / REPORT_RELPATH).write_text(render_report(state), encoding="utf-8")
+        n_ok = (state.get("rerun") or {}).get("n_replaced", 0)
+        n_still = (state.get("rerun") or {}).get("n_still_fallback", 0)
+        print(
+            f"re-froze {args.output}: {state['n_accepted']} items "
+            f"(replaced {n_ok}, still-fallback {n_still}, sha256={digest})"
+        )
+        return 0
 
     if args.drop or args.replace_slot:
         state_path = _ROOT / STATE_RELPATH
