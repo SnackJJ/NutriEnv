@@ -10,40 +10,26 @@ Run:  .venv/bin/python scripts/portion_judge_probe.py
 
 from __future__ import annotations
 
-import json
-import os
 import re
 import sys
 import time
-import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from nutrienv.io.chat import DEEPSEEK_CHAT_URL  # noqa: E402
+from nutrienv.bench.grams_gate import (  # noqa: E402
+    DEFAULT_THRESHOLD,
+    MODEL,
+    call_judge,
+    parse_verdict,
+)
 from nutrienv.io.dotenv import load_dotenv_keys  # noqa: E402
 
 load_dotenv_keys(ROOT / ".env.local")
 
-MODEL = "deepseek-v4-flash"
 K = 5                 # judge calls per case
-TEMPERATURE = 0.7
-THRESHOLD = 0.6       # fraction of "ok" needed to accept a gram value
-
-JUDGE_SYSTEM = """You are a nutritionist auditing a food diary for plausible
-portion amounts. A user wrote the diary entry below. Judge whether the stated
-amount in grams is a plausible portion of that food that a real person would
-actually eat in one sitting or one meal. Use your knowledge of typical food
-portions.
-
-- "ok" = the amount is within a normal, believable range for that food.
-- "suspect" = the amount looks implausibly small or implausibly large — more
-  like a data-entry error, a unit mix-up (e.g. ounces written as grams), or a
-  fraction of the food than a real portion.
-
-Answer with a single JSON object and nothing else:
-{"verdict": "ok" or "suspect", "reason": "<one short sentence>"}"""
+THRESHOLD = DEFAULT_THRESHOLD  # fraction of "ok" needed to accept a gram value
 
 # (case_id, food, grams, expected_ok, note)  — expected from FNDDS QNS + sanity.
 CASES = [
@@ -63,42 +49,6 @@ CASES = [
     ("rice-300",   "cooked white rice", 300.0, True, "~2 cups of rice"),
     ("rice-2000",  "cooked white rice", 2000.0, False, "~12 cups of rice"),
 ]
-
-
-def call_judge(food: str, grams: float) -> str:
-    payload = {
-        "model": MODEL,
-        "messages": [
-            {"role": "system", "content": JUDGE_SYSTEM},
-            {"role": "user", "content": f'Diary entry: "I ate {grams:g} g of {food}."'},
-        ],
-        "temperature": TEMPERATURE,
-        "max_tokens": 120,
-    }
-    req = urllib.request.Request(
-        DEEPSEEK_CHAT_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {os.environ['DEEPSEEK_API_KEY']}",
-        },
-        method="POST",
-    )
-    last: Exception | None = None
-    for attempt in range(3):
-        try:
-            with urllib.request.urlopen(req, timeout=60.0) as resp:
-                body = json.loads(resp.read().decode("utf-8"))
-            return body["choices"][0]["message"]["content"]
-        except Exception as exc:  # noqa: BLE001 - retry network noise
-            last = exc
-            time.sleep(2 ** attempt)
-    raise RuntimeError(f"request failed: {last}")
-
-
-def parse_verdict(text: str) -> str | None:
-    m = re.search(r'"verdict"\s*:\s*"(ok|suspect)"', text, re.I)
-    return m.group(1).lower() if m else None
 
 
 def main() -> None:

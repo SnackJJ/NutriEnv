@@ -25,6 +25,8 @@ __all__ = [
     "parse_verdict",
     "call_judge",
     "judge_once",
+    "sample_verdicts",
+    "accept_from_verdicts",
     "MODEL",
     "TEMPERATURE",
     "MAX_TOKENS",
@@ -120,6 +122,39 @@ def judge_once(
     return None, text
 
 
+def sample_verdicts(
+    food: str,
+    grams: float,
+    *,
+    judge: JudgeFn | None,
+    k: int,
+    parse_retries: int,
+    retry_sleep: float = 0.0,
+    raws: list[str] | None = None,
+) -> list[str]:
+    """Call the judge ``k`` times. Unparseable replies are ``parse_fail``."""
+    verdicts: list[str] = []
+    for _ in range(k):
+        verdict, text = judge_once(
+            food, grams, judge=judge, parse_retries=parse_retries, retry_sleep=retry_sleep
+        )
+        verdicts.append("parse_fail" if verdict is None else verdict)
+        if raws is not None:
+            raws.append(text)
+    return verdicts
+
+
+def accept_from_verdicts(verdicts: list[str], threshold: float) -> bool:
+    """Accept when ok / valid-verdict ratio meets ``threshold``.
+
+    ``parse_fail`` is excluded from the denominator. No valid verdicts
+    means reject.
+    """
+    n_valid = sum(item != "parse_fail" for item in verdicts)
+    ok_frac = (verdicts.count("ok") / n_valid) if n_valid else 0.0
+    return n_valid > 0 and ok_frac >= threshold
+
+
 def _food_label(food_id: str, catalog) -> str:
     entry = catalog.get(food_id)
     if isinstance(entry, dict):
@@ -153,11 +188,5 @@ def plausibility_gate(
         label = food_id
         sample = judge
 
-    verdicts: list[str] = []
-    for _ in range(k):
-        verdict, _raw = judge_once(label, grams, judge=sample, parse_retries=1)
-        verdicts.append("parse_fail" if verdict is None else verdict)
-
-    n_valid = sum(item != "parse_fail" for item in verdicts)
-    ok_frac = (verdicts.count("ok") / n_valid) if n_valid else 0.0
-    return (n_valid > 0 and ok_frac >= threshold), "judge"
+    verdicts = sample_verdicts(label, grams, judge=sample, k=k, parse_retries=1)
+    return accept_from_verdicts(verdicts, threshold), "judge"

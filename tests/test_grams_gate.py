@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from nutrienv.bench.grams_gate import plausibility_gate
+from nutrienv.bench.grams_gate import (
+    accept_from_verdicts,
+    plausibility_gate,
+    sample_verdicts,
+)
 
 
 def _catalog():
@@ -73,3 +77,28 @@ def test_empty_reply_retries_once():
 
     assert plausibility_gate("steak", 30.0, _catalog(), judge=fake, k=1) == (True, "judge")
     assert len(calls) == 2
+
+
+def test_partial_parse_fail_uses_valid_denominator() -> None:
+    verdicts = ["ok", "parse_fail", "ok", "suspect", "parse_fail"]
+    assert accept_from_verdicts(verdicts, 0.6) is True
+    assert accept_from_verdicts(verdicts, 0.7) is False
+
+
+def test_all_parse_fail_rejects() -> None:
+    assert accept_from_verdicts(["parse_fail"] * 5, 0.6) is False
+    assert plausibility_gate(
+        "steak", 30.0, _catalog(), judge=lambda *_: "", k=3
+    ) == (False, "judge")
+
+
+def test_sample_verdicts_calls_judge_k_times() -> None:
+    calls = []
+
+    def fake(_food, _grams):
+        calls.append(1)
+        return "ok"
+
+    verdicts = sample_verdicts("steak", 30.0, judge=fake, k=5, parse_retries=0)
+    assert verdicts == ["ok"] * 5
+    assert len(calls) == 5

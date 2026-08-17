@@ -28,7 +28,8 @@ from nutrienv.bench.grams_gate import (  # noqa: E402
     MAX_TOKENS,
     MODEL,
     TEMPERATURE,
-    judge_once,
+    accept_from_verdicts,
+    sample_verdicts,
 )
 from nutrienv.io.dotenv import load_dotenv_keys  # noqa: E402
 from nutrienv.world.catalog_store import GOLD_CATALOG_PATH, load_catalog  # noqa: E402
@@ -143,17 +144,19 @@ def build_cases(confirmed: dict[str, dict]) -> list[Case]:
 
 
 def run_case(case: Case) -> Result:
-    verdicts: list[str] = []
+    raws: list[str] = []
+    verdicts = sample_verdicts(
+        case.food,
+        case.grams,
+        judge=None,
+        k=K,
+        parse_retries=PARSE_RETRIES,
+        retry_sleep=0.15,
+        raws=raws,
+    )
     reasons: list[str] = []
-    for _ in range(K):
-        verdict, text = judge_once(
-            case.food,
-            case.grams,
-            parse_retries=PARSE_RETRIES,
-            retry_sleep=0.15,
-        )
-        verdicts.append("parse_fail" if verdict is None else verdict)
-        if verdict is not None:
+    for verdict, text in zip(verdicts, raws):
+        if verdict != "parse_fail":
             match = re.search(r'"reason"\s*:\s*"([^"]*)"', text)
             if match:
                 reasons.append(match.group(1))
@@ -165,7 +168,7 @@ def run_case(case: Case) -> Result:
         verdicts=verdicts,
         reasons=reasons,
         ok_frac=ok_frac,
-        accepted=n_valid > 0 and ok_frac >= THRESHOLD,
+        accepted=accept_from_verdicts(verdicts, THRESHOLD),
     )
 
 
