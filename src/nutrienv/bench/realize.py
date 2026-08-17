@@ -51,6 +51,8 @@ __all__ = [
     "material_from_row",
     "spoken_query",
     "iter_realization_rows",
+    "compose_oracles",
+    "scored_oracles",
 ]
 
 
@@ -114,6 +116,9 @@ class Oracle:
     plan_must_fit_windows: bool = False
     allow_empty_plan: bool = False
     plan_windows: dict[str, tuple[float, float]] | None = None
+    # None = single-family oracle (frozen v0.5 / v1.0 path). A non-empty
+    # tuple is a composite container: Scorer judges only the children.
+    sub_oracles: tuple[Oracle, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -304,6 +309,22 @@ def material_from_row(
             allergies=allergies,
         )
     raise TypeError(f"unknown realization row: {type(row)!r}")
+
+
+def scored_oracles(oracle: Oracle) -> tuple[Oracle, ...]:
+    """Oracles the Scorer judges. Composite: the children; else ``(oracle,)``."""
+    if oracle.sub_oracles:
+        return oracle.sub_oracles
+    return (oracle,)
+
+
+def compose_oracles(*oracles: Oracle) -> Oracle:
+    """Wrap N ≥ 2 oracles as a composite container. Parent fields are unused."""
+    if len(oracles) < 2:
+        raise ValueError("compose_oracles requires at least two sub-oracles")
+    if any(child.sub_oracles for child in oracles):
+        raise ValueError("nested sub_oracles are not allowed")
+    return Oracle(sub_oracles=tuple(oracles))
 
 
 def realize(

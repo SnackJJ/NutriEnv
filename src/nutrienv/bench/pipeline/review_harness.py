@@ -426,6 +426,20 @@ def _oracle_pairs(task: Task) -> list[tuple[str, float]]:
     oracle = getattr(task, "oracle", None)
     if oracle is None:
         return []
+    children = getattr(oracle, "sub_oracles", None) or ()
+    oracles = list(children) if children else [oracle]
+    pairs: list[tuple[str, float]] = []
+    seen: set[tuple[str, float]] = set()
+    for item in oracles:
+        for pair in _pairs_from_one(item):
+            if pair in seen:
+                continue
+            seen.add(pair)
+            pairs.append(pair)
+    return pairs
+
+
+def _pairs_from_one(oracle) -> list[tuple[str, float]]:
     tail = getattr(oracle, "ledger_tail", None) or []
     pairs: list[tuple[str, float]] = []
     if tail:

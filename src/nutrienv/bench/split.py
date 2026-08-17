@@ -22,7 +22,7 @@ GOLD_SPLIT_PATH = _ROOT / "data" / "splits" / "v0-gold.json"
 EXAM_SPLIT_PATH = _ROOT / "data" / "splits" / "v1.0-gold.json"
 # load_exam accepts the payload's own version when it is a published exam.
 # v0.5 remains loadable by explicit path; the published default is v1.0.
-_EXAM_VERSIONS = frozenset({"v0.5-gold", "v1.0-gold"})
+_EXAM_VERSIONS = frozenset({"v0.5-gold", "v1.0-gold", "v1.0-composite-sample"})
 
 
 def load_split(path: Path | str | None = None, *, catalog=None) -> list[Task]:
@@ -179,7 +179,7 @@ def _plan_item(value: object, catalog: object) -> dict:
     return item
 
 
-def _oracle(value: object, s0: WorldState, catalog: object) -> Oracle:
+def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool = True) -> Oracle:
     if value is None:
         return Oracle()
     if not isinstance(value, dict):
@@ -243,6 +243,17 @@ def _oracle(value: object, s0: WorldState, catalog: object) -> Oracle:
             str(key): normalize_window(bounds) for key, bounds in raw_windows.items()
         }
 
+    sub_oracles = None
+    sub_raw = value.get("sub_oracles")
+    if sub_raw is not None:
+        if not allow_subs:
+            raise ValueError("nested sub_oracles are not allowed")
+        if not isinstance(sub_raw, list) or len(sub_raw) < 2:
+            raise ValueError("oracle.sub_oracles must be a list of at least 2 oracles")
+        sub_oracles = tuple(
+            _oracle(item, s0, catalog, allow_subs=False) for item in sub_raw
+        )
+
     return Oracle(
         profile=profile,
         last_plan=copy.deepcopy(last_plan) if last_plan is not None else None,
@@ -252,4 +263,5 @@ def _oracle(value: object, s0: WorldState, catalog: object) -> Oracle:
         plan_must_fit_windows=bool(value.get("plan_must_fit_windows", False)),
         allow_empty_plan=bool(value.get("allow_empty_plan", False)),
         plan_windows=plan_windows,
+        sub_oracles=sub_oracles,
     )

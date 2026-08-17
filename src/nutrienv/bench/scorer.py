@@ -6,7 +6,7 @@ import math
 
 from nutrienv.world.types import LedgerRow, Profile, WorldState, normalize_tags
 
-from .realize import Oracle
+from .realize import Oracle, scored_oracles
 
 __all__ = ["Scorer"]
 
@@ -36,6 +36,24 @@ class Scorer:
         if not isinstance(oracle, Oracle):
             raise TypeError("oracle must be an Oracle")
 
+        if oracle.sub_oracles:
+            return self._score_composite(end_state, oracle)
+        return self._score_one(end_state, oracle)
+
+    def _score_composite(self, end_state: WorldState, oracle: Oracle) -> dict:
+        sub_tags: list[str] = []
+        first_fail: str | None = None
+        for sub in scored_oracles(oracle):
+            result = self._score_one(end_state, sub)
+            tag = result["tag"]
+            sub_tags.append(tag)
+            if tag != "pass" and first_fail is None:
+                first_fail = tag
+        if first_fail is None:
+            return _ScoreResult(passed=True, tag="pass", sub_tags=tuple(sub_tags))
+        return _ScoreResult(passed=False, tag=first_fail, sub_tags=tuple(sub_tags))
+
+    def _score_one(self, end_state: WorldState, oracle: Oracle) -> dict:
         if (
             oracle.last_plan is not None
             or oracle.plan_must_be_safe

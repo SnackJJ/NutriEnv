@@ -2,15 +2,25 @@
 
 from __future__ import annotations
 
+import copy
 import re
 from collections.abc import Mapping
+from dataclasses import replace
 
-from nutrienv.bench.realize import FUZZY_DISTRACTORS, GOLD_WINDOWS, Material, realize
+from nutrienv.bench.realize import (
+    FUZZY_DISTRACTORS,
+    GOLD_WINDOWS,
+    Material,
+    Oracle,
+    compose_oracles,
+    realize,
+)
 from nutrienv.bench.realizations import EvaluateRow, MultiItemLogRow
 from nutrienv.world.catalog import canonical_food_id
 from nutrienv.world.portions import resolve_portion
+from nutrienv.world.types import ledger_totals
 
-from .types import Candidate, Rejected
+from .types import COMPOSITE_FAMILY, COMPOSITE_STEPS, Candidate, Rejected
 
 __all__ = ["resolve_candidate"]
 
@@ -49,6 +59,8 @@ def resolve_candidate(
             return None, Rejected(candidate.query, "containment", candidate.family)
 
     key = tuple(sorted(food_id for food_id, _expression, _grams in resolved))
+    if candidate.family == COMPOSITE_FAMILY or len(candidate.steps) > 1:
+        key = ("__composite__",) + key
     if key in seen:
         return None, Rejected(candidate.query, "duplicate", candidate.family)
     seen.add(key)
@@ -165,7 +177,40 @@ def _realize(
         windows=dict(GOLD_WINDOWS),
         ledger=_log_distractor_ledger(_LOG_SLOT),
     )
-    return realize(material, candidate.query, catalog=catalog)
+    task = realize(material, candidate.query, catalog=catalog)
+    if candidate.family == COMPOSITE_FAMILY or len(candidate.steps) > 1:
+        return _attach_recommend(task, candidate)
+    return task
+
+
+def _attach_recommend(task, candidate: Candidate):
+    steps = candidate.steps or COMPOSITE_STEPS
+    if steps != COMPOSITE_STEPS:
+        raise ValueError(f"unsupported composite steps: {steps}")
+    log_oracle = task.oracle
+    tail = list(log_oracle.ledger_tail or [])
+    if not tail:
+        raise ValueError("composite log sub-oracle has no ledger_tail")
+    final_ledger = (*task.s0.ledger, *tail)
+    rec_oracle = Oracle(
+        profile=copy.deepcopy(task.s0.profile),
+        last_plan=[],
+        ledger_tail=list(tail),
+        ledger=final_ledger,
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=_remainder_after(task.s0, tail),
+    )
+    return replace(task, oracle=compose_oracles(log_oracle, rec_oracle))
+
+
+def _remainder_after(s0, extra_rows) -> dict[str, tuple[float, float]]:
+    eaten = ledger_totals([*s0.ledger, *extra_rows], s0.catalog)
+    remain: dict[str, tuple[float, float]] = {}
+    for key, (lo, hi) in s0.profile.windows.items():
+        used = eaten.get(key, 0.0)
+        remain[key] = (round(max(0.0, lo - used), 2), round(max(0.0, hi - used), 2))
+    return remain
 
 
 def _log_distractor_ledger(slot: str) -> tuple[tuple[str, float, str], ...]:

@@ -6,7 +6,9 @@ import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from nutrienv.bench.realize import Task
+from dataclasses import replace
+
+from nutrienv.bench.realize import Oracle, Task, scored_oracles
 from nutrienv.bench.validator import validate_oracle_grams
 
 from .types import (
@@ -35,7 +37,7 @@ def freeze_tasks(
     issues = [
         f"{task.id}: {issue}"
         for task in tasks
-        for issue in validate_oracle_grams(task)
+        for issue in _oracle_gram_issues(task)
     ]
     if issues:
         raise ValueError("oracle grams gate failed:\n" + "\n".join(issues))
@@ -84,21 +86,6 @@ def task_to_item(task: Task) -> dict:
             for item in task.s0.last_plan
         ]
 
-    oracle: dict[str, object] = {"profile": "s0"}
-    if task.family == "evaluate":
-        oracle["last_plan"] = [
-            {"food_id": item["food_id"], "grams": item["grams"]}
-            for item in (task.oracle.last_plan or [])
-        ]
-        oracle["plan_must_fit_windows"] = True
-        oracle["ledger"] = "s0"
-    else:
-        oracle["ledger_tail"] = [
-            {"food_id": row.food_id, "grams": row.grams, "eaten_at": row.eaten_at}
-            for row in (task.oracle.ledger_tail or [])
-        ]
-        oracle["ledger"] = "s0_plus_tail"
-
     return {
         "id": task.id,
         "family": task.family,
@@ -106,5 +93,74 @@ def task_to_item(task: Task) -> dict:
         "situations": list(task.situations),
         "query": task.query,
         "s0": s0,
-        "oracle": oracle,
+        "oracle": _oracle_payload(task.oracle, family=task.family),
     }
+
+
+def _oracle_gram_issues(task: Task) -> list[str]:
+    issues: list[str] = []
+    for oracle in scored_oracles(task.oracle):
+        issues.extend(validate_oracle_grams(replace(task, oracle=oracle)))
+    return issues
+
+
+def _oracle_payload(oracle: Oracle, *, family: str) -> dict[str, object]:
+    if oracle.sub_oracles:
+        return {
+            "profile": "s0",
+            "sub_oracles": [
+                _oracle_payload(sub, family=_sub_family(sub)) for sub in oracle.sub_oracles
+            ],
+        }
+    payload: dict[str, object] = {"profile": "s0"}
+    if family == "evaluate" or (
+        oracle.last_plan is not None and oracle.ledger_tail is None
+    ):
+        payload["last_plan"] = [
+            {"food_id": item["food_id"], "grams": item["grams"]}
+            for item in (oracle.last_plan or [])
+        ]
+        if oracle.plan_must_fit_windows:
+            payload["plan_must_fit_windows"] = True
+        if oracle.plan_must_be_safe:
+            payload["plan_must_be_safe"] = True
+        if oracle.allow_empty_plan:
+            payload["allow_empty_plan"] = True
+        if oracle.plan_windows:
+            payload["plan_windows"] = {
+                key: list(bounds) for key, bounds in oracle.plan_windows.items()
+            }
+        payload["ledger"] = "s0"
+        return payload
+    if oracle.ledger_tail is not None:
+        payload["ledger_tail"] = [
+            {"food_id": row.food_id, "grams": row.grams, "eaten_at": row.eaten_at}
+            for row in oracle.ledger_tail
+        ]
+        payload["ledger"] = "s0_plus_tail"
+    if oracle.last_plan is not None:
+        payload["last_plan"] = [
+            {"food_id": item["food_id"], "grams": item["grams"]}
+            for item in oracle.last_plan
+        ]
+    if oracle.plan_must_be_safe:
+        payload["plan_must_be_safe"] = True
+    if oracle.plan_must_fit_windows:
+        payload["plan_must_fit_windows"] = True
+    if oracle.allow_empty_plan:
+        payload["allow_empty_plan"] = True
+    if oracle.plan_windows:
+        payload["plan_windows"] = {
+            key: list(bounds) for key, bounds in oracle.plan_windows.items()
+        }
+    return payload
+
+
+def _sub_family(oracle: Oracle) -> str:
+    if oracle.last_plan is not None and oracle.ledger_tail is None:
+        return "evaluate" if oracle.last_plan else "recommend"
+    if oracle.last_plan == []:
+        return "recommend"
+    if oracle.last_plan:
+        return "evaluate"
+    return "log"

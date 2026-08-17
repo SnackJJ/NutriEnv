@@ -14,12 +14,17 @@ from nutrienv.bench.realize import Task
 __all__ = [
     "CATALOG_V1_RELPATH",
     "DEFAULT_FREEZE_RELPATH",
+    "DEFAULT_COMPOSITE_SAMPLE_RELPATH",
     "MAX_PER_POOL",
     "PIPELINE_VERSION",
     "POOL_SIZE",
     "QUANTITY_MULTIPLES",
     "SAMPLER_RULE_VERSION",
     "SUPPORTED_FAMILIES",
+    "BASE_EXAM_QUOTA",
+    "COMPOSITE_EXTRA_QUOTA",
+    "COMPOSITE_FAMILY",
+    "COMPOSITE_STEPS",
     "Candidate",
     "Expander",
     "FoodPool",
@@ -36,9 +41,15 @@ SAMPLER_RULE_VERSION = "sampler-v1"
 POOL_SIZE = 8
 MAX_PER_POOL = 3
 QUANTITY_MULTIPLES = (0.5, 1.0, 1.5, 2.0)
-SUPPORTED_FAMILIES = frozenset({"log", "evaluate"})
+SUPPORTED_FAMILIES = frozenset({"log", "evaluate", "composite"})
+# Proposed extra quota (ADR 0013). Not frozen into v1.0-gold.
+BASE_EXAM_QUOTA = 240
+COMPOSITE_EXTRA_QUOTA = 24
+COMPOSITE_FAMILY = "composite"
+COMPOSITE_STEPS = ("log", "recommend")
 CATALOG_V1_RELPATH = "data/fdc/catalog-v1.sqlite"
 DEFAULT_FREEZE_RELPATH = "data/splits/v1.0-gold.json"
+DEFAULT_COMPOSITE_SAMPLE_RELPATH = "data/splits/v1.0-composite-sample.json"
 
 _ROOT = Path(__file__).resolve().parents[4]
 
@@ -73,6 +84,7 @@ class Candidate:
     family: str
     persona: str
     pool_id: str = ""
+    steps: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

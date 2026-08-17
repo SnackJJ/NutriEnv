@@ -14,7 +14,7 @@ from .models import (
     enabled_route,
     parse_model_route,
 )
-from .types import MAX_PER_POOL, Candidate, FoodPool, PoolFood
+from .types import COMPOSITE_FAMILY, COMPOSITE_STEPS, MAX_PER_POOL, Candidate, FoodPool, PoolFood
 
 __all__ = [
     "HANDBOOK_VOCABULARY",
@@ -98,8 +98,14 @@ def synthetic_expander(
         meal = ", and ".join(parts)
     if family == "evaluate":
         query = f"Evaluate this as my plan: {meal}."
-    else:
-        query = f"Please log {meal} for lunch."
+        return {"items": items, "query": query}
+    if family == COMPOSITE_FAMILY:
+        query = (
+            f"Please log {meal} for lunch, then recommend a dinner that fits "
+            "what's left."
+        )
+        return {"items": items, "query": query, "steps": list(COMPOSITE_STEPS)}
+    query = f"Please log {meal} for lunch."
     return {"items": items, "query": query}
 
 
@@ -140,13 +146,35 @@ def _one_candidate(
         items.append((food.strip(), expression.strip()))
     if not items:
         return None
+    steps = _steps_from_payload(payload, family=family)
+    if family == COMPOSITE_FAMILY and steps is None:
+        return None
     return Candidate(
         items=tuple(items),
         query=query.strip(),
         family=family,
         persona=persona,
         pool_id=pool_id,
+        steps=steps or (),
     )
+
+
+def _steps_from_payload(payload: Mapping, *, family: str) -> tuple[str, ...] | None:
+    raw = payload.get("steps")
+    if raw is None:
+        if family == COMPOSITE_FAMILY:
+            return COMPOSITE_STEPS
+        return ()
+    if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
+        return None
+    steps: list[str] = []
+    for item in raw:
+        if not isinstance(item, str) or not item.strip():
+            return None
+        steps.append(item.strip())
+    if family == COMPOSITE_FAMILY and len(steps) < 2:
+        return None
+    return tuple(steps)
 
 
 def _preferred_phrase(food: PoolFood) -> str | None:
@@ -194,6 +222,12 @@ _FAMILY_INSTRUCTION = {
         "Family is evaluate: the user proposes this exact meal as their plan "
         "and wants it assessed. Write one request to evaluate it."
     ),
+    "composite": (
+        "Family is composite: the user already ate this meal AND wants a "
+        "recommendation for what to eat next (typically dinner) that fits "
+        "the remaining daily windows. Write ONE natural-language request "
+        "that does both steps (log, then recommend). Do not leak window numbers."
+    ),
 }
 
 _SCHEMA_BLOCK = """\
@@ -205,6 +239,18 @@ Rules:
 - "food" is a spoken name from the pool (an alias or short name). Never a food_id slug.
 - "expression" is natural user speech using only the allowed vocabulary.
 - "query" is ONE sentence a real person would type. It must mention each chosen food.
+- Do not leak window numbers or answers."""
+
+_COMPOSITE_SCHEMA_BLOCK = """\
+Return exactly one JSON object and nothing else (no markdown, no prose):
+{"items":[{"food":"<spoken name>","expression":"<portion phrase>"}],"query":"<multi-step request>","steps":["log","recommend"]}
+
+Rules:
+- Pick 1-3 foods that form a plausible meal the user already ate.
+- "food" is a spoken name from the pool (an alias or short name). Never a food_id slug.
+- "expression" is natural user speech using only the allowed vocabulary.
+- "query" is what a real person would type: first log the named meal, then ask for a next meal (dinner) that fits what is left of the day. It must mention each chosen food.
+- "steps" must be exactly ["log","recommend"].
 - Do not leak window numbers or answers."""
 
 _VOCAB_BLOCK = """\
@@ -239,6 +285,7 @@ def build_system_prompt(*, persona: str, family: str) -> str:
         if persona == "gym"
         else "Do not use grams or numeric gram amounts; stay on household measures."
     )
+    schema = _COMPOSITE_SCHEMA_BLOCK if family == COMPOSITE_FAMILY else _SCHEMA_BLOCK
     return "\n".join(
         [
             "You compose one plausible meal from a provided food pool and write "
@@ -252,7 +299,7 @@ def build_system_prompt(*, persona: str, family: str) -> str:
             "",
             _FORBID_BLOCK,
             "",
-            _SCHEMA_BLOCK,
+            schema,
         ]
     )
 
@@ -308,7 +355,20 @@ def parse_expander_payload(text: object) -> dict[str, object] | None:
         items.append({"food": food.strip(), "expression": expression.strip()})
     if not items:
         return None
-    return {"items": items, "query": query.strip()}
+    parsed: dict[str, object] = {"items": items, "query": query.strip()}
+    if "steps" in data:
+        raw_steps = data.get("steps")
+        if not isinstance(raw_steps, Sequence) or isinstance(raw_steps, (str, bytes)):
+            return None
+        steps: list[str] = []
+        for step in raw_steps:
+            if not isinstance(step, str) or not step.strip():
+                return None
+            steps.append(step.strip())
+        if len(steps) < 2:
+            return None
+        parsed["steps"] = steps
+    return parsed
 
 
 def _extract_json_object(text: str) -> object | None:
