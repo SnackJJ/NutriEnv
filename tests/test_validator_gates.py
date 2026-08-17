@@ -7,12 +7,8 @@ from dataclasses import replace
 from nutrienv.bench import Generator
 from nutrienv.bench.generator import Oracle, Task
 from nutrienv.bench.realizations import CONSTRAIN_ROWS, EVALUATE_ROWS, UPDATE_ROWS
-from nutrienv.bench.validator import (
-    _any_pair_unsatisfiable,
-    _windows_unsatisfiable,
-    fitting_plan,
-    validate_draft,
-)
+from nutrienv.bench.validator import fitting_plan, validate_draft
+from nutrienv.bench.windows import windows_unsatisfiable
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.types import normalize_tags
 
@@ -509,16 +505,16 @@ def test_declared_update_axes_are_accepted():
 
 def test_windows_unsatisfiable_accepts_any_nutrient_pair():
     catalog = load_catalog()
-    assert _windows_unsatisfiable(
+    assert windows_unsatisfiable(
         {"kcal": (0.0, 50.0), "protein_g": (70.0, 120.0)}, catalog
     )
-    assert _windows_unsatisfiable(
+    assert windows_unsatisfiable(
         {"kcal": (0.0, 200.0), "fiber_g": (90.0, 200.0)},
         catalog,
         floor_nutrient="fiber_g",
         ceiling_nutrient="kcal",
     )
-    assert not _windows_unsatisfiable(
+    assert not windows_unsatisfiable(
         {"kcal": (0.0, 800.0), "fiber_g": (5.0, 40.0)},
         catalog,
         floor_nutrient="fiber_g",
@@ -527,19 +523,19 @@ def test_windows_unsatisfiable_accepts_any_nutrient_pair():
     # Catalog rounding puts soy isolate at 0.275 g protein/kcal and soybean
     # lecithin at 0.131 g fat/kcal. The gate must not trust those: protein
     # cannot exceed 0.25 g/kcal and fat cannot exceed 1/9 g/kcal.
-    assert _windows_unsatisfiable(
+    assert windows_unsatisfiable(
         {"kcal": (0.0, 200.0), "protein_g": (51.0, 80.0)}, catalog
     )
-    assert not _windows_unsatisfiable(
+    assert not windows_unsatisfiable(
         {"kcal": (0.0, 200.0), "protein_g": (49.0, 80.0)}, catalog
     )
-    assert _windows_unsatisfiable(
+    assert windows_unsatisfiable(
         {"kcal": (0.0, 800.0), "fat_g": (90.0, 160.0)},
         catalog,
         floor_nutrient="fat_g",
         ceiling_nutrient="kcal",
     )
-    assert not _windows_unsatisfiable(
+    assert not windows_unsatisfiable(
         {"kcal": (0.0, 800.0), "fat_g": (80.0, 160.0)},
         catalog,
         floor_nutrient="fat_g",

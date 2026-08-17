@@ -21,11 +21,8 @@ from nutrienv.bench.realizations import (
     leftover_key,
     recommend_key,
 )
-from nutrienv.bench.validator import (
-    _any_pair_unsatisfiable,
-    semantic_key,
-    validate_draft,
-)
+from nutrienv.bench.validator import semantic_key, validate_draft
+from nutrienv.bench.windows import any_pair_unsatisfiable
 from nutrienv.bench import Generator
 from nutrienv.bench.generator import Task
 from nutrienv.world.catalog_store import load_catalog
@@ -379,10 +376,10 @@ def test_allergen_conflict_rows_are_infeasible_only_with_the_allergy():
         if row.kind == "conflict" and row.mechanism == "allergen"
     ]
     for row in allergen_rows:
-        assert _any_pair_unsatisfiable(
+        assert any_pair_unsatisfiable(
             row.windows, catalog, row.allergies
         ), row.seed_id
-        assert not _any_pair_unsatisfiable(
+        assert not any_pair_unsatisfiable(
             row.windows, catalog, ()
         ), row.seed_id
 
@@ -494,6 +491,14 @@ def test_log_situation_seeds_change_semantic_key():
         assert Generator().sample(3, situation=situation) == Generator().sample(
             3, situation=situation
         )
+
+
+def test_realizations_source_does_not_import_validator() -> None:
+    import re
+    from pathlib import Path
+
+    source = Path("src/nutrienv/bench/realizations.py").read_text(encoding="utf-8")
+    assert re.search(r"import\s+.*validator", source) is None
 
 
 def test_log_situation_builders_are_table_backed():

@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals
 
+from nutrienv.bench.windows import any_pair_unsatisfiable
+
 __all__ = [
     "FuzzyRow",
     "MultiItemLogRow",
@@ -2471,9 +2473,7 @@ def assert_constrain_rows(catalog) -> None:
         else:
             if not row.last_plan:
                 raise RuntimeError(f"{row.seed_id} conflict row has no violating plan")
-            from nutrienv.bench.validator import _any_pair_unsatisfiable
-
-            if not _any_pair_unsatisfiable(row.windows, catalog, row.allergies):
+            if not any_pair_unsatisfiable(row.windows, catalog, row.allergies):
                 raise RuntimeError(f"{row.seed_id} windows are satisfiable")
         for tag in row.allergies:
             if tag not in tags:
