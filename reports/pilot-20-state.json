@@ -1,9 +1,9 @@
 {
   "accepted_by_model": {
-    "deepseek-v4-flash-0731": 1,
+    "deepseek-v4-flash-0731": 2,
     "deepseek-v4-pro-0813": 2,
     "evaluate-row": 6,
-    "fallback-table": 5,
+    "fallback-table": 4,
     "glm-5.2": 2,
     "kimi-k2.7-code": 1,
     "qwen3.8-2.4t-a95b": 2,
@@ -42,6 +42,9 @@
     "thin": 1
   },
   "disabled_models": [],
+  "dropped": [
+    "v10-log-0007"
+  ],
   "family_counts": {
     "evaluate": 6,
     "log": 14
@@ -49,6 +52,31 @@
   "freeze_sha256": "2af8a24fd21d1cd9ca58fec2662a76e32b8b2a15cccb5f6002184b3dd2d83398",
   "gym_grams_note": "resolve_portion accepts '150 g' / '150 grams', but validate_oracle_grams requires a catalog-v1 PortionFact multiple (×0.5/1/1.5/2, plus 2 oz). Gym items therefore stay on PortionFact keys unless the gram amount is already a table value (e.g. greek yogurt 150 g = qns).",
   "handbook_gaps": [],
+  "human_review": {
+    "summary": "4 flagged → 1 dropped (0007) → 1 regenerated (reuse v10-log-0007). Remaining flags: 0001 / 0006 / 0018 kept.",
+    "verdicts": [
+      {
+        "id": "v10-log-0007",
+        "note": "Ungrammatical 'a piece of eggs' — the defect the review harness should catch. Not gold.",
+        "verdict": "DROP"
+      },
+      {
+        "id": "v10-log-0001",
+        "note": "thick serving is handbook-correct; naturalness=5.0. Low c/e is models reading 'beef' as generic ground beef vs sirloin steak — acceptable ambiguity.",
+        "verdict": "KEEP"
+      },
+      {
+        "id": "v10-log-0006",
+        "note": "Single-model unparseable glitch; other model 5/5/5; natural query.",
+        "verdict": "KEEP"
+      },
+      {
+        "id": "v10-log-0018",
+        "note": "Single-model unparseable glitch; other model 5/5/5; natural multi-food query.",
+        "verdict": "KEEP"
+      }
+    ]
+  },
   "meta": [
     {
       "fallback": false,
@@ -159,20 +187,20 @@
       "task_id": "v10-log-0006"
     },
     {
-      "fallback": true,
+      "fallback": false,
       "family": "log",
       "foods": [
         {
           "food_id": "2707152",
-          "grams": 50.0,
+          "grams": 100.0,
           "key": "piece",
           "name": "Egg, whole, raw"
         }
       ],
       "kind": "single",
-      "model": "fallback-table",
+      "model": "deepseek-v4-flash-0731",
       "persona": "gym",
-      "query": "Please log a piece of eggs for lunch.",
+      "query": "Logged two eggs for my post-workout meal.",
       "slot_id": "log-s-egg",
       "task_id": "v10-log-0007"
     },
@@ -834,13 +862,13 @@
             {
               "eaten_at": "today-lunch",
               "food_id": "2707152",
-              "grams": 50.0
+              "grams": 100.0
             }
           ],
           "profile": "s0"
         },
         "persona": "gym",
-        "query": "Please log a piece of eggs for lunch.",
+        "query": "Logged two eggs for my post-workout meal.",
         "s0": {
           "ledger": [
             {
@@ -1527,7 +1555,7 @@
         ]
       }
     ],
-    "notes": "v1.0-gold 20-item pilot freeze (seed 20260817; evaluate D4 uses EVALUATE_ROWS fallbacks).",
+    "notes": "v1.0-gold 20-item pilot freeze (seed 20260817; evaluate D4 uses EVALUATE_ROWS fallbacks). Dropped ['v10-log-0007'].",
     "sampler_rule_version": "pilot-20-plan-v1",
     "seed": 20260817,
     "version": "v1.0-gold"
@@ -1780,7 +1808,7 @@
     }
   ],
   "produced_by_model": {
-    "deepseek-v4-flash-0731": 3,
+    "deepseek-v4-flash-0731": 4,
     "deepseek-v4-pro-0813": 3,
     "glm-5.2": 3,
     "kimi-k2.7-code": 4,
@@ -1896,6 +1924,28 @@
     "unresolvable": 3,
     "validate_draft": 2
   },
+  "replacement": {
+    "attempts": [
+      {
+        "model": "deepseek-v4-flash-0731",
+        "query": "Logged two eggs for my post-workout meal.",
+        "reason": "accepted:clean"
+      }
+    ],
+    "foods": [
+      {
+        "food_id": "2707152",
+        "grams": 100.0,
+        "key": "piece",
+        "name": "Egg, whole, raw"
+      }
+    ],
+    "model": "deepseek-v4-flash-0731",
+    "query": "Logged two eggs for my post-workout meal.",
+    "review_note": "clean",
+    "slot_id": "log-s-egg",
+    "task_id": "v10-log-0007"
+  },
   "review": {
     "anomalies": [
       {
@@ -1910,12 +1960,6 @@
         "id": "v10-log-0006",
         "reasons": [
           "unparseable"
-        ]
-      },
-      {
-        "id": "v10-log-0007",
-        "reasons": [
-          "disagreement"
         ]
       },
       {
@@ -2241,27 +2285,25 @@
       "v10-log-0007": {
         "aggregate": {
           "consistency": 5.0,
-          "disagreement": 4.0,
+          "disagreement": 0.0,
           "entailment": 5.0,
-          "naturalness": 3.0,
-          "reasons": [
-            "disagreement"
-          ],
+          "naturalness": 5.0,
+          "reasons": [],
           "unparseable": []
         },
-        "anomaly": "disagreement",
+        "anomaly": false,
         "models": {
           "deepseek-v4-flash": {
             "consistency": 5.0,
             "entailment": 5.0,
-            "naturalness": 1.0,
-            "reason": "The query names 'a piece' matching the resolved amount and portion key, but 'a piece of eggs' is unnatural speech."
+            "naturalness": 5.0,
+            "reason": "The query names two eggs, matching the resolved 2 × piece portion exactly."
           },
           "qwen3.7-flash-2026-07-15": {
             "consistency": 5.0,
             "entailment": 5.0,
             "naturalness": 5.0,
-            "reason": "The query naturally requests exactly one piece of egg, aligning perfectly with the resolved portion key and quantity while containing no contradictions."
+            "reason": "The query naturally specifies 'two eggs' which aligns perfectly with the resolved '2 × piece' amount and contains no contradictions."
           }
         }
       },

@@ -311,13 +311,13 @@
           {
             "eaten_at": "today-lunch",
             "food_id": "2707152",
-            "grams": 50.0
+            "grams": 100.0
           }
         ],
         "profile": "s0"
       },
       "persona": "gym",
-      "query": "Please log a piece of eggs for lunch.",
+      "query": "Logged two eggs for my post-workout meal.",
       "s0": {
         "ledger": [
           {
@@ -1004,7 +1004,7 @@
       ]
     }
   ],
-  "notes": "v1.0-gold 20-item pilot freeze (seed 20260817; evaluate D4 uses EVALUATE_ROWS fallbacks).",
+  "notes": "v1.0-gold 20-item pilot freeze (seed 20260817; evaluate D4 uses EVALUATE_ROWS fallbacks). Dropped ['v10-log-0007'].",
   "sampler_rule_version": "pilot-20-plan-v1",
   "seed": 20260817,
   "version": "v1.0-gold"

@@ -56,6 +56,45 @@ def test_pool_plan_is_deterministic_and_covers_keys(catalog_v1) -> None:
             assert row.items
 
 
+def test_awkward_query_rejects_piece_of_eggs() -> None:
+    assert run_pilot_20.awkward_query("Please log a piece of eggs for lunch.")
+    assert not run_pilot_20.awkward_query("Please log two eggs for lunch.")
+    assert not run_pilot_20.awkward_query("Log an egg after the gym.")
+
+
+def test_review_admissible_allows_single_unparseable_555() -> None:
+    clean = {"anomalies": [], "per_candidate": {"t": {"models": {}}}}
+    assert run_pilot_20.review_admissible(clean, "t") == (True, "clean")
+    glitch = {
+        "anomalies": [{"id": "t", "reasons": ["unparseable"]}],
+        "per_candidate": {
+            "t": {
+                "models": {
+                    "a": {
+                        "consistency": None,
+                        "naturalness": None,
+                        "entailment": None,
+                        "unparseable": True,
+                    },
+                    "b": {
+                        "consistency": 5,
+                        "naturalness": 5,
+                        "entailment": 5,
+                    },
+                }
+            }
+        },
+    }
+    ok, note = run_pilot_20.review_admissible(glitch, "t")
+    assert ok is True
+    assert "unparseable" in note
+    bad = {
+        "anomalies": [{"id": "t", "reasons": ["disagreement"]}],
+        "per_candidate": {"t": {"models": {}}},
+    }
+    assert run_pilot_20.review_admissible(bad, "t")[0] is False
+
+
 def test_drop_ids_removes_only_named_items() -> None:
     items = [{"id": "v10-log-0001"}, {"id": "v10-eval-0009"}, {"id": "v10-log-0015"}]
     kept = run_pilot_20.drop_ids(items, ["v10-eval-0009", " missing "])

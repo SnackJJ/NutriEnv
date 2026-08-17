@@ -32,7 +32,7 @@ Deterministic 20-slot table in `scripts/run_pilot_20.py:build_pool_plan`. Single
 ## Throughput
 
 - pools: 20
-- expander candidates produced: 20
+- expander candidates produced: 21
 - accepted: 20
 - family counts: {'evaluate': 6, 'log': 14}
 - persona counts: {'everyday': 14, 'gym': 6}
@@ -52,10 +52,10 @@ Deterministic 20-slot table in `scripts/run_pilot_20.py:build_pool_plan`. Single
 
 | model | produced | accepted |
 |---|---|---|
-| deepseek-v4-flash-0731 | 3 | 1 |
+| deepseek-v4-flash-0731 | 4 | 2 |
 | deepseek-v4-pro-0813 | 3 | 2 |
 | evaluate-row | 0 | 6 |
-| fallback-table | 0 | 5 |
+| fallback-table | 0 | 4 |
 | glm-5.2 | 3 | 2 |
 | kimi-k2.7-code | 4 | 1 |
 | qwen3.8-2.4t-a95b | 4 | 2 |
@@ -71,12 +71,33 @@ The first freeze keeps every gate-passed item. Drop after review with `scripts/r
 |  | scores c=1.0 n=5.0 e=1.0 disagree=0.0 | |
 | v10-log-0006 | unparseable | I had a serving of oatmeal this morning, please log it. |
 |  | scores c=5.0 n=5.0 e=5.0 disagree=0.0 | |
-| v10-log-0007 | disagreement | Please log a piece of eggs for lunch. |
-|  | scores c=5.0 n=3.0 e=5.0 disagree=4.0 | |
 | v10-log-0018 | unparseable | I had two cups of spaghetti with a cup of grilled chicken and a cup of broccoli for dinner. |
 |  | scores c=5.0 n=5.0 e=5.0 disagree=0.0 | |
 
-人审负担: **4** / 20 flagged.
+## Human review (issue 10 人审)
+
+| id | verdict | note |
+|---|---|---|
+| v10-log-0007 | DROP | Ungrammatical 'a piece of eggs' — the defect the review harness should catch. Not gold. |
+| v10-log-0001 | KEEP | thick serving is handbook-correct; naturalness=5.0. Low c/e is models reading 'beef' as generic ground beef vs sirloin steak — acceptable ambiguity. |
+| v10-log-0006 | KEEP | Single-model unparseable glitch; other model 5/5/5; natural query. |
+| v10-log-0018 | KEEP | Single-model unparseable glitch; other model 5/5/5; natural multi-food query. |
+
+4 flagged → 1 dropped (0007) → 1 regenerated (reuse v10-log-0007). Remaining flags: 0001 / 0006 / 0018 kept.
+
+## Replacement
+
+- slot `log-s-egg` → `v10-log-0007` (reused dropped id).
+- query: Logged two eggs for my post-workout meal.
+- foods: Egg, whole, raw [2707152] piece 100.0g
+- expander model: `deepseek-v4-flash-0731`
+- review: clean
+
+| attempt model | reason | query |
+|---|---|---|
+| deepseek-v4-flash-0731 | accepted:clean | Logged two eggs for my post-workout meal. |
+
+人审负担: **3** / 20 still flagged after drop/replace.
 
 ## Final items
 
@@ -90,7 +111,7 @@ Every oracle gram passed `validate_oracle_grams` (freezer gate): each amount is 
 | v10-log-0004 | log | everyday | Soy milk, sweetened [2705404] cup 244.0g | deepseek-v4-pro-0813 | I had a cup of soy milk. |
 | v10-log-0005 | log | everyday | Bread, whole wheat [2707709] slice 24.0g | deepseek-v4-flash-0731 | Log a slice of whole wheat bread. |
 | v10-log-0006 | log | everyday | Oats, raw [2708489] qns 10.0g | glm-5.2 | I had a serving of oatmeal this morning, please log it. |
-| v10-log-0007 | log | gym | Egg, whole, raw [2707152] piece 50.0g | fallback-table | Please log a piece of eggs for lunch. |
+| v10-log-0007 | log | gym | Egg, whole, raw [2707152] piece 100.0g | deepseek-v4-flash-0731 | Logged two eggs for my post-workout meal. |
 | v10-log-0008 | log | gym | Chicken, broilers or fryers, breast, meat only, cooked, roasted [171477] cup 140.0g | qwen3.8-2.4t-a95b | Log a cup of chicken for my training meal. |
 | v10-evaluate-0009 | evaluate | everyday | Fish, tuna, light, canned in water, without salt, drained solids [171986] can 165.0g; Rice, white, cooked, no added fat [2708408] cup 158.0g; Broccoli, raw [2709643] cup 90.0g | evaluate-row | Evaluate this as my plan: a can of tuna, a cup of rice, and a cup of broccoli. |
 | v10-evaluate-0010 | evaluate | everyday | Tofu, firm, prepared with calcium sulfate and magnesium chloride (nigari) [172448] cup 126.0g; Rice, white, cooked, no added fat [2708408] cup 158.0g; Spinach, raw [2709614] cup 25.0g | evaluate-row | Submit this as the plan: a cup of tofu, a cup of rice, and a cup of spinach. |
@@ -144,12 +165,15 @@ Reads `reports/pilot-20-state.json`, drops those ids, rewrites `data/splits/v1.0
 - `scripts/landing_verify.py` keeps the v0.5 old-key / replay / validate_draft / oz checks, then `load_exam` + `validate_draft` the 20 v1.0 items.
 - `_SYSTEM_V1_TAIL` was not changed: every spoken measure in the pilot is already in the v1 handbook.
 
-## Verification
+## Verification (10b)
 
-- `validate_oracle_grams` passed on all 20 (freezer gate).
-- `.venv/bin/python -m pytest -q` → **919 passed**.
-- `.venv/bin/python scripts/landing_verify.py` → **PASS** (v0.5: 0 old-key drifts, 178 replay equal / 0 differ, 240 validate_draft; v1.0: 20 load_exam, 20 validate_draft, 20 oracle grams).
-- `_SYSTEM_V1_TAIL` unchanged.
-- `data/fdc/catalog.sqlite` and `data/splits/v0.5-gold.json` untouched.
+- Dropped `v10-log-0007` ("a piece of eggs"); regenerated the same id via live expander.
+- Replacement: `v10-log-0007` gym / egg / piece / 100 g / `deepseek-v4-flash-0731` / "Logged two eggs for my post-workout meal." / review clean.
+- `load_exam()` → 20 items (14 log / 6 evaluate).
+- Coverage: qns 2, thick 1, thin 1, fl_oz 1, cup 17, slice 4.
+- `.venv/bin/python -m pytest -q` → **921 passed**.
+- `.venv/bin/python scripts/landing_verify.py` → **PASS**.
+- `_SYSTEM_V1_TAIL` unchanged; `catalog.sqlite` and `v0.5-gold.json` untouched.
 
-Freeze sha256 of `data/splits/v1.0-gold.json`: `2af8a24fd21d1cd9ca58fec2662a76e32b8b2a15cccb5f6002184b3dd2d83398`.
+Freeze sha256 of `data/splits/v1.0-gold.json`: `0f463a4585a1630e0a5a44a5b5ff772830627b4a102613d917f07cb4cba558d2`.
+

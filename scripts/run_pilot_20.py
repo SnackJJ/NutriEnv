@@ -14,11 +14,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import traceback
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -451,6 +452,45 @@ def evaluate_row_by_seed(seed_id: str):
         if row.seed_id == seed_id:
             return row
     raise KeyError(f"unknown evaluate seed {seed_id!r}")
+
+
+_AWKWARD_QUERY = (
+    re.compile(r"\bpiece of eggs\b"),
+    re.compile(r"\ba eggs\b"),
+    re.compile(r"\ban eggs\b"),
+    re.compile(r"\bone piece of eggs\b"),
+)
+
+
+def awkward_query(query: str) -> bool:
+    """True when the query has a known ungrammatical piece/egg form."""
+    text = (query or "").lower()
+    return any(pattern.search(text) for pattern in _AWKWARD_QUERY)
+
+
+def review_admissible(review: Mapping, task_id: str) -> tuple[bool, str]:
+    """Accept a clean review, or a single-model unparseable glitch with 5/5/5."""
+    anomalies = list(review.get("anomalies") or [])
+    hit = next((row for row in anomalies if row.get("id") == task_id), None)
+    if hit is None:
+        return True, "clean"
+    reasons = [str(item) for item in (hit.get("reasons") or [])]
+    per = (review.get("per_candidate") or {}).get(task_id) or {}
+    models = per.get("models") or {}
+    parseable = [
+        scores
+        for scores in models.values()
+        if isinstance(scores, Mapping) and not scores.get("unparseable")
+    ]
+    if reasons == ["unparseable"] and parseable:
+        if all(
+            scores.get("consistency") == 5
+            and scores.get("naturalness") == 5
+            and scores.get("entailment") == 5
+            for scores in parseable
+        ):
+            return True, "single-model-unparseable-other-555"
+    return False, ",".join(reasons) or "anomalous"
 
 
 def drop_ids(items: Sequence[Mapping], dropped: Sequence[str]) -> list[dict]:
@@ -1068,10 +1108,53 @@ def render_report(state: Mapping) -> str:
                 )
     else:
         lines.append("No anomalies flagged.")
+    human = state.get("human_review") or {}
+    if human:
+        lines.extend(["", "## Human review (issue 10 人审)", ""])
+        lines.append("| id | verdict | note |")
+        lines.append("|---|---|---|")
+        for row in human.get("verdicts") or []:
+            lines.append(
+                f"| {row.get('id')} | {row.get('verdict')} | {row.get('note')} |"
+            )
+        lines.append("")
+        lines.append(str(human.get("summary") or ""))
+    replacement = state.get("replacement")
+    if replacement:
+        lines.extend(["", "## Replacement", ""])
+        if replacement.get("task_id"):
+            bits = []
+            for food in replacement.get("foods") or []:
+                bits.append(
+                    f"{food.get('name')} [{food.get('food_id')}] "
+                    f"{food.get('key') or '?'} {food.get('grams')}g"
+                )
+            lines.append(
+                f"- slot `{replacement.get('slot_id')}` → `{replacement.get('task_id')}` "
+                f"(reused dropped id)."
+            )
+            lines.append(f"- query: {replacement.get('query')}")
+            lines.append(f"- foods: {'; '.join(bits)}")
+            lines.append(f"- expander model: `{replacement.get('model')}`")
+            lines.append(f"- review: {replacement.get('review_note')}")
+        else:
+            lines.append(
+                f"Replacement for `{replacement.get('slot_id')}` failed after "
+                "bounded retries. Freeze stays at the post-drop count."
+            )
+        tries = replacement.get("attempts") or []
+        if tries:
+            lines.append("")
+            lines.append("| attempt model | reason | query |")
+            lines.append("|---|---|---|")
+            for row in tries:
+                lines.append(
+                    f"| {row.get('model')} | {row.get('reason')} | {row.get('query') or ''} |"
+                )
     lines.extend(
         [
             "",
-            f"人审负担: **{len(anomalies)}** / {state.get('n_accepted')} flagged.",
+            f"人审负担: **{len(anomalies)}** / {state.get('n_accepted')} still flagged after drop/replace.",
             "",
             "## Final items",
             "",
@@ -1193,6 +1276,201 @@ def apply_drop(state: dict, dropped: Sequence[str]) -> dict:
     return state
 
 
+def _food_sets_from_payload(items: Sequence[Mapping]) -> set[tuple[str, ...]]:
+    seen: set[tuple[str, ...]] = set()
+    for item in items:
+        ids: list[str] = []
+        oracle = item.get("oracle") or {}
+        if not isinstance(oracle, Mapping):
+            continue
+        for row in oracle.get("ledger_tail") or []:
+            if isinstance(row, Mapping) and row.get("food_id"):
+                ids.append(str(row["food_id"]))
+        for row in oracle.get("last_plan") or []:
+            if isinstance(row, Mapping) and row.get("food_id"):
+                ids.append(str(row["food_id"]))
+        if ids:
+            seen.add(tuple(sorted(ids)))
+    return seen
+
+
+def _item_seq(item_id: str) -> int:
+    tail = str(item_id).rsplit("-", 1)[-1]
+    try:
+        return int(tail)
+    except ValueError:
+        return 10**9
+
+
+def _insert_item(items: list[dict], new_item: dict, task_id: str) -> list[dict]:
+    """Keep the original numeric id order (0006, 0007, 0008, …)."""
+    target = _item_seq(task_id)
+    for index, item in enumerate(items):
+        if _item_seq(str(item.get("id") or "")) > target:
+            return items[:index] + [new_item] + items[index:]
+    return items + [new_item]
+
+
+def replace_dropped_slot(
+    state: dict,
+    *,
+    catalog,
+    slot_id: str,
+    task_id: str,
+    retries: int,
+) -> dict:
+    """Live-expander replacement for one dropped slot. No table-phrase fallback."""
+    from nutrienv.bench.pipeline.freezer import task_to_item
+
+    slot = next((item for item in build_pool_plan() if item.slot_id == slot_id), None)
+    if slot is None:
+        raise SystemExit(f"unknown replace slot {slot_id!r}")
+    runner = PilotRunner(catalog=catalog, synthetic=False)
+    runner.seen = _food_sets_from_payload(state["payload"].get("items") or [])
+    pool = build_pool(catalog, slot)
+    hint = _replace_hint(slot, pool)
+    route = list(enabled_route(DEFAULT_EXPANDER_MODELS))
+    attempts: list[dict[str, str]] = []
+    for attempt in range(retries):
+        model_id = assign_model(attempt, route, seed=SEED + 10_000 + attempt)
+        print(f"[replace {slot_id} {attempt + 1}/{retries}] model={model_id}")
+        try:
+            payload = _expand_live(
+                pool,
+                persona=slot.persona,
+                family=slot.family,
+                model_id=model_id,
+                hint=hint,
+            )
+        except Exception as exc:
+            attempts.append(
+                {"model": model_id, "query": "", "reason": f"expander_error:{type(exc).__name__}"}
+            )
+            print(f"  expander raised: {exc}")
+            continue
+        query = str(payload.get("query") or "")
+        if awkward_query(query):
+            attempts.append({"model": model_id, "query": query, "reason": "awkward_query"})
+            print(f"  rejected awkward query: {query!r}")
+            continue
+        task, reason = runner._try_payload(
+            payload, slot=slot, task_id=task_id, model_id=model_id
+        )
+        if task is None:
+            attempts.append(
+                {"model": model_id, "query": query, "reason": reason or "rejected"}
+            )
+            print(f"  gate reject: {reason}")
+            continue
+        if awkward_query(task.query):
+            food_key = tuple(sorted(item["food_id"] for item in task_foods(task)))
+            runner.seen.discard(food_key)
+            attempts.append(
+                {"model": model_id, "query": task.query, "reason": "awkward_query"}
+            )
+            print(f"  rejected awkward resolved query: {task.query!r}")
+            continue
+        print(f"  reviewing {task.id} …")
+        review = dict(make_reviewer()([task]))
+        ok, note = review_admissible(review, task.id)
+        if not ok:
+            food_key = tuple(sorted(item["food_id"] for item in task_foods(task)))
+            runner.seen.discard(food_key)
+            attempts.append(
+                {"model": model_id, "query": task.query, "reason": f"review:{note}"}
+            )
+            print(f"  review reject: {note}")
+            continue
+        new_item = task_to_item(task)
+        items = list(state["payload"].get("items") or [])
+        state["payload"]["items"] = _insert_item(items, new_item, task_id)
+        foods = task_foods(task)
+        meta_row = asdict(
+            ItemMeta(
+                task_id=task.id,
+                slot_id=slot.slot_id,
+                family=task.family,
+                persona=task.persona,
+                kind=slot.kind,
+                model=model_id,
+                fallback=False,
+                foods=foods,
+                query=task.query,
+            )
+        )
+        meta = list(state.get("meta") or [])
+        meta = [row for row in meta if row.get("task_id") != task_id]
+        insert_at = next(
+            (index for index, row in enumerate(meta) if str(row.get("task_id")) > task_id),
+            len(meta),
+        )
+        meta.insert(insert_at, meta_row)
+        state["meta"] = meta
+        review_state = dict(state.get("review") or {})
+        anomalies = [
+            row
+            for row in (review_state.get("anomalies") or [])
+            if row.get("id") != task_id
+        ]
+        per_candidate = dict(review_state.get("per_candidate") or {})
+        per_candidate.update(review.get("per_candidate") or {})
+        for row in review.get("anomalies") or []:
+            if ok and review_admissible({"anomalies": [row], "per_candidate": per_candidate}, task_id)[0]:
+                # Keep a single-model unparseable glitch visible but noted.
+                if note != "clean":
+                    anomalies.append(row)
+        review_state["anomalies"] = anomalies
+        review_state["per_candidate"] = per_candidate
+        state["review"] = review_state
+        state["accepted_ids"] = [row["task_id"] for row in meta]
+        state["n_accepted"] = len(state["payload"]["items"])
+        state["replacement"] = {
+            "slot_id": slot_id,
+            "task_id": task.id,
+            "query": task.query,
+            "model": model_id,
+            "foods": foods,
+            "review_note": note,
+            "attempts": attempts
+            + [{"model": model_id, "query": task.query, "reason": f"accepted:{note}"}],
+        }
+        produced = dict(state.get("produced_by_model") or {})
+        produced[model_id] = int(produced.get(model_id, 0)) + 1
+        state["produced_by_model"] = produced
+        accepted_m = dict(state.get("accepted_by_model") or {})
+        accepted_m[model_id] = int(accepted_m.get(model_id, 0)) + 1
+        fallback_n = int(accepted_m.get("fallback-table", 0))
+        if fallback_n:
+            accepted_m["fallback-table"] = max(0, fallback_n - 1)
+        state["accepted_by_model"] = accepted_m
+        print(f"  replacement accepted {task.id} model={model_id} note={note}")
+        print(f"  query={task.query!r}")
+        return state
+    state["replacement"] = {
+        "slot_id": slot_id,
+        "task_id": None,
+        "query": None,
+        "model": None,
+        "foods": [],
+        "review_note": "all_retries_failed",
+        "attempts": attempts,
+    }
+    print(f"replacement failed after {retries} attempts; freeze stays at {state['n_accepted']}")
+    return state
+
+
+def _replace_hint(slot: SlotPlan, pool: FoodPool) -> str:
+    if slot.slot_id == "log-s-egg":
+        return (
+            "Constraint: use ONLY egg. The expression MUST use the piece measure "
+            "(example: 'two pieces' or 'a piece'). Write one natural gym-log sentence. "
+            "Never write 'a piece of eggs'. Prefer 'two eggs' or 'an egg' in the query."
+        )
+    if slot.kind == "single":
+        return _single_hint(slot, pool)
+    return _meal_hint()
+
+
 def refreeze_from_state(state: dict, *, catalog, output_path: Path) -> dict:
     from nutrienv.bench.split import load_exam
 
@@ -1252,6 +1530,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="comma-separated task ids to exclude, then re-freeze (no network)",
     )
     parser.add_argument(
+        "--replace-slot",
+        default=None,
+        help="after --drop, regenerate this pool-plan slot with a live expander",
+    )
+    parser.add_argument(
+        "--replace-id",
+        default=None,
+        help="task id for the replacement (default: first dropped id)",
+    )
+    parser.add_argument(
+        "--replace-retries",
+        type=int,
+        default=5,
+        help="bounded live expander retries for --replace-slot (default 5)",
+    )
+    parser.add_argument(
         "--synthetic",
         action="store_true",
         help="offline path: table phrases + EVALUATE_ROWS, no live LLM",
@@ -1272,16 +1566,69 @@ def main(argv: list[str] | None = None) -> int:
     digest = catalog_digest(catalog)
     print(f"catalog-v1 sha256={digest}")
 
-    if args.drop:
+    if args.drop or args.replace_slot:
         state_path = _ROOT / STATE_RELPATH
         if not state_path.is_file():
             raise SystemExit(f"missing state file {state_path}; run the pilot first")
         state = json.loads(state_path.read_text(encoding="utf-8"))
-        state = apply_drop(state, _parse_drop(args.drop))
+        dropped = _parse_drop(args.drop)
+        if dropped:
+            state = apply_drop(state, dropped)
+            print(f"dropped {dropped}; {state['n_accepted']} items remain")
+            if "v10-log-0007" in dropped:
+                state["human_review"] = {
+                    "verdicts": [
+                        {
+                            "id": "v10-log-0007",
+                            "verdict": "DROP",
+                            "note": (
+                                "Ungrammatical 'a piece of eggs' — the defect "
+                                "the review harness should catch. Not gold."
+                            ),
+                        },
+                        {
+                            "id": "v10-log-0001",
+                            "verdict": "KEEP",
+                            "note": (
+                                "thick serving is handbook-correct; naturalness=5.0. "
+                                "Low c/e is models reading 'beef' as generic ground "
+                                "beef vs sirloin steak — acceptable ambiguity."
+                            ),
+                        },
+                        {
+                            "id": "v10-log-0006",
+                            "verdict": "KEEP",
+                            "note": "Single-model unparseable glitch; other model 5/5/5; natural query.",
+                        },
+                        {
+                            "id": "v10-log-0018",
+                            "verdict": "KEEP",
+                            "note": "Single-model unparseable glitch; other model 5/5/5; natural multi-food query.",
+                        },
+                    ],
+                    "summary": (
+                        "4 flagged → 1 dropped (0007) → 1 regenerated (reuse "
+                        "v10-log-0007). Remaining flags: 0001 / 0006 / 0018 kept."
+                    ),
+                }
+        if args.replace_slot:
+            replace_id = args.replace_id or (dropped[0] if dropped else None)
+            if not replace_id:
+                raise SystemExit("--replace-id is required when --drop is omitted")
+            state = replace_dropped_slot(
+                state,
+                catalog=catalog,
+                slot_id=args.replace_slot,
+                task_id=replace_id,
+                retries=max(1, int(args.replace_retries)),
+            )
         state = refreeze_from_state(state, catalog=catalog, output_path=args.output)
         _write_json(state_path, state)
         (_ROOT / REPORT_RELPATH).write_text(render_report(state), encoding="utf-8")
-        print(f"re-froze {args.output}: {state['n_accepted']} items (dropped {state.get('dropped')})")
+        print(
+            f"re-froze {args.output}: {state['n_accepted']} items "
+            f"(dropped {state.get('dropped')})"
+        )
         return 0
 
     runner = PilotRunner(
