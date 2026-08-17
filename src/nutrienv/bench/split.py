@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from pathlib import Path
 
@@ -12,7 +13,7 @@ from nutrienv.world.types import LedgerRow, Profile, WorldState, normalize_tags,
 from .generator import FAMILIES, Oracle, Task
 from .situations import SITUATIONS
 
-__all__ = ["GOLD_SPLIT_PATH", "load_split"]
+__all__ = ["GOLD_SPLIT_PATH", "load_split", "load_exam"]
 
 _ROOT = Path(__file__).resolve().parents[3]
 GOLD_SPLIT_PATH = _ROOT / "data" / "splits" / "v0-gold.json"
@@ -29,6 +30,44 @@ def load_split(path: Path | str | None = None) -> list[Task]:
         raise ValueError("split must contain a non-empty items list")
     catalog = load_catalog()
     return [_item(entry, catalog) for entry in items]
+
+
+def load_exam(path: Path | str | None = None) -> list[Task]:
+    """Load the published 240-item exam. Fail closed on catalog identity.
+
+    Unlike :func:`load_split`, this checks ``version``, a non-empty ``items``
+    list, that the recorded catalog file exists (resolved from the repo root),
+    and that ``sha256(catalog bytes)`` matches ``catalog_sha256``.
+    """
+    target = Path(path) if path is not None else _ROOT / "data" / "splits" / "v0.5-gold.json"
+    if not target.is_file():
+        raise FileNotFoundError(f"exam split not found: {target}")
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("exam payload must be an object")
+    version = payload.get("version")
+    if version != "v0.5-gold":
+        raise ValueError(f"exam version must be 'v0.5-gold', got {version!r}")
+    items = payload.get("items")
+    if not isinstance(items, list) or not items:
+        raise ValueError("exam must contain a non-empty items list")
+    catalog_field = payload.get("catalog")
+    digest_field = payload.get("catalog_sha256")
+    if not isinstance(catalog_field, str) or not catalog_field:
+        raise ValueError("exam catalog field is missing")
+    if not isinstance(digest_field, str) or not digest_field:
+        raise ValueError("exam catalog_sha256 field is missing")
+    catalog_path = Path(catalog_field)
+    if not catalog_path.is_absolute():
+        catalog_path = _ROOT / catalog_field
+    if not catalog_path.is_file():
+        raise FileNotFoundError(f"exam catalog not found: {catalog_path}")
+    digest = hashlib.sha256(catalog_path.read_bytes()).hexdigest()
+    if digest != digest_field:
+        raise ValueError(
+            f"exam catalog sha256 mismatch: file={digest} split={digest_field}"
+        )
+    return load_split(target)
 
 
 def _item(entry: object, catalog: dict) -> Task:
