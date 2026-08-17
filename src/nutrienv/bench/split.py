@@ -13,15 +13,17 @@ from nutrienv.world.types import LedgerRow, Profile, WorldState, normalize_tags,
 from .generator import FAMILIES, Oracle, Task
 from .situations import SITUATIONS
 
-__all__ = ["GOLD_SPLIT_PATH", "load_split", "load_exam"]
+__all__ = ["GOLD_SPLIT_PATH", "EXAM_SPLIT_PATH", "load_split", "load_exam"]
 
 _ROOT = Path(__file__).resolve().parents[3]
+# v0 calibration set, not the published 240-item exam.
 GOLD_SPLIT_PATH = _ROOT / "data" / "splits" / "v0-gold.json"
+EXAM_SPLIT_PATH = _ROOT / "data" / "splits" / "v0.5-gold.json"
 
 
 def load_split(path: Path | str | None = None) -> list[Task]:
     """Read a frozen JSON split and attach the local catalog to every S0."""
-    target = Path(path) if path is not None else GOLD_SPLIT_PATH
+    target = Path(path) if path is not None else EXAM_SPLIT_PATH
     if not target.is_file():
         raise FileNotFoundError(f"split not found: {target}")
     payload = json.loads(target.read_text(encoding="utf-8"))
@@ -39,7 +41,7 @@ def load_exam(path: Path | str | None = None) -> list[Task]:
     list, that the recorded catalog file exists (resolved from the repo root),
     and that ``sha256(catalog bytes)`` matches ``catalog_sha256``.
     """
-    target = Path(path) if path is not None else _ROOT / "data" / "splits" / "v0.5-gold.json"
+    target = Path(path) if path is not None else EXAM_SPLIT_PATH
     if not target.is_file():
         raise FileNotFoundError(f"exam split not found: {target}")
     payload = json.loads(target.read_text(encoding="utf-8"))

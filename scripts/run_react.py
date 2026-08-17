@@ -11,7 +11,7 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT / "src"))
 
-from nutrienv.bench import GOLD_SPLIT_PATH, load_split  # noqa: E402
+from nutrienv.bench import EXAM_SPLIT_PATH, load_split  # noqa: E402
 from nutrienv.harness.react import (  # noqa: E402
     REACT_VERSIONS,
     ReActHarness,
@@ -28,8 +28,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--split",
-        default=str(GOLD_SPLIT_PATH),
-        help="frozen split JSON (default: data/splits/v0-gold.json)",
+        default=str(EXAM_SPLIT_PATH),
+        help="frozen split JSON (default: data/splits/v0.5-gold.json)",
     )
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument(

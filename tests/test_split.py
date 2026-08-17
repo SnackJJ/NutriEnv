@@ -14,6 +14,12 @@ _WINDOW_LEAK = re.compile(r"\b(?:kcal|protein_g|carb_g|fat_g)\s+\d")
 _SLUG = re.compile(r"\b[a-z]+_[a-z0-9_]+\b")
 
 
+def test_load_split_default_is_the_240() -> None:
+    tasks = load_split()
+    assert len(tasks) == 240
+    assert len({task.id for task in tasks}) == 240
+
+
 def test_gold_split_exists_and_loads() -> None:
     tasks = load_split(GOLD_SPLIT_PATH)
     assert 38 <= len(tasks) <= 42

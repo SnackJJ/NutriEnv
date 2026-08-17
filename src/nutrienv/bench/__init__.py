@@ -3,7 +3,7 @@
 from .generator import Generator, Oracle, Task
 from .scorer import Scorer
 from .situations import SITUATIONS, Situation
-from .split import GOLD_SPLIT_PATH, load_exam, load_split
+from .split import EXAM_SPLIT_PATH, GOLD_SPLIT_PATH, load_exam, load_split
 
 __all__ = [
     "Generator",
@@ -13,6 +13,7 @@ __all__ = [
     "Situation",
     "SITUATIONS",
     "GOLD_SPLIT_PATH",
+    "EXAM_SPLIT_PATH",
     "load_split",
     "load_exam",
 ]

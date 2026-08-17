@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from nutrienv import __version__
-from nutrienv.bench import Generator, Scorer, load_split
+from nutrienv.bench import Generator, Scorer, load_exam, load_split
 from nutrienv.env import NutriEnv
 
 from .protocol import Harness, HarnessView
@@ -60,12 +60,14 @@ def run_split(
 ) -> dict:
     """Run a frozen split (or a Generator factory split) and return Pass / pass^k.
 
-    ``k`` independent episodes are run per Task. ``pass_rate`` is the fraction
-    of those episodes that Pass. ``pass_at_k`` (pass@k) is the fraction of
-    Tasks that Pass on at least one of the k episodes. ``pass_k`` (pass^k)
-    is the fraction that Pass on every episode. ``workers`` runs Tasks
-    concurrently (each Task keeps its own Env and harness clone). Published
-    numbers should use a frozen file.
+    With no ``split_path`` and no factory ``seed``/``n``, this loads the
+    published 240-item exam via :func:`load_exam`. ``k`` independent episodes
+    are run per Task. ``pass_rate`` is the fraction of those episodes that
+    Pass. ``pass_at_k`` (pass@k) is the fraction of Tasks that Pass on at
+    least one of the k episodes. ``pass_k`` (pass^k) is the fraction that
+    Pass on every episode. ``workers`` runs Tasks concurrently (each Task
+    keeps its own Env and harness clone). Published numbers should use a
+    frozen file.
 
     ``reset`` receives a :class:`HarnessView` (id, family, persona, situations,
     query) unless ``leak_oracle`` is True, in which case it receives the full
@@ -80,9 +82,11 @@ def run_split(
 
     if split_path is not None:
         tasks = load_split(split_path)
+    elif seed is None and n is None:
+        tasks = load_exam()
     else:
         if seed is None or n is None:
-            raise ValueError("seed and n are required when split_path is omitted")
+            raise ValueError("seed and n are required for the draft factory")
         tasks = _split(seed, n, family=family, situation=situation)
     if task_ids is not None:
         wanted = set(task_ids)
