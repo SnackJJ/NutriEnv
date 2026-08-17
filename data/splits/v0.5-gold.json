@@ -1,7 +1,7 @@
 {
   "version": "v0.5-gold",
   "catalog": "data/fdc/catalog.sqlite",
-  "catalog_sha256": "e1ffbb1a594a99a404c9a34dadfe09409bebaf702cb65173686e30caf3fdcbf7",
+  "catalog_sha256": "ff2f26325cc0cc71c3230f82060997afaeefcad0051b09989c662ac0b0fa2d90",
   "parent": "v0.4-gold",
   "notes": "v0.4-gold 207 KEEP plus the final increment: 19 logs and 14 profile updates complete the 240-item exam (ADR 0009). The log family was 79 percent fuzzy_portion because its other four situations each existed as one hardcoded instance; multi_item_log, unit_convert, near_synonym and ledger_gap are table-backed now and the family finishes balanced. The update rows cover axes the family had never exercised: removing an allergy, moving one bound rather than both, two windows in one request, several allergens at once, and a plan_preset change -- each declared by its row and cross-checked against the spoken query in both directions. Reviewed by validate_draft plus an LLM reviewer; not reviewed item-by-item by a human.",
   "items": [

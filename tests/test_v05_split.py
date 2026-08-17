@@ -1,6 +1,7 @@
 """v0.5 is the 240. Every family sits exactly on its ADR 0009 allocation."""
 
 import collections
+import hashlib
 import json
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from nutrienv.env import NutriEnv
 
 V04 = Path("data/splits/v0.4-gold.json")
 V05 = Path("data/splits/v0.5-gold.json")
+CATALOG = Path("data/fdc/catalog.sqlite")
 
 ALLOCATION = {
     "log": 48, "recommend": 72, "evaluate": 48, "update": 36, "constrain": 36,
@@ -22,7 +24,7 @@ def test_v05_is_the_240():
     v05 = json.loads(V05.read_text())
     assert v05["items"][:207] == v04["items"]
     assert v05["parent"] == "v0.4-gold"
-    assert v05["catalog_sha256"] == v04["catalog_sha256"]
+    assert v05["catalog_sha256"] == hashlib.sha256(CATALOG.read_bytes()).hexdigest()
 
     tasks = load_split(V05)
     assert len(tasks) == 240
