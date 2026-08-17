@@ -17,7 +17,8 @@ from collections.abc import Callable
 from pathlib import Path
 
 from nutrienv.harness.react import DEEPSEEK_CHAT_URL, load_dotenv_keys
-from nutrienv.world.portions import OUNCE_GRAMS
+
+from .portion_table import matches_portion_table
 
 __all__ = [
     "plausibility_gate",
@@ -57,24 +58,6 @@ Answer with a single JSON object and nothing else:
 {"verdict": "ok" or "suspect", "reason": "<one short sentence>"}"""
 
 JudgeFn = Callable[[str, float], str]
-
-
-def _matches_portion_table(food_id: str, grams: float, catalog) -> bool:
-    """Same candidate set as ``validator._matches_portion_table``.
-
-    Source: ``src/nutrienv/bench/validator.py``. Copied so this module does
-    not import the draft factory.
-    """
-    entry = catalog.get(food_id)
-    if not isinstance(entry, dict):
-        return False
-    portions = entry.get("portions") or {}
-    candidates = {round(2.0 * OUNCE_GRAMS, 2)}
-    for one in portions.values():
-        if isinstance(one, (int, float)) and not isinstance(one, bool):
-            for quantity in (0.5, 1.0, 1.5, 2.0):
-                candidates.add(round(quantity * float(one), 2))
-    return round(float(grams), 2) in candidates
 
 
 def parse_verdict(text: str) -> str | None:
@@ -171,7 +154,7 @@ def plausibility_gate(
     ``source`` is ``"table"`` when ``grams`` matches the portion whitelist,
     otherwise ``"judge"`` after K samples. Inject ``judge`` to stub the LLM.
     """
-    if _matches_portion_table(food_id, grams, catalog):
+    if matches_portion_table(food_id, grams, catalog):
         return True, "table"
 
     if judge is None:

@@ -9,10 +9,11 @@ from __future__ import annotations
 import itertools
 import re
 
-from nutrienv.world.portions import OUNCE_GRAMS, resolve_portion
+from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals, normalize_tags
 
 from .generator import Task
+from .portion_table import matches_portion_table
 from .realizations import EVALUATE_ROWS, UPDATE_ROWS
 
 __all__ = [
@@ -162,19 +163,6 @@ def semantic_key(task: Task) -> tuple:
     return (task.family, task.situations, task.persona, task.query)
 
 
-def _matches_portion_table(food_id: str, grams: float, catalog) -> bool:
-    entry = catalog.get(food_id)
-    if not isinstance(entry, dict):
-        return False
-    portions = entry.get("portions") or {}
-    candidates = {round(2.0 * OUNCE_GRAMS, 2)}
-    for one in portions.values():
-        if isinstance(one, (int, float)) and not isinstance(one, bool):
-            for quantity in (0.5, 1.0, 1.5, 2.0):
-                candidates.add(round(quantity * float(one), 2))
-    return round(float(grams), 2) in candidates
-
-
 def validate_oracle_grams(task: Task) -> list[str]:
     """Return issues for Oracle grams that lack a deterministic portion anchor.
 
@@ -196,7 +184,7 @@ def validate_oracle_grams(task: Task) -> list[str]:
         )
 
     for location, food_id, grams in items:
-        if not _matches_portion_table(food_id, grams, task.s0.catalog):
+        if not matches_portion_table(food_id, grams, task.s0.catalog):
             issues.append(
                 f"oracle {location} grams {grams} for {food_id} do not match portion table"
             )
@@ -220,7 +208,7 @@ def validate_draft(task: Task) -> list[str]:
 
     if task.situations == ("fuzzy_portion",) and task.oracle.ledger_tail:
         row = task.oracle.ledger_tail[0]
-        if not _matches_portion_table(row.food_id, row.grams, task.s0.catalog):
+        if not matches_portion_table(row.food_id, row.grams, task.s0.catalog):
             issues.append(f"fuzzy grams {row.grams} do not match portion table")
 
     if task.persona == "leftover" and task.oracle.plan_windows:
