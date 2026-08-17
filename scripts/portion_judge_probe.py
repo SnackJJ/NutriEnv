@@ -19,17 +19,18 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from nutrienv.bench.grams_gate import (  # noqa: E402
+    DEFAULT_K,
     DEFAULT_THRESHOLD,
     MODEL,
-    call_judge,
-    parse_verdict,
+    accept_from_verdicts,
+    sample_verdicts,
 )
 from nutrienv.io.dotenv import load_dotenv_keys  # noqa: E402
 
 load_dotenv_keys(ROOT / ".env.local")
 
-K = 5                 # judge calls per case
-THRESHOLD = DEFAULT_THRESHOLD  # fraction of "ok" needed to accept a gram value
+K = DEFAULT_K
+THRESHOLD = DEFAULT_THRESHOLD
 
 # (case_id, food, grams, expected_ok, note)  — expected from FNDDS QNS + sanity.
 CASES = [
@@ -55,21 +56,28 @@ def main() -> None:
     print(f"model={MODEL}  K={K}  threshold={THRESHOLD}\n")
     rows = []
     for case_id, food, grams, expected, note in CASES:
-        verdicts: list[str] = []
+        raws: list[str] = []
+        verdicts = sample_verdicts(
+            food,
+            grams,
+            judge=None,
+            k=K,
+            parse_retries=1,
+            retry_sleep=0.15,
+            raws=raws,
+        )
         reasons: list[str] = []
-        for _ in range(K):
-            text = call_judge(food, grams)
-            v = parse_verdict(text)
-            if v is None:
-                verdicts.append("parse_fail")
-            else:
-                verdicts.append(v)
-                m = re.search(r'"reason"\s*:\s*"([^"]*)"', text)
-                if m:
-                    reasons.append(m.group(1))
+        for verdict, text in zip(verdicts, raws):
+            if verdict != "parse_fail":
+                match = re.search(r'"reason"\s*:\s*"([^"]*)"', text)
+                if match:
+                    reasons.append(match.group(1))
             time.sleep(0.15)
-        ok_frac = verdicts.count("ok") / len(verdicts)
-        accepted = ok_frac >= THRESHOLD
+        # ok_frac keeps the printed field; denominator is valid verdicts
+        # (parse_fail excluded), matching accept_from_verdicts / gray-zone.
+        n_valid = sum(item != "parse_fail" for item in verdicts)
+        ok_frac = (verdicts.count("ok") / n_valid) if n_valid else 0.0
+        accepted = accept_from_verdicts(verdicts, THRESHOLD)
         match = (accepted == expected)
         rows.append((case_id, food, grams, expected, ok_frac, accepted, match,
                      verdicts, reasons))
