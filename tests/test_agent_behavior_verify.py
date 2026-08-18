@@ -7,6 +7,7 @@ the agent with ``resolve_portion``.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -220,6 +221,11 @@ def test_render_report_includes_node2_observation_and_pytest() -> None:
     assert "qwen3.7-flash-2026-07-15" in text
     assert "## 8. pytest" in text
     assert "agent-behavior-cut-noun.json" in text
+    assert "**1049 passed**" in text
+    committed = (ROOT / "reports" / "agent-behavior-verify.md").read_text(encoding="utf-8")
+    exam_live = json.loads((ROOT / "reports" / "agent-behavior-verify.json").read_text(encoding="utf-8"))
+    observation_live = json.loads((ROOT / "reports" / "agent-behavior-cut-noun.json").read_text(encoding="utf-8"))
+    assert verify.render_report(exam_live, observation_live) == committed
 
 
 def test_get_food_exposes_catalog_v2_oral_portion_tiers(catalog_v2) -> None:

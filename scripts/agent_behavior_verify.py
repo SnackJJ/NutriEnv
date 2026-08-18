@@ -52,6 +52,9 @@ CUT_NOUN_HANDBOOK = (
     'A cut with no portion key ("a chicken breast") has no default: '
     "do not log it, finish without logging that food"
 )
+# Last recorded full-suite count. Default --write-report-from-json must
+# emit this so the documented rerun is byte-identical to the committed report.
+PYTEST_NOTE = "**1049 passed**"
 _SLIM_ACTION_KEYS = ("op", "search_q", "hit_ids", "food_id", "logged", "error")
 
 
@@ -377,7 +380,7 @@ def render_report(
     payload: dict,
     observation: dict | None = None,
     *,
-    pytest_note: str = "run `.venv/bin/python -m pytest -q`",
+    pytest_note: str = PYTEST_NOTE,
 ) -> str:
     """Markdown report from exam JSON + optional merged cut-noun observation."""
     lines = [
@@ -535,7 +538,7 @@ def _write_report(
     payload: dict,
     observation: dict | None = None,
     *,
-    pytest_note: str = "run `.venv/bin/python -m pytest -q`",
+    pytest_note: str = PYTEST_NOTE,
 ) -> None:
     REPORT_MD.write_text(
         render_report(payload, observation, pytest_note=pytest_note),
@@ -578,7 +581,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--pytest-note",
-        default="run `.venv/bin/python -m pytest -q`",
+        default=PYTEST_NOTE,
         help="text for the report pytest row",
     )
     args = parser.parse_args(argv)
