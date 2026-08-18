@@ -19,10 +19,10 @@ __all__ = ["GOLD_SPLIT_PATH", "EXAM_SPLIT_PATH", "load_split", "load_exam"]
 _ROOT = Path(__file__).resolve().parents[3]
 # v0 calibration set, not the published 240-item exam.
 GOLD_SPLIT_PATH = _ROOT / "data" / "splits" / "v0-gold.json"
-EXAM_SPLIT_PATH = _ROOT / "data" / "splits" / "v1.0-gold.json"
-# load_exam accepts the payload's own version when it is a published exam.
-# v0.5 remains loadable by explicit path; the published default is v1.0.
-_EXAM_VERSIONS = frozenset({"v0.5-gold", "v1.0-gold", "v1.0-composite-sample"})
+EXAM_SPLIT_PATH = _ROOT / "data" / "splits" / "v0.5-gold.json"
+# Transitional published exam is v0.5-gold. v1.0-gold was archived (ticket 07);
+# ticket 11 will publish the next exam.
+_EXAM_VERSIONS = frozenset({"v0.5-gold"})
 
 
 def load_split(path: Path | str | None = None, *, catalog=None) -> list[Task]:

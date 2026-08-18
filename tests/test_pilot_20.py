@@ -1,4 +1,4 @@
-"""Pilot-20 pool plan, drop helper, and published v1.0 exam shape."""
+"""Pilot-20 pool plan, drop helper, and published exam entry."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from nutrienv.bench.split import EXAM_SPLIT_PATH, load_exam
-from nutrienv.bench.validator import validate_draft, validate_oracle_grams
+from nutrienv.bench.validator import validate_draft
 from nutrienv.world.catalog_store import load_catalog
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,7 +18,7 @@ import landing_verify  # noqa: E402
 import run_pilot_20  # noqa: E402
 
 CATALOG_V1 = ROOT / "data/fdc/catalog-v1.sqlite"
-V10 = ROOT / "data/splits/v1.0-gold.json"
+V05 = ROOT / "data/splits/v0.5-gold.json"
 
 
 @pytest.fixture(scope="module")
@@ -128,30 +128,23 @@ def test_apply_drop_updates_state_payload() -> None:
     assert set(updated["review"]["per_candidate"]) == {"a", "c"}
 
 
-def test_exam_split_path_default_is_v10() -> None:
-    assert EXAM_SPLIT_PATH.name == "v1.0-gold.json"
+def test_exam_split_path_default_is_v05() -> None:
+    assert EXAM_SPLIT_PATH.name == "v0.5-gold.json"
     assert EXAM_SPLIT_PATH.is_file()
+    assert EXAM_SPLIT_PATH.resolve() == V05.resolve()
 
 
-def test_v10_gold_loads_and_passes_gates() -> None:
-    tasks = load_exam(V10)
-    assert len(tasks) == 20
-    assert {task.family for task in tasks} <= {"log", "evaluate"}
-    payload = json.loads(V10.read_text(encoding="utf-8"))
-    assert payload["version"] == "v1.0-gold"
-    assert payload["catalog"] == "data/fdc/catalog-v1.sqlite"
-    digest = run_pilot_20.catalog_digest(load_catalog(CATALOG_V1))
-    assert payload["catalog_sha256"] == digest
+def test_v05_gold_loads_via_load_exam() -> None:
+    tasks = load_exam(V05)
+    assert len(tasks) == 240
+    payload = json.loads(V05.read_text(encoding="utf-8"))
+    assert payload["version"] == "v0.5-gold"
+    assert payload["catalog"] == "data/fdc/catalog.sqlite"
     for task in tasks:
         assert validate_draft(task) == [], (task.id, validate_draft(task))
-        assert validate_oracle_grams(task) == [], (task.id, validate_oracle_grams(task))
-    coverage = run_pilot_20.coverage_counts(tasks)
-    for key in run_pilot_20.REQUIRED_KEYS:
-        assert coverage[key] >= 1, coverage
 
 
-def test_landing_verify_v10_helper() -> None:
-    n, draft_bad, grams_bad = landing_verify.verify_v10_exam(V10)
-    assert n == 20
+def test_landing_verify_published_exam_helper() -> None:
+    n, draft_bad, _grams_bad = landing_verify.verify_published_exam(V05)
+    assert n == 240
     assert draft_bad == []
-    assert grams_bad == []

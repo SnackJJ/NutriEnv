@@ -19,7 +19,6 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import run_react  # noqa: E402
 
 V05 = Path("data/splits/v0.5-gold.json")
-V10 = Path("data/splits/v1.0-gold.json")
 
 V05_ALLOCATION = {
     "log": 48,
@@ -28,20 +27,33 @@ V05_ALLOCATION = {
     "update": 36,
     "constrain": 36,
 }
-V10_ALLOCATION = {
-    "log": 14,
-    "evaluate": 6,
-}
 
 
-def test_default_exam_is_v10_pilot() -> None:
+def test_default_exam_is_v05() -> None:
     from nutrienv.bench.split import EXAM_SPLIT_PATH
 
-    assert EXAM_SPLIT_PATH == V10.resolve() or EXAM_SPLIT_PATH.name == "v1.0-gold.json"
+    assert EXAM_SPLIT_PATH == V05.resolve() or EXAM_SPLIT_PATH.name == "v0.5-gold.json"
     tasks = load_exam()
-    assert len(tasks) == 20
-    assert len({task.id for task in tasks}) == 20
-    assert collections.Counter(task.family for task in tasks) == V10_ALLOCATION
+    assert len(tasks) == 240
+    assert len({task.id for task in tasks}) == 240
+    assert collections.Counter(task.family for task in tasks) == V05_ALLOCATION
+
+
+def test_v10_pilot_is_not_on_the_formal_path() -> None:
+    assert not Path("data/splits/v1.0-gold.json").is_file()
+    assert not Path("data/splits/v1.0-composite-sample.json").is_file()
+
+
+def test_pipeline_freeze_defaults_are_cleared_pending_next_exam() -> None:
+    from nutrienv.bench.pipeline.types import (
+        DEFAULT_COMPOSITE_SAMPLE_RELPATH,
+        DEFAULT_FREEZE_RELPATH,
+        PIPELINE_VERSION,
+    )
+
+    assert PIPELINE_VERSION == "pipeline-draft"
+    assert DEFAULT_FREEZE_RELPATH == "data/splits/pipeline-draft.json"
+    assert DEFAULT_COMPOSITE_SAMPLE_RELPATH == "data/splits/pipeline-composite-draft.json"
 
 
 def test_v05_exam_still_loads_240_by_path() -> None:
@@ -68,9 +80,10 @@ def test_exam_sha_mismatch_raises(tmp_path: Path) -> None:
         load_exam(dest)
 
 
-def test_exam_wrong_version_raises(tmp_path: Path) -> None:
+@pytest.mark.parametrize("version", ["v0.4-gold", "v1.0-gold", "v1.0-composite-sample"])
+def test_exam_wrong_version_raises(tmp_path: Path, version: str) -> None:
     payload = json.loads(V05.read_text(encoding="utf-8"))
-    payload["version"] = "v0.4-gold"
+    payload["version"] = version
     dest = tmp_path / "exam.json"
     dest.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ValueError, match="version"):
@@ -168,7 +181,7 @@ def test_load_exam_rejects_non_sqlite_catalog(tmp_path: Path) -> None:
 
 def test_load_react_tasks_default_is_load_exam() -> None:
     tasks = run_react.load_react_tasks()
-    assert len(tasks) == 20
+    assert len(tasks) == 240
 
 
 def test_run_react_default_path_fails_closed_before_harness(

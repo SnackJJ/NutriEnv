@@ -13,7 +13,7 @@ import pytest
 from nutrienv.bench.pipeline import catalog_digest, pass_through_reviewer, run_batch
 from nutrienv.bench.pipeline.expander import synthetic_expander
 from nutrienv.bench.pipeline.run_batch import _table_only_judge
-from nutrienv.bench.split import load_exam, load_split
+from nutrienv.bench.split import load_split
 from nutrienv.world.catalog_store import load_catalog
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -268,8 +268,6 @@ def test_task_id_prefix_and_start_seq_do_not_collide(tmp_path: Path) -> None:
     )
     loaded = load_split(merged_path, catalog=catalog)
     assert {task.id for task in loaded} == first_ids | second_ids
-    exam = load_exam(merged_path)
-    assert {task.id for task in exam} == first_ids | second_ids
 
 
 def test_generate_batch_cli_synthetic_writes_loadable_payload(tmp_path: Path) -> None:
@@ -293,8 +291,6 @@ def test_generate_batch_cli_synthetic_writes_loadable_payload(tmp_path: Path) ->
     catalog = load_catalog(CATALOG_V1)
     tasks = load_split(out, catalog=catalog)
     assert tasks
-    exam = load_exam(out)
-    assert len(exam) == len(tasks)
 
 
 def test_generate_batch_zero_accepted_exits_nonzero(

@@ -169,7 +169,7 @@ def write_composite_sample(
     output_path: Path | str | None = None,
     n: int = 2,
 ) -> BatchResult:
-    """Freeze a small composite sample against catalog-v1. Does not replace v1.0-gold."""
+    """Freeze a small composite sample against catalog-v1. Not a published exam."""
     catalog_path = repo_root() / CATALOG_V1_RELPATH
     catalog = load_catalog(catalog_path)
     digest = catalog_digest(catalog)
@@ -218,7 +218,7 @@ def write_tracer_sample(
     output_path: Path | str | None = None,
     n_log: int = 3,
 ) -> BatchResult:
-    """Freeze a small synthetic v1.0-gold sample against catalog-v1."""
+    """Freeze a small synthetic pipeline sample against catalog-v1."""
     catalog_path = repo_root() / CATALOG_V1_RELPATH
     catalog = load_catalog(catalog_path)
     digest = catalog_digest(catalog)

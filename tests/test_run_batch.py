@@ -10,7 +10,7 @@ import pytest
 from nutrienv.bench.pipeline import catalog_digest, pass_through_reviewer, run_batch
 from nutrienv.bench.split import load_exam
 
-V10 = Path("data/splits/v1.0-gold.json")
+V05 = Path("data/splits/v0.5-gold.json")
 
 
 def _catalog() -> dict:
@@ -102,7 +102,7 @@ def _spec(tmp_path: Path, catalog, **overrides) -> dict:
         "family_quotas": {"log": 1},
         "model_route": {},
         "catalog": "fixture",
-        "output_path": tmp_path / "v1.0-gold.json",
+        "output_path": tmp_path / "batch.json",
     }
     spec.update(overrides)
     return spec
@@ -133,7 +133,7 @@ def test_resolvable_candidate_passes_end_to_end(tmp_path: Path) -> None:
     assert task.oracle.ledger_tail
     assert task.oracle.ledger_tail[0].grams == 244.0
     assert result.path is not None and result.path.is_file()
-    assert result.payload["version"] == "v1.0-gold"
+    assert result.payload["version"] == "pipeline-draft"
     assert result.review["anomalies"] == []
 
 
@@ -216,11 +216,10 @@ def test_catalog_sha_mismatch_raises(tmp_path: Path) -> None:
         )
 
 
-def test_sample_v10_gold_loads_via_load_exam() -> None:
-    assert V10.is_file()
-    tasks = load_exam(V10)
-    assert len(tasks) == 20
-    assert {task.family for task in tasks} <= {"log", "evaluate"}
-    payload = V10.read_text(encoding="utf-8")
-    assert '"version": "v1.0-gold"' in payload
-    assert "data/fdc/catalog-v1.sqlite" in payload
+def test_sample_v05_gold_loads_via_load_exam() -> None:
+    assert V05.is_file()
+    tasks = load_exam(V05)
+    assert len(tasks) == 240
+    payload = V05.read_text(encoding="utf-8")
+    assert '"version": "v0.5-gold"' in payload
+    assert "data/fdc/catalog.sqlite" in payload

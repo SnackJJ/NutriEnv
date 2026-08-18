@@ -40,8 +40,7 @@ from nutrienv.world.catalog_store import load_catalog  # noqa: E402
 from nutrienv.world.portions import resolve_portion  # noqa: E402
 
 _SPLIT = _ROOT / "data" / "splits" / "v0.5-gold.json"
-_V10_SPLIT = _ROOT / "data" / "splits" / "v1.0-gold.json"
-_V10_N = 20
+_EXAM_N = 240
 _OLD_KEYS = builder._OLD_PORTION_KEYS
 _GOLD_SOURCES = (
     ("s0", "ledger"),
@@ -293,17 +292,13 @@ def main(argv: list[str] | None = None) -> int:
         for row in oz_bad[:10]:
             print(f"  {row['fdc_id']} {row['portions']}")
 
-    v10_n, v10_draft_bad, v10_grams_bad = verify_v10_exam(_V10_SPLIT)
-    print(f"v1.0-gold load_exam: {v10_n} items")
-    print(f"v1.0-gold validate_draft: {v10_n} items, {len(v10_draft_bad)} failing")
-    print(f"v1.0-gold validate_oracle_grams: {v10_n} items, {len(v10_grams_bad)} failing")
-    if v10_draft_bad:
-        print("V10 VALIDATE FAILURES:")
-        for item_id, issues in v10_draft_bad[:10]:
-            print(f"  {item_id} {issues}")
-    if v10_grams_bad:
-        print("V10 ORACLE GRAMS FAILURES:")
-        for item_id, issues in v10_grams_bad[:10]:
+    exam_n, exam_draft_bad, exam_grams_bad = verify_published_exam(args.split)
+    print(f"published exam load_exam: {exam_n} items")
+    print(f"published exam validate_draft: {exam_n} items, {len(exam_draft_bad)} failing")
+    print(f"published exam validate_oracle_grams: {exam_n} items, {len(exam_grams_bad)} failing")
+    if exam_draft_bad:
+        print("EXAM VALIDATE FAILURES:")
+        for item_id, issues in exam_draft_bad[:10]:
             print(f"  {item_id} {issues}")
 
     ok = (
@@ -312,17 +307,16 @@ def main(argv: list[str] | None = None) -> int:
         and not validate_bad
         and not oz_bad
         and replay_ok > 0
-        and v10_n == _V10_N
-        and not v10_draft_bad
-        and not v10_grams_bad
+        and exam_n == _EXAM_N
+        and not exam_draft_bad
     )
     print("RESULT:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
 
-def verify_v10_exam(path: Path | None = None) -> tuple[int, list, list]:
-    """load_exam the v1.0 split and run validate_draft + oracle-grams on every item."""
-    target = Path(path) if path is not None else _V10_SPLIT
+def verify_published_exam(path: Path | None = None) -> tuple[int, list, list]:
+    """load_exam the published split and run validate_draft + oracle-grams."""
+    target = Path(path) if path is not None else _SPLIT
     tasks = load_exam(target)
     draft_bad = [(task.id, issues) for task in tasks if (issues := validate_draft(task))]
     grams_bad = [

@@ -36,20 +36,21 @@ __all__ = [
     "catalog_digest",
 ]
 
-PIPELINE_VERSION = "v1.0-gold"
+# Pending ticket 11: do not default-write a published exam path.
+PIPELINE_VERSION = "pipeline-draft"
 SAMPLER_RULE_VERSION = "sampler-v1"
 POOL_SIZE = 8
 MAX_PER_POOL = 3
 QUANTITY_MULTIPLES = (0.5, 1.0, 1.5, 2.0)
 SUPPORTED_FAMILIES = frozenset({"log", "evaluate", "composite"})
-# Proposed extra quota (ADR 0013). Not frozen into v1.0-gold.
+# Proposed extra quota (ADR 0013). Not frozen into the published exam.
 BASE_EXAM_QUOTA = 240
 COMPOSITE_EXTRA_QUOTA = 24
 COMPOSITE_FAMILY = "composite"
 COMPOSITE_STEPS = ("log", "recommend")
 CATALOG_V1_RELPATH = "data/fdc/catalog-v1.sqlite"
-DEFAULT_FREEZE_RELPATH = "data/splits/v1.0-gold.json"
-DEFAULT_COMPOSITE_SAMPLE_RELPATH = "data/splits/v1.0-composite-sample.json"
+DEFAULT_FREEZE_RELPATH = "data/splits/pipeline-draft.json"
+DEFAULT_COMPOSITE_SAMPLE_RELPATH = "data/splits/pipeline-composite-draft.json"
 
 _ROOT = Path(__file__).resolve().parents[4]
 

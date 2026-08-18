@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import replace
 from pathlib import Path
 
@@ -11,15 +10,12 @@ import pytest
 from nutrienv.bench.pipeline.freezer import freeze_tasks
 from nutrienv.bench.realize import GOLD_WINDOWS, Oracle, Task, material_from_row, realize, spoken_query
 from nutrienv.bench.realizations import EVALUATE_ROWS
-from nutrienv.bench.split import load_exam
 from nutrienv.bench.validator import validate_draft, validate_oracle_grams
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.types import LedgerRow, Profile, WorldState
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG_V1 = ROOT / "data" / "fdc" / "catalog-v1.sqlite"
-V10 = ROOT / "data" / "splits" / "v1.0-gold.json"
-V10_SHA256 = "39dc756c7c8ab7986f02e324b7e9e8f7099fcc68aa5b3c07870bf374a8a2c6ac"
 
 
 @pytest.fixture(scope="module")
@@ -279,7 +275,3 @@ def test_span_with_two_food_identities_authorizes_neither(catalog_v1):
         assert not _authorizes(query, "white_rice", 150.0, catalog_v1, evaluate=evaluate)
 
 
-def test_v10_gold_still_passes_oracle_grams_and_hash_is_pinned():
-    assert hashlib.sha256(V10.read_bytes()).hexdigest() == V10_SHA256
-    for task in load_exam(V10):
-        assert validate_oracle_grams(task) == [], task.id

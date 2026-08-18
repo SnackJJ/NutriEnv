@@ -2060,7 +2060,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=Path,
         default=_ROOT / DEFAULT_FREEZE_RELPATH,
-        help="freeze path (default: data/splits/v1.0-gold.json)",
+        help=f"freeze path (default: {DEFAULT_FREEZE_RELPATH})",
     )
     return parser
 

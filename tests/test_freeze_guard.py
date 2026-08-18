@@ -12,20 +12,18 @@ from nutrienv.bench.split import load_exam
 from nutrienv.world.catalog_store import load_catalog
 
 ROOT = Path(__file__).resolve().parents[1]
-V10 = ROOT / "data/splits/v1.0-gold.json"
 V05 = ROOT / "data/splits/v0.5-gold.json"
-CATALOG_V1 = ROOT / "data/fdc/catalog-v1.sqlite"
+CATALOG = ROOT / "data/fdc/catalog.sqlite"
 
-V10_SHA256 = "39dc756c7c8ab7986f02e324b7e9e8f7099fcc68aa5b3c07870bf374a8a2c6ac"
 V05_SHA256 = "bb4f246044308670f567c24bc6b099e23f617268b532a088c27187dbda66e520"
 
 
 def _catalog():
-    return load_catalog(CATALOG_V1)
+    return load_catalog(CATALOG)
 
 
 def _one_task():
-    return [load_exam(V10)[0]]
+    return [load_exam(V05)[0]]
 
 
 def test_freeze_refuses_different_existing_file(tmp_path: Path) -> None:
@@ -53,12 +51,7 @@ def test_freeze_overwrite_true_replaces(tmp_path: Path) -> None:
     assert path == target
     assert target.read_text(encoding="utf-8") != "{}\n"
     assert len(payload["items"]) == 1
-    assert payload["items"][0]["id"] == "v10-log-0001"
-
-
-def test_v10_gold_sha256_is_pinned() -> None:
-    digest = hashlib.sha256(V10.read_bytes()).hexdigest()
-    assert digest == V10_SHA256
+    assert payload["items"][0]["id"] == "v0-log-fuzzy-001"
 
 
 def test_v05_gold_sha256_is_pinned() -> None:

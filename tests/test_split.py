@@ -20,13 +20,13 @@ def test_load_split_v05_is_the_240() -> None:
     assert len({task.id for task in tasks}) == 240
 
 
-def test_load_split_default_is_v10_pilot() -> None:
+def test_load_split_default_is_v05() -> None:
     from nutrienv.bench.split import EXAM_SPLIT_PATH
 
-    assert EXAM_SPLIT_PATH.name == "v1.0-gold.json"
+    assert EXAM_SPLIT_PATH.name == "v0.5-gold.json"
     tasks = load_split()
-    assert len(tasks) == 20
-    assert len({task.id for task in tasks}) == 20
+    assert len(tasks) == 240
+    assert len({task.id for task in tasks}) == 240
 
 
 def test_gold_split_exists_and_loads() -> None:
