@@ -90,18 +90,25 @@ def format_vote_prompt(query: str, food: str, expression: str) -> str:
     )
 
 
-def call_voter(query: str, food: str, expression: str) -> str:
+def call_voter(
+    query: str,
+    food: str,
+    expression: str,
+    *,
+    model: str | None = None,
+    temperature: float = TEMPERATURE,
+    max_tokens: int = MAX_TOKENS,
+) -> str:
     """One chat completion. Network noise is retried three times."""
     load_dotenv_keys(_ROOT / ".env.local")
-    model = judge_model()
     payload = {
-        "model": model,
+        "model": model or judge_model(),
         "messages": [
             {"role": "system", "content": VOTE_SYSTEM},
             {"role": "user", "content": format_vote_prompt(query, food, expression)},
         ],
-        "temperature": TEMPERATURE,
-        "max_tokens": MAX_TOKENS,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
     }
     return post_chat_completion(
         DASHSCOPE_CHAT_URL,
@@ -121,11 +128,24 @@ def vote_once(
     *,
     voter: VoteFn | None = None,
     parse_retries: int = 1,
+    model: str | None = None,
+    temperature: float = TEMPERATURE,
+    max_tokens: int = MAX_TOKENS,
 ) -> tuple[str | None, str]:
     text = ""
     for _attempt in range(1 + parse_retries):
         if voter is None:
-            text = call_voter(query, food, expression) or ""
+            text = (
+                call_voter(
+                    query,
+                    food,
+                    expression,
+                    model=model,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                or ""
+            )
         else:
             text = voter(query, food, expression) or ""
         verdict = parse_vote(text)
@@ -142,11 +162,22 @@ def sample_votes(
     voter: VoteFn | None,
     k: int,
     parse_retries: int = 1,
+    models: tuple[str, ...] = DEFAULT_MODEL_IDS,
+    temperature: float = TEMPERATURE,
+    max_tokens: int = MAX_TOKENS,
 ) -> list[str]:
+    pool = models or DEFAULT_MODEL_IDS
     votes: list[str] = []
-    for _ in range(k):
+    for index in range(k):
         verdict, _text = vote_once(
-            query, food, expression, voter=voter, parse_retries=parse_retries
+            query,
+            food,
+            expression,
+            voter=voter,
+            parse_retries=parse_retries,
+            model=pool[index % len(pool)],
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
         votes.append("parse_fail" if verdict is None else verdict)
     return votes
@@ -191,6 +222,9 @@ def semantic_vote(
     voter: VoteFn | None = None,
     k: int = DEFAULT_K,
     threshold: float = DEFAULT_THRESHOLD,
+    models: tuple[str, ...] = DEFAULT_MODEL_IDS,
+    temperature: float = TEMPERATURE,
+    max_tokens: int = MAX_TOKENS,
     oracle_grams: float | None = None,
     catalog: Mapping | None = None,
     food_id: str | None = None,
@@ -210,6 +244,14 @@ def semantic_vote(
         ):
             return False, "phrasing"
     votes = sample_votes(
-        query, food, expression, voter=voter, k=k, parse_retries=parse_retries
+        query,
+        food,
+        expression,
+        voter=voter,
+        k=k,
+        parse_retries=parse_retries,
+        models=models,
+        temperature=temperature,
+        max_tokens=max_tokens,
     )
     return accept_from_votes(votes, threshold), "vote"

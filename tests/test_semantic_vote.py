@@ -133,6 +133,48 @@ def _capture_post(monkeypatch):
     return captured
 
 
+def test_injected_k1_accepts_on_single_match() -> None:
+    accepted, source = semantic_vote(
+        "Please log a banana.",
+        food="banana",
+        expression="one banana",
+        voter=_const_voter("match"),
+        k=1,
+        threshold=1.0,
+    )
+    assert accepted is True
+    assert source == "vote"
+
+
+def test_injected_unanimous_threshold_rejects_two_of_three() -> None:
+    accepted, source = semantic_vote(
+        "Please log a banana.",
+        food="banana",
+        expression="one banana",
+        voter=_seq_voter(["match", "match", "mismatch"]),
+        k=3,
+        threshold=1.0,
+    )
+    assert accepted is False
+    assert source == "vote"
+
+
+def test_call_voter_honors_injected_model_temp_and_tokens(monkeypatch) -> None:
+    captured = _capture_post(monkeypatch)
+    text = call_voter(
+        "Please log a banana.",
+        "banana",
+        "one banana",
+        model="qwen3.7-flash-2026-07-15",
+        temperature=0.5,
+        max_tokens=64,
+    )
+    assert json.loads(text)["verdict"] == "match"
+    assert captured["model"] == "qwen3.7-flash-2026-07-15"
+    assert captured["temperature"] == 0.5
+    assert captured["max_tokens"] == 64
+
+
 def test_call_voter_posts_judge_grade_defaults(monkeypatch) -> None:
     captured = _capture_post(monkeypatch)
     monkeypatch.delenv("NUTRIENV_JUDGE_MODEL", raising=False)
@@ -249,7 +291,17 @@ def _ok_judge(_food: str, _grams: float) -> str:
     return "ok"
 
 
-def _run(tmp_path: Path, payloads, *, voter, catalog=None, **overrides):
+_VOTE_KW = {
+    "vote_k",
+    "vote_threshold",
+    "vote_models",
+    "vote_temperature",
+    "vote_max_tokens",
+    "enable_semantic_vote",
+}
+
+
+def _run(tmp_path: Path, payloads, *, voter=None, catalog=None, **overrides):
     foods = catalog if catalog is not None else _batch_catalog()
     spec = {
         "seed": 7,
@@ -262,6 +314,7 @@ def _run(tmp_path: Path, payloads, *, voter, catalog=None, **overrides):
         "output_path": tmp_path / "batch.json",
         "overwrite": True,
     }
+    batch_kwargs = {key: overrides.pop(key) for key in list(overrides) if key in _VOTE_KW}
     spec.update(overrides)
     return run_batch(
         spec,
@@ -270,7 +323,63 @@ def _run(tmp_path: Path, payloads, *, voter, catalog=None, **overrides):
         reviewer=pass_through_reviewer,
         catalog=foods,
         voter=voter,
+        **batch_kwargs,
     )
+
+
+_MILK_PAYLOAD = {
+    "items": [{"food": "milk_whole", "expression": "a cup"}],
+    "query": "Please log a cup of milk for lunch.",
+}
+
+
+def test_run_batch_k1_calls_voter_once(tmp_path: Path) -> None:
+    calls: list[tuple[str, str, str]] = []
+
+    def voter(query: str, food: str, expression: str) -> str:
+        calls.append((query, food, expression))
+        return '{"verdict": "match"}'
+
+    result = _run(tmp_path, [_MILK_PAYLOAD], voter=voter, vote_k=1)
+    assert len(result.accepted) == 1
+    assert len(calls) == 1
+
+
+def test_run_batch_unanimous_threshold_rejects_split_vote(tmp_path: Path) -> None:
+    result = _run(
+        tmp_path,
+        [_MILK_PAYLOAD],
+        voter=_seq_voter(["match", "match", "mismatch"]),
+        vote_k=3,
+        vote_threshold=1.0,
+    )
+    assert result.accepted == []
+    assert any(item.reason == "semantic" for item in result.rejected)
+
+
+def test_run_batch_injects_model_pool_temp_and_tokens(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    posts: list = []
+    _install_production_voter(monkeypatch, posts)
+    result = _run(
+        tmp_path,
+        [_MILK_PAYLOAD],
+        voter=None,
+        enable_semantic_vote=True,
+        vote_k=3,
+        vote_models=("alpha-vote", "beta-vote"),
+        vote_temperature=0.5,
+        vote_max_tokens=64,
+    )
+    assert len(result.accepted) == 1
+    assert [item["model"] for item in posts] == [
+        "alpha-vote",
+        "beta-vote",
+        "alpha-vote",
+    ]
+    assert all(item["temperature"] == 0.5 for item in posts)
+    assert all(item["max_tokens"] == 64 for item in posts)
 
 
 def test_voter_replaces_hard_backresolve_and_keeps_oracle_bytes(tmp_path: Path) -> None:

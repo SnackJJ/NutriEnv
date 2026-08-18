@@ -19,7 +19,14 @@ from .freezer import freeze_tasks
 from .models import assign_model
 from .resolver import build_food_index, match_food, resolve_candidate
 from .sampler import sample_pools
-from .semantic_vote import semantic_vote
+from .semantic_vote import (
+    DEFAULT_K,
+    DEFAULT_MODEL_IDS,
+    DEFAULT_THRESHOLD,
+    MAX_TOKENS,
+    TEMPERATURE,
+    semantic_vote,
+)
 from .types import (
     BASE_EXAM_QUOTA,
     CATALOG_V1_RELPATH,
@@ -77,6 +84,12 @@ def run_batch(
     catalog,
     workers: int = 1,
     voter=None,
+    vote_k: int = DEFAULT_K,
+    vote_threshold: float = DEFAULT_THRESHOLD,
+    vote_models: Sequence[str] | None = None,
+    vote_temperature: float = TEMPERATURE,
+    vote_max_tokens: int = MAX_TOKENS,
+    enable_semantic_vote: bool | None = None,
 ) -> BatchResult:
     """Run the candidate pipeline. LLM roles must be injected; no network."""
     if expander is None or judge is None or reviewer is None:
@@ -105,6 +118,12 @@ def run_batch(
         start_seq=spec["start_seq"],
         skip_gram_backresolve=spec["skip_gram_backresolve"],
         voter=voter,
+        vote_k=vote_k,
+        vote_threshold=vote_threshold,
+        vote_models=tuple(vote_models) if vote_models is not None else DEFAULT_MODEL_IDS,
+        vote_temperature=vote_temperature,
+        vote_max_tokens=vote_max_tokens,
+        enable_semantic_vote=enable_semantic_vote,
         workers=workers,
     )
 
@@ -505,7 +524,17 @@ def _expand_one(
     return job, candidates
 
 
-def _vote_candidate(candidate, catalog, voter) -> bool:
+def _vote_candidate(
+    candidate,
+    catalog,
+    voter,
+    *,
+    k: int,
+    threshold: float,
+    models: tuple[str, ...],
+    temperature: float,
+    max_tokens: int,
+) -> bool:
     """Soft semantic vote plus generation-only phrasing band. Oracle untouched."""
     index = build_food_index(catalog)
     for spoken, expression in candidate.items:
@@ -520,6 +549,11 @@ def _vote_candidate(candidate, catalog, voter) -> bool:
             food=spoken,
             expression=expression,
             voter=voter,
+            k=k,
+            threshold=threshold,
+            models=models,
+            temperature=temperature,
+            max_tokens=max_tokens,
             oracle_grams=float(grams),
             catalog=catalog,
             food_id=food_id,
@@ -538,6 +572,12 @@ def _finish_one(
     judge: Judge,
     skip_gram_backresolve: bool = False,
     voter=None,
+    vote_k: int = DEFAULT_K,
+    vote_threshold: float = DEFAULT_THRESHOLD,
+    vote_models: tuple[str, ...] = DEFAULT_MODEL_IDS,
+    vote_temperature: float = TEMPERATURE,
+    vote_max_tokens: int = MAX_TOKENS,
+    enable_semantic_vote: bool | None = None,
 ) -> _PoolOut:
     if not tagged:
         return _PoolOut(
@@ -551,13 +591,16 @@ def _finish_one(
     cands: list[_CandOut] = []
     for candidate, task_id in tagged:
         before = set(local_seen)
+        vote_on = (
+            enable_semantic_vote if enable_semantic_vote is not None else voter is not None
+        )
         task, reason = resolve_candidate(
             candidate,
             catalog=catalog,
             task_id=task_id,
             seen=local_seen,
             food_index=food_index,
-            skip_gram_backresolve=skip_gram_backresolve or voter is not None,
+            skip_gram_backresolve=skip_gram_backresolve or vote_on,
         )
         occupied = local_seen - before
         key = next(iter(occupied), None)
@@ -565,7 +608,16 @@ def _finish_one(
         draft_fail = False
         semantic_fail = False
         if reason is None and task is not None:
-            if voter is not None and not _vote_candidate(candidate, catalog, voter):
+            if vote_on and not _vote_candidate(
+                candidate,
+                catalog,
+                voter,
+                k=vote_k,
+                threshold=vote_threshold,
+                models=vote_models,
+                temperature=vote_temperature,
+                max_tokens=vote_max_tokens,
+            ):
                 semantic_fail = True
             elif _implausible(task, catalog, judge):
                 implausible = True
@@ -676,6 +728,12 @@ def _run_jobs(
     start_seq: int,
     skip_gram_backresolve: bool = False,
     voter=None,
+    vote_k: int = DEFAULT_K,
+    vote_threshold: float = DEFAULT_THRESHOLD,
+    vote_models: tuple[str, ...] = DEFAULT_MODEL_IDS,
+    vote_temperature: float = TEMPERATURE,
+    vote_max_tokens: int = MAX_TOKENS,
+    enable_semantic_vote: bool | None = None,
     workers: int,
 ) -> tuple[list[Task], list[Rejected], dict[str, object]]:
     if workers == 1:
@@ -692,6 +750,12 @@ def _run_jobs(
                 judge=judge,
                 skip_gram_backresolve=skip_gram_backresolve,
                 voter=voter,
+                vote_k=vote_k,
+                vote_threshold=vote_threshold,
+                vote_models=vote_models,
+                vote_temperature=vote_temperature,
+                vote_max_tokens=vote_max_tokens,
+                enable_semantic_vote=enable_semantic_vote,
             )
             for job, tagged in planned
         ]
@@ -714,6 +778,12 @@ def _run_jobs(
                 judge=judge,
                 skip_gram_backresolve=skip_gram_backresolve,
                 voter=voter,
+                vote_k=vote_k,
+                vote_threshold=vote_threshold,
+                vote_models=vote_models,
+                vote_temperature=vote_temperature,
+                vote_max_tokens=vote_max_tokens,
+                enable_semantic_vote=enable_semantic_vote,
             )
             for job, tagged in planned
         ]
