@@ -12,7 +12,7 @@ A first freeze onto an existing different file needs ``--force``.
 ``--drop`` / ``--replace-slot`` re-freeze with overwrite=True (deliberate rewrite).
 ``--rerun-fallbacks --force`` re-expands evaluate-row / fallback-table slots
 with the live multi-model expander (no table-phrase fallback) and rewrites
-the published exam. Already-LLM KEEP items stay byte-identical.
+the pipeline draft file. Already-LLM KEEP items stay byte-identical.
 """
 
 from __future__ import annotations
@@ -1299,7 +1299,7 @@ def render_report(state: Mapping) -> str:
             ".venv/bin/python scripts/run_pilot_20.py --replace-slot <slot> --replace-id <id>",
             "```",
             "",
-            "`--rerun-fallbacks --force` rewrites the published exam "
+            "`--rerun-fallbacks --force` rewrites the pipeline draft file "
             "(R2 overwrite guard passed explicitly). `--drop` / "
             "`--replace-slot` also rewrite with `overwrite=True`. "
             "Reads `reports/pilot-20-state.json`.",
@@ -2079,7 +2079,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.rerun_fallbacks:
         if not args.force:
             raise SystemExit(
-                "--rerun-fallbacks rewrites the published exam; pass --force"
+                "--rerun-fallbacks rewrites the pipeline draft file; pass --force"
             )
         state_path = _ROOT / STATE_RELPATH
         if not state_path.is_file():

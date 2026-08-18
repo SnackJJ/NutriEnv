@@ -42,21 +42,22 @@ from nutrienv.world.portions import resolve_portion  # noqa: E402
 _SPLIT = _ROOT / "data" / "splits" / "v0.5-gold.json"
 _EXAM_N = 240
 # v0.5-gold is a frozen legacy exam. These 9 items fail validate_oracle_grams
-# (the oral grams gate landed after that freeze). They are the known baseline;
-# any NEW grams failure beyond this list fails landing.
-V05_ORACLE_GRAMS_EXEMPT_IDS = frozenset(
-    {
-        "v0-log-multi-001",
-        "v0-log-eaten-001",
-        "v0-log-prawn-001",
-        "v0-log-dinner-001",
-        "v05-log-mi-dinner-tofu-four",
-        "v05-log-mi-dinner-beef-pasta-spin",
-        "v05-log-uc-chicken-3oz",
-        "v05-log-uc-salmon-3-5oz",
-        "v05-log-uc-yogurt-quarter-cup",
-    }
-)
+# (the oral grams gate landed after that freeze). Ids plus oracle ledger_tail
+# grams are the known baseline; any NEW failing id, or any exempt id whose
+# actual grams drift from this pin, fails landing. Ticket 06 catalog rebuild
+# cannot hide behind an id-only exemption.
+V05_ORACLE_GRAMS_EXEMPT: dict[str, tuple[float, ...]] = {
+    "v0-log-multi-001": (60.0, 110.0, 150.0),
+    "v0-log-eaten-001": (150.0,),
+    "v0-log-prawn-001": (150.0,),
+    "v0-log-dinner-001": (150.0, 158.0, 100.0),
+    "v05-log-mi-dinner-tofu-four": (160.0, 158.0, 25.0, 4.5),
+    "v05-log-mi-dinner-beef-pasta-spin": (180.0, 140.0, 25.0),
+    "v05-log-uc-chicken-3oz": (85.05,),
+    "v05-log-uc-salmon-3-5oz": (99.23,),
+    "v05-log-uc-yogurt-quarter-cup": (61.25,),
+}
+V05_ORACLE_GRAMS_EXEMPT_IDS = frozenset(V05_ORACLE_GRAMS_EXEMPT)
 _OLD_KEYS = builder._OLD_PORTION_KEYS
 _GOLD_SOURCES = (
     ("s0", "ledger"),
@@ -308,7 +309,7 @@ def main(argv: list[str] | None = None) -> int:
         for row in oz_bad[:10]:
             print(f"  {row['fdc_id']} {row['portions']}")
 
-    exam_n, exam_draft_bad, exam_grams_bad = verify_published_exam(args.split)
+    exam_n, exam_draft_bad, exam_grams_bad, exam_tasks = verify_published_exam(args.split)
     print(f"published exam load_exam: {exam_n} items")
     print(f"published exam validate_draft: {exam_n} items, {len(exam_draft_bad)} failing")
     print(f"published exam validate_oracle_grams: {exam_n} items, {len(exam_grams_bad)} failing")
@@ -316,7 +317,7 @@ def main(argv: list[str] | None = None) -> int:
         print("EXAM VALIDATE FAILURES:")
         for item_id, issues in exam_draft_bad[:10]:
             print(f"  {item_id} {issues}")
-    exam_grams_unexpected = unexpected_oracle_grams_failures(exam_grams_bad)
+    exam_grams_unexpected = oracle_grams_gate_failures(exam_grams_bad, exam_tasks)
     if exam_grams_unexpected:
         print("UNEXPECTED ORACLE GRAMS FAILURES:")
         for item_id, issues in exam_grams_unexpected[:10]:
@@ -341,7 +342,28 @@ def unexpected_oracle_grams_failures(grams_bad: list) -> list:
     return [row for row in grams_bad if row[0] not in V05_ORACLE_GRAMS_EXEMPT_IDS]
 
 
-def verify_published_exam(path: Path | None = None) -> tuple[int, list, list]:
+def exemption_grams_mismatches(tasks) -> list:
+    """Exempt items whose oracle ledger_tail grams drifted from the pin."""
+    by_id = {task.id: task for task in tasks}
+    mismatches = []
+    for item_id, expected in V05_ORACLE_GRAMS_EXEMPT.items():
+        task = by_id.get(item_id)
+        got = ()
+        if task is not None and task.oracle.ledger_tail:
+            got = tuple(row.grams for row in task.oracle.ledger_tail)
+        if got != expected:
+            mismatches.append((item_id, [f"exempt grams {got} != pinned {expected}"]))
+    return mismatches
+
+
+def oracle_grams_gate_failures(grams_bad: list, tasks) -> list:
+    """New failing ids, or exempt ids whose pinned grams drifted."""
+    return unexpected_oracle_grams_failures(grams_bad) + exemption_grams_mismatches(
+        tasks
+    )
+
+
+def verify_published_exam(path: Path | None = None) -> tuple[int, list, list, list]:
     """load_exam the published split and run validate_draft + oracle-grams."""
     target = Path(path) if path is not None else _SPLIT
     tasks = load_exam(target)
@@ -349,7 +371,7 @@ def verify_published_exam(path: Path | None = None) -> tuple[int, list, list]:
     grams_bad = [
         (task.id, issues) for task in tasks if (issues := validate_oracle_grams(task))
     ]
-    return len(tasks), draft_bad, grams_bad
+    return len(tasks), draft_bad, grams_bad, tasks
 
 
 if __name__ == "__main__":

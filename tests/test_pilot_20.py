@@ -180,11 +180,26 @@ def test_v05_gold_loads_via_load_exam() -> None:
 
 
 def test_landing_verify_published_exam_helper() -> None:
-    n, draft_bad, grams_bad = landing_verify.verify_published_exam(V05)
+    n, draft_bad, grams_bad, tasks = landing_verify.verify_published_exam(V05)
     assert n == 240
     assert draft_bad == []
     assert {row[0] for row in grams_bad} == landing_verify.V05_ORACLE_GRAMS_EXEMPT_IDS
     assert landing_verify.unexpected_oracle_grams_failures(grams_bad) == []
+    assert landing_verify.oracle_grams_gate_failures(grams_bad, tasks) == []
+
+
+def test_mutating_exempt_item_grams_fails_oracle_grams_gate(tmp_path: Path) -> None:
+    payload = json.loads(V05.read_text(encoding="utf-8"))
+    item = next(row for row in payload["items"] if row["id"] == "v0-log-eaten-001")
+    assert item["oracle"]["ledger_tail"][0]["grams"] == 150.0
+    item["oracle"]["ledger_tail"][0]["grams"] = 999.0
+    dest = tmp_path / "mutated-v05.json"
+    dest.write_text(json.dumps(payload), encoding="utf-8")
+    n, draft_bad, grams_bad, tasks = landing_verify.verify_published_exam(dest)
+    assert n == 240
+    assert draft_bad == []
+    gate_bad = landing_verify.oracle_grams_gate_failures(grams_bad, tasks)
+    assert any(row[0] == "v0-log-eaten-001" for row in gate_bad)
 
 
 def test_render_report_does_not_claim_v10_is_the_published_exam() -> None:
@@ -194,6 +209,18 @@ def test_render_report_does_not_claim_v10_is_the_published_exam() -> None:
     assert "data/splits/v0.5-gold.json" in text
     assert "archive" in text.lower()
     assert "`abc123`" in text
+    collapsed = " ".join(text.split())
+    assert "rewrites the published exam" not in collapsed
+    assert "rewrite the published exam" not in collapsed.lower()
+
+
+def test_pilot_ops_do_not_claim_to_rewrite_the_published_exam() -> None:
+    collapsed = " ".join((run_pilot_20.__doc__ or "").split())
+    assert "rewrites the published exam" not in collapsed
+    assert "rewrite the published exam" not in collapsed.lower()
+    with pytest.raises(SystemExit) as excinfo:
+        run_pilot_20.main(["--rerun-fallbacks"])
+    assert "published exam" not in str(excinfo.value).lower()
 
 
 def test_unexpected_oracle_grams_failures_flags_new_ids() -> None:
