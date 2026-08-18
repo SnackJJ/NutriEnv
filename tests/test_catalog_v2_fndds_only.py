@@ -59,6 +59,77 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _write_mini_survey(tmp_path: Path) -> Path:
+    """Tiny survey.zip: 3 foods, 1 without kcal, 1 portion row."""
+    import csv
+    import io
+    import zipfile
+
+    def _csv(fieldnames: list[str], rows: list[dict[str, str]]) -> bytes:
+        buf = io.StringIO()
+        writer = csv.DictWriter(buf, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+        return buf.getvalue().encode("utf-8")
+
+    dest = tmp_path / "survey.zip"
+    with zipfile.ZipFile(dest, "w") as zf:
+        zf.writestr(
+            "food.csv",
+            _csv(
+                ["fdc_id", "description", "data_type"],
+                [
+                    {"fdc_id": "1", "description": "Kept A", "data_type": "survey_fndds_food"},
+                    {"fdc_id": "2", "description": "Kept B", "data_type": "survey_fndds_food"},
+                    {"fdc_id": "9", "description": "No kcal", "data_type": "survey_fndds_food"},
+                ],
+            ),
+        )
+        zf.writestr(
+            "food_nutrient.csv",
+            _csv(
+                ["fdc_id", "nutrient_id", "amount"],
+                [
+                    {"fdc_id": "1", "nutrient_id": "1008", "amount": "10"},
+                    {"fdc_id": "2", "nutrient_id": "1008", "amount": "20"},
+                ],
+            ),
+        )
+        zf.writestr(
+            "food_portion.csv",
+            _csv(
+                [
+                    "fdc_id",
+                    "id",
+                    "seq_num",
+                    "portion_description",
+                    "modifier",
+                    "gram_weight",
+                ],
+                [
+                    {
+                        "fdc_id": "1",
+                        "id": "10",
+                        "seq_num": "1",
+                        "portion_description": "1 cup",
+                        "modifier": "",
+                        "gram_weight": "100",
+                    }
+                ],
+            ),
+        )
+    return dest
+
+
+def test_survey_ingest_count_comes_from_zip_not_sqlite(tmp_path) -> None:
+    stats = builder.survey_fndds_ingest_stats(_write_mini_survey(tmp_path))
+    assert stats["food_csv_rows"] == 3
+    assert stats["no_kcal"] == 1
+    assert stats["no_kcal_ids"] == ["9"]
+    assert stats["ingestible"] == 2
+    assert stats["ingestible"] != 5431
+
+
 def test_fndds_only_ingest_skips_sr_legacy() -> None:
     default = builder.ingest_sources()
     only = builder.ingest_sources(fndds_only=True)
@@ -136,7 +207,7 @@ def test_plan_lists_staple_swaps_without_writing_catalog_v2() -> None:
     before_v1 = _sha256(_V1)
     existed = _V2.exists()
     plan = builder.plan_fndds_only_rebuild(
-        live_catalog=_LIVE, reference_catalog=_V1, split_path=_SPLIT
+        live_catalog=_LIVE, split_path=_SPLIT
     )
     swaps = {row["slug"]: row for row in plan["staple_swaps"]}
     assert set(swaps) == set(_SR_STAPLES)
@@ -145,33 +216,55 @@ def test_plan_lists_staple_swaps_without_writing_catalog_v2() -> None:
     assert swaps["tofu"]["old_fdc_id"] == "172448"
     assert swaps["tofu"]["new_fdc_id"] == "2707435"
     assert swaps["tuna"]["new_fdc_id"] == "2706311"
-    assert plan["counts"]["survey_fndds_food"] == plan["counts"]["catalog_v2_foods"]
-    assert plan["counts"]["survey_fndds_food"] != 5432
+    assert (
+        plan["counts"]["catalog_v2_foods"]
+        == plan["counts"]["food_csv_rows"] - plan["counts"]["no_kcal"]
+    )
+    assert plan["counts"]["food_csv_rows"] != plan["counts"]["catalog_v2_foods"]
     assert plan["wrote_catalog_v2"] is False
     assert _V2.exists() is existed
     assert _sha256(_LIVE) == before_live
     assert _sha256(_V1) == before_v1
 
 
-def test_plan_confirms_portion_facts_from_fndds_table_values() -> None:
-    plan = builder.plan_fndds_only_rebuild(
-        live_catalog=_LIVE, reference_catalog=_V1
-    )
+def test_plan_zero_fndds_drift_is_independent_raw_scan() -> None:
+    plan = builder.plan_fndds_only_rebuild(live_catalog=_LIVE)
+    raw = plan["raw_scan"]
+    assert raw["builder_foods_with_portions"] > 0
+    assert raw["independent_foods_with_portions"] == raw["builder_foods_with_portions"]
+    assert raw["portion_map_diffs"] == 0
+    assert "sqlite" not in raw["source"]
+
+
+def test_plan_confirms_raw_portion_facts_then_resolver_keys() -> None:
+    plan = builder.plan_fndds_only_rebuild(live_catalog=_LIVE)
     facts = {row["slug"]: row for row in plan["staple_swaps"]}
-    assert facts["chicken_breast"]["new_portions"]["piece"] == 105.0
-    assert facts["chicken_breast"]["portion_fact"]["resolved_g"] == 105.0
-    assert facts["chicken_breast"]["portion_fact"]["ok"] is True
-    assert facts["chicken_breast"]["portion_fact"]["cut_noun_resolved_g"] is None
-    assert facts["tuna"]["new_portions"]["can"] == 75.0
-    assert facts["tofu"]["new_portions"]["piece"] == 120.0
-    assert facts["olive_oil"]["new_portions"]["tbsp"] == 14.0
+    chicken = facts["chicken_breast"]["portion_fact"]
+    assert chicken["raw_description"] == "1 small breast"
+    assert chicken["raw_grams"] == 105.0
+    assert chicken["resolver_key"] == "piece"
+    assert chicken["resolved_g"] == 105.0
+    assert chicken["cut_noun_resolved_g"] is None
+    assert facts["tuna"]["portion_fact"]["raw_description"] == "1 small can"
+    assert facts["tuna"]["portion_fact"]["raw_grams"] == 75.0
+    assert facts["salmon"]["portion_fact"]["raw_description"] == "1 small/regular fillet"
+    assert facts["shrimp"]["portion_fact"]["raw_description"] == "1 small/medium shrimp"
+    assert facts["beef"]["portion_fact"]["raw_description"] == "1 small patty"
+    assert facts["olive_oil"]["portion_fact"]["raw_description"] == "1 tablespoon"
+    assert facts["tofu"]["portion_fact"]["raw_description"] == '1 piece (2-1/2" x 2-3/4" x 1")'
+    assert facts["black_beans"]["portion_fact"]["raw_description"] == "1 cup"
+    assert facts["peanut"]["portion_fact"]["raw_grams"] == 146.0
+    assert facts["almond"]["portion_fact"]["raw_grams"] == 141.0
     assert all(row["portion_fact"]["ok"] for row in plan["staple_swaps"])
-    assert all(row["new_data_type"] == "survey_fndds_food" for row in plan["staple_swaps"])
+    beef_delta = next(d for d in plan["nutrition_deltas"] if d["slug"] == "beef")
+    salmon_delta = next(d for d in plan["nutrition_deltas"] if d["slug"] == "salmon")
+    assert "90/10" in beef_delta["disclosure"]
+    assert "wild" in salmon_delta["disclosure"].lower()
 
 
 def test_dryrun_report_lists_gram_changes_and_staple_swaps(tmp_path) -> None:
     plan = builder.plan_fndds_only_rebuild(
-        live_catalog=_LIVE, reference_catalog=_V1, split_path=_SPLIT
+        live_catalog=_LIVE, split_path=_SPLIT
     )
     dest = tmp_path / "catalog-v2-dryrun.md"
     builder.write_catalog_v2_dryrun(plan, dest)
@@ -181,7 +274,15 @@ def test_dryrun_report_lists_gram_changes_and_staple_swaps(tmp_path) -> None:
     assert "2705956" in text
     assert "2707435" in text
     assert "2706311" in text
-    assert str(plan["counts"]["survey_fndds_food"]) in text
+    assert "1 small breast" in text
+    assert "1 small can" in text
+    assert "1 small/regular fillet" in text
+    assert "1 small/medium shrimp" in text
+    assert "1 small patty" in text
+    assert "90/10" in text
+    assert "wild" in text.lower()
+    assert str(plan["counts"]["catalog_v2_foods"]) in text
+    assert "survey.zip" in text
     assert "catalog-v2.sqlite" in text
     assert not _V2.exists()
     assert "不写" in text

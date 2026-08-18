@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import importlib.util
 import json
 import re
 import sqlite3
@@ -413,16 +414,13 @@ def _portion_keys_full(description: str, modifier: str) -> list[str]:
     return []
 
 
-def collect_portions_full(
+def collect_full_portion_wins(
     rows: list[dict[str, str]],
-) -> dict[str, dict[str, float]]:
-    """Full FNDDS scan: sort by (fdc_id, seq_num, id), first-wins per key.
-
-    Public so the dry-run parity test can call the builder scan without
-    going through zip ingest or sqlite. gram_weight <= 0 is dropped.
-    """
+) -> tuple[dict[str, dict[str, float]], dict[str, dict[str, dict]]]:
+    """Full FNDDS scan plus the winning raw row for each (fdc_id, key)."""
     ordered = sorted(rows, key=_row_sort_key)
     out: dict[str, dict[str, float]] = {}
+    sources: dict[str, dict[str, dict]] = {}
     for row in ordered:
         fdc_id = row.get("fdc_id") or ""
         keys = _portion_keys_full(
@@ -432,9 +430,33 @@ def collect_portions_full(
             grams = float(row.get("gram_weight") or "")
         except ValueError:
             continue
+        if grams <= 0 or not keys:
+            continue
+        bucket = out.setdefault(fdc_id, {})
+        origin = sources.setdefault(fdc_id, {})
         for key in keys:
-            _merge_portion(out.setdefault(fdc_id, {}), key, grams)
-    return out
+            if key in bucket:
+                continue
+            _merge_portion(bucket, key, grams)
+            origin[key] = {
+                "description": (row.get("portion_description") or "").strip(),
+                "modifier": (row.get("modifier") or "").strip(),
+                "grams": bucket[key],
+                "seq_num": row.get("seq_num") or "",
+            }
+    return out, sources
+
+
+def collect_portions_full(
+    rows: list[dict[str, str]],
+) -> dict[str, dict[str, float]]:
+    """Full FNDDS scan: sort by (fdc_id, seq_num, id), first-wins per key.
+
+    Public so the dry-run parity test can call the builder scan without
+    going through zip ingest or sqlite. gram_weight <= 0 is dropped.
+    """
+    portions, _sources = collect_full_portion_wins(rows)
+    return portions
 
 
 def _collect_portions_full(zf: zipfile.ZipFile) -> dict[str, dict[str, float]]:
@@ -598,9 +620,20 @@ def assign_staples(
     return aliases
 
 
-# Representative spoken forms used to confirm each re-pin has a PortionFact.
-# "a chicken breast" is a cut noun and stays None (ticket 02); the chicken
-# fact is the piece row (105 g) on 2705956.
+# Resolver phrase used only *after* the raw FNDDS row is named.
+# Ticket 02: "a chicken breast" stays None; the chicken anchor is piece.
+FNDDS_STAPLE_ANCHOR_KEY: dict[str, str] = {
+    "chicken_breast": "piece",
+    "tuna": "can",
+    "tofu": "piece",
+    "salmon": "piece",
+    "shrimp": "piece",
+    "beef": "piece",
+    "olive_oil": "tbsp",
+    "black_beans": "cup",
+    "peanut": "cup",
+    "almond": "cup",
+}
 FNDDS_STAPLE_PORTION_FACTS: dict[str, tuple[str, float]] = {
     "chicken_breast": ("a piece", 105.0),
     "tuna": ("a can", 75.0),
@@ -617,8 +650,8 @@ FNDDS_STAPLE_PORTION_FACTS: dict[str, tuple[str, float]] = {
 # Reviewer notes: why this FNDDS row, not a sibling. Not gram facts.
 FNDDS_STAPLE_WHY: dict[str, str] = {
     "chicken_breast": (
-        "票面候选。对应 SR 去皮烤胸；piece=105 是 catalog-v1 完整策略对 "
-        "2705956 的 first-wins 行。"
+        "票面候选。对应 SR 去皮烤胸。raw first-wins 行是 `1 small breast`=105g，"
+        "规范化为 piece=105。裸 a chicken breast 按 ticket 02 仍是 None。"
     ),
     "tuna": "票面候选。对应 SR 水浸罐头；FNDDS can=75（SR can=165）。",
     "tofu": (
@@ -626,16 +659,16 @@ FNDDS_STAPLE_WHY: dict[str, str] = {
         "当前 SR 钉的是 firm；cup 126→248。"
     ),
     "salmon": (
-        "SR 是 cooked dry heat。选 baked or broiled（2706286），"
-        "与 NFS 2706285 同份量表；不用 raw 2706284（无 piece）。"
+        "SR 是 Atlantic wild, cooked, dry heat。FNDDS 2706286 是 baked or broiled、"
+        "未标野捕/品种，营养素不等价（见 nutrition_deltas）。"
     ),
     "shrimp": (
         "SR 是 cooked。选 steamed or boiled（2706363），"
         "与 NFS 2706360 同份量表。"
     ),
     "beef": (
-        "SR 是 90/10 cooked patty。选 Beef, ground, patty（2705855，piece=65）；"
-        "不用无 piece 的 2705854 Beef, ground。"
+        "SR 是 90/10 cooked patty。FNDDS 2705855 是 Beef, ground, patty，"
+        "丢失 90/10 瘦度（见 nutrition_deltas）。"
     ),
     "olive_oil": "FNDDS 唯一纯橄榄油行 2710186。tbsp 13.5→14；无 tsp。",
     "black_beans": (
@@ -655,6 +688,50 @@ _GOLD_SOURCES = (
     ("s0", "last_plan"),
     ("oracle", "last_plan"),
 )
+
+
+def survey_fndds_ingest_stats(survey_zip: Path) -> dict:
+    """Count ingestible FNDDS foods from survey.zip, not from a built sqlite.
+
+    Ingestible = food.csv rows that have a kcal nutrient (same filter as
+    ``_ingest_pack``). The no-kcal remainder is listed so 5431 is derived,
+    not copied from catalog.sqlite.
+    """
+    with _open_zip_dir(survey_zip) as zf:
+        foods = list(_iter_csv(zf, "food.csv"))
+        kcal_ids: set[str] = set()
+        for row in _iter_csv(zf, "food_nutrient.csv"):
+            key = _NUTRIENT_BY_ID.get(row["nutrient_id"]) or _NUTRIENT_BY_NBR.get(
+                row["nutrient_id"]
+            )
+            if key != "kcal":
+                continue
+            try:
+                float(row["amount"])
+            except (TypeError, ValueError):
+                continue
+            kcal_ids.add(row["fdc_id"])
+    names: dict[str, str] = {}
+    data_types: dict[str, str] = {}
+    no_kcal_ids: list[str] = []
+    for row in foods:
+        fdc_id = row.get("fdc_id") or ""
+        if not fdc_id:
+            continue
+        names[fdc_id] = (row.get("description") or "").strip()
+        data_types[fdc_id] = row.get("data_type") or "survey_fndds_food"
+        if fdc_id not in kcal_ids:
+            no_kcal_ids.append(fdc_id)
+    food_csv_rows = len(names)
+    return {
+        "food_csv_rows": food_csv_rows,
+        "no_kcal": len(no_kcal_ids),
+        "no_kcal_ids": no_kcal_ids,
+        "ingestible": food_csv_rows - len(no_kcal_ids),
+        "names": names,
+        "data_types": data_types,
+        "kcal_ids": kcal_ids,
+    }
 
 
 def _read_catalog(
@@ -687,47 +764,137 @@ def _read_catalog(
 
 
 def _confirm_portion_fact(
-    slug: str, name: str, portions: dict[str, float]
+    slug: str,
+    name: str,
+    portions: dict[str, float],
+    source: dict | None,
 ) -> dict:
     from nutrienv.world.portions import resolve_portion
 
     phrase, expected = FNDDS_STAPLE_PORTION_FACTS[slug]
+    key = FNDDS_STAPLE_ANCHOR_KEY[slug]
     catalog = {slug: {"name": name, "portions": portions, "aliases": [slug]}}
     resolved = resolve_portion(slug, phrase, catalog)
     cut_phrase = "a chicken breast" if slug == "chicken_breast" else None
     cut_resolved = (
         resolve_portion(slug, cut_phrase, catalog) if cut_phrase else None
     )
+    raw = source or {}
+    raw_grams = raw.get("grams")
     return {
+        "raw_description": raw.get("description") or "",
+        "raw_modifier": raw.get("modifier") or "",
+        "raw_grams": raw_grams,
+        "resolver_key": key,
         "phrase": phrase,
         "expected_g": expected,
         "resolved_g": resolved,
-        "ok": resolved == expected,
+        "ok": resolved == expected and raw_grams == expected,
         "cut_noun_phrase": cut_phrase,
         "cut_noun_resolved_g": cut_resolved,
     }
 
 
+def _macros_from_zip(zf: zipfile.ZipFile, wanted: set[str]) -> dict[str, dict[str, float]]:
+    out: dict[str, dict[str, float]] = {}
+    for row in _iter_csv(zf, "food_nutrient.csv"):
+        fdc_id = row.get("fdc_id") or ""
+        if fdc_id not in wanted:
+            continue
+        key = _NUTRIENT_BY_ID.get(row["nutrient_id"]) or _NUTRIENT_BY_NBR.get(
+            row["nutrient_id"]
+        )
+        if key is None:
+            continue
+        try:
+            amount = float(row["amount"])
+        except (TypeError, ValueError):
+            continue
+        bucket = out.setdefault(fdc_id, {})
+        if key not in bucket:
+            bucket[key] = amount
+    return out
+
+
+def _independent_survey_portions(survey_zip: Path) -> dict[str, dict[str, float]]:
+    """POLICY scan that does not call collect_portions_full."""
+    spec = importlib.util.spec_from_file_location(
+        "fndds_dry_run", Path(__file__).resolve().parent / "fndds_dry_run.py"
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError("fndds_dry_run.py")
+    independent = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(independent)
+    portions, _names, _qns_zero = independent.collect_full_fndds(survey_zip)
+    return portions
+
+
+_SURVEY_SCAN_CACHE: dict[tuple[str, int], tuple] = {}
+
+
+def _survey_scan(survey_zip: Path) -> tuple:
+    cache_key = (str(survey_zip.resolve()), survey_zip.stat().st_mtime_ns)
+    hit = _SURVEY_SCAN_CACHE.get(cache_key)
+    if hit is not None:
+        return hit
+    stats = survey_fndds_ingest_stats(survey_zip)
+    with _open_zip_dir(survey_zip) as zf:
+        portion_rows = list(_iter_csv(zf, "food_portion.csv"))
+        survey_macros = _macros_from_zip(zf, set(FNDDS_ONLY_STAPLE_FDC.values()))
+    builder_portions, sources = collect_full_portion_wins(portion_rows)
+    independent_portions = _independent_survey_portions(survey_zip)
+    packed = (stats, builder_portions, sources, independent_portions, survey_macros)
+    _SURVEY_SCAN_CACHE[cache_key] = packed
+    return packed
+
+
 def plan_fndds_only_rebuild(
     *,
     live_catalog: Path,
-    reference_catalog: Path,
+    survey_zip: Path | None = None,
+    sr_legacy_zip: Path | None = None,
     split_path: Path | None = None,
+    reference_catalog: Path | None = None,
 ) -> dict:
-    """Read-only catalog-v2 plan. Does not write any sqlite."""
+    """Read-only catalog-v2 plan. Count and FNDDS portions come from survey.zip."""
+    del reference_catalog  # no longer used; kept so old callers do not crash
+    survey_zip = survey_zip or (
+        _RAW / "fndds.zip" if (_RAW / "fndds.zip").is_file() else _RAW / "survey.zip"
+    )
+    sr_legacy_zip = sr_legacy_zip or (_RAW / "sr_legacy.zip")
+    stats, builder_portions, sources, independent_portions, survey_macros = (
+        _survey_scan(survey_zip)
+    )
+    portion_map_diffs = 0
+    for fdc_id in set(builder_portions) | set(independent_portions):
+        if builder_portions.get(fdc_id) != independent_portions.get(fdc_id):
+            portion_map_diffs += 1
+
     live_foods, live_aliases, live_counts = _read_catalog(live_catalog)
-    ref_foods, _ref_aliases, ref_counts = _read_catalog(reference_catalog)
+    sr_ids = {
+        live_aliases.get(slug, "")
+        for slug in SR_LEGACY_STAPLES
+        if live_aliases.get(slug)
+    }
+    sr_macros: dict[str, dict[str, float]] = {}
+    if sr_legacy_zip.is_file() and sr_ids:
+        with _open_zip_dir(sr_legacy_zip) as zf:
+            sr_macros = _macros_from_zip(zf, sr_ids)
+
     pins = staple_fdc_pins(fndds_only=True)
     swaps: list[dict] = []
     for slug in SR_LEGACY_STAPLES:
         old_id = live_aliases.get(slug, "")
         new_id = pins[slug]
         old_entry = live_foods.get(old_id) or {}
-        new_entry = ref_foods.get(new_id) or {}
+        new_name = stats["names"].get(new_id) or ""
         old_portions = dict(old_entry.get("portions") or {})
-        new_portions = dict(new_entry.get("portions") or {})
+        new_portions = dict(builder_portions.get(new_id) or {})
         fact = _confirm_portion_fact(
-            slug, str(new_entry.get("name") or ""), new_portions
+            slug,
+            new_name,
+            new_portions,
+            (sources.get(new_id) or {}).get(FNDDS_STAPLE_ANCHOR_KEY[slug]),
         )
         swaps.append(
             {
@@ -737,13 +904,40 @@ def plan_fndds_only_rebuild(
                 "old_data_type": old_entry.get("data_type") or "",
                 "old_portions": old_portions,
                 "new_fdc_id": new_id,
-                "new_name": new_entry.get("name") or "",
-                "new_data_type": new_entry.get("data_type") or "",
+                "new_name": new_name,
+                "new_data_type": stats["data_types"].get(new_id) or "survey_fndds_food",
                 "new_portions": new_portions,
                 "portion_fact": fact,
             }
         )
-    survey_n = live_counts.get("survey_fndds_food", 0)
+
+    nutrition_deltas = [
+        {
+            "slug": "beef",
+            "old_fdc_id": live_aliases.get("beef", ""),
+            "new_fdc_id": pins["beef"],
+            "old_nutrients": sr_macros.get(live_aliases.get("beef", ""), {}),
+            "new_nutrients": survey_macros.get(pins["beef"], {}),
+            "disclosure": (
+                "Beef loses 90/10 leanness: SR 171793 is "
+                "'90% lean meat / 10% fat, patty, cooked, pan-broiled'; "
+                "FNDDS 2705855 is generic 'Beef, ground, patty' (NFS fat)."
+            ),
+        },
+        {
+            "slug": "salmon",
+            "old_fdc_id": live_aliases.get("salmon", ""),
+            "new_fdc_id": pins["salmon"],
+            "old_nutrients": sr_macros.get(live_aliases.get("salmon", ""), {}),
+            "new_nutrients": survey_macros.get(pins["salmon"], {}),
+            "disclosure": (
+                "Salmon is not nutritionally equivalent to the old wild entry: "
+                "SR 171998 is 'Atlantic, wild, cooked, dry heat'; "
+                "FNDDS 2706286 is 'baked or broiled' with no wild/species tag."
+            ),
+        },
+    ]
+
     gold_rows: list[dict] = []
     if split_path is not None:
         split = json.loads(split_path.read_text(encoding="utf-8"))
@@ -774,12 +968,24 @@ def plan_fndds_only_rebuild(
     return {
         "wrote_catalog_v2": False,
         "counts": {
-            "survey_fndds_food": survey_n,
+            "food_csv_rows": stats["food_csv_rows"],
+            "no_kcal": stats["no_kcal"],
+            "no_kcal_ids": stats["no_kcal_ids"],
+            "catalog_v2_foods": stats["ingestible"],
             "sr_legacy_food": live_counts.get("sr_legacy_food", 0),
-            "catalog_v2_foods": survey_n,
-            "reference_survey_fndds_food": ref_counts.get("survey_fndds_food", 0),
+        },
+        "raw_scan": {
+            "source": (
+                str(survey_zip.relative_to(_ROOT))
+                if survey_zip.is_relative_to(_ROOT)
+                else str(survey_zip)
+            ),
+            "builder_foods_with_portions": len(builder_portions),
+            "independent_foods_with_portions": len(independent_portions),
+            "portion_map_diffs": portion_map_diffs,
         },
         "staple_swaps": swaps,
+        "nutrition_deltas": nutrition_deltas,
         "gold_rows": gold_rows,
     }
 
@@ -803,11 +1009,22 @@ def _portion_deltas(old: dict, new: dict) -> list[str]:
     return bits
 
 
+def _fmt_macros(nutrients: dict) -> str:
+    if not nutrients:
+        return "—"
+    order = ("kcal", "protein_g", "fat_g", "carb_g", "sodium_mg")
+    bits = [f"{k}={nutrients[k]:g}" for k in order if k in nutrients]
+    bits += [f"{k}={v:g}" for k, v in sorted(nutrients.items()) if k not in order]
+    return ", ".join(bits)
+
+
 def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
     """Write the STEP 1 dry-run report. Does not write catalog-v2.sqlite."""
     counts = plan["counts"]
     swaps = plan["staple_swaps"]
     gold_rows = plan.get("gold_rows") or []
+    raw_scan = plan.get("raw_scan") or {}
+    excluded = ", ".join(f"`{fid}`" for fid in (counts.get("no_kcal_ids") or []))
     lines: list[str] = [
         "# catalog-v2 dry-run：FNDDS-only + staple 重钉",
         "",
@@ -825,23 +1042,29 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
         "",
         "- catalog-v2 是新文件（`data/fdc/catalog-v2.sqlite`），不覆盖",
         "  `catalog.sqlite` 与 `catalog-v1.sqlite`。",
-        "- 构建策略与 catalog-v1 相同（`--full`：seq_num first-wins），只是不 ingest",
-        "  SR Legacy，并把 10 个 SR staple 重钉到 FNDDS 等价条目。",
-        "- v0.5-gold 绑 `catalog.sqlite`（sha 见该 split 的 `catalog_sha256`），",
-        "  本 dry-run 与日后 catalog-v2 对其零影响。",
+        "- FNDDS 食物数与份量图来自 `survey.zip`（food.csv / food_nutrient /",
+        "  food_portion），不是现成 sqlite 的 COUNT / portions 拷贝。",
+        "- v0.5-gold 绑 `catalog.sqlite`，本 dry-run 与日后 catalog-v2 对其零影响。",
         "",
-        "## 食物数对账",
+        "## 食物数对账（survey.zip）",
         "",
-        f"- 当前 `catalog.sqlite` / `catalog-v1.sqlite` 的 `survey_fndds_food`："
-        f"**{counts['survey_fndds_food']}**",
-        f"- 当前 `sr_legacy_food`：**{counts['sr_legacy_food']}**（catalog-v2 将全部丢弃）",
-        f"- catalog-v2 预计食物数：**{counts['catalog_v2_foods']}**（= 对账后的 FNDDS 数）",
-        f"- catalog-v1 内 `survey_fndds_food`：**{counts['reference_survey_fndds_food']}**",
-        "  （与 live 一致则对账闭合）",
+        f"- `survey.zip` `food.csv` 行数：**{counts['food_csv_rows']}**",
+        f"- 无 kcal、不入库：**{counts['no_kcal']}**（{excluded or '—'}）",
+        f"- catalog-v2 预计食物数：**{counts['catalog_v2_foods']}**"
+        f"（= food.csv − 无 kcal，不硬编码）",
+        f"- 当前 catalog 里仍有的 `sr_legacy_food`：**{counts['sr_legacy_food']}**"
+        "（catalog-v2 将全部丢弃；此数只描述现状，不参与 FNDDS 计数）",
         "",
-        "票面曾写 5432：那是 `survey.zip` `food.csv` 行数。其中 `2705383` Milk, human",
-        "无 kcal，builder 不入库，所以 catalog 实测是 **5431**。catalog-v2 用 5431，",
-        "不硬编码 5432。",
+        "## FNDDS 份量图：builder scan vs 独立 raw scan",
+        "",
+        f"- 源：`{raw_scan.get('source', 'survey.zip')}`",
+        f"- builder `collect_portions_full` 有份量的食物："
+        f"**{raw_scan.get('builder_foods_with_portions', 0)}**",
+        f"- 独立 `fndds_dry_run.collect_full_fndds`："
+        f"**{raw_scan.get('independent_foods_with_portions', 0)}**",
+        f"- 两图不一致的食物数：**{raw_scan.get('portion_map_diffs', 0)}**",
+        "",
+        "零漂移指这两次 **survey.zip** 扫描一致，不是拿 catalog-v1.sqlite 自己比自己。",
         "",
         "## 哪些 staple 换条目",
         "",
@@ -856,20 +1079,15 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
     lines += [
         "",
         "选型说明：tofu / chicken / tuna 用票面已点名的 FNDDS id；其余 7 个按当前",
-        "SR 行的形态就近选 catalog-v1 里已有的 FNDDS 行（cooked patty / unroasted /",
-        "olive oil / dried no-fat beans）。详见每条 PortionFact。",
+        "SR 行的形态就近选 survey 里的 FNDDS 行。beef 丢失 90/10 瘦度、salmon 与",
+        "旧 wild 条目营养不等价，见下方披露。",
         "",
         "## 哪些食物克数会变",
         "",
-        "相对 **catalog-v1**（同 `--full` 策略）：FNDDS 食物份量键 **0 变**。变化只来自",
-        "10 个 staple 别名换条目（旧 SR 行随 7793 条 SR 一起消失）。",
+        "FNDDS 食物份量键相对独立 raw scan **0 变**（上节）。变化只来自 10 个 staple",
+        "别名换条目（旧 SR 行随 SR Legacy 一起消失）。v0.5-gold 不读 catalog-v2。",
         "",
-        "相对 **catalog.sqlite**（v0.5 safe-overlay）：FNDDS 旧键还有 catalog-v1 已记录",
-        "的 861 处取值变化（见 `reports/catalog-v1-dryrun.md`）。那些变化已经在",
-        "catalog-v1 落地；catalog-v2 继承 catalog-v1 的 FNDDS 份量，不再另变。",
-        "v0.5-gold 不读 catalog-v2，冻结 JSON 克数不动。",
-        "",
-        "| slug | 当前 portions | FNDDS portions | 克数变化 |",
+        "| slug | 当前 SR portions | FNDDS portions（raw scan） | 克数变化 |",
         "|---|---|---|---|",
     ]
     for row in swaps:
@@ -881,28 +1099,47 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
         )
     lines += [
         "",
-        "## 每条 staple 的 FNDDS target + PortionFact",
+        "## 每条 staple 的 raw PortionFact + 规范化键",
+        "",
+        "先写 FNDDS 原行（含 small/regular/medium 等修饰），再写 resolver 规范化键。",
         "",
     ]
     for row in swaps:
         fact = row["portion_fact"]
         ok = "通过" if fact["ok"] else "失败"
+        raw_g = fact.get("raw_grams")
+        raw_g_s = "—" if raw_g is None else f"{raw_g:g} g"
         lines += [
             f"### `{row['slug']}` → `{row['new_fdc_id']}` {row['new_name']}",
             "",
             f"- 当前：`{row['old_fdc_id']}` [{row['old_data_type']}] {row['old_name']}",
-            f"- 新 portions：`{_fmt_portions(row['new_portions'])}`",
             f"- 选型：{FNDDS_STAPLE_WHY[row['slug']]}",
-            f"- PortionFact：`{fact['phrase']}` → **{fact['expected_g']:g} g**"
-            f"（resolve_portion={fact['resolved_g']}，{ok}）",
+            f"- **raw PortionFact**：`{fact['raw_description']}` = **{raw_g_s}**",
+            f"- 规范化 resolver 键：`{fact['resolver_key']}={fact['expected_g']:g}`"
+            f"（`{fact['phrase']}` → resolve_portion={fact['resolved_g']}，{ok}）",
+            f"- 规范化后 portions：`{_fmt_portions(row['new_portions'])}`",
         ]
         if fact.get("cut_noun_phrase"):
             lines.append(
-                f"- 票面例句 `{fact['cut_noun_phrase']}`：resolve_portion="
-                f"{fact['cut_noun_resolved_g']}（ticket 02 切块名词保持 None；"
-                f"piece=105 可解析的是 `a piece`，不是裸 `a chicken breast`）"
+                f"- ticket 02 仍成立：`{fact['cut_noun_phrase']}` → "
+                f"{fact['cut_noun_resolved_g']}（切块名词，不是 piece）"
             )
         lines.append("")
+    lines += [
+        "## 营养素披露（beef 瘦度 / salmon 野捕）",
+        "",
+        "每 100 g，来自 `sr_legacy.zip` / `survey.zip` 的 food_nutrient，不是 sqlite。",
+        "",
+    ]
+    for delta in plan.get("nutrition_deltas") or []:
+        lines += [
+            f"### `{delta['slug']}`",
+            "",
+            f"- {delta['disclosure']}",
+            f"- SR `{delta['old_fdc_id']}`：{_fmt_macros(delta['old_nutrients'])}",
+            f"- FNDDS `{delta['new_fdc_id']}`：{_fmt_macros(delta['new_nutrients'])}",
+            "",
+        ]
     n_gold = len(gold_rows)
     by_slug: dict[str, int] = {}
     for row in gold_rows:
@@ -911,10 +1148,8 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
         "## v0.5-gold 影响（绑旧 catalog，零落地）",
         "",
         f"split 里这 10 个 slug 共 **{n_gold}** 行（peanut 不在 gold 25 里）。",
-        "冻结克数写在 JSON 里，不随 catalog-v2 变。若有人误把 v0.5 指到 catalog-v2，",
-        "别名会换 FDC id、营养素与份量表都会变；household 克数（tuna can 165、",
-        "tofu cup 126、black_beans cup 172、olive_oil tbsp 13.5 / tsp 4.5）将不再",
-        "等于新表。**本票不改 v0.5-gold，也不改 catalog.sqlite。**",
+        "冻结克数写在 JSON 里，不随 catalog-v2 变。**本票不改 v0.5-gold，",
+        "也不改 catalog.sqlite。**",
         "",
         "| slug | gold 行数 |",
         "|---|---:|",
@@ -923,13 +1158,11 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
         lines.append(f"| `{slug}` | {by_slug.get(slug, 0)} |")
     lines += [
         "",
-        "## 验收冲突（STEP 1 记下，不改 resolve_portion）",
+        "## ticket 02 仍成立",
         "",
-        "ticket 06 验收 2 写 chicken `\"a chicken breast\"` → piece 105g。",
-        "ticket 02 已把 `breast` 列为切块名词：无同名 portion 键则 `resolve_portion`",
-        "返回 None（`tests/test_portions.py` 钉死）。2705956 的 PortionFact 是",
-        "`piece=105`；`a piece` 解析为 105g，裸 `a chicken breast` 仍是 None。",
-        "STEP 2 落地前由主 agent 裁定是否改语法，本 dry-run 不猜。",
+        "验收 2 已改为：chicken piece 锚点 = 105g（raw `1 small breast`）；",
+        "裸 `\"a chicken breast\"` 按 ticket 02 保持 None。本 dry-run 不改",
+        "`resolve_portion`。",
         "",
         "## 裁决请求",
         "",
@@ -1076,7 +1309,6 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--dry-run currently supports --fndds-only only")
         plan = plan_fndds_only_rebuild(
             live_catalog=_DB,
-            reference_catalog=_DB.parent / "catalog-v1.sqlite",
             split_path=_ROOT / "data" / "splits" / "v0.5-gold.json",
         )
         write_catalog_v2_dryrun(plan, args.report)
