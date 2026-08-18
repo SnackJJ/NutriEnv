@@ -10,7 +10,7 @@
 | **grok** | grok (terminal) | 实现主力 | 编码、改代码、dry-run 脚本、probe 扩展、gate 封装 |
 | **GPT** | codex (terminal) | 审查主力 | 代码审查、独立复核、零漂移验证、validate_draft 检查抽函数 |
 | **AGY** | agy + gemini-3.7-flash-high | 搜索 + 汇报 | 差距审计数据整理、网页版汇报（review-sheet 风格）、真实话术源搜集 |
-| **claude** | claude (Opus) | 深度裁决 | 只在关键节点用一次：终审文档/裁决 dry-run 结果，不参与日常循环 |
+| **claude** | claude (Opus) | 深度裁决 | 收尾终审必用一次；关键节点按触发用（就绪检查/升级裁决/阻塞消解/集成检查点/硬纪律门）；关键部分 review 与 codex 并行交叉验证。不参与日常循环 |
 
 ## 限量约束（硬约束，分配时优先）
 
@@ -24,15 +24,15 @@
 ```
 第一波（并行）：grok → 任务①（FNDDS dry-run）
                 AGY → 任务②（差距审计，用现有 catalog，不依赖①）
-第二波：grok 产出 → GPT 审（零漂移验证）→ 主 agent 裁决 → 才允许落地重建 catalog
+第二波：grok 产出 → GPT 审（零漂移验证）→ claude (Opus) 裁决 → 才允许落地重建 catalog
 第三波：grok → 短语级 probe + judge gate → 灰区用例通过 → GPT 审 → claude 终审收尾
 ```
 
 ## 纪律（不可违反）
 
-1. **catalog 重建必须过 dry-run + GPT 审查 + 主 agent 裁决**，dry-run 的"哪些食物克数会变"清单先给人看，确认冻结 split 零漂移才落地。
-2. **judge 封 gate 前必须先过灰区用例**（sandwich 1.5× / lasagna 1.2× / omelet 2.0×，ground truth 已知）。
-3. **claude 只在收尾用一次**（终审/裁决），不参与日常迭代循环。
+1. **catalog 重建必须过 dry-run + GPT 审查 + claude (Opus) 裁决**，dry-run 的"哪些食物克数会变"清单先给人看，确认冻结 split 零漂移才落地。
+2. **judge 封 gate 前必须先过灰区用例**（sandwich 1.5× / lasagna 1.2× / omelet 2.0×，ground truth 已知），灰区结果由 claude (Opus) 终裁。
+3. **claude 收尾终审必用一次，关键节点按触发用**（就绪检查、升级裁决、阻塞消解、集成检查点、硬纪律门；关键部分 review 与 codex 并行交叉验证），不参与日常迭代循环；每次 run 预算 2–8 次调用。
 4. 克数锚点 = FNDDS 表值/QNS；**LLM 产出永远是"候选"，不是"事实"**；任何克数不允许由 LLM 直接定义。
 5. agent 手册对称性：新表达（如 "a thick steak"）进题前必须同步写进 react.py 手册。
 

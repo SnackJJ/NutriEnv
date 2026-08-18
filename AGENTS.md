@@ -12,13 +12,13 @@
 | grok | 实现主力（改代码、dry-run、probe、gate） | 周限量 |
 | GPT (codex) | 审查主力（零漂移验证、代码复核） | 周限量 |
 | AGY (gemini) | 搜索 + 网页汇报（差距审计、话术搜集） | 5h 限量 |
-| claude | 深度裁决，只在收尾用一次 | 5h 限量 |
+| claude | 深度裁决（收尾必用一次 + 关键节点按触发用） | 5h 限量 |
 
 ## 硬纪律
 
 1. **克数锚点 = FNDDS 表值 / QNS；LLM 产出永远是候选，不是事实。**
-2. catalog 重建必须先 dry-run 列"哪些食物克数会变"→ GPT 审查 → 主 agent 裁决，确认冻结 split 零漂移才落地。
-3. judge 封 gate 前必须过灰区用例（sandwich 1.5× / lasagna 1.2× / omelet 2.0×）。
+2. catalog 重建必须先 dry-run 列"哪些食物克数会变"→ GPT 审查 → claude (Opus) 裁决，确认冻结 split 零漂移才落地。
+3. judge 封 gate 前必须过灰区用例（sandwich 1.5× / lasagna 1.2× / omelet 2.0×），灰区结果由 claude (Opus) 终裁。
 4. agent 手册对称性：新表达进题前必须同步写进 react.py 手册。
 5. 判分规则不动：`Pass ⇔ end state == Oracle`；考试仍是冻结 split 文件。
 

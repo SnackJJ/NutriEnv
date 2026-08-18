@@ -282,3 +282,57 @@ def test_omelet_piece_55_is_legal_table_value(live_catalog):
     # Spoken "an omelet" now reads qns; the piece row stays a legal table value.
     assert resolve_portion("2707198", "an omelet", live_catalog) == 110.0
     assert resolve_portion("2707198", "a piece", live_catalog) == 55.0
+
+
+@pytest.fixture(scope="module")
+def catalog_v1():
+    from pathlib import Path
+
+    return load_catalog(
+        Path(__file__).resolve().parents[1] / "data" / "fdc" / "catalog-v1.sqlite"
+    )
+
+
+@pytest.mark.parametrize(
+    ("food_id", "phrase", "grams"),
+    [
+        ("apple", "one apple", 165.0),
+        ("banana", "a banana", 126.0),
+        ("egg", "two eggs", 100.0),  # catalog-v1 piece=50 × 2
+        ("apple", "an apple", 165.0),
+        ("egg", "one egg", 50.0),
+    ],
+)
+def test_bare_food_noun_uses_piece(catalog_v1, food_id, phrase, grams):
+    assert resolve_portion(food_id, phrase, catalog_v1) == grams
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "a chicken breast",
+        "half a chicken breast",
+        "one chicken breast",
+        "two chicken breasts",
+    ],
+)
+def test_chicken_breast_cut_noun_stays_none(catalog_v1, phrase):
+    assert "piece" not in catalog_v1["chicken_breast"]["portions"]
+    assert resolve_portion("chicken_breast", phrase, catalog_v1) is None
+
+
+def test_bare_noun_does_not_guess_cup_default(catalog_v1):
+    # chicken_breast _serving_default would be cup=140; bare cut must not guess.
+    assert catalog_v1["chicken_breast"]["portions"]["cup"] == 140.0
+    assert resolve_portion("chicken_breast", "a chicken breast", catalog_v1) is None
+
+
+def test_bare_noun_handbook_covers_new_expressions(catalog_v1):
+    """AGENTS.md rule 4: new spoken forms must appear in the v1 manual."""
+    manual = react_manual("v1")
+    for phrase in ("one apple", "a banana", "two eggs", "a chicken breast"):
+        assert phrase in manual
+    assert resolve_portion("apple", "one apple", catalog_v1) == 165.0
+    assert resolve_portion("banana", "a banana", catalog_v1) == 126.0
+    assert resolve_portion("egg", "two eggs", catalog_v1) == 100.0
+    assert resolve_portion("chicken_breast", "a chicken breast", catalog_v1) is None

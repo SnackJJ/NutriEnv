@@ -9,6 +9,8 @@ from __future__ import annotations
 import itertools
 import re
 
+from nutrienv.world.catalog import canonical_food_id
+from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals, normalize_tags
 
 from .generator import Task
@@ -45,6 +47,27 @@ _NUMBER = re.compile(r"(?<!\d)(\d+(?:\.\d+)?)(?!\d)")
 # v0.5 evaluate items speak raw gram phrases ("200g chicken"). Those
 # amounts are query-traceable but not named PortionFact multiples.
 _EXPLICIT_GRAMS = re.compile(r"(?<!\d)(\d+(?:\.\d+)?)\s*g(?:rams?)?\b")
+# After a gram phrase, skip "of/in" plus an optional article to reach the NP.
+_GRAM_NP_PREFIX = re.compile(r"^(?:(?:of|in)\s+)?(?:(?:a|an|the)\s+)?", re.IGNORECASE)
+# An adjunct or coordinator ends the modified food NP.
+# Match at the leftover start or after whitespace: after lstrip(),
+# "with rice" must break immediately so "chicken 150 g with rice"
+# falls back to the preceding chicken NP.
+_GRAM_NP_BREAK = re.compile(
+    r"(?:^|\s+)(?:with|without|and|plus|alongside|besides|after|before|"
+    r"for|at|on|during|then|but|or|as)\b|[,;.:]",
+    re.IGNORECASE,
+)
+# Command/frame words immediately before a gram are not a food NP.
+_GRAM_FRAME = frozenset({
+    "please", "log", "evaluate", "check", "submit",
+    "ate", "eat", "eaten", "had", "have",
+})
+_GRAM_LIGHT = frozenset({
+    "a", "an", "the", "of", "in", "that", "this", "i", "we", "me", "my",
+    "just", "also", "today", "yesterday",
+})
+_GRAM_OF_IN = re.compile(r"^(?:of|in)\b", re.IGNORECASE)
 # Split an update query into clauses so each window's delta and direction
 # stay attached to the noun they were spoken with. A comma starts a clause
 # only when the next words look like one (window noun or direction verb).
@@ -163,9 +186,10 @@ def semantic_key(task: Task) -> tuple:
 def validate_oracle_grams(task: Task) -> list[str]:
     """Return issues for Oracle grams that lack a deterministic portion anchor.
 
-    This check deliberately reads the Oracle rather than trying to recover a
-    realization row from the query, so it also covers independently authored
-    queries such as LLM pipeline drafts.
+    An amount is legal when it is a portion-table multiple, or when the query
+    names that food with a spoken gram phrase that ``resolve_portion`` maps
+    to the same grams. The check still reads the Oracle rather than a
+    realization row, so independently authored drafts are covered.
     """
     issues: list[str] = []
     items = []
@@ -181,10 +205,13 @@ def validate_oracle_grams(task: Task) -> list[str]:
         )
 
     for location, food_id, grams in items:
-        if not matches_portion_table(food_id, grams, task.s0.catalog):
-            issues.append(
-                f"oracle {location} grams {grams} for {food_id} do not match portion table"
-            )
+        if matches_portion_table(food_id, grams, task.s0.catalog):
+            continue
+        if _query_traceable_grams(task.query, food_id, grams, task.s0.catalog):
+            continue
+        issues.append(
+            f"oracle {location} grams {grams} for {food_id} do not match portion table"
+        )
     return issues
 
 
@@ -264,6 +291,130 @@ def _token_in_query(token: str, query: str) -> bool:
     if len(token) < 3:
         return False
     return re.search(rf"(?<![\w]){re.escape(token)}(?![\w])", query) is not None
+
+
+_FOOD_IDENTITY_INDEX: dict[int, dict[str, set[str]]] = {}
+
+
+def _index_spoken_name(index: dict[str, set[str]], name: str, identity: str) -> None:
+    key = name.strip().lower()
+    if len(key) < 3 or "," in key:
+        return
+    index.setdefault(key, set()).add(identity)
+
+
+def _food_identity_index(catalog) -> dict[str, set[str]]:
+    cached = _FOOD_IDENTITY_INDEX.get(id(catalog))
+    if cached is not None:
+        return cached
+    index: dict[str, set[str]] = {}
+    for food_id in catalog:
+        identity = canonical_food_id(catalog, str(food_id))
+        _index_spoken_name(index, str(food_id), identity)
+        _index_spoken_name(index, str(food_id).replace("_", " "), identity)
+        for alias in (catalog.get(food_id) or {}).get("aliases") or []:
+            _index_spoken_name(index, str(alias), identity)
+            _index_spoken_name(index, str(alias).replace("_", " "), identity)
+    aliases = getattr(catalog, "_aliases", None)
+    if isinstance(aliases, dict):
+        for slug, fdc_id in aliases.items():
+            identity = canonical_food_id(catalog, str(fdc_id))
+            _index_spoken_name(index, str(slug), identity)
+            _index_spoken_name(index, str(slug).replace("_", " "), identity)
+    _FOOD_IDENTITY_INDEX[id(catalog)] = index
+    return index
+
+
+def _span_food_identities(span: str, catalog) -> set[str]:
+    """Canonical food identities named in ``span``.
+
+    Spoken n-grams (``chicken``, ``greek yogurt``) map through aliases and
+    slugs to one canonical id, so ``chicken_breast`` and ``171477`` do not
+    count as two foods. Two distinct identities in one span is fail-closed.
+    """
+    tokens = re.findall(r"[a-z0-9]+", span.lower())
+    index = _food_identity_index(catalog)
+    hits: set[str] = set()
+    for width in range(1, min(4, len(tokens)) + 1):
+        for start in range(len(tokens) - width + 1):
+            phrase = " ".join(tokens[start: start + width])
+            hits.update(index.get(phrase, ()))
+            hits.update(index.get(phrase.replace(" ", "_"), ()))
+    return hits
+
+
+def _is_frame_span(text: str) -> bool:
+    tokens = re.findall(r"[a-z0-9]+", text.lower())
+    return not tokens or all(token in _GRAM_FRAME or token in _GRAM_LIGHT for token in tokens)
+
+
+def _after_food_np(text: str) -> str:
+    after = _GRAM_NP_PREFIX.sub("", text.lstrip(), count=1)
+    broken = _GRAM_NP_BREAK.search(after)
+    if broken:
+        after = after[: broken.start()]
+    return after.strip()
+
+
+def _before_food_np(text: str) -> str:
+    starts = [hit.end() for hit in _GRAM_NP_BREAK.finditer(text)]
+    if starts:
+        text = text[starts[-1]:]
+    return text.strip()
+
+
+def _modified_food_span(
+    query: str, match: re.Match[str], *, since: int, until: int
+) -> str | None:
+    """Unique food NP that a spoken gram phrase modifies, or None.
+
+    The search is clipped to the adjacent ``_EXPLICIT_GRAMS`` hits, so one
+    amount cannot swallow the next (``150 g of chicken 200 g of rice``
+    binds 150 to chicken only). After that clip: skip ``of``/``in`` and
+    an article, then stop at a coordinator or adjunct (``and``, ``with``,
+    comma, …), including a breaker at the leftover start. If both a
+    preceding NP and a following NP remain and the gram is not an
+    ``of``/``in`` complement, the pairing is not unique and this returns
+    None (fail-closed). Frame words such as ``log`` are not a food NP.
+    """
+    raw_after = query[match.end(): until]
+    after = _after_food_np(raw_after)
+    before = _before_food_np(query[since: match.start()])
+    attached = _GRAM_OF_IN.search(raw_after.lstrip()) is not None
+    if attached and after:
+        return after
+    if after and before and not _is_frame_span(before):
+        return None
+    if after:
+        return after
+    if before and not _is_frame_span(before):
+        return before
+    return None
+
+
+def _query_traceable_grams(query: str, food_id: str, grams: float, catalog) -> bool:
+    """True when a spoken gram phrase that modifies this food resolves to grams.
+
+    Binding is the unique local NP of that phrase, never a later gram span
+    and never an ambiguous FOOD-GRAM-FOOD sandwich. The span must name
+    exactly one catalog food identity (canonicalized), and that identity
+    must be this food. ``150 g of chicken rice`` authorizes neither food.
+    """
+    target = round(float(grams), 2)
+    wanted = canonical_food_id(catalog, food_id)
+    matches = list(_EXPLICIT_GRAMS.finditer(query))
+    for index, match in enumerate(matches):
+        since = matches[index - 1].end() if index else 0
+        until = matches[index + 1].start() if index + 1 < len(matches) else len(query)
+        span = _modified_food_span(query, match, since=since, until=until)
+        if not span:
+            continue
+        if _span_food_identities(span, catalog) != {wanted}:
+            continue
+        resolved = resolve_portion(food_id, match.group(0), catalog)
+        if resolved is not None and round(resolved, 2) == target:
+            return True
+    return False
 
 
 def _food_mentions_tag(query: str, tag: str, catalog) -> bool:
@@ -572,13 +723,12 @@ def _validate_evaluate(task: Task, query: str) -> list[str]:
     if not plan:
         issues.append("evaluate last_plan is empty")
         return issues
-    spoken_grams = {round(float(match), 2) for match in _EXPLICIT_GRAMS.findall(query)}
     for item in plan:
         food_id = str(item["food_id"])
         grams = item["grams"]
         if matches_portion_table(food_id, grams, task.s0.catalog):
             continue
-        if round(float(grams), 2) in spoken_grams:
+        if _query_traceable_grams(query, food_id, grams, task.s0.catalog):
             continue
         issues.append(
             f"evaluate grams {grams} for {food_id} do not match portion table"

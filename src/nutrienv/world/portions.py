@@ -15,6 +15,10 @@ weigh food:
 * ``"a sandwich"`` / ``"two burritos"`` treat the dish noun itself as the
   unit, one default serving each, but only when the food's own name contains
   that noun, so the grammar cannot invent a unit out of thin air.
+* A bare food noun with no unit (``"one apple"``, ``"a banana"``,
+  ``"two eggs"``) is that many ``piece`` rows of the named food. A cut or
+  body-part noun with no portion key (``"a chicken breast"``) stays
+  ``None``; the grammar does not guess cup or QNS.
 * ``"thick"`` / ``"thin"`` / ``"regular"`` pick a different default serving
   of the same food (``portions.thick`` etc.). They are not household
   measures: a modifier next to slice/cup/piece/… is refused.
@@ -93,6 +97,22 @@ DISH_NOUNS = frozenset({
     "sandwich", "burger", "burrito", "taco", "pizza", "omelet", "omelette",
     "curry", "stew", "chili", "soup", "salad", "wrap", "sub", "lasagna",
     "steak",
+})
+
+#: Cuts and body-part nouns. Without a matching portion key they are not a
+#: countable piece; "a chicken breast" must not fall through to cup/QNS.
+_CUT_NOUNS = frozenset({
+    "breast", "breasts", "thigh", "thighs", "wing", "wings", "drumstick",
+    "drumsticks", "chop", "chops", "loin", "tenderloin", "rib", "ribs",
+    "shank", "brisket", "fillet", "filet", "cutlet", "cutlets",
+})
+
+#: Name crumbs that are not the food's countable noun.
+_NAME_STOP = frozenset({
+    "raw", "cooked", "fresh", "whole", "only", "meat", "with", "without",
+    "skin", "added", "fat", "and", "the", "for", "from", "broilers",
+    "fryers", "grilled", "steamed", "ripe", "plain", "extra", "virgin",
+    "ns", "nfs",
 })
 
 _WORD_NUMBERS: dict[str, float] = {
@@ -188,7 +208,12 @@ def resolve_portion(food_id: str, phrase: str, catalog: dict) -> float | None:
         if quantity is None or quantity <= 0:
             return None
         return round(quantity * float(grams_per_unit), 2)
-    return _dish_noun_grams(tokens, entry, portions)
+    name = str(entry.get("name") or "").lower()
+    if any(_noun_candidates(token) & _name_nouns(name) for token in tokens):
+        # A matching dish noun already owns the phrase, including refusals
+        # such as "a thick sandwich" when portions.thick is missing.
+        return _dish_noun_grams(tokens, entry, portions)
+    return _bare_food_noun_grams(tokens, food_id, entry, portions)
 
 
 def _serving_default(portions: Mapping[str, object]) -> float | None:
@@ -232,6 +257,64 @@ def _dish_noun_grams(
             return None
         return round(quantity * float(grams_per_unit), 2)
     return None
+
+
+def _bare_food_noun_grams(
+    tokens: list[str], food_id: str, entry: dict, portions: Mapping[str, object]
+) -> float | None:
+    """``"one apple"`` -> ``portions.piece``; a cut without a key stays None.
+
+    Countable bare nouns are pieces, not QNS/cup. QNS is "quantity not
+    specified" (already ``"a serving"``); cup is a measure word. A breast /
+    chop / fillet in the phrase with no matching portion key refuses so the
+    grammar cannot invent grams for a cut.
+    """
+    if any(token in _CUT_NOUNS and token not in portions for token in tokens):
+        return None
+    identity = _food_identity_nouns(food_id, entry)
+    if not identity:
+        return None
+    grams_per_unit = portions.get("piece")
+    if isinstance(grams_per_unit, bool) or not isinstance(grams_per_unit, (int, float)):
+        return None
+    if not math.isfinite(grams_per_unit) or grams_per_unit <= 0:
+        return None
+    for index, token in enumerate(tokens):
+        if not _noun_candidates(token) & identity:
+            continue
+        if (
+            token in UNIT_SYNONYMS
+            or token in GRAM_UNITS
+            or token in OUNCE_UNITS
+            or token in MODIFIER_KEYS
+        ):
+            continue
+        quantity = _leading_quantity(_without_modifiers(tokens[:index]))
+        if quantity is None or quantity <= 0:
+            return None
+        return round(quantity * float(grams_per_unit), 2)
+    return None
+
+
+def _food_identity_nouns(food_id: str, entry: dict) -> set[str]:
+    """Countable name tokens for this food: head name, slug parts, aliases."""
+    nouns: set[str] = set()
+    head = str(entry.get("name") or "").split(",")[0]
+    nouns.update(_SPLIT.split(head.lower()))
+    nouns.update(_SPLIT.split(food_id.replace("_", " ").lower()))
+    for alias in entry.get("aliases") or []:
+        nouns.update(_SPLIT.split(str(alias).lower()))
+    return {
+        token
+        for token in nouns
+        if len(token) >= 3
+        and token not in _FILLERS
+        and token not in _NAME_STOP
+        and token not in _CUT_NOUNS
+        and token not in UNIT_SYNONYMS
+        and token not in GRAM_UNITS
+        and token not in OUNCE_UNITS
+    }
 
 
 def _noun_candidates(token: str) -> set[str]:
