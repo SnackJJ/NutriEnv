@@ -128,6 +128,41 @@ def test_apply_drop_updates_state_payload() -> None:
     assert set(updated["review"]["per_candidate"]) == {"a", "c"}
 
 
+def test_refreeze_from_state_accepts_pipeline_draft_after_drop(
+    tmp_path: Path, catalog_v1
+) -> None:
+    from nutrienv.bench.pipeline.types import PIPELINE_VERSION, catalog_digest
+    from nutrienv.bench.split import load_split
+
+    source = json.loads(V05.read_text(encoding="utf-8"))
+    keep_ids = {"v0-log-fuzzy-001", "v0-log-unit-001"}
+    items = [item for item in source["items"] if item["id"] in keep_ids]
+    assert len(items) == 2
+    state = {
+        "payload": {
+            "version": PIPELINE_VERSION,
+            "catalog": "data/fdc/catalog-v1.sqlite",
+            "catalog_sha256": catalog_digest(catalog_v1),
+            "items": items,
+            "notes": "draft",
+        },
+        "meta": [{"task_id": item["id"]} for item in items],
+        "review": {
+            "anomalies": [],
+            "per_candidate": {item["id"]: {} for item in items},
+        },
+    }
+    state = run_pilot_20.apply_drop(state, ["v0-log-unit-001"])
+    out = tmp_path / "draft.json"
+    updated = run_pilot_20.refreeze_from_state(
+        state, catalog=catalog_v1, output_path=out
+    )
+    assert out.is_file()
+    loaded = load_split(out, catalog=catalog_v1)
+    assert [task.id for task in loaded] == ["v0-log-fuzzy-001"]
+    assert updated["payload"]["version"] == PIPELINE_VERSION
+
+
 def test_exam_split_path_default_is_v05() -> None:
     assert EXAM_SPLIT_PATH.name == "v0.5-gold.json"
     assert EXAM_SPLIT_PATH.is_file()
@@ -145,6 +180,24 @@ def test_v05_gold_loads_via_load_exam() -> None:
 
 
 def test_landing_verify_published_exam_helper() -> None:
-    n, draft_bad, _grams_bad = landing_verify.verify_published_exam(V05)
+    n, draft_bad, grams_bad = landing_verify.verify_published_exam(V05)
     assert n == 240
     assert draft_bad == []
+    assert {row[0] for row in grams_bad} == landing_verify.V05_ORACLE_GRAMS_EXEMPT_IDS
+    assert landing_verify.unexpected_oracle_grams_failures(grams_bad) == []
+
+
+def test_render_report_does_not_claim_v10_is_the_published_exam() -> None:
+    text = run_pilot_20.render_report({"freeze_sha256": "abc123"})
+    assert "EXAM_SPLIT_PATH` now points at `data/splits/v1.0-gold.json`" not in text
+    assert "Freeze sha256 of `data/splits/v1.0-gold.json`" not in text
+    assert "data/splits/v0.5-gold.json" in text
+    assert "archive" in text.lower()
+    assert "`abc123`" in text
+
+
+def test_unexpected_oracle_grams_failures_flags_new_ids() -> None:
+    known = [("v0-log-multi-001", ["legacy"])]
+    extra = [("brand-new-item", ["grams"])]
+    assert landing_verify.unexpected_oracle_grams_failures(known) == []
+    assert landing_verify.unexpected_oracle_grams_failures(known + extra) == extra

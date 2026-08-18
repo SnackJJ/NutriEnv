@@ -41,6 +41,22 @@ from nutrienv.world.portions import resolve_portion  # noqa: E402
 
 _SPLIT = _ROOT / "data" / "splits" / "v0.5-gold.json"
 _EXAM_N = 240
+# v0.5-gold is a frozen legacy exam. These 9 items fail validate_oracle_grams
+# (the oral grams gate landed after that freeze). They are the known baseline;
+# any NEW grams failure beyond this list fails landing.
+V05_ORACLE_GRAMS_EXEMPT_IDS = frozenset(
+    {
+        "v0-log-multi-001",
+        "v0-log-eaten-001",
+        "v0-log-prawn-001",
+        "v0-log-dinner-001",
+        "v05-log-mi-dinner-tofu-four",
+        "v05-log-mi-dinner-beef-pasta-spin",
+        "v05-log-uc-chicken-3oz",
+        "v05-log-uc-salmon-3-5oz",
+        "v05-log-uc-yogurt-quarter-cup",
+    }
+)
 _OLD_KEYS = builder._OLD_PORTION_KEYS
 _GOLD_SOURCES = (
     ("s0", "ledger"),
@@ -300,6 +316,11 @@ def main(argv: list[str] | None = None) -> int:
         print("EXAM VALIDATE FAILURES:")
         for item_id, issues in exam_draft_bad[:10]:
             print(f"  {item_id} {issues}")
+    exam_grams_unexpected = unexpected_oracle_grams_failures(exam_grams_bad)
+    if exam_grams_unexpected:
+        print("UNEXPECTED ORACLE GRAMS FAILURES:")
+        for item_id, issues in exam_grams_unexpected[:10]:
+            print(f"  {item_id} {issues}")
 
     ok = (
         not old_key_drifts
@@ -309,9 +330,15 @@ def main(argv: list[str] | None = None) -> int:
         and replay_ok > 0
         and exam_n == _EXAM_N
         and not exam_draft_bad
+        and not exam_grams_unexpected
     )
     print("RESULT:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
+
+
+def unexpected_oracle_grams_failures(grams_bad: list) -> list:
+    """Grams failures that are not on the v0.5-gold legacy exemption list."""
+    return [row for row in grams_bad if row[0] not in V05_ORACLE_GRAMS_EXEMPT_IDS]
 
 
 def verify_published_exam(path: Path | None = None) -> tuple[int, list, list]:

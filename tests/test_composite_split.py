@@ -9,7 +9,7 @@ import pytest
 
 from nutrienv.bench.pipeline.run_batch import write_composite_sample
 from nutrienv.bench.realize import scored_oracles
-from nutrienv.bench.split import load_split
+from nutrienv.bench.split import load_exam, load_split
 from nutrienv.world.catalog_fixture import demo_catalog
 from nutrienv.world.types import LedgerRow
 
@@ -112,8 +112,11 @@ def test_write_composite_sample_round_trips(tmp_path: Path):
     result = write_composite_sample(output_path=dest, n=2)
     assert result.path == dest
     assert result.accepted
+    assert result.payload["version"] == "pipeline-composite-draft"
     assert all(task.oracle.sub_oracles for task in result.accepted)
     catalog = result.accepted[0].s0.catalog
+    with pytest.raises(ValueError, match="version"):
+        load_exam(dest)
     loaded = load_split(dest, catalog=catalog)
     assert len(loaded) == len(result.accepted)
     for task in loaded:

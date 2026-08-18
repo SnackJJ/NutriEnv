@@ -182,7 +182,7 @@ def write_composite_sample(
         "model_route": {},
         "catalog": CATALOG_V1_RELPATH,
         "output_path": output_path or (repo_root() / DEFAULT_COMPOSITE_SAMPLE_RELPATH),
-        "version": "v1.0-composite-sample",
+        "version": "pipeline-composite-draft",
     }
     return run_batch(
         spec,

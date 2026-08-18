@@ -1306,10 +1306,13 @@ def render_report(state: Mapping) -> str:
             "",
             "## Landing / exam switch",
             "",
-            "- `EXAM_SPLIT_PATH` now points at `data/splits/v1.0-gold.json`.",
-            "- `scripts/landing_verify.py` keeps the v0.5 old-key / replay / "
-            "validate_draft / oz checks, then `load_exam` + `validate_draft` "
-            "the 20 v1.0 items.",
+            "- `EXAM_SPLIT_PATH` points at `data/splits/v0.5-gold.json` "
+            "(transitional published exam).",
+            "- The v1.0-gold 20-item pilot is archived at "
+            "`data/splits/archive/v1.0-gold.json`; it is not the exam.",
+            "- `scripts/landing_verify.py` load_exam + validate_draft the "
+            "240 v0.5 items, with the oral grams gate and a documented "
+            "9-item v0.5 legacy exemption.",
             "- `_SYSTEM_V1_TAIL` was not changed: every spoken measure in the "
             "pilot is already in the v1 handbook.",
             "",
@@ -1323,7 +1326,7 @@ def render_report(state: Mapping) -> str:
         lines.extend(
             [
                 "",
-                f"Freeze sha256 of `data/splits/v1.0-gold.json`: `{freeze_sha}`.",
+                f"Pilot freeze sha256 (archived; exam is `data/splits/v0.5-gold.json`): `{freeze_sha}`.",
                 "",
             ]
         )
@@ -1962,14 +1965,15 @@ def write_freeze_payload(payload: Mapping, output_path: Path) -> str:
 
 
 def refreeze_from_state(state: dict, *, catalog, output_path: Path) -> dict:
-    from nutrienv.bench.split import load_exam
+    from nutrienv.bench.split import load_split
 
     tmp = output_path.with_suffix(".drop-tmp.json")
     tmp.write_text(
         json.dumps(state["payload"], indent=2, ensure_ascii=False, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    tasks = load_exam(tmp)
+    # Draft payloads use PIPELINE_VERSION, which load_exam rejects.
+    tasks = load_split(tmp, catalog=catalog)
     issues = [
         f"{task.id}: {issue}"
         for task in tasks

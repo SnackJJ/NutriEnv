@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import sys
 from dataclasses import replace
 from pathlib import Path
 
@@ -10,12 +12,18 @@ import pytest
 from nutrienv.bench.pipeline.freezer import freeze_tasks
 from nutrienv.bench.realize import GOLD_WINDOWS, Oracle, Task, material_from_row, realize, spoken_query
 from nutrienv.bench.realizations import EVALUATE_ROWS
+from nutrienv.bench.split import load_exam
 from nutrienv.bench.validator import validate_draft, validate_oracle_grams
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.types import LedgerRow, Profile, WorldState
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+import landing_verify  # noqa: E402
+
 CATALOG_V1 = ROOT / "data" / "fdc" / "catalog-v1.sqlite"
+V05 = ROOT / "data" / "splits" / "v0.5-gold.json"
+V05_SHA256 = "bb4f246044308670f567c24bc6b099e23f617268b532a088c27187dbda66e520"
 
 
 @pytest.fixture(scope="module")
@@ -273,5 +281,14 @@ def test_span_with_two_food_identities_authorizes_neither(catalog_v1):
     for evaluate in (False, True):
         assert not _authorizes(query, "chicken_breast", 150.0, catalog_v1, evaluate=evaluate)
         assert not _authorizes(query, "white_rice", 150.0, catalog_v1, evaluate=evaluate)
+
+
+def test_v05_gold_oracle_grams_only_legacy_exemptions_fail():
+    assert hashlib.sha256(V05.read_bytes()).hexdigest() == V05_SHA256
+    failing = {
+        task.id for task in load_exam(V05) if validate_oracle_grams(task)
+    }
+    assert failing == landing_verify.V05_ORACLE_GRAMS_EXEMPT_IDS
+    assert len(failing) == 9
 
 
