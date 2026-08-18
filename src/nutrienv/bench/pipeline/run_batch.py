@@ -100,6 +100,7 @@ def run_batch(
         judge=judge,
         prefix=spec["task_id_prefix"],
         start_seq=spec["start_seq"],
+        skip_gram_backresolve=spec["skip_gram_backresolve"],
         workers=workers,
     )
 
@@ -344,6 +345,9 @@ def _parse_spec(batch_spec: Mapping) -> dict:
     start_seq = int(raw_seq)
     if start_seq < 1:
         raise ValueError("batch_spec.start_seq must be >= 1")
+    skip_gram_backresolve = batch_spec.get("skip_gram_backresolve", False)
+    if not isinstance(skip_gram_backresolve, bool):
+        raise ValueError("batch_spec.skip_gram_backresolve must be a bool")
     total_quota = sum(count for _family, count in quotas)
     model_quotas = _parse_model_quotas(batch_spec.get("model_quotas"), total_quota)
     return {
@@ -359,6 +363,7 @@ def _parse_spec(batch_spec: Mapping) -> dict:
         "task_id_prefix": prefix.strip(),
         "start_seq": start_seq,
         "model_quotas": model_quotas,
+        "skip_gram_backresolve": skip_gram_backresolve,
     }
 
 
@@ -502,6 +507,7 @@ def _finish_one(
     catalog,
     food_index: Mapping[str, str],
     judge: Judge,
+    skip_gram_backresolve: bool = False,
 ) -> _PoolOut:
     if not tagged:
         return _PoolOut(
@@ -521,6 +527,7 @@ def _finish_one(
             task_id=task_id,
             seen=local_seen,
             food_index=food_index,
+            skip_gram_backresolve=skip_gram_backresolve,
         )
         occupied = local_seen - before
         key = next(iter(occupied), None)
@@ -630,6 +637,7 @@ def _run_jobs(
     judge: Judge,
     prefix: str,
     start_seq: int,
+    skip_gram_backresolve: bool = False,
     workers: int,
 ) -> tuple[list[Task], list[Rejected], dict[str, object]]:
     if workers == 1:
@@ -644,6 +652,7 @@ def _run_jobs(
                 catalog=catalog,
                 food_index=food_index,
                 judge=judge,
+                skip_gram_backresolve=skip_gram_backresolve,
             )
             for job, tagged in planned
         ]
@@ -664,6 +673,7 @@ def _run_jobs(
                 catalog=catalog,
                 food_index=food_index,
                 judge=judge,
+                skip_gram_backresolve=skip_gram_backresolve,
             )
             for job, tagged in planned
         ]

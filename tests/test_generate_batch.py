@@ -317,6 +317,23 @@ def test_generate_batch_zero_accepted_exits_nonzero(
     assert not out.exists() or out.read_text(encoding="utf-8") == ""
 
 
+def test_generate_batch_skip_gram_backresolve_flag_defaults_off() -> None:
+    parser = generate_batch.build_parser()
+    default = parser.parse_args(
+        ["--synthetic", "--model-quota", "deepseek-v4-flash-0731:1"]
+    )
+    skipped = parser.parse_args(
+        [
+            "--synthetic",
+            "--model-quota",
+            "deepseek-v4-flash-0731:1",
+            "--skip-gram-backresolve",
+        ]
+    )
+    assert default.skip_gram_backresolve is False
+    assert skipped.skip_gram_backresolve is True
+
+
 def test_generate_batch_overwrite_guard(tmp_path: Path) -> None:
     out = tmp_path / "existing.json"
     out.write_text("{}\n", encoding="utf-8")

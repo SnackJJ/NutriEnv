@@ -22,7 +22,7 @@ from nutrienv.world.types import ledger_totals
 
 from .types import COMPOSITE_FAMILY, COMPOSITE_STEPS, Candidate, Rejected
 
-__all__ = ["resolve_candidate"]
+__all__ = ["query_backresolves_oracle", "resolve_candidate"]
 
 _LOG_SLOT = "today-lunch"
 
@@ -38,6 +38,7 @@ def resolve_candidate(
     task_id: str,
     seen: set[tuple[str, ...]],
     food_index: Mapping[str, str] | None = None,
+    skip_gram_backresolve: bool = False,
 ) -> tuple[object, Rejected | None]:
     """Build a Task or a rejection. ``seen`` is the resolved-id multiset set."""
     index = food_index if food_index is not None else build_food_index(catalog)
@@ -53,6 +54,13 @@ def resolve_candidate(
 
     if _leaks(candidate.query, catalog):
         return None, Rejected(candidate.query, "leak", candidate.family)
+
+    if not skip_gram_backresolve:
+        for food_id, expression, grams in resolved:
+            if not query_backresolves_oracle(
+                candidate.query, food_id, expression, grams, catalog
+            ):
+                return None, Rejected(candidate.query, "backresolve", candidate.family)
 
     for food_id, _expression, _grams in resolved:
         if not _mentioned(food_id, catalog, candidate.query, candidate.items):
@@ -90,6 +98,74 @@ def build_food_index(catalog: Mapping) -> dict[str, str]:
         for key in keys:
             index.setdefault(key, canon)
     return index
+
+
+def query_backresolves_oracle(
+    query: str,
+    food_id: str,
+    expression: str,
+    oracle_grams: float,
+    catalog: Mapping,
+) -> bool:
+    """True when a spoken phrase in ``query`` resolves to the oracle grams.
+
+    Oracle grams stay the PortionFact value from ``expression``. This only
+    checks that the query itself back-resolves to that same number.
+    """
+    target = round(float(oracle_grams), 2)
+    for phrase in _query_portion_phrases(query, food_id, catalog, expression):
+        resolved = resolve_portion(food_id, phrase, catalog)
+        if resolved is not None and round(float(resolved), 2) == target:
+            return True
+    return False
+
+
+def _phrase_in_query(phrase: str, query: str) -> bool:
+    text = phrase.strip().lower()
+    if not text:
+        return False
+    return re.search(rf"(?<![\w]){re.escape(text)}(?![\w])", query.lower()) is not None
+
+
+def _food_spoken_names(food_id: str, catalog: Mapping) -> list[str]:
+    entry = catalog.get(food_id) or {}
+    names = [food_id.replace("_", " ")]
+    name = str(entry.get("name") or "")
+    if name.strip():
+        names.append(name)
+        if "," in name:
+            names.append(name.split(",", 1)[0])
+    names.extend(str(alias) for alias in (entry.get("aliases") or []))
+    return names
+
+
+def _query_portion_phrases(
+    query: str, food_id: str, catalog: Mapping, expression: str
+) -> list[str]:
+    found: list[str] = []
+    seen: set[str] = set()
+
+    def _add(phrase: str) -> None:
+        text = phrase.strip()
+        if text and text.lower() not in seen:
+            seen.add(text.lower())
+            found.append(text)
+
+    if _phrase_in_query(expression, query):
+        _add(expression)
+    lowered = query.lower()
+    for name in _food_spoken_names(food_id, catalog):
+        needle = name.strip().lower()
+        if len(needle) < 3:
+            continue
+        for match in re.finditer(rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered):
+            tokens = re.findall(r"[a-z0-9.]+", lowered[: match.start()])
+            _add(needle)
+            for width in range(1, min(6, len(tokens)) + 1):
+                head = " ".join(tokens[-width:])
+                _add(head)
+                _add(f"{head} {needle}")
+    return found
 
 
 def match_food(token: str, catalog: Mapping, index: Mapping[str, str]) -> str | None:

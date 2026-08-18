@@ -22,9 +22,11 @@ __all__ = [
     "build_system_prompt",
     "build_user_prompt",
     "coerce_candidates",
+    "food_in_pool",
     "make_llm_expander",
     "parse_expander_payload",
     "synthetic_expander",
+    "validate_expander_payload",
 ]
 
 # Spoken measures listed in harness/react.py _SYSTEM_V1_TAIL. Discipline 4:
@@ -51,6 +53,59 @@ HANDBOOK_VOCABULARY: tuple[str, ...] = (
 )
 
 Completer = Callable[[str, Sequence[Mapping[str, str]]], str]
+
+_WINDOW_LEAK = re.compile(r"\b(?:kcal|protein_g|carb_g|fat_g)\s+\d")
+_SLUG = re.compile(r"\b[a-z]+_[a-z0-9_]+\b")
+
+
+def food_in_pool(token: str, pool: FoodPool) -> bool:
+    """True when ``token`` names a pool food (id, short name, or alias)."""
+    raw = token.strip().lower()
+    if not raw:
+        return False
+    for food in pool.foods:
+        keys = {food.food_id.lower(), _spoken_name(food).lower()}
+        name = food.name.strip()
+        if name:
+            keys.add(name.lower())
+            keys.add(name.split(",", 1)[0].strip().lower())
+        keys.update(alias.strip().lower() for alias in food.aliases if alias.strip())
+        if raw in keys:
+            return True
+    return False
+
+
+def validate_expander_payload(payload: object, pool: FoodPool) -> list[str]:
+    """Return issue strings. Empty means schema, pool refs, and leaks are ok."""
+    parsed = _as_parsed_payload(payload)
+    if parsed is None:
+        return ["schema"]
+    issues: list[str] = []
+    for item in parsed["items"]:
+        food = item["food"]
+        if not food_in_pool(food, pool):
+            issues.append(f"food {food!r} is not in pool")
+    if _query_leaks(str(parsed["query"]), pool):
+        issues.append("query leak")
+    return issues
+
+
+def _as_parsed_payload(payload: object) -> dict[str, object] | None:
+    if isinstance(payload, str):
+        return parse_expander_payload(payload)
+    if isinstance(payload, Mapping):
+        return parse_expander_payload(json.dumps(payload))
+    return None
+
+
+def _query_leaks(query: str, pool: FoodPool) -> bool:
+    lowered = query.lower()
+    if "catalog id" in lowered or "food_id" in lowered:
+        return True
+    if _WINDOW_LEAK.search(query):
+        return True
+    pool_ids = {food.food_id.lower() for food in pool.foods}
+    return any(token in pool_ids for token in _SLUG.findall(lowered))
 
 
 def coerce_candidates(
@@ -431,8 +486,11 @@ class LlmExpander:
         for _attempt in range(1 + self._parse_retries):
             text = self._complete(model_id, messages)
             parsed = parse_expander_payload(text)
-            if parsed is not None:
-                return parsed
+            if parsed is None:
+                continue
+            if validate_expander_payload(parsed, pool):
+                continue
+            return parsed
         return last
 
 

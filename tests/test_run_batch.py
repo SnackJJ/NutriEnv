@@ -173,6 +173,26 @@ def test_leaking_query_is_rejected(tmp_path: Path, query: str) -> None:
     assert any(item.reason == "leak" for item in result.rejected)
 
 
+def test_query_backresolve_mismatch_is_rejected_by_default(tmp_path: Path) -> None:
+    rewritten = {
+        "items": [{"food": "milk_whole", "expression": "a cup"}],
+        "query": "Please log some milk for lunch.",
+    }
+    result = _run(tmp_path, [rewritten])
+    assert result.accepted == []
+    assert any(item.reason == "backresolve" for item in result.rejected)
+
+
+def test_skip_gram_backresolve_admits_unresolvable_query_phrasing(tmp_path: Path) -> None:
+    rewritten = {
+        "items": [{"food": "milk_whole", "expression": "a cup"}],
+        "query": "Please log some milk for lunch.",
+    }
+    result = _run(tmp_path, [rewritten], skip_gram_backresolve=True)
+    assert len(result.accepted) == 1
+    assert result.accepted[0].oracle.ledger_tail[0].grams == 244.0
+
+
 def test_near_duplicate_pools_are_deduped(tmp_path: Path) -> None:
     first = {
         "items": [{"food": "milk_whole", "expression": "a cup"}],

@@ -115,6 +115,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--task-id-prefix", default=DEFAULT_PREFIX)
     parser.add_argument("--start-seq", type=int, default=1)
+    parser.add_argument(
+        "--skip-gram-backresolve",
+        action="store_true",
+        help=(
+            "skip the deterministic query-gram == oracle check; "
+            "default stays fail-closed until the ticket 10 vote is wired"
+        ),
+    )
     return parser
 
 
@@ -200,6 +208,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "overwrite": bool(args.force),
         "task_id_prefix": args.task_id_prefix,
         "start_seq": args.start_seq,
+        "skip_gram_backresolve": bool(args.skip_gram_backresolve),
     }
 
     if args.synthetic:

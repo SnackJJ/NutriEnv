@@ -14,6 +14,7 @@ from nutrienv.bench.pipeline.expander import (
     make_llm_expander,
     parse_expander_payload,
     synthetic_expander,
+    validate_expander_payload,
 )
 from nutrienv.bench.pipeline.models import (
     DEFAULT_EXPANDER_MODEL,
@@ -381,3 +382,126 @@ def test_synthetic_expander_still_deterministic() -> None:
     assert synthetic_expander(pool, persona="everyday", family="log") == (
         synthetic_expander(pool, persona="everyday", family="log")
     )
+
+
+def test_expander_schema_keeps_items_key_not_foods() -> None:
+    parsed = parse_expander_payload(_ok_json())
+    assert parsed is not None
+    assert "items" in parsed
+    assert "foods" not in parsed
+    assert parsed["items"][0]["food"] == "milk"
+    assert parsed["items"][0]["expression"] == "a cup"
+
+
+def test_validate_expander_payload_accepts_pool_alias() -> None:
+    assert validate_expander_payload(_OK, _pool()) == []
+
+
+def test_validate_expander_payload_rejects_food_outside_pool() -> None:
+    payload = {
+        "items": [{"food": "steak", "expression": "a cup"}],
+        "query": "Please log a cup of steak for lunch.",
+    }
+    issues = validate_expander_payload(payload, _pool())
+    assert any("pool" in issue for issue in issues)
+
+
+def test_validate_expander_payload_rejects_food_id_and_window_leak() -> None:
+    slug = {
+        "items": [{"food": "milk", "expression": "a cup"}],
+        "query": "Please log a cup of milk_whole for lunch.",
+    }
+    window = {
+        "items": [{"food": "milk", "expression": "a cup"}],
+        "query": "Please log a cup of milk. kcal 1800",
+    }
+    assert any("leak" in issue for issue in validate_expander_payload(slug, _pool()))
+    assert any("leak" in issue for issue in validate_expander_payload(window, _pool()))
+
+
+def test_retry_on_food_outside_pool_then_succeeds() -> None:
+    outsider = json.dumps(
+        {
+            "items": [{"food": "steak", "expression": "a cup"}],
+            "query": "Please log a cup of steak for lunch.",
+        }
+    )
+    expander = make_llm_expander(
+        model_route=["stub"],
+        seed=0,
+        complete=_complete_with([outsider, _ok_json()]),
+        parse_retries=1,
+    )
+    payload = expander(_pool(), persona="everyday", family="log")
+    assert payload["items"][0]["food"] == "milk"
+    assert payload["query"] == _OK["query"]
+
+
+def test_retry_on_query_leak_then_succeeds() -> None:
+    leak = json.dumps(
+        {
+            "items": [{"food": "milk", "expression": "a cup"}],
+            "query": "Please log a cup of milk_whole. kcal 1800",
+        }
+    )
+    expander = make_llm_expander(
+        model_route=["stub"],
+        seed=0,
+        complete=_complete_with([leak, _ok_json()]),
+        parse_retries=1,
+    )
+    payload = expander(_pool(), persona="everyday", family="log")
+    assert payload["query"] == _OK["query"]
+    assert validate_expander_payload(payload, _pool()) == []
+
+
+def test_food_outside_pool_after_retry_is_fail_closed() -> None:
+    outsider = json.dumps(
+        {
+            "items": [{"food": "steak", "expression": "a cup"}],
+            "query": "Please log a cup of steak for lunch.",
+        }
+    )
+    expander = make_llm_expander(
+        model_route=["stub"],
+        seed=0,
+        complete=_complete_with([outsider, outsider]),
+        parse_retries=1,
+    )
+    raw = expander(_pool(), persona="everyday", family="log")
+    assert validate_expander_payload(raw, _pool())
+    assert coerce_candidates(raw, family="log", persona="everyday", pool_id="log-0000") == []
+
+
+def test_exam_surface_is_natural_language_query_not_items() -> None:
+    import dataclasses
+
+    from nutrienv.bench.pipeline.freezer import task_to_item
+    from nutrienv.bench.realize import Oracle, Task
+    from nutrienv.harness.protocol import HarnessView
+    from nutrienv.harness.runner import _harness_view
+    from nutrienv.world.types import LedgerRow, Profile, WorldState
+
+    view_fields = {field.name for field in dataclasses.fields(HarnessView)}
+    assert view_fields == {"id", "family", "persona", "situations", "query"}
+    assert "items" not in view_fields
+
+    query = _OK["query"]
+    task = Task(
+        "v10-log-0001",
+        "log",
+        query,
+        WorldState(profile=Profile(user_id="v10-log-0001"), catalog={}),
+        Oracle(ledger_tail=[LedgerRow("milk_whole", 244.0, "today-lunch")]),
+        ("multi_item_log",),
+        "everyday",
+    )
+    item = task_to_item(task)
+    assert item["query"] == query
+    assert not str(item["query"]).lstrip().startswith("{")
+    assert "expression" not in item
+    assert "items" not in item
+    view = _harness_view(task, leak_oracle=False)
+    assert isinstance(view, HarnessView)
+    assert view.query == query
+    assert not hasattr(view, "items")
