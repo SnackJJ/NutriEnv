@@ -153,11 +153,14 @@ def sample_votes(
 
 
 def accept_from_votes(votes: list[str], threshold: float) -> bool:
-    """Accept when match / non-fail votes meet ``threshold``. Fail-closed."""
-    n_valid = sum(item != "parse_fail" for item in votes)
-    if n_valid == 0:
+    """Accept when match / K votes meet ``threshold``. Fail-closed.
+
+    ``parse_fail`` stays in the denominator so one parsed ``match`` among
+    K=3 cannot become 1/1. Majority is ``ceil(K * 2/3)`` matches.
+    """
+    if not votes:
         return False
-    return (votes.count("match") / n_valid) >= threshold
+    return votes.count("match") / len(votes) >= threshold
 
 
 def admit_query_phrasing(

@@ -98,6 +98,22 @@ def test_accept_from_votes_uses_majority() -> None:
     assert accept_from_votes(["parse_fail", "parse_fail", "parse_fail"], 2 / 3) is False
 
 
+def test_one_match_two_parse_fail_is_rejected() -> None:
+    """parse_fail must not shrink the K=3 denominator (codex 10 rework)."""
+    assert accept_from_votes(["match", "parse_fail", "parse_fail"], 2 / 3) is False
+    accepted, source = semantic_vote(
+        "Please log a banana.",
+        food="banana",
+        expression="one banana",
+        voter=_seq_voter(["match", "not-json", "still-not-json"]),
+        k=3,
+        threshold=2 / 3,
+        parse_retries=0,
+    )
+    assert accepted is False
+    assert source == "vote"
+
+
 def _capture_post(monkeypatch):
     captured: dict = {}
 
@@ -233,12 +249,12 @@ def _ok_judge(_food: str, _grams: float) -> str:
     return "ok"
 
 
-def _run(tmp_path: Path, payloads, *, voter, **overrides):
-    catalog = _batch_catalog()
+def _run(tmp_path: Path, payloads, *, voter, catalog=None, **overrides):
+    foods = catalog if catalog is not None else _batch_catalog()
     spec = {
         "seed": 7,
         "sampler_rule_version": "sampler-v1",
-        "catalog_sha": catalog_digest(catalog),
+        "catalog_sha": catalog_digest(foods),
         "persona": "everyday",
         "family_quotas": {"log": 1},
         "model_route": {},
@@ -252,7 +268,7 @@ def _run(tmp_path: Path, payloads, *, voter, **overrides):
         expander=_expander(payloads),
         judge=_ok_judge,
         reviewer=pass_through_reviewer,
-        catalog=catalog,
+        catalog=foods,
         voter=voter,
     )
 
@@ -335,63 +351,99 @@ GRAY_CASES = (
 )
 
 
-@pytest.fixture
-def gray_catalog() -> dict:
+def _gray_foods() -> dict:
     return {
         "sandwich": {
             "name": "Sandwich",
             "portions": {"piece": 175.0, "qns": 115.0},
             "aliases": ["sandwich"],
+            "allergen_tags": [],
         },
         "lasagna": {
             "name": "Lasagna",
             "portions": {"piece": 206.0, "qns": 250.0},
             "aliases": ["lasagna"],
+            "allergen_tags": [],
         },
         "omelet": {
             "name": "Egg omelet",
             "portions": {"piece": 55.0, "qns": 110.0},
             "aliases": ["omelet"],
+            "allergen_tags": [],
         },
     }
 
 
+def _gray_catalog() -> dict:
+    return {**_batch_catalog(), **_gray_foods()}
+
+
+def _install_production_voter(monkeypatch, posts: list, *, force_match: bool = False):
+    """Route run_batch through production ``call_voter`` (K=3, DashScope)."""
+
+    def fake_post(url, payload, api_key, **_kwargs):
+        posts.append(payload)
+        if force_match:
+            return '{"verdict": "match", "reason": "forced"}'
+        user = payload["messages"][1]["content"]
+        query = user.split("User query:\n", 1)[-1].split("\n\n", 1)[0]
+        declared = ""
+        for line in user.splitlines():
+            if line.startswith("Declared portion phrase:"):
+                declared = line.split(":", 1)[1].strip()
+                break
+        if declared and declared.lower() in query.lower():
+            return '{"verdict": "match", "reason": "query speaks the declared phrase"}'
+        return '{"verdict": "mismatch", "reason": "query does not speak the declared phrase"}'
+
+    monkeypatch.setattr(
+        "nutrienv.bench.pipeline.semantic_vote.post_chat_completion", fake_post
+    )
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "dash-dummy")
+
+
 @pytest.mark.parametrize("food,piece,qns,piece_expr,other_query", GRAY_CASES)
 def test_gray_zone_spoken_phrasing_is_not_false_rejected(
-    food, piece, qns, piece_expr, other_query, gray_catalog
+    tmp_path: Path, monkeypatch, food, piece, qns, piece_expr, other_query
 ) -> None:
+    posts: list = []
+    _install_production_voter(monkeypatch, posts)
     query = f"Please log {piece_expr} of {food}."
-    accepted, _source = semantic_vote(
-        query,
-        food=food,
-        expression=piece_expr,
-        voter=_const_voter('{"verdict": "match"}'),
+    result = _run(
+        tmp_path,
+        [{"items": [{"food": food, "expression": piece_expr}], "query": query}],
+        voter=call_voter,
+        catalog=_gray_catalog(),
+        output_path=tmp_path / f"{food}-piece.json",
     )
-    assert accepted is True
+    assert len(result.accepted) == 1
+    assert result.accepted[0].oracle.ledger_tail[0].grams == piece
+    assert len(posts) == DEFAULT_K
+    assert all(item["max_tokens"] == MAX_TOKENS for item in posts)
+    assert all(item["temperature"] == TEMPERATURE for item in posts)
     assert (
-        admit_query_phrasing(query, food, piece_expr, piece, gray_catalog)
-        is True
+        admit_query_phrasing(query, food, piece_expr, piece, _gray_foods()) is True
     )
-    # The other portion of the pair is far outside ±10 g.
     assert abs(piece - qns) > GRAM_TOLERANCE
 
 
 @pytest.mark.parametrize("food,piece,qns,piece_expr,other_query", GRAY_CASES)
 def test_gray_zone_other_portion_is_not_admitted_via_tolerance(
-    food, piece, qns, piece_expr, other_query, gray_catalog
+    tmp_path: Path, monkeypatch, food, piece, qns, piece_expr, other_query
 ) -> None:
+    posts: list = []
+    _install_production_voter(monkeypatch, posts, force_match=True)
     query = f"Please log {other_query}."
+    result = _run(
+        tmp_path,
+        [{"items": [{"food": food, "expression": piece_expr}], "query": query}],
+        voter=call_voter,
+        catalog=_gray_catalog(),
+        output_path=tmp_path / f"{food}-other.json",
+    )
+    assert result.accepted == []
+    assert any(item.reason == "semantic" for item in result.rejected)
+    assert posts == []
     assert (
-        admit_query_phrasing(query, food, piece_expr, piece, gray_catalog)
-        is False
+        admit_query_phrasing(query, food, piece_expr, piece, _gray_foods()) is False
     )
-    accepted, _source = semantic_vote(
-        query,
-        food=food,
-        expression=piece_expr,
-        voter=_const_voter('{"verdict": "match"}'),
-        oracle_grams=piece,
-        catalog=gray_catalog,
-        food_id=food,
-    )
-    assert accepted is False
