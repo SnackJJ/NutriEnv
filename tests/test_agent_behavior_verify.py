@@ -86,6 +86,25 @@ def test_recorded_live_results_cover_required_cases() -> None:
         assert "ledger" in row
 
 
+def test_cut_noun_observation_file_is_multi_model() -> None:
+    """Observation evidence only — does not require empty-ledger Pass."""
+    import json
+
+    path = ROOT / "reports" / "agent-behavior-cut-noun.json"
+    assert path.is_file(), "re-run cut-noun observation (n>=3, >=2 models)"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload.get("oracle") == "empty ledger"
+    assert payload.get("resolve_portion") is None
+    runs = payload.get("runs") or []
+    assert len(runs) >= 3
+    models = {row["model"] for row in runs}
+    assert len(models) >= 2
+    for row in runs:
+        assert "passed" in row
+        assert "ops" in row
+        assert "ledger" in row
+
+
 def test_get_food_exposes_catalog_v2_oral_portion_tiers(catalog_v2) -> None:
     env = _env(catalog_v2)
     chicken = env.step({"op": "get_food", "food_id": CHICKEN_FNDDS})["observation"]["food"]
@@ -108,8 +127,10 @@ def test_handbook_matches_resolve_portion_on_catalog_v2(catalog_v2) -> None:
         "a chicken breast",
         "portions.piece",
         "portions.qns",
+        "do not log it, finish without logging that food",
     ):
         assert phrase in manual
+    assert "ask for grams" not in manual
     assert resolve_portion("chicken_breast", "a piece of chicken", catalog_v2) == 105.0
     assert resolve_portion("chicken_breast", "150 g of chicken", catalog_v2) == 150.0
     assert resolve_portion("apple", "one apple", catalog_v2) == 165.0

@@ -62,7 +62,7 @@ _SYSTEM_V1_TAIL = """
 - Spoken household measures appear on get_food as portions: each key is one measure, the value is grams for one of that measure of that food. Convert the spoken quantity from that table. Do not invent grams from prior knowledge.
 - Keys you may be asked for by name: cup, tbsp (tablespoon), tsp (teaspoon), slice, piece (also "each"), can, fl_oz (fluid ounce).
 - "a serving / a portion / a bowl / a plate / an order of X", and a dish named as its own unit ("a sandwich", "two burritos"), all mean one default serving: read portions.qns; if the food has no qns, fall back to piece, then slice, then cup.
-- A bare food noun with no unit ("one apple", "a banana", "two eggs") means that many pieces of the food: read portions.piece. A cut with no portion key ("a chicken breast") has no default; ask for grams.
+- A bare food noun with no unit ("one apple", "a banana", "two eggs") means that many pieces of the food: read portions.piece. A cut with no portion key ("a chicken breast") has no default: do not log it, finish without logging that food.
 - "thick", "thin" and "regular" pick a different default serving of the same food: read portions.thick / portions.thin / portions.regular. They are not slice sizes -- "a thick slice" is not portions.thick, and a food without that key has no thick/thin/regular serving.
 - An ounce is always 28.35 g, whatever the table says. Grams ("150 g") are already grams.
 - Other portion keys you may see (oz, oz_yield, cubic_inch) are reference data, not measures a user speaks. Do not convert with them.

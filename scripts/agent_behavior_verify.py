@@ -358,6 +358,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--max-steps", type=int, default=DEFAULT_MAX_STEPS)
     parser.add_argument("--timeout", type=float, default=180.0)
+    parser.add_argument(
+        "--ids",
+        default=None,
+        help="comma-separated case ids (default: all)",
+    )
+    parser.add_argument("--repeat", type=int, default=1, help="runs per case")
+    parser.add_argument(
+        "--json-out",
+        type=Path,
+        default=None,
+        help="results JSON path (default: reports/agent-behavior-verify.json)",
+    )
+    parser.add_argument(
+        "--write-report",
+        action="store_true",
+        help="rewrite reports/agent-behavior-verify.md (off when --ids is set)",
+    )
     args = parser.parse_args(argv)
 
     load_dotenv_keys(ROOT / ".env.local")
@@ -374,48 +391,64 @@ def main(argv: list[str] | None = None) -> int:
 
     from datetime import date
 
-    cases_out: list[dict] = []
-    for case in CASES:
-        print(f"RUN {case.id} {case.query}", file=sys.stderr, flush=True)
-        harness = harness_proto.clone()
-        harness.reset()
-        task = _task(catalog, case)
-        try:
-            result = run_recorded(task, harness, args.max_steps)
-            error = None
-        except Exception as exc:  # noqa: BLE001 — record live failure, do not invent pass
-            result = {
-                "passed": False,
-                "tag": "error",
-                "ops": [],
-                "ledger": [],
-                "actions": [],
-            }
-            error = str(exc)
-            print(f"ERR {case.id} {exc}", file=sys.stderr, flush=True)
-        row = {
-            "id": case.id,
-            "group": case.group,
-            "query": case.query,
-            "note": case.note,
-            "oracle_food": (
-                None
-                if case.food_id is None
-                else catalog.canonical_id(case.food_id)
-            ),
-            "oracle_grams": case.grams,
-            **result,
-        }
-        if error:
-            row["error"] = error
-        cases_out.append(row)
-        mark = "PASS" if row["passed"] else "FAIL"
-        print(
-            f"{mark} {case.id} tag={row['tag']} ops={row['ops']} ledger={row['ledger']}",
-            file=sys.stderr,
-            flush=True,
-        )
+    wanted = None
+    if args.ids:
+        wanted = {item.strip() for item in args.ids.split(",") if item.strip()}
+        missing = wanted - {case.id for case in CASES}
+        if missing:
+            print(f"unknown case ids: {sorted(missing)}", file=sys.stderr)
+            return 2
+    selected = [case for case in CASES if wanted is None or case.id in wanted]
+    if args.repeat < 1:
+        print("--repeat must be >= 1", file=sys.stderr)
+        return 2
 
+    cases_out: list[dict] = []
+    for case in selected:
+        for run_i in range(1, args.repeat + 1):
+            label = case.id if args.repeat == 1 else f"{case.id}#{run_i}"
+            print(f"RUN {label} {case.query}", file=sys.stderr, flush=True)
+            harness = harness_proto.clone()
+            harness.reset()
+            task = _task(catalog, case)
+            try:
+                result = run_recorded(task, harness, args.max_steps)
+                error = None
+            except Exception as exc:  # noqa: BLE001 — record live failure, do not invent pass
+                result = {
+                    "passed": False,
+                    "tag": "error",
+                    "ops": [],
+                    "ledger": [],
+                    "actions": [],
+                }
+                error = str(exc)
+                print(f"ERR {label} {exc}", file=sys.stderr, flush=True)
+            row = {
+                "id": case.id,
+                "repeat": run_i,
+                "group": case.group,
+                "query": case.query,
+                "note": case.note,
+                "oracle_food": (
+                    None
+                    if case.food_id is None
+                    else catalog.canonical_id(case.food_id)
+                ),
+                "oracle_grams": case.grams,
+                **result,
+            }
+            if error:
+                row["error"] = error
+            cases_out.append(row)
+            mark = "PASS" if row["passed"] else "FAIL"
+            print(
+                f"{mark} {label} tag={row['tag']} ops={row['ops']} ledger={row['ledger']}",
+                file=sys.stderr,
+                flush=True,
+            )
+
+    dest = args.json_out or RESULTS_JSON
     payload = {
         "date": date.today().isoformat(),
         "model": args.model,
@@ -424,12 +457,12 @@ def main(argv: list[str] | None = None) -> int:
         "max_steps": args.max_steps,
         "cases": cases_out,
     }
-    RESULTS_JSON.write_text(
-        json.dumps(payload, indent=2, default=str), encoding="utf-8"
-    )
-    _write_report(payload)
-    print(f"wrote {RESULTS_JSON}", file=sys.stderr)
-    print(f"wrote {REPORT_MD}", file=sys.stderr)
+    dest.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+    write_report = args.write_report or (wanted is None and dest == RESULTS_JSON)
+    if write_report:
+        _write_report(payload)
+        print(f"wrote {REPORT_MD}", file=sys.stderr)
+    print(f"wrote {dest}", file=sys.stderr)
     return 0
 
 

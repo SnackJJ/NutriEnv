@@ -330,8 +330,15 @@ def test_bare_noun_does_not_guess_cup_default(catalog_v1):
 def test_bare_noun_handbook_covers_new_expressions(catalog_v1):
     """AGENTS.md rule 4: new spoken forms must appear in the v1 manual."""
     manual = react_manual("v1")
-    for phrase in ("one apple", "a banana", "two eggs", "a chicken breast"):
+    for phrase in (
+        "one apple",
+        "a banana",
+        "two eggs",
+        "a chicken breast",
+        "do not log it, finish without logging that food",
+    ):
         assert phrase in manual
+    assert "ask for grams" not in manual
     assert resolve_portion("apple", "one apple", catalog_v1) == 165.0
     assert resolve_portion("banana", "a banana", catalog_v1) == 126.0
     assert resolve_portion("egg", "two eggs", catalog_v1) == 100.0
