@@ -1,0 +1,397 @@
+"""Ticket 10: injectable multi-LLM semantic vote at the generation seam."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from nutrienv.bench import Oracle, Scorer
+from nutrienv.bench.pipeline import catalog_digest, pass_through_reviewer, run_batch
+from nutrienv.bench.pipeline.expander import validate_expander_payload
+from nutrienv.bench.pipeline.semantic_vote import (
+    DEFAULT_K,
+    DEFAULT_MODEL_IDS,
+    DEFAULT_THRESHOLD,
+    GRAM_TOLERANCE,
+    MAX_TOKENS,
+    TEMPERATURE,
+    accept_from_votes,
+    admit_query_phrasing,
+    call_voter,
+    semantic_vote,
+)
+from nutrienv.bench.pipeline.types import FoodPool, PoolFood, PortionAlternative
+from nutrienv.io.chat import DASHSCOPE_CHAT_URL
+from nutrienv.world.types import LedgerRow, Profile, WorldState
+
+
+def _seq_voter(replies):
+    it = iter(replies)
+
+    def fake(_query: str, _food: str, _expression: str) -> str:
+        return next(it)
+
+    return fake
+
+
+def _const_voter(text: str):
+    def fake(_query: str, _food: str, _expression: str) -> str:
+        return text
+
+    return fake
+
+
+def test_default_vote_parameters() -> None:
+    assert DEFAULT_K == 3
+    assert DEFAULT_THRESHOLD == pytest.approx(2 / 3)
+    assert TEMPERATURE == 0.2
+    assert MAX_TOKENS == 256
+    assert DEFAULT_MODEL_IDS == (
+        "deepseek-v4-flash-0731",
+        "qwen3.7-flash-2026-07-15",
+    )
+    assert GRAM_TOLERANCE == 10.0
+
+
+def test_majority_two_of_three_accepts() -> None:
+    accepted, source = semantic_vote(
+        "Please log a banana.",
+        food="banana",
+        expression="one banana",
+        voter=_seq_voter(["match", "mismatch", "match"]),
+        k=3,
+        threshold=2 / 3,
+    )
+    assert accepted is True
+    assert source == "vote"
+
+
+def test_majority_below_two_of_three_rejects() -> None:
+    accepted, source = semantic_vote(
+        "Please log a banana.",
+        food="banana",
+        expression="one banana",
+        voter=_seq_voter(["match", "mismatch", "mismatch"]),
+        k=3,
+        threshold=2 / 3,
+    )
+    assert accepted is False
+    assert source == "vote"
+
+
+def test_parse_fail_is_fail_closed() -> None:
+    accepted, _source = semantic_vote(
+        "Please log a banana.",
+        food="banana",
+        expression="one banana",
+        voter=_const_voter("not-json"),
+        k=3,
+    )
+    assert accepted is False
+
+
+def test_accept_from_votes_uses_majority() -> None:
+    assert accept_from_votes(["match", "match", "mismatch"], 2 / 3) is True
+    assert accept_from_votes(["match", "mismatch", "mismatch"], 2 / 3) is False
+    assert accept_from_votes(["parse_fail", "parse_fail", "parse_fail"], 2 / 3) is False
+
+
+def _capture_post(monkeypatch):
+    captured: dict = {}
+
+    def fake_post(url, payload, api_key, **_kwargs):
+        captured["url"] = url
+        captured["model"] = payload["model"]
+        captured["temperature"] = payload["temperature"]
+        captured["max_tokens"] = payload["max_tokens"]
+        captured["api_key"] = api_key
+        captured["messages"] = payload["messages"]
+        return '{"verdict": "match", "reason": "same fruit"}'
+
+    monkeypatch.setattr(
+        "nutrienv.bench.pipeline.semantic_vote.post_chat_completion", fake_post
+    )
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "dash-dummy")
+    return captured
+
+
+def test_call_voter_posts_judge_grade_defaults(monkeypatch) -> None:
+    captured = _capture_post(monkeypatch)
+    monkeypatch.delenv("NUTRIENV_JUDGE_MODEL", raising=False)
+    text = call_voter("Please log a banana.", "banana", "one banana")
+    assert json.loads(text)["verdict"] == "match"
+    assert captured["model"] == "deepseek-v4-flash-0731"
+    assert captured["url"] == DASHSCOPE_CHAT_URL
+    assert captured["temperature"] == 0.2
+    assert captured["max_tokens"] == 256
+    user = captured["messages"][1]["content"]
+    assert "Please log a banana." in user
+    assert '"items"' not in user
+
+
+def test_admit_phrasing_within_tolerance_keeps_oracle_grams() -> None:
+    catalog = {"milk_whole": {"name": "Milk, whole", "portions": {"cup": 244.0}}}
+    assert (
+        admit_query_phrasing(
+            "Please log 240 g of milk.",
+            "milk_whole",
+            "a cup",
+            244.0,
+            catalog,
+            tolerance_g=10.0,
+        )
+        is True
+    )
+    assert (
+        admit_query_phrasing(
+            "Please log 200 g of milk.",
+            "milk_whole",
+            "a cup",
+            244.0,
+            catalog,
+            tolerance_g=10.0,
+        )
+        is False
+    )
+
+
+def _batch_catalog() -> dict:
+    return {
+        "apple": {
+            "name": "Apple, raw",
+            "portions": {"piece": 182.0},
+            "aliases": ["apple", "apples"],
+            "allergen_tags": [],
+        },
+        "orange": {
+            "name": "Orange, raw",
+            "portions": {"piece": 131.0},
+            "aliases": ["orange", "oranges"],
+            "allergen_tags": [],
+        },
+        "milk_whole": {
+            "name": "Milk, whole",
+            "portions": {"cup": 244.0},
+            "aliases": ["milk", "whole milk"],
+            "allergen_tags": ["milk"],
+        },
+        "oats": {
+            "name": "Oats, rolled",
+            "portions": {"cup": 81.0},
+            "aliases": ["oatmeal", "oats"],
+            "allergen_tags": [],
+        },
+        "banana": {
+            "name": "Banana, raw",
+            "portions": {"piece": 118.0},
+            "aliases": ["banana", "bananas"],
+            "allergen_tags": [],
+        },
+        "egg": {
+            "name": "Egg, whole",
+            "portions": {"piece": 50.0},
+            "aliases": ["egg", "eggs"],
+            "allergen_tags": ["egg"],
+        },
+        "white_rice": {
+            "name": "Rice, white",
+            "portions": {"cup": 158.0},
+            "aliases": ["rice"],
+            "allergen_tags": [],
+        },
+        "broccoli": {
+            "name": "Broccoli, cooked",
+            "portions": {"cup": 156.0},
+            "aliases": ["broccoli"],
+            "allergen_tags": [],
+        },
+        "chicken_breast": {
+            "name": "Chicken breast",
+            "portions": {"piece": 172.0},
+            "aliases": ["chicken"],
+            "allergen_tags": [],
+        },
+        "tofu": {
+            "name": "Tofu, firm",
+            "portions": {"piece": 80.0},
+            "aliases": ["tofu"],
+            "allergen_tags": ["soy"],
+        },
+    }
+
+
+def _expander(payloads):
+    def expand(_pool, *, persona, family):
+        return payloads
+
+    return expand
+
+
+def _ok_judge(_food: str, _grams: float) -> str:
+    return "ok"
+
+
+def _run(tmp_path: Path, payloads, *, voter, **overrides):
+    catalog = _batch_catalog()
+    spec = {
+        "seed": 7,
+        "sampler_rule_version": "sampler-v1",
+        "catalog_sha": catalog_digest(catalog),
+        "persona": "everyday",
+        "family_quotas": {"log": 1},
+        "model_route": {},
+        "catalog": "fixture",
+        "output_path": tmp_path / "batch.json",
+        "overwrite": True,
+    }
+    spec.update(overrides)
+    return run_batch(
+        spec,
+        expander=_expander(payloads),
+        judge=_ok_judge,
+        reviewer=pass_through_reviewer,
+        catalog=catalog,
+        voter=voter,
+    )
+
+
+def test_voter_replaces_hard_backresolve_and_keeps_oracle_bytes(tmp_path: Path) -> None:
+    payload = {
+        "items": [{"food": "milk_whole", "expression": "a cup"}],
+        "query": "Please log 240 g of milk for lunch.",
+    }
+    result = _run(tmp_path, [payload], voter=_const_voter('{"verdict": "match"}'))
+    assert len(result.accepted) == 1
+    row = result.accepted[0].oracle.ledger_tail[0]
+    assert row.grams == 244.0
+    oracle = result.payload["items"][0]["oracle"]
+    grams = [item["grams"] for item in oracle["ledger_tail"]]
+    assert grams == [244.0]
+    assert json.dumps(grams) == "[244.0]"
+
+
+def test_discipline_5_scorer_stays_exact_end_state() -> None:
+    catalog = _batch_catalog()
+    s0 = WorldState(profile=Profile(user_id="exact"), catalog=catalog, ledger=[])
+    oracle = Oracle(ledger_tail=[LedgerRow("milk_whole", 244.0, "today-lunch")])
+    passed = WorldState(
+        profile=s0.profile,
+        catalog=catalog,
+        ledger=[LedgerRow("milk_whole", 244.0, "today-lunch")],
+    )
+    close = WorldState(
+        profile=s0.profile,
+        catalog=catalog,
+        ledger=[LedgerRow("milk_whole", 240.0, "today-lunch")],
+    )
+    assert Scorer().score(passed, oracle)["passed"] is True
+    assert Scorer().score(close, oracle)["passed"] is False
+    assert Scorer().score(close, oracle)["tag"] == "log_miss"
+
+
+def test_deterministic_leak_still_rejects_when_voter_would_pass(tmp_path: Path) -> None:
+    leak = {
+        "items": [{"food": "milk_whole", "expression": "a cup"}],
+        "query": "Please log a cup of milk_whole for lunch.",
+    }
+    result = _run(tmp_path, [leak], voter=_const_voter('{"verdict": "match"}'))
+    assert result.accepted == []
+    assert any(item.reason == "leak" for item in result.rejected)
+
+
+def test_deterministic_pool_check_stays_independent_of_vote() -> None:
+    pool = FoodPool(
+        pool_id="log-0000",
+        family="log",
+        foods=(
+            PoolFood(
+                food_id="milk_whole",
+                name="Milk, whole",
+                aliases=("milk",),
+                alternatives=(PortionAlternative("cup", 1.0, "a cup", 244.0),),
+            ),
+        ),
+    )
+    outsider = {
+        "items": [{"food": "steak", "expression": "a cup"}],
+        "query": "Please log a cup of steak.",
+    }
+    assert validate_expander_payload(outsider, pool)
+    accepted, _source = semantic_vote(
+        outsider["query"],
+        food="steak",
+        expression="a cup",
+        voter=_const_voter('{"verdict": "match"}'),
+    )
+    assert accepted is True
+
+
+GRAY_CASES = (
+    ("sandwich", 175.0, 115.0, "a piece", "a sandwich"),
+    ("lasagna", 206.0, 250.0, "a piece", "a lasagna"),
+    ("omelet", 55.0, 110.0, "a piece", "an omelet"),
+)
+
+
+@pytest.fixture
+def gray_catalog() -> dict:
+    return {
+        "sandwich": {
+            "name": "Sandwich",
+            "portions": {"piece": 175.0, "qns": 115.0},
+            "aliases": ["sandwich"],
+        },
+        "lasagna": {
+            "name": "Lasagna",
+            "portions": {"piece": 206.0, "qns": 250.0},
+            "aliases": ["lasagna"],
+        },
+        "omelet": {
+            "name": "Egg omelet",
+            "portions": {"piece": 55.0, "qns": 110.0},
+            "aliases": ["omelet"],
+        },
+    }
+
+
+@pytest.mark.parametrize("food,piece,qns,piece_expr,other_query", GRAY_CASES)
+def test_gray_zone_spoken_phrasing_is_not_false_rejected(
+    food, piece, qns, piece_expr, other_query, gray_catalog
+) -> None:
+    query = f"Please log {piece_expr} of {food}."
+    accepted, _source = semantic_vote(
+        query,
+        food=food,
+        expression=piece_expr,
+        voter=_const_voter('{"verdict": "match"}'),
+    )
+    assert accepted is True
+    assert (
+        admit_query_phrasing(query, food, piece_expr, piece, gray_catalog)
+        is True
+    )
+    # The other portion of the pair is far outside ±10 g.
+    assert abs(piece - qns) > GRAM_TOLERANCE
+
+
+@pytest.mark.parametrize("food,piece,qns,piece_expr,other_query", GRAY_CASES)
+def test_gray_zone_other_portion_is_not_admitted_via_tolerance(
+    food, piece, qns, piece_expr, other_query, gray_catalog
+) -> None:
+    query = f"Please log {other_query}."
+    assert (
+        admit_query_phrasing(query, food, piece_expr, piece, gray_catalog)
+        is False
+    )
+    accepted, _source = semantic_vote(
+        query,
+        food=food,
+        expression=piece_expr,
+        voter=_const_voter('{"verdict": "match"}'),
+        oracle_grams=piece,
+        catalog=gray_catalog,
+        food_id=food,
+    )
+    assert accepted is False

@@ -19,6 +19,13 @@ def test_grams_gate_source_does_not_import_harness() -> None:
     assert "nutrienv.harness" not in source
 
 
+def test_semantic_vote_source_does_not_import_harness() -> None:
+    source = Path("src/nutrienv/bench/pipeline/semantic_vote.py").read_text(
+        encoding="utf-8"
+    )
+    assert "nutrienv.harness" not in source
+
+
 def test_load_dotenv_keys_does_not_override_existing(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("NUTRIENV_DOTENV_TEST_FOO", "keep")
     monkeypatch.delenv("NUTRIENV_DOTENV_TEST_BAR", raising=False)

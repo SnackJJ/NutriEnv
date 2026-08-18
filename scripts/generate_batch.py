@@ -29,6 +29,7 @@ if str(_SRC) not in sys.path:
 from nutrienv.bench.grams_gate import call_judge  # noqa: E402
 from nutrienv.bench.pipeline.expander import make_llm_expander, synthetic_expander  # noqa: E402
 from nutrienv.bench.pipeline.review_harness import make_reviewer  # noqa: E402
+from nutrienv.bench.pipeline.semantic_vote import call_voter  # noqa: E402
 from nutrienv.bench.pipeline.run_batch import (  # noqa: E402
     _table_only_judge,
     pass_through_reviewer,
@@ -215,6 +216,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         expander = synthetic_expander
         judge = _table_only_judge
         reviewer = pass_through_reviewer
+        voter = None
     else:
         expander = make_llm_expander(
             model_route=list(model_quotas),
@@ -222,6 +224,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         judge = call_judge
         reviewer = make_reviewer()
+        voter = call_voter
 
     result = run_batch(
         spec,
@@ -230,6 +233,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         reviewer=reviewer,
         catalog=catalog,
         workers=args.workers,
+        voter=voter,
     )
     _print_stats(result)
     if not result.accepted:

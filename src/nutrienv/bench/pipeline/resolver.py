@@ -22,7 +22,7 @@ from nutrienv.world.types import ledger_totals
 
 from .types import COMPOSITE_FAMILY, COMPOSITE_STEPS, Candidate, Rejected
 
-__all__ = ["query_backresolves_oracle", "resolve_candidate"]
+__all__ = ["query_backresolves_oracle", "resolve_candidate", "spoken_grams_from_query"]
 
 _LOG_SLOT = "today-lunch"
 
@@ -165,7 +165,29 @@ def _query_portion_phrases(
                 head = " ".join(tokens[-width:])
                 _add(head)
                 _add(f"{head} {needle}")
+            trimmed = list(tokens)
+            while trimmed and trimmed[-1] in {"of", "in", "the", "a", "an"}:
+                trimmed.pop()
+                for width in range(1, min(6, len(trimmed)) + 1):
+                    head = " ".join(trimmed[-width:])
+                    _add(head)
+                    _add(f"{head} {needle}")
     return found
+
+
+def spoken_grams_from_query(
+    query: str,
+    food_id: str,
+    catalog: Mapping,
+    expression: str = "",
+) -> float | None:
+    """Longest resolvable spoken amount in ``query`` for ``food_id``, or None."""
+    phrases = _query_portion_phrases(query, food_id, catalog, expression)
+    for phrase in sorted(phrases, key=len, reverse=True):
+        resolved = resolve_portion(food_id, phrase, catalog)
+        if resolved is not None:
+            return float(resolved)
+    return None
 
 
 def match_food(token: str, catalog: Mapping, index: Mapping[str, str]) -> str | None:

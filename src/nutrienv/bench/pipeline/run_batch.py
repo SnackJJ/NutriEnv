@@ -11,13 +11,15 @@ from nutrienv.bench.grams_gate import plausibility_gate
 from nutrienv.bench.realize import Task, scored_oracles
 from nutrienv.bench.validator import fitting_plan, validate_draft
 from nutrienv.world.catalog_store import load_catalog
+from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import ledger_totals
 
 from .expander import LlmExpander, coerce_candidates, make_llm_expander, synthetic_expander
 from .freezer import freeze_tasks
 from .models import assign_model
-from .resolver import build_food_index, resolve_candidate
+from .resolver import build_food_index, match_food, resolve_candidate
 from .sampler import sample_pools
+from .semantic_vote import semantic_vote
 from .types import (
     BASE_EXAM_QUOTA,
     CATALOG_V1_RELPATH,
@@ -74,6 +76,7 @@ def run_batch(
     reviewer: Reviewer,
     catalog,
     workers: int = 1,
+    voter=None,
 ) -> BatchResult:
     """Run the candidate pipeline. LLM roles must be injected; no network."""
     if expander is None or judge is None or reviewer is None:
@@ -101,6 +104,7 @@ def run_batch(
         prefix=spec["task_id_prefix"],
         start_seq=spec["start_seq"],
         skip_gram_backresolve=spec["skip_gram_backresolve"],
+        voter=voter,
         workers=workers,
     )
 
@@ -389,6 +393,7 @@ class _CandOut:
     key: tuple[str, ...] | None
     implausible: bool
     draft_fail: bool
+    semantic_fail: bool = False
 
 
 @dataclass
@@ -500,6 +505,30 @@ def _expand_one(
     return job, candidates
 
 
+def _vote_candidate(candidate, catalog, voter) -> bool:
+    """Soft semantic vote plus generation-only phrasing band. Oracle untouched."""
+    index = build_food_index(catalog)
+    for spoken, expression in candidate.items:
+        food_id = match_food(spoken, catalog, index)
+        if food_id is None:
+            return False
+        grams = resolve_portion(food_id, expression, catalog)
+        if grams is None:
+            return False
+        accepted, _source = semantic_vote(
+            candidate.query,
+            food=spoken,
+            expression=expression,
+            voter=voter,
+            oracle_grams=float(grams),
+            catalog=catalog,
+            food_id=food_id,
+        )
+        if not accepted:
+            return False
+    return True
+
+
 def _finish_one(
     job: _PoolJob,
     tagged: Sequence[tuple[object, str]],
@@ -508,6 +537,7 @@ def _finish_one(
     food_index: Mapping[str, str],
     judge: Judge,
     skip_gram_backresolve: bool = False,
+    voter=None,
 ) -> _PoolOut:
     if not tagged:
         return _PoolOut(
@@ -527,14 +557,17 @@ def _finish_one(
             task_id=task_id,
             seen=local_seen,
             food_index=food_index,
-            skip_gram_backresolve=skip_gram_backresolve,
+            skip_gram_backresolve=skip_gram_backresolve or voter is not None,
         )
         occupied = local_seen - before
         key = next(iter(occupied), None)
         implausible = False
         draft_fail = False
+        semantic_fail = False
         if reason is None and task is not None:
-            if _implausible(task, catalog, judge):
+            if voter is not None and not _vote_candidate(candidate, catalog, voter):
+                semantic_fail = True
+            elif _implausible(task, catalog, judge):
                 implausible = True
             else:
                 draft_issues = list(validate_draft(task))
@@ -550,6 +583,7 @@ def _finish_one(
                 key=key,
                 implausible=implausible,
                 draft_fail=draft_fail,
+                semantic_fail=semantic_fail,
             )
         )
     return _PoolOut(
@@ -606,6 +640,9 @@ def _assemble(
             if item.implausible:
                 rejected.append(Rejected(item.query, "implausible", item.family))
                 continue
+            if item.semantic_fail:
+                rejected.append(Rejected(item.query, "semantic", item.family))
+                continue
             if item.draft_fail:
                 rejected.append(Rejected(item.query, "validate_draft", item.family))
                 continue
@@ -638,6 +675,7 @@ def _run_jobs(
     prefix: str,
     start_seq: int,
     skip_gram_backresolve: bool = False,
+    voter=None,
     workers: int,
 ) -> tuple[list[Task], list[Rejected], dict[str, object]]:
     if workers == 1:
@@ -653,6 +691,7 @@ def _run_jobs(
                 food_index=food_index,
                 judge=judge,
                 skip_gram_backresolve=skip_gram_backresolve,
+                voter=voter,
             )
             for job, tagged in planned
         ]
@@ -674,6 +713,7 @@ def _run_jobs(
                 food_index=food_index,
                 judge=judge,
                 skip_gram_backresolve=skip_gram_backresolve,
+                voter=voter,
             )
             for job, tagged in planned
         ]
