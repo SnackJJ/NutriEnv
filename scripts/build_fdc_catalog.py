@@ -6,7 +6,13 @@ Full FNDDS strategy (seq_num first-wins) writes a *new* file:
 
     .venv/bin/python scripts/build_fdc_catalog.py --out data/fdc/catalog-v1.sqlite
 
-``--full`` without ``--out``, or ``--full`` targeting catalog.sqlite, is refused.
+FNDDS-only (no SR Legacy; catalog-v2) is a *new* file after dry-run approval:
+
+    .venv/bin/python scripts/build_fdc_catalog.py --fndds-only --dry-run
+    .venv/bin/python scripts/build_fdc_catalog.py --fndds-only --out data/fdc/catalog-v2.sqlite
+
+``--full`` / ``--fndds-only`` without ``--out``, or targeting catalog.sqlite /
+catalog-v1.sqlite, is refused.
 """
 
 from __future__ import annotations
@@ -47,6 +53,44 @@ _STAPLE_FDC: dict[str, str] = {
     "greek_yogurt": "2705424",
     "white_rice": "2708408",
 }
+
+# SR Legacy staples re-pinned when ingesting FNDDS-only (catalog-v2).
+# Ticket-named: tofu 2707435, chicken 2705956, tuna 2706311.
+# Remaining six: closest FNDDS form to the current SR row (see dry-run).
+SR_LEGACY_STAPLES: tuple[str, ...] = (
+    "chicken_breast",
+    "tuna",
+    "tofu",
+    "salmon",
+    "shrimp",
+    "beef",
+    "olive_oil",
+    "black_beans",
+    "peanut",
+    "almond",
+)
+FNDDS_ONLY_STAPLE_FDC: dict[str, str] = {
+    "chicken_breast": "2705956",
+    "tuna": "2706311",
+    "tofu": "2707435",
+    "salmon": "2706286",
+    "shrimp": "2706363",
+    "beef": "2705855",
+    "olive_oil": "2710186",
+    "black_beans": "2707361",
+    "peanut": "2707514",
+    "almond": "2707486",
+}
+
+
+def staple_fdc_pins(*, fndds_only: bool = False) -> dict[str, str]:
+    """Pinned FDC ids the builder uses for staple aliases."""
+    if not fndds_only:
+        return dict(_STAPLE_FDC)
+    pins = dict(_STAPLE_FDC)
+    pins.update(FNDDS_ONLY_STAPLE_FDC)
+    return pins
+
 
 # slug -> preferred official description fragments (FNDDS first, then SR).
 _STAPLES: dict[str, tuple[str, ...]] = {
@@ -481,12 +525,33 @@ def _ingest_branded(zf: zipfile.ZipFile, foods: dict[str, dict]) -> None:
             entry["portions"].setdefault("piece", grams)
 
 
-def _assign_staples(foods: dict[str, dict]) -> dict[str, str]:
+def ingest_sources(
+    *,
+    fndds_only: bool = False,
+    include_branded: bool = False,
+) -> list[tuple[Path, str, bool]]:
+    """Zip packs the builder will ingest: ``(path, default_type, branded)``."""
+    survey = _RAW / "fndds.zip" if (_RAW / "fndds.zip").is_file() else _RAW / "survey.zip"
+    packs: list[tuple[Path, str, bool]] = [
+        (survey, "survey_fndds_food", False),
+    ]
+    if not fndds_only:
+        packs.append((_RAW / "sr_legacy.zip", "sr_legacy_food", False))
+    if include_branded:
+        packs.append((_RAW / "branded.zip", "branded_food", True))
+    return packs
+
+
+def assign_staples(
+    foods: dict[str, dict], *, fndds_only: bool = False
+) -> dict[str, str]:
+    """Map staple slugs onto ``food_id``s present in ``foods``."""
     aliases: dict[str, str] = {}
     names = {fid: entry["name"].lower() for fid, entry in foods.items()}
+    pins = staple_fdc_pins(fndds_only=fndds_only)
     for slug, needles in _STAPLES.items():
         chosen = None
-        pinned = _STAPLE_FDC.get(slug)
+        pinned = pins.get(slug)
         if pinned and pinned in foods:
             chosen = pinned
         for needle in needles if chosen is None else ():
@@ -508,6 +573,8 @@ def _assign_staples(foods: dict[str, dict]) -> dict[str, str]:
             if fndds:
                 chosen = sorted(fndds)[0]
                 break
+            if fndds_only:
+                continue
             sr = [
                 fid
                 for fid, name in names.items()
@@ -531,23 +598,373 @@ def _assign_staples(foods: dict[str, dict]) -> dict[str, str]:
     return aliases
 
 
+# Representative spoken forms used to confirm each re-pin has a PortionFact.
+# "a chicken breast" is a cut noun and stays None (ticket 02); the chicken
+# fact is the piece row (105 g) on 2705956.
+FNDDS_STAPLE_PORTION_FACTS: dict[str, tuple[str, float]] = {
+    "chicken_breast": ("a piece", 105.0),
+    "tuna": ("a can", 75.0),
+    "tofu": ("a piece", 120.0),
+    "salmon": ("a piece", 140.0),
+    "shrimp": ("a piece", 10.0),
+    "beef": ("a piece", 65.0),
+    "olive_oil": ("a tablespoon", 14.0),
+    "black_beans": ("a cup", 180.0),
+    "peanut": ("a cup", 146.0),
+    "almond": ("a cup", 141.0),
+}
+
+# Reviewer notes: why this FNDDS row, not a sibling. Not gram facts.
+FNDDS_STAPLE_WHY: dict[str, str] = {
+    "chicken_breast": (
+        "票面候选。对应 SR 去皮烤胸；piece=105 是 catalog-v1 完整策略对 "
+        "2705956 的 first-wins 行。"
+    ),
+    "tuna": "票面候选。对应 SR 水浸罐头；FNDDS can=75（SR can=165）。",
+    "tofu": (
+        "AGY 核验：FNDDS 纯豆腐官方名 Soybean curd（底层 SR 16127 为 soft）。"
+        "当前 SR 钉的是 firm；cup 126→248。"
+    ),
+    "salmon": (
+        "SR 是 cooked dry heat。选 baked or broiled（2706286），"
+        "与 NFS 2706285 同份量表；不用 raw 2706284（无 piece）。"
+    ),
+    "shrimp": (
+        "SR 是 cooked。选 steamed or boiled（2706363），"
+        "与 NFS 2706360 同份量表。"
+    ),
+    "beef": (
+        "SR 是 90/10 cooked patty。选 Beef, ground, patty（2705855，piece=65）；"
+        "不用无 piece 的 2705854 Beef, ground。"
+    ),
+    "olive_oil": "FNDDS 唯一纯橄榄油行 2710186。tbsp 13.5→14；无 tsp。",
+    "black_beans": (
+        "SR 是 boiled without salt。选 from dried, no added fat（2707361）；"
+        "不用 NFS 2707359（cup=185）或 canned。"
+    ),
+    "peanut": "SR 是 raw。选 unroasted 2707514；cup 仍 146，补 oz/qns。",
+    "almond": (
+        "当前 SR 168592 是 honey roasted（name-match 误伤）。"
+        "针写 Almonds, raw → unroasted 2707486。"
+    ),
+}
+
+_GOLD_SOURCES = (
+    ("s0", "ledger"),
+    ("oracle", "ledger_tail"),
+    ("s0", "last_plan"),
+    ("oracle", "last_plan"),
+)
+
+
+def _read_catalog(
+    db_path: Path,
+) -> tuple[dict[str, dict], dict[str, str], dict[str, int]]:
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    try:
+        foods: dict[str, dict] = {}
+        for row in conn.execute(
+            "SELECT food_id, name, data_type, portions FROM foods"
+        ):
+            foods[row["food_id"]] = {
+                "name": row["name"],
+                "data_type": row["data_type"],
+                "portions": json.loads(row["portions"] or "{}"),
+            }
+        aliases = {
+            str(alias): str(food_id)
+            for alias, food_id in conn.execute("SELECT alias, food_id FROM aliases")
+        }
+        counts: dict[str, int] = {}
+        for data_type, n in conn.execute(
+            "SELECT data_type, COUNT(*) FROM foods GROUP BY data_type"
+        ):
+            counts[str(data_type)] = int(n)
+    finally:
+        conn.close()
+    return foods, aliases, counts
+
+
+def _confirm_portion_fact(
+    slug: str, name: str, portions: dict[str, float]
+) -> dict:
+    from nutrienv.world.portions import resolve_portion
+
+    phrase, expected = FNDDS_STAPLE_PORTION_FACTS[slug]
+    catalog = {slug: {"name": name, "portions": portions, "aliases": [slug]}}
+    resolved = resolve_portion(slug, phrase, catalog)
+    cut_phrase = "a chicken breast" if slug == "chicken_breast" else None
+    cut_resolved = (
+        resolve_portion(slug, cut_phrase, catalog) if cut_phrase else None
+    )
+    return {
+        "phrase": phrase,
+        "expected_g": expected,
+        "resolved_g": resolved,
+        "ok": resolved == expected,
+        "cut_noun_phrase": cut_phrase,
+        "cut_noun_resolved_g": cut_resolved,
+    }
+
+
+def plan_fndds_only_rebuild(
+    *,
+    live_catalog: Path,
+    reference_catalog: Path,
+    split_path: Path | None = None,
+) -> dict:
+    """Read-only catalog-v2 plan. Does not write any sqlite."""
+    live_foods, live_aliases, live_counts = _read_catalog(live_catalog)
+    ref_foods, _ref_aliases, ref_counts = _read_catalog(reference_catalog)
+    pins = staple_fdc_pins(fndds_only=True)
+    swaps: list[dict] = []
+    for slug in SR_LEGACY_STAPLES:
+        old_id = live_aliases.get(slug, "")
+        new_id = pins[slug]
+        old_entry = live_foods.get(old_id) or {}
+        new_entry = ref_foods.get(new_id) or {}
+        old_portions = dict(old_entry.get("portions") or {})
+        new_portions = dict(new_entry.get("portions") or {})
+        fact = _confirm_portion_fact(
+            slug, str(new_entry.get("name") or ""), new_portions
+        )
+        swaps.append(
+            {
+                "slug": slug,
+                "old_fdc_id": old_id,
+                "old_name": old_entry.get("name") or "",
+                "old_data_type": old_entry.get("data_type") or "",
+                "old_portions": old_portions,
+                "new_fdc_id": new_id,
+                "new_name": new_entry.get("name") or "",
+                "new_data_type": new_entry.get("data_type") or "",
+                "new_portions": new_portions,
+                "portion_fact": fact,
+            }
+        )
+    survey_n = live_counts.get("survey_fndds_food", 0)
+    gold_rows: list[dict] = []
+    if split_path is not None:
+        split = json.loads(split_path.read_text(encoding="utf-8"))
+        slugs = set(SR_LEGACY_STAPLES)
+        for item in split.get("items") or []:
+            for bucket, field in _GOLD_SOURCES:
+                parent = item.get(bucket) or {}
+                if not isinstance(parent, dict):
+                    continue
+                for row in parent.get(field) or []:
+                    if not isinstance(row, dict):
+                        continue
+                    food_id = row.get("food_id")
+                    if food_id not in slugs:
+                        continue
+                    try:
+                        grams = float(row["grams"])
+                    except (KeyError, TypeError, ValueError):
+                        continue
+                    gold_rows.append(
+                        {
+                            "item_id": item.get("id") or "",
+                            "source": f"{bucket}.{field}",
+                            "slug": food_id,
+                            "grams": grams,
+                        }
+                    )
+    return {
+        "wrote_catalog_v2": False,
+        "counts": {
+            "survey_fndds_food": survey_n,
+            "sr_legacy_food": live_counts.get("sr_legacy_food", 0),
+            "catalog_v2_foods": survey_n,
+            "reference_survey_fndds_food": ref_counts.get("survey_fndds_food", 0),
+        },
+        "staple_swaps": swaps,
+        "gold_rows": gold_rows,
+    }
+
+
+def _fmt_portions(portions: dict) -> str:
+    if not portions:
+        return "—"
+    return ", ".join(f"{k}={v:g}" for k, v in sorted(portions.items()))
+
+
+def _portion_deltas(old: dict, new: dict) -> list[str]:
+    bits: list[str] = []
+    keys = sorted(set(old) | set(new))
+    for key in keys:
+        if key in old and key in new and old[key] != new[key]:
+            bits.append(f"{key} {old[key]:g}→{new[key]:g}")
+        elif key in old and key not in new:
+            bits.append(f"-{key}={old[key]:g}")
+        elif key not in old and key in new:
+            bits.append(f"+{key}={new[key]:g}")
+    return bits
+
+
+def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
+    """Write the STEP 1 dry-run report. Does not write catalog-v2.sqlite."""
+    counts = plan["counts"]
+    swaps = plan["staple_swaps"]
+    gold_rows = plan.get("gold_rows") or []
+    lines: list[str] = [
+        "# catalog-v2 dry-run：FNDDS-only + staple 重钉",
+        "",
+        "只读对照：**不写** `data/fdc/catalog-v2.sqlite`，不改 `catalog.sqlite`、",
+        "`catalog-v1.sqlite`、任何 `data/splits/*.json`。本文件是 AGENTS.md 纪律 2",
+        "要求的落地前清单，供 codex 审查 + 主 agent 裁决后再重建。",
+        "",
+        "复跑：",
+        "",
+        "```",
+        ".venv/bin/python scripts/build_fdc_catalog.py --fndds-only --dry-run",
+        "```",
+        "",
+        "## 框定",
+        "",
+        "- catalog-v2 是新文件（`data/fdc/catalog-v2.sqlite`），不覆盖",
+        "  `catalog.sqlite` 与 `catalog-v1.sqlite`。",
+        "- 构建策略与 catalog-v1 相同（`--full`：seq_num first-wins），只是不 ingest",
+        "  SR Legacy，并把 10 个 SR staple 重钉到 FNDDS 等价条目。",
+        "- v0.5-gold 绑 `catalog.sqlite`（sha 见该 split 的 `catalog_sha256`），",
+        "  本 dry-run 与日后 catalog-v2 对其零影响。",
+        "",
+        "## 食物数对账",
+        "",
+        f"- 当前 `catalog.sqlite` / `catalog-v1.sqlite` 的 `survey_fndds_food`："
+        f"**{counts['survey_fndds_food']}**",
+        f"- 当前 `sr_legacy_food`：**{counts['sr_legacy_food']}**（catalog-v2 将全部丢弃）",
+        f"- catalog-v2 预计食物数：**{counts['catalog_v2_foods']}**（= 对账后的 FNDDS 数）",
+        f"- catalog-v1 内 `survey_fndds_food`：**{counts['reference_survey_fndds_food']}**",
+        "  （与 live 一致则对账闭合）",
+        "",
+        "票面曾写 5432：那是 `survey.zip` `food.csv` 行数。其中 `2705383` Milk, human",
+        "无 kcal，builder 不入库，所以 catalog 实测是 **5431**。catalog-v2 用 5431，",
+        "不硬编码 5432。",
+        "",
+        "## 哪些 staple 换条目",
+        "",
+        "| slug | 当前 SR id | 当前名 | FNDDS id | FNDDS 名 |",
+        "|---|---|---|---|---|",
+    ]
+    for row in swaps:
+        lines.append(
+            f"| `{row['slug']}` | `{row['old_fdc_id']}` | {row['old_name']} | "
+            f"`{row['new_fdc_id']}` | {row['new_name']} |"
+        )
+    lines += [
+        "",
+        "选型说明：tofu / chicken / tuna 用票面已点名的 FNDDS id；其余 7 个按当前",
+        "SR 行的形态就近选 catalog-v1 里已有的 FNDDS 行（cooked patty / unroasted /",
+        "olive oil / dried no-fat beans）。详见每条 PortionFact。",
+        "",
+        "## 哪些食物克数会变",
+        "",
+        "相对 **catalog-v1**（同 `--full` 策略）：FNDDS 食物份量键 **0 变**。变化只来自",
+        "10 个 staple 别名换条目（旧 SR 行随 7793 条 SR 一起消失）。",
+        "",
+        "相对 **catalog.sqlite**（v0.5 safe-overlay）：FNDDS 旧键还有 catalog-v1 已记录",
+        "的 861 处取值变化（见 `reports/catalog-v1-dryrun.md`）。那些变化已经在",
+        "catalog-v1 落地；catalog-v2 继承 catalog-v1 的 FNDDS 份量，不再另变。",
+        "v0.5-gold 不读 catalog-v2，冻结 JSON 克数不动。",
+        "",
+        "| slug | 当前 portions | FNDDS portions | 克数变化 |",
+        "|---|---|---|---|",
+    ]
+    for row in swaps:
+        delta = _portion_deltas(row["old_portions"], row["new_portions"])
+        change = "; ".join(delta) if delta else "无同键取值变化"
+        lines.append(
+            f"| `{row['slug']}` | {_fmt_portions(row['old_portions'])} | "
+            f"{_fmt_portions(row['new_portions'])} | {change} |"
+        )
+    lines += [
+        "",
+        "## 每条 staple 的 FNDDS target + PortionFact",
+        "",
+    ]
+    for row in swaps:
+        fact = row["portion_fact"]
+        ok = "通过" if fact["ok"] else "失败"
+        lines += [
+            f"### `{row['slug']}` → `{row['new_fdc_id']}` {row['new_name']}",
+            "",
+            f"- 当前：`{row['old_fdc_id']}` [{row['old_data_type']}] {row['old_name']}",
+            f"- 新 portions：`{_fmt_portions(row['new_portions'])}`",
+            f"- 选型：{FNDDS_STAPLE_WHY[row['slug']]}",
+            f"- PortionFact：`{fact['phrase']}` → **{fact['expected_g']:g} g**"
+            f"（resolve_portion={fact['resolved_g']}，{ok}）",
+        ]
+        if fact.get("cut_noun_phrase"):
+            lines.append(
+                f"- 票面例句 `{fact['cut_noun_phrase']}`：resolve_portion="
+                f"{fact['cut_noun_resolved_g']}（ticket 02 切块名词保持 None；"
+                f"piece=105 可解析的是 `a piece`，不是裸 `a chicken breast`）"
+            )
+        lines.append("")
+    n_gold = len(gold_rows)
+    by_slug: dict[str, int] = {}
+    for row in gold_rows:
+        by_slug[row["slug"]] = by_slug.get(row["slug"], 0) + 1
+    lines += [
+        "## v0.5-gold 影响（绑旧 catalog，零落地）",
+        "",
+        f"split 里这 10 个 slug 共 **{n_gold}** 行（peanut 不在 gold 25 里）。",
+        "冻结克数写在 JSON 里，不随 catalog-v2 变。若有人误把 v0.5 指到 catalog-v2，",
+        "别名会换 FDC id、营养素与份量表都会变；household 克数（tuna can 165、",
+        "tofu cup 126、black_beans cup 172、olive_oil tbsp 13.5 / tsp 4.5）将不再",
+        "等于新表。**本票不改 v0.5-gold，也不改 catalog.sqlite。**",
+        "",
+        "| slug | gold 行数 |",
+        "|---|---:|",
+    ]
+    for slug in SR_LEGACY_STAPLES:
+        lines.append(f"| `{slug}` | {by_slug.get(slug, 0)} |")
+    lines += [
+        "",
+        "## 验收冲突（STEP 1 记下，不改 resolve_portion）",
+        "",
+        "ticket 06 验收 2 写 chicken `\"a chicken breast\"` → piece 105g。",
+        "ticket 02 已把 `breast` 列为切块名词：无同名 portion 键则 `resolve_portion`",
+        "返回 None（`tests/test_portions.py` 钉死）。2705956 的 PortionFact 是",
+        "`piece=105`；`a piece` 解析为 105g，裸 `a chicken breast` 仍是 None。",
+        "STEP 2 落地前由主 agent 裁定是否改语法，本 dry-run 不猜。",
+        "",
+        "## 裁决请求",
+        "",
+        "请 codex 独立审查本清单，主 agent 裁决 APPROVE 后再允许：",
+        "`build_fdc_catalog.py --fndds-only --out data/fdc/catalog-v2.sqlite`。",
+        "",
+    ]
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _protected_catalogs() -> tuple[Path, ...]:
+    return (_DB.resolve(), (_DB.parent / "catalog-v1.sqlite").resolve())
+
+
 def build(
     include_branded: bool,
     dest: Path | None = None,
     full: bool = False,
+    fndds_only: bool = False,
 ) -> Path:
+    if fndds_only:
+        full = True
+        if dest is None or dest.resolve() in _protected_catalogs():
+            raise ValueError(
+                "fndds-only rebuild must write a new file (--out); "
+                "refusing to overwrite catalog.sqlite or catalog-v1.sqlite"
+            )
     if full and (dest is None or dest.resolve() == _DB.resolve()):
         raise ValueError(
             "full strategy must write a new file (--out); "
             "refusing to overwrite catalog.sqlite"
         )
     foods: dict[str, dict] = {}
-    packs = [
-        (_RAW / "fndds.zip" if (_RAW / "fndds.zip").is_file() else _RAW / "survey.zip", "survey_fndds_food", False),
-        (_RAW / "sr_legacy.zip", "sr_legacy_food", False),
-    ]
-    if include_branded:
-        packs.append((_RAW / "branded.zip", "branded_food", True))
+    packs = ingest_sources(fndds_only=fndds_only, include_branded=include_branded)
     for path, default_type, branded in packs:
         if not path.is_file():
             if branded:
@@ -567,7 +984,7 @@ def build(
                     overlay=default_type == "survey_fndds_food" and not use_full,
                     full=use_full,
                 )
-    aliases = _assign_staples(foods)
+    aliases = assign_staples(foods, fndds_only=fndds_only)
     out = dest or _DB
     out.parent.mkdir(parents=True, exist_ok=True)
     if out.exists():
@@ -619,7 +1036,7 @@ def build(
     return out
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--branded", action="store_true")
     parser.add_argument("--out", type=Path, default=None)
@@ -628,13 +1045,55 @@ def main() -> None:
         action="store_true",
         help="Full FNDDS strategy (seq_num first-wins). Requires --out.",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--fndds-only",
+        action="store_true",
+        help="Skip SR Legacy. Requires --out (catalog-v2) or --dry-run.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="List staple swaps and gram deltas; do not write a catalog.",
+    )
+    parser.add_argument(
+        "--report",
+        type=Path,
+        default=_ROOT / "reports" / "catalog-v2-dryrun.md",
+        help="Dry-run markdown path (default reports/catalog-v2-dryrun.md).",
+    )
+    args = parser.parse_args(argv)
     dest = args.out
-    full = args.full or (dest is not None and dest.name == "catalog-v1.sqlite")
+    fndds_only = args.fndds_only or (
+        dest is not None and dest.name == "catalog-v2.sqlite"
+    )
+    full = (
+        args.full
+        or fndds_only
+        or (dest is not None and dest.name == "catalog-v1.sqlite")
+    )
+    if args.dry_run:
+        if not fndds_only:
+            parser.error("--dry-run currently supports --fndds-only only")
+        plan = plan_fndds_only_rebuild(
+            live_catalog=_DB,
+            reference_catalog=_DB.parent / "catalog-v1.sqlite",
+            split_path=_ROOT / "data" / "splits" / "v0.5-gold.json",
+        )
+        write_catalog_v2_dryrun(plan, args.report)
+        print(f"wrote {args.report}")
+        return 0
     if full and dest is None:
         parser.error("full strategy requires --out PATH (refusing to overwrite catalog.sqlite)")
-    build(include_branded=args.branded, dest=dest, full=full)
+    if fndds_only and dest is None:
+        parser.error("fndds-only requires --out PATH or --dry-run")
+    build(
+        include_branded=args.branded,
+        dest=dest,
+        full=full,
+        fndds_only=fndds_only,
+    )
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
