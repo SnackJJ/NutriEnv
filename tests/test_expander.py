@@ -11,7 +11,9 @@ from nutrienv.bench.pipeline.expander import (
     HANDBOOK_VOCABULARY,
     build_system_prompt,
     coerce_candidates,
+    food_in_pool,
     make_llm_expander,
+    match_pool_food,
     parse_expander_payload,
     synthetic_expander,
     validate_expander_payload,
@@ -115,6 +117,49 @@ def test_coerce_candidates_accepts_fixed_schema() -> None:
     assert len(got) == 1
     assert got[0].items == (("milk", "a cup"),)
     assert got[0].query == _OK["query"]
+
+
+def _fndds_pool(*foods: PoolFood) -> FoodPool:
+    return FoodPool(pool_id="log-0000", family="log", foods=foods)
+
+
+def _pasta_food() -> PoolFood:
+    return PoolFood(
+        food_id="2708838",
+        name="Pasta with tomato-based sauce and meat, home recipe",
+        aliases=(),
+        alternatives=(PortionAlternative("cup", 1.0, "a cup", 250.0),),
+    )
+
+
+def test_match_pool_food_accepts_comma_head_short_name() -> None:
+    pasta = _pasta_food()
+    pool = _fndds_pool(pasta)
+    short = "Pasta with tomato-based sauce and meat"
+    assert food_in_pool(short, pool) is True
+    assert match_pool_food(short, pool) == "2708838"
+    assert match_pool_food(pasta.name, pool) == "2708838"
+    assert match_pool_food("2708838", pool) == "2708838"
+
+
+def test_match_pool_food_ambiguous_head_is_none() -> None:
+    pool = _fndds_pool(
+        PoolFood(
+            food_id="2710373",
+            name="Coffee, NS as to type",
+            aliases=(),
+            alternatives=(PortionAlternative("cup", 1.0, "a cup", 240.0),),
+        ),
+        PoolFood(
+            food_id="2710374",
+            name="Coffee, brewed",
+            aliases=(),
+            alternatives=(PortionAlternative("cup", 1.0, "a cup", 240.0),),
+        ),
+    )
+    assert food_in_pool("Coffee", pool) is True
+    assert match_pool_food("Coffee", pool) is None
+    assert match_pool_food("Coffee, NS as to type", pool) == "2710373"
 
 
 def test_coerce_candidates_drops_malformed() -> None:

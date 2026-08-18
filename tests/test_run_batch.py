@@ -137,6 +137,49 @@ def test_resolvable_candidate_passes_end_to_end(tmp_path: Path) -> None:
     assert result.review["anomalies"] == []
 
 
+def _fndds_shortname_catalog() -> dict:
+    """Eight speakable foods so the sampler puts every id in the pool."""
+    catalog = {
+        key: value
+        for key, value in _catalog().items()
+        if key
+        in {
+            "apple",
+            "orange",
+            "milk_whole",
+            "banana",
+            "egg",
+            "white_rice",
+            "broccoli",
+        }
+    }
+    catalog["2708838"] = {
+        "name": "Pasta with tomato-based sauce and meat, home recipe",
+        "portions": {"cup": 250.0, "qns": 250.0},
+        "aliases": [],
+        "allergen_tags": [],
+    }
+    return catalog
+
+
+def test_run_batch_resolves_fndds_comma_head_short_name(tmp_path: Path) -> None:
+    """Expander-valid short names (catalog-v2 FNDDS descriptions) must resolve."""
+    payload = {
+        "items": [
+            {
+                "food": "Pasta with tomato-based sauce and meat",
+                "expression": "a cup",
+            }
+        ],
+        "query": "Please log a cup of pasta with tomato-based sauce and meat.",
+    }
+    result = _run(tmp_path, [payload], catalog=_fndds_shortname_catalog())
+    assert len(result.accepted) == 1
+    row = result.accepted[0].oracle.ledger_tail[0]
+    assert row.food_id == "2708838"
+    assert row.grams == 250.0
+
+
 def test_unresolvable_expression_is_rejected(tmp_path: Path) -> None:
     bad = {
         "items": [{"food": "milk_whole", "expression": "a slice"}],

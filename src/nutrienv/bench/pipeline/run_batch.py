@@ -17,7 +17,7 @@ from nutrienv.world.types import ledger_totals
 from .expander import LlmExpander, coerce_candidates, make_llm_expander, synthetic_expander
 from .freezer import freeze_tasks
 from .models import assign_model
-from .resolver import build_food_index, match_food, resolve_candidate
+from .resolver import build_food_index, match_spoken, resolve_candidate
 from .sampler import sample_pools
 from .semantic_vote import (
     DEFAULT_K,
@@ -534,11 +534,12 @@ def _vote_candidate(
     models: tuple[str, ...],
     temperature: float,
     max_tokens: int,
+    pool=None,
 ) -> bool:
     """Soft semantic vote plus generation-only phrasing band. Oracle untouched."""
     index = build_food_index(catalog)
     for spoken, expression in candidate.items:
-        food_id = match_food(spoken, catalog, index)
+        food_id = match_spoken(spoken, catalog, index, pool)
         if food_id is None:
             return False
         grams = resolve_portion(food_id, expression, catalog)
@@ -601,6 +602,7 @@ def _finish_one(
             seen=local_seen,
             food_index=food_index,
             skip_gram_backresolve=skip_gram_backresolve or vote_on,
+            pool=job.pool,
         )
         occupied = local_seen - before
         key = next(iter(occupied), None)
@@ -617,6 +619,7 @@ def _finish_one(
                 models=vote_models,
                 temperature=vote_temperature,
                 max_tokens=vote_max_tokens,
+                pool=job.pool,
             ):
                 semantic_fail = True
             elif _implausible(task, catalog, judge):

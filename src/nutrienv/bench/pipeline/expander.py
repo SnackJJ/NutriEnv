@@ -24,6 +24,7 @@ __all__ = [
     "coerce_candidates",
     "food_in_pool",
     "make_llm_expander",
+    "match_pool_food",
     "parse_expander_payload",
     "synthetic_expander",
     "validate_expander_payload",
@@ -63,16 +64,33 @@ def food_in_pool(token: str, pool: FoodPool) -> bool:
     raw = token.strip().lower()
     if not raw:
         return False
-    for food in pool.foods:
-        keys = {food.food_id.lower(), _spoken_name(food).lower()}
-        name = food.name.strip()
-        if name:
-            keys.add(name.lower())
-            keys.add(name.split(",", 1)[0].strip().lower())
-        keys.update(alias.strip().lower() for alias in food.aliases if alias.strip())
-        if raw in keys:
-            return True
-    return False
+    return any(raw in _pool_keys(food) for food in pool.foods)
+
+
+def match_pool_food(token: str, pool: FoodPool) -> str | None:
+    """Return the unique pool ``food_id`` that ``token`` names, or None.
+
+    Uses the same keys as expander validation (id, full name, comma-head
+    short name, aliases). Ambiguous heads (two coffees both named
+    ``Coffee, …``) stay unmatched so the resolver cannot pick the wrong row.
+    """
+    raw = token.strip().lower()
+    if not raw:
+        return None
+    hits = [food.food_id for food in pool.foods if raw in _pool_keys(food)]
+    if len(hits) == 1:
+        return hits[0]
+    return None
+
+
+def _pool_keys(food: PoolFood) -> set[str]:
+    keys = {food.food_id.lower(), _spoken_name(food).lower()}
+    name = food.name.strip()
+    if name:
+        keys.add(name.lower())
+        keys.add(name.split(",", 1)[0].strip().lower())
+    keys.update(alias.strip().lower() for alias in food.aliases if alias.strip())
+    return keys
 
 
 def validate_expander_payload(payload: object, pool: FoodPool) -> list[str]:

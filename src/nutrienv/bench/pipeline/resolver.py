@@ -20,9 +20,15 @@ from nutrienv.world.catalog import canonical_food_id
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import ledger_totals
 
-from .types import COMPOSITE_FAMILY, COMPOSITE_STEPS, Candidate, Rejected
+from .expander import match_pool_food
+from .types import COMPOSITE_FAMILY, COMPOSITE_STEPS, Candidate, FoodPool, Rejected
 
-__all__ = ["query_backresolves_oracle", "resolve_candidate", "spoken_grams_from_query"]
+__all__ = [
+    "match_spoken",
+    "query_backresolves_oracle",
+    "resolve_candidate",
+    "spoken_grams_from_query",
+]
 
 _LOG_SLOT = "today-lunch"
 
@@ -39,12 +45,13 @@ def resolve_candidate(
     seen: set[tuple[str, ...]],
     food_index: Mapping[str, str] | None = None,
     skip_gram_backresolve: bool = False,
+    pool: FoodPool | None = None,
 ) -> tuple[object, Rejected | None]:
     """Build a Task or a rejection. ``seen`` is the resolved-id multiset set."""
     index = food_index if food_index is not None else build_food_index(catalog)
     resolved: list[tuple[str, str, float]] = []
     for spoken, expression in candidate.items:
-        food_id = match_food(spoken, catalog, index)
+        food_id = match_spoken(spoken, catalog, index, pool)
         if food_id is None:
             return None, Rejected(candidate.query, "unresolvable", candidate.family)
         grams = resolve_portion(food_id, expression, catalog)
@@ -188,6 +195,20 @@ def spoken_grams_from_query(
         if resolved is not None:
             return float(resolved)
     return None
+
+
+def match_spoken(
+    token: str,
+    catalog: Mapping,
+    index: Mapping[str, str],
+    pool: FoodPool | None,
+) -> str | None:
+    """Prefer a unique pool hit (FNDDS short names), then the catalog index."""
+    if pool is not None:
+        hit = match_pool_food(token, pool)
+        if hit is not None:
+            return hit
+    return match_food(token, catalog, index)
 
 
 def match_food(token: str, catalog: Mapping, index: Mapping[str, str]) -> str | None:
