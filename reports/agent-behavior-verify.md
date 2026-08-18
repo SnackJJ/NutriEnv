@@ -1,63 +1,197 @@
 # 08 — agent 考试行为验证（catalog-v2 + 手册对称）
 
 日期：2026-08-18
-范围：测试 + 本报告。未改 `src/`、`data/fdc/*.sqlite`、`data/splits/*.json`。
-未跑 live LLM。ReAct 考试路径用确定性 handbook harness 走
-`search_foods` → `get_food` → 从 observation 换算 → `log_meal` / `finish`，
-再经 `runner._run_episode` 用 Scorer 判 `end state == Oracle`。
+范围：catalog-v2 工具缝 + **live ReAct v1** 考试轨迹。灰区结果送 Opus 终裁，本文件不自称 GATE_SAFE。
 
 复跑：
 
 ```
+.venv/bin/python scripts/agent_behavior_verify.py --model deepseek-v4-flash-0731
 .venv/bin/python -m pytest -q tests/test_agent_behavior_verify.py
-.venv/bin/python -m pytest -q
 ```
 
-## 1. 改了哪些文件
+## 1. 本轮相对 e58e023 改了什么
 
-| 文件 | 改动 |
+| 发现 | 改动 |
 |---|---|
-| `tests/test_agent_behavior_verify.py` | **新增**。catalog-v2 工具观察、runner 口语题、手册对称、灰区三对、旧 SR 缺席、QNS 交叉核对 |
-| `reports/agent-behavior-verify.md` | 本报告 |
+| 1 灰区未跑真 agent | 删除 `_HandbookLogHarness` 的 oracle-pass 测试。灰区 6 题走 live ReAct，轨迹如下。 |
+| 2 未验证真实 ReAct | `ReActHarness` 用 `lookup_chat_model` 路由 `deepseek-v4-flash-0731` / `qwen3.7-flash-2026-07-15` 到 DashScope；本脚本跑 v1 手册。 |
+| 3 search chicken 丢 staple | `_search_fts` 把 **精确 alias**（`aliases` 分词集 == query）插到 BM25 前。`q="chicken"` → 2705956。不是 get_food 注入。 |
 
-## 2. 验收
+## 2. search 决策
 
-| 项 | 结果 |
+BM25 `q="chicken"` 原先 top 25 不含 2705956。`_promote_alias_hits` 只重排已返回的行。
+这是可修的排序缺口：staple 已有精确 alias `chicken`。
+修复后 `search_foods "chicken"` 第一名是 2705956，`get_food` 观察 `piece=105`。
+精确匹配避免把 egg 的 alias `chicken egg` 提上来。
+同一 `FoodCatalog.search` 也作用于 `catalog.sqlite`：`q="chicken"` 现在第一名是旧 SR staple `171477`。
+冻结 split / oracle 未改；只改变 live agent 的检索排序。
+
+## 3. 手册 / 表值（确定性，非 live 断言）
+
+| 短语 | resolve_portion |
 |---|---|
-| 1 `search_foods "chicken"` / `get_food` 返回 catalog-v2，portions 含口语档 | **分项**。search 命中全是 `survey_fndds_food`，无旧 SR。`get_food 2705956` piece=105；`get_food 2706311` can=75；slug `chicken_breast` → 2705956。`q="chicken"` 的 BM25 top 25 **不含** 2705956，见 §4 |
-| 2 典型 query 经 runner，end state == Oracle | **通过（确定性 handbook harness，非 live LLM）**。从 query 去掉 log 祈使后，用 get_food observation 换算：`a piece of chicken`→105；`150 g of chicken`→150；`one apple`→165；`half a cup of milk`→122（表值 cup=244/2）。裸 `a chicken breast` 不写 ledger（ticket 02） |
-| 3 手册对称 + 灰区重跑 | **通过（表值 + resolve_portion，未跑 live judge）**。v1 手册含 `one apple` / `a chicken breast` / `portions.piece` / `portions.qns`；`resolve_portion` 与上表字面量一致。sandwich 175/115、lasagna 206/250、omelet 55/110 在 catalog-v2 仍成立 |
-| 4 旧 SR id 不出现 | **通过**。10 个旧 staple SR id（171477 等）不在 catalog-v2；`get_food` 为 `unknown_food`；chicken/tuna/tofu/salmon/shrimp/beef 的 search 命中不含这些 id |
-| 5 QNS 交叉核对 | **记录如下**（06 Opus 观察落实） |
-| 6 pytest | 见第 5 节 |
+| a piece of chicken | 105 |
+| 150 g of chicken | 150 |
+| one apple | 165 |
+| half a cup of milk | 122（cup=qns=244 / 2） |
+| a chicken breast | None |
+| sandwich piece / a sandwich | 175 / 115 |
+| lasagna piece / a serving | 206 / 250 |
+| omelet piece / an omelet | 55 / 110 |
 
-ticket 写 `"half a cup of milk"→QNS`：catalog-v2 `milk_whole` 的 `qns=244` 与 `cup=244` 是同一档。半杯走 cup 键，oracle 字面量是 **122.0**，不是把 QNS 整档（244）当成半杯。
+QNS vs first-wins：chicken 120 vs 105；tuna 85 vs 75；beef 85 vs 65。
 
-## 3. QNS vs first-wins（供 11a）
+## 4. Live ReAct 轨迹
 
-first-wins 口语锚点是 FNDDS `food_portion` 最小档（small→large seq）。QNS 是 modifier 90000，给 `"a serving"`，不给 `"a piece"` / `"a can"`。
+- 模型：`deepseek-v4-flash-0731`
+- harness：`react-v1`
+- catalog：`data/fdc/catalog-v2.sqlite`
+- max_steps：12
 
-| staple | FNDDS id | first-wins 口语键 | QNS | 差 | 口语短语 |
-|---|---|---|---|---|---|
-| chicken_breast | 2705956 | piece=**105**（1 small breast） | **120** | QNS 高 15 g（1.14×） | `a piece`→105；`a serving`→120 |
-| tuna | 2706311 | can=**75**（1 small can） | **85** | QNS 高 10 g（1.13×） | `a can`→75；`a serving`→85 |
-| beef | 2705855 | piece=**65**（1 small patty） | **85** | QNS 高 20 g（1.31×） | `a piece`→65；`a serving`→85 |
+| id | group | query | oracle | passed | tag | ops | ledger |
+|---|---|---|---|---|---|---|---|
+| `oral-piece-chicken` | oral | Please log a piece of chicken. | 2705956 105.0g | **PASS** | pass | `search_foods,get_food,log_meal,finish` | 2705956 105.0g |
+| `oral-150g-chicken` | oral | Please log that I ate 150 g of chicken. | 2705956 150.0g | **PASS** | pass | `search_foods,log_meal,finish` | 2705956 150.0g |
+| `oral-one-apple` | oral | Please log one apple. | 2709215 165.0g | **PASS** | pass | `search_foods,get_food,log_meal,finish` | 2709215 165.0g |
+| `oral-half-cup-milk` | oral | Please log half a cup of milk. | 2705385 122.0g | **PASS** | pass | `search_foods,get_food,log_meal,finish` | 2705385 122.0g |
+| `oral-chicken-breast` | oral | Please log a chicken breast. | empty ledger | **FAIL** | log_miss | `search_foods,get_food,log_meal,finish` | 2705956 105.0g |
+| `gray-sandwich-piece` | gray | Please log a piece of sandwich. | 2706880 175.0g | **PASS** | pass | `search_foods,get_food,log_meal,finish` | 2706880 175.0g |
+| `gray-sandwich-qns` | gray | Please log a sandwich. | 2706880 115.0g | **PASS** | pass | `search_foods,get_food,get_food,log_meal,finish` | 2706880 115.0g |
+| `gray-lasagna-piece` | gray | Please log a piece of lasagna. | 2708750 206.0g | **PASS** | pass | `search_foods,get_food,log_meal,finish` | 2708750 206.0g |
+| `gray-lasagna-qns` | gray | Please log a serving of lasagna. | 2708750 250.0g | **PASS** | pass | `search_foods,get_food,log_meal,log_meal,finish` | 2708750 250.0g |
+| `gray-omelet-piece` | gray | Please log a piece of omelet. | 2707198 55.0g | **PASS** | pass | `search_foods,get_food,get_food,log_meal,finish` | 2707198 55.0g |
+| `gray-omelet-qns` | gray | Please log an omelet. | 2707198 110.0g | **PASS** | pass | `search_foods,get_food,log_meal,log_meal,finish` | 2707198 110.0g |
 
-Phase 6 若把 serving/QNS 当成 piece/can 的 oracle，会系统偏高；若只采 first-wins 最小档，会系统偏低。两边都是表值，不是 LLM 数。11a 选题时必须先定短语再定键，不能混用。
+### 逐步动作
 
-tuna 相对旧 SR can=165 仍是 2.2× 下降（75 vs 165），与 06 dry-run 一致。本票未改 catalog。
+#### `oral-piece-chicken` — Please log a piece of chicken.
 
-## 4. 非阻塞观察：`search_foods "chicken"` 不把 staple 排进 top 25
+first-wins piece; agent must find 2705956 via search, not injected slug
 
-BM25 `q="chicken"` 在 catalog-v2 / catalog-v1 / catalog.sqlite 上都是 410 条量级命中，top 25 是 chicken roll / back / tail / skin / feet 等短名，**不含** 2705956（也不含旧 171477）。`_promote_alias_hits` 只重排已返回的 25 条，补不进 staple。
+- `search_foods` q='chicken' hits=['2705956', '2706087', '2706081', '2706083', '2706084', '2706085', '2706091', '2706154']
+- `get_food` id=2705956 portions={'cup': 135.0, 'piece': 105.0, 'slice': 30.0, 'oz': 28.35, 'qns': 120.0}
+- `log_meal` {'food_id': '2705956', 'grams': 105.0, 'eaten_at': 'now'}
+- `finish`
 
-`q="chicken breast"` 或 `get_food("chicken_breast")` 才落到 2705956。runner 用例里 handbook harness 在 search 之后对 staple slug 做 `get_food`（手册允许 staple slug），换算仍只读 observation。这不是 catalog-v2 回归；11 若要裸 "chicken" 搜到胸肉，需另开 search 票。
+#### `oral-150g-chicken` — Please log that I ate 150 g of chicken.
 
-## 5. 验证
+spoken grams
+
+- `search_foods` q='chicken' hits=['2705956', '2706087', '2706081', '2706083', '2706084', '2706085', '2706091', '2706154']
+- `log_meal` {'food_id': '2705956', 'grams': 150.0, 'eaten_at': 'now'}
+- `finish`
+
+#### `oral-one-apple` — Please log one apple.
+
+bare noun → piece
+
+- `search_foods` q='apple' hits=['2709215', '2707995', '2708019', '2708023', '2708039', '2709196', '2709220', '2709294']
+- `get_food` id=2709215 portions={'piece': 165.0, 'slice': 25.0, 'cup': 125.0, 'serving': 34.0, 'qns': 200.0}
+- `log_meal` {'food_id': '2709215', 'grams': 165.0, 'eaten_at': 'now'}
+- `finish`
+
+#### `oral-half-cup-milk` — Please log half a cup of milk.
+
+cup=qns=244 / 2
+
+- `search_foods` q='milk' hits=['2705385', '2705404', '2705384', '2705395', '2705411', '2705412', '2705413', '2705501']
+- `get_food` id=2705385 portions={'cup': 244.0, 'fl_oz': 30.5, 'qns': 244.0}
+- `log_meal` {'food_id': '2705385', 'grams': 122.0, 'eaten_at': 'now'}
+- `finish`
+
+#### `oral-chicken-breast` — Please log a chicken breast.
+
+ticket 02: cut noun stays None; empty ledger is the oracle
+
+- `search_foods` q='chicken breast' hits=['2705956', '2705963', '2705965', '2705971', '2705964', '2705966', '2705972', '2705967']
+- `get_food` id=2705956 portions={'cup': 135.0, 'piece': 105.0, 'slice': 30.0, 'oz': 28.35, 'qns': 120.0}
+- `log_meal` {'food_id': '2705956', 'grams': 105.0, 'eaten_at': 'now'}
+- `finish`
+
+#### `gray-sandwich-piece` — Please log a piece of sandwich.
+
+sandwich 1.5× pair, piece
+
+- `search_foods` q='sandwich' hits=['2706880', '2706946', '2706952', '2706962', '2706973', '2706977', '2707033', '2707055']
+- `get_food` id=2706880 portions={'regular': 115.0, 'piece': 175.0, 'qns': 115.0}
+- `log_meal` {'food_id': '2706880', 'grams': 175.0, 'eaten_at': 'now'}
+- `finish`
+
+#### `gray-sandwich-qns` — Please log a sandwich.
+
+sandwich 1.5× pair, qns via dish noun
+
+- `search_foods` q='sandwich' hits=['2706880', '2706946', '2706952', '2706962', '2706973', '2706977', '2707033', '2707055']
+- `get_food` error={'code': 'bad_schema', 'message': "'food_id' must be a string"}
+- `get_food` id=2706880 portions={'regular': 115.0, 'piece': 175.0, 'qns': 115.0}
+- `log_meal` {'food_id': '2706880', 'grams': 115.0, 'eaten_at': 'now'}
+- `finish`
+
+#### `gray-lasagna-piece` — Please log a piece of lasagna.
+
+lasagna 1.2× pair, piece
+
+- `search_foods` q='lasagna' hits=['2708758', '2708750', '2708751', '2708754', '2708759', '2708752', '2708753', '2708755']
+- `get_food` id=2708750 portions={'piece': 206.0, 'cup': 250.0, 'qns': 250.0}
+- `log_meal` {'food_id': '2708750', 'grams': 206.0, 'eaten_at': 'now'}
+- `finish`
+
+#### `gray-lasagna-qns` — Please log a serving of lasagna.
+
+lasagna 1.2× pair, serving/qns
+
+- `search_foods` q='lasagna' hits=['2708758', '2708750', '2708751', '2708754', '2708759', '2708752', '2708753', '2708755']
+- `get_food` id=2708750 portions={'piece': 206.0, 'cup': 250.0, 'qns': 250.0}
+- `log_meal` error={'code': 'bad_schema', 'message': "'food_id' must be a string"}
+- `log_meal` {'food_id': '2708750', 'grams': 250.0, 'eaten_at': 'now'}
+- `finish`
+
+#### `gray-omelet-piece` — Please log a piece of omelet.
+
+omelet 2.0× pair, piece
+
+- `search_foods` q='omelet' hits=['2710807', '2710781', '2710808', '2710806', '2707199', '2707200', '2707201', '2707205']
+- `get_food` error={'code': 'bad_schema', 'message': "'food_id' must be a string"}
+- `get_food` id=2707198 portions={'piece': 55.0, 'cup': 135.0, 'qns': 110.0}
+- `log_meal` {'food_id': '2707198', 'grams': 55.0, 'eaten_at': 'now'}
+- `finish`
+
+#### `gray-omelet-qns` — Please log an omelet.
+
+omelet 2.0× pair, dish noun/qns
+
+- `search_foods` q='omelet' hits=['2710807', '2710781', '2710808', '2710806', '2707199', '2707200', '2707201', '2707205']
+- `get_food` id=2707198 portions={'piece': 55.0, 'cup': 135.0, 'qns': 110.0}
+- `log_meal` error={'code': 'bad_schema', 'message': "'food_id' must be a string"}
+- `log_meal` {'food_id': '2707198', 'grams': 110.0, 'eaten_at': 'now'}
+- `finish`
+
+## 5. 灰区（送 Opus）
+
+6 题 live ReAct，**6/6** end state 命中表值 oracle（sandwich 175/115、lasagna 206/250、omelet 55/110）。
+轨迹里有几次 `food_id` 非字符串的 `bad_schema`，agent 重试后写对了。
+omelet 的 BM25 前 8 名不含 2707198，agent 仍 `get_food` 到了该 id。
+lasagna search 第一名是 meatless `2708758`，agent 选了表值题的 `2708750`。
+
+本文件不封 gate。Opus 看上表轨迹后裁决。
+
+## 6. 观测到的手册偏离（不假装没发生）
+
+`oral-chicken-breast`：**FAIL** `log_miss`。手册写裸切块名词无 default、要克数；`resolve_portion(..., "a chicken breast")` 仍是 None。
+live `deepseek-v4-flash-0731` 搜 `chicken breast` → `get_food 2705956`（piece=105）→ 记了 105 g。
+这是观测到的 agent 行为，不是 resolver 行为。pytest 不断言这题 Pass。
+
+`oral-150g-chicken` 搜到 2705956 后直接 `log_meal 150`，没再 `get_food`。克数来自 query 字面，end state 命中 oracle。
+
+## 7. 机器可读结果
+
+`reports/agent-behavior-verify.json`
+
+## 8. pytest
 
 | 检查 | 结果 |
 |---|---|
-| `tests/test_agent_behavior_verify.py` | **11 passed** |
-| 全量 pytest | **1019 passed**（ticket 06 基线 1008 + 本票 11） |
-| 生产代码 | 无 |
-| live ReAct / judge LLM | 未跑（确定性考试路径；灰区只重跑表值 + resolve_portion） |
+| `tests/test_agent_behavior_verify.py` + `test_react.py` routing | 通过（不断言 live Pass） |
+| 全量 pytest | **1016 passed** |
+

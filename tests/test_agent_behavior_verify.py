@@ -1,10 +1,8 @@
-"""Ticket 08: ReAct exam behavior against catalog-v2.
+"""Ticket 08: catalog-v2 tool + handbook seams.
 
-Public seams:
-
-- ``NutriEnv.step({op: search_foods|get_food})`` with catalog-v2.sqlite in S0
-- ``runner._run_episode`` — Pass ⇔ end state == Oracle
-- ``resolve_portion`` + ``react_manual("v1")`` handbook symmetry
+Live ReAct trajectories are recorded by ``scripts/agent_behavior_verify.py``
+into ``reports/agent-behavior-verify.json``. This file does not stand in for
+the agent with ``resolve_portion``.
 """
 
 from __future__ import annotations
@@ -13,14 +11,11 @@ from pathlib import Path
 
 import pytest
 
-from nutrienv.bench import Oracle, Scorer, Task
-from nutrienv.bench.realize import GOLD_WINDOWS
 from nutrienv.env import NutriEnv
 from nutrienv.harness.react import react_manual
-from nutrienv.harness.runner import _run_episode
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.portions import resolve_portion
-from nutrienv.world.types import LedgerRow, Profile, WorldState
+from nutrienv.world.types import Profile, WorldState
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG_V2 = ROOT / "data" / "fdc" / "catalog-v2.sqlite"
@@ -55,15 +50,40 @@ def _env(catalog) -> NutriEnv:
     return env
 
 
-def test_search_foods_chicken_returns_catalog_v2_entries(catalog_v2) -> None:
+def test_search_foods_chicken_returns_catalog_v2_staple(catalog_v2) -> None:
     env = _env(catalog_v2)
     hits = env.step({"op": "search_foods", "q": "chicken"})["observation"]["results"]
     assert hits
+    ids = [row["food_id"] for row in hits]
+    assert CHICKEN_FNDDS in ids
+    assert ids[0] == CHICKEN_FNDDS
     for row in hits:
         assert row["food_id"] not in OLD_SR_IDS
         food = env.step({"op": "get_food", "food_id": row["food_id"]})["observation"]["food"]
         assert food["data_type"] == "survey_fndds_food"
         assert food["food_id"] == row["food_id"]
+    staple = env.step({"op": "get_food", "food_id": ids[0]})["observation"]["food"]
+    assert staple["portions"]["piece"] == 105.0
+
+
+def test_recorded_live_results_cover_required_cases() -> None:
+    """Evidence file exists; does not claim the live agent matched oracle."""
+    import json
+    import sys
+
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import agent_behavior_verify as verify  # noqa: E402
+
+    path = ROOT / "reports" / "agent-behavior-verify.json"
+    assert path.is_file(), "run scripts/agent_behavior_verify.py to record live ReAct"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    got = {row["id"] for row in payload["cases"]}
+    assert got == {case.id for case in verify.CASES}
+    for row in payload["cases"]:
+        assert isinstance(row.get("ops"), list)
+        assert isinstance(row.get("actions"), list)
+        assert "passed" in row
+        assert "ledger" in row
 
 
 def test_get_food_exposes_catalog_v2_oral_portion_tiers(catalog_v2) -> None:
@@ -77,118 +97,6 @@ def test_get_food_exposes_catalog_v2_oral_portion_tiers(catalog_v2) -> None:
     slug = env.step({"op": "get_food", "food_id": "chicken_breast"})["observation"]["food"]
     assert slug["food_id"] == CHICKEN_FNDDS
     assert slug["portions"]["piece"] == 105.0
-
-
-def _spoken_span(query: str) -> str:
-    """Drop the log imperative; resolve_portion reads the remainder."""
-    text = query.strip().rstrip(".")
-    for prefix in ("Please log that I ate ", "Please log ", "Log "):
-        if text.lower().startswith(prefix.lower()):
-            return text[len(prefix) :]
-    return text
-
-
-class _HandbookLogHarness:
-    """Exam stand-in: search → get_food → convert the spoken span from observation.
-
-    Not a live LLM. Grams come from the get_food portions table plus the
-    query's spoken measure, via ``resolve_portion`` (the v1 handbook rules).
-    """
-
-    def __init__(self, search_q: str, food_id: str) -> None:
-        self.search_q = search_q
-        self.food_id = food_id
-
-    def act(self, observation: dict, query: str, history: list) -> dict:
-        ops = [
-            event["action"].get("op")
-            for event in history
-            if isinstance(event.get("action"), dict)
-        ]
-        if "search_foods" not in ops:
-            return {"op": "search_foods", "q": self.search_q}
-        if "get_food" not in ops:
-            return {"op": "get_food", "food_id": self.food_id}
-        if "log_meal" not in ops:
-            food = observation.get("food")
-            if not isinstance(food, dict):
-                return {"op": "finish"}
-            observed = {str(food["food_id"]): food}
-            grams = resolve_portion(
-                str(food["food_id"]), _spoken_span(query), observed
-            )
-            if grams is None:
-                return {"op": "finish"}
-            return {
-                "op": "log_meal",
-                "food_id": food["food_id"],
-                "grams": grams,
-            }
-        return {"op": "finish"}
-
-
-def _log_task(catalog, query: str, food_id: str, grams: float | None) -> Task:
-    s0 = WorldState(
-        profile=Profile(user_id="verify", windows=dict(GOLD_WINDOWS)),
-        ledger=[],
-        catalog=catalog,
-    )
-    if grams is None:
-        oracle = Oracle(ledger=())
-    else:
-        oracle = Oracle(
-            ledger_tail=[
-                LedgerRow(catalog.canonical_id(food_id), grams, "now")
-            ]
-        )
-    return Task("verify-oral", "log", query, s0, oracle, situations=("fuzzy_portion",))
-
-
-@pytest.mark.parametrize(
-    ("query", "search_q", "food_id", "grams"),
-    [
-        ("Please log a piece of chicken.", "chicken", "chicken_breast", 105.0),
-        (
-            "Please log that I ate 150 g of chicken.",
-            "chicken",
-            "chicken_breast",
-            150.0,
-        ),
-        ("Please log one apple.", "apple", "apple", 165.0),
-        (
-            "Please log half a cup of milk.",
-            "milk",
-            "milk_whole",
-            122.0,  # cup=244 / 2; milk qns is the same 244 g table row
-        ),
-    ],
-)
-def test_runner_oral_queries_match_oracle(
-    catalog_v2, query, search_q, food_id, grams
-) -> None:
-    task = _log_task(catalog_v2, query, food_id, grams)
-    harness = _HandbookLogHarness(search_q, food_id)
-    passed, tag, ops = _run_episode(task, harness, Scorer(), max_steps=8)
-    assert "search_foods" in ops and "get_food" in ops
-    assert "log_meal" in ops
-    assert passed is True
-    assert tag == "pass"
-
-
-def test_runner_bare_chicken_breast_does_not_invent_grams(catalog_v2) -> None:
-    task = _log_task(
-        catalog_v2,
-        "Please log a chicken breast.",
-        "chicken_breast",
-        None,
-    )
-    harness = _HandbookLogHarness("chicken breast", "chicken_breast")
-    passed, tag, ops = _run_episode(task, harness, Scorer(), max_steps=8)
-    assert "search_foods" in ops and "get_food" in ops
-    assert "log_meal" not in ops
-    assert passed is True
-    assert tag == "pass"
-    assert resolve_portion("chicken_breast", "a chicken breast", catalog_v2) is None
 
 
 def test_handbook_matches_resolve_portion_on_catalog_v2(catalog_v2) -> None:
@@ -211,7 +119,7 @@ def test_handbook_matches_resolve_portion_on_catalog_v2(catalog_v2) -> None:
 
 
 def test_gray_zone_portion_pairs_hold_on_catalog_v2(catalog_v2) -> None:
-    """Rerun the judge-gate triples: sandwich 1.5× / lasagna 1.2× / omelet 2.0×."""
+    """Ground-truth table values on catalog-v2. Live judge is the verify script."""
     sandwich = catalog_v2["2706880"]["portions"]
     lasagna = catalog_v2["2708750"]["portions"]
     omelet = catalog_v2["2707198"]["portions"]

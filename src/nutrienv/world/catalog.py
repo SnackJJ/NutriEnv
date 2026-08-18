@@ -147,7 +147,29 @@ class FoodCatalog(Mapping[str, dict]):
                     "allergen_tags": tags,
                 }
             )
-        return _promote_alias_hits(hits, terms)
+        # Exact staple aliases (e.g. "chicken" → chicken_breast) must surface
+        # even when BM25 ranks them below SEARCH_LIMIT.
+        return _prepend_unique(self._exact_alias_hits(terms), _promote_alias_hits(hits, terms), limit)
+
+    def _exact_alias_hits(self, terms: list[str]) -> list[dict]:
+        """Foods whose an alias token-set equals the query (not a subset)."""
+        wanted = set(terms)
+        if not wanted:
+            return []
+        hits: list[dict] = []
+        seen: set[str] = set()
+        for food_id, entry in self._base.items():
+            canonical = self._canonical(food_id)
+            if canonical in seen:
+                continue
+            aliases = list(entry.get("aliases") or [])
+            if food_id in self._aliases:
+                aliases.append(food_id)
+            if any(set(_tokens(str(alias))) == wanted for alias in aliases):
+                seen.add(canonical)
+                source = self._base.get(canonical, entry)
+                hits.append(self._hit(canonical, source))
+        return hits
 
     def _hit(self, food_id: str, entry: dict) -> dict:
         return {
@@ -261,6 +283,21 @@ class FoodCatalog(Mapping[str, dict]):
         clone._overlay = copy.deepcopy(self._overlay)
         memo[id(self)] = clone
         return clone
+
+
+def _prepend_unique(head: list[dict], tail: list[dict], limit: int) -> list[dict]:
+    """Keep ``head`` first, then ``tail``, dropping duplicate food_ids."""
+    merged: list[dict] = []
+    seen: set[str] = set()
+    for row in head + tail:
+        food_id = str(row.get("food_id") or "")
+        if not food_id or food_id in seen:
+            continue
+        seen.add(food_id)
+        merged.append(row)
+        if len(merged) >= limit:
+            break
+    return merged
 
 
 def _promote_alias_hits(hits: list[dict], terms: list[str]) -> list[dict]:

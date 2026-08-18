@@ -55,6 +55,15 @@ def test_qwen_model_selects_dashscope_key_and_url() -> None:
     assert harness.api_key == "dash-dummy"
 
 
+def test_judge_snapshot_ids_route_to_dashscope() -> None:
+    from nutrienv.io.chat import DASHSCOPE_CHAT_URL
+
+    for model in ("deepseek-v4-flash-0731", "qwen3.7-flash-2026-07-15"):
+        harness = ReActHarness(api_key="dash-dummy", model=model)
+        assert harness.base_url == DASHSCOPE_CHAT_URL
+        assert harness.model == model
+
+
 def test_react_v0_is_the_frozen_baseline_manual() -> None:
     harness = ReActHarness(api_key="dummy")
     assert harness.version == "v0"

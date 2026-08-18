@@ -8,9 +8,8 @@ import re
 
 from nutrienv.actions.schemas import OPS
 from nutrienv.io.chat import (
-    DASHSCOPE_CHAT_URL,
-    DEEPSEEK_CHAT_URL,
     REACT_RETRY_ON,
+    lookup_chat_model,
     post_chat_completion,
 )
 from nutrienv.io.dotenv import load_dotenv_keys
@@ -158,11 +157,6 @@ def oracle_hint(oracle: object) -> str:
     )
 
 
-def _looks_like_qwen(model: str, base_url: str) -> bool:
-    lowered = f"{model} {base_url}".lower()
-    return "qwen" in lowered or "dashscope" in lowered or "aliyuncs.com" in lowered
-
-
 class ReActHarness(Harness):
     """OpenAI-compatible Chat Completions (DeepSeek default)."""
 
@@ -180,14 +174,11 @@ class ReActHarness(Harness):
     ) -> None:
         if version not in REACT_VERSIONS:
             raise ValueError(f"unknown react harness version: {version!r}")
-        qwen = _looks_like_qwen(model, base_url or "")
-        self.base_url = base_url or (DASHSCOPE_CHAT_URL if qwen else DEEPSEEK_CHAT_URL)
-        self.api_key = api_key or (
-            os.environ.get("DASHSCOPE_API_KEY") if qwen else os.environ.get("DEEPSEEK_API_KEY")
-        )
+        spec = lookup_chat_model(model)
+        self.base_url = base_url or spec.url
+        self.api_key = api_key or os.environ.get(spec.api_key_env)
         if not self.api_key:
-            needed = "DASHSCOPE_API_KEY" if qwen else "DEEPSEEK_API_KEY"
-            raise RuntimeError(f"{needed} is not set")
+            raise RuntimeError(f"{spec.api_key_env} is not set")
         self.model = model
         self.timeout = timeout
         self.leak_oracle = leak_oracle
