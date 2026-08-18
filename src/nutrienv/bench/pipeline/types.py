@@ -13,6 +13,7 @@ from nutrienv.bench.realize import Task
 
 __all__ = [
     "CATALOG_V1_RELPATH",
+    "CATALOG_V2_RELPATH",
     "DEFAULT_FREEZE_RELPATH",
     "DEFAULT_COMPOSITE_SAMPLE_RELPATH",
     "MAX_PER_POOL",
@@ -49,6 +50,7 @@ COMPOSITE_EXTRA_QUOTA = 24
 COMPOSITE_FAMILY = "composite"
 COMPOSITE_STEPS = ("log", "recommend")
 CATALOG_V1_RELPATH = "data/fdc/catalog-v1.sqlite"
+CATALOG_V2_RELPATH = "data/fdc/catalog-v2.sqlite"
 DEFAULT_FREEZE_RELPATH = "data/splits/pipeline-draft.json"
 DEFAULT_COMPOSITE_SAMPLE_RELPATH = "data/splits/pipeline-composite-draft.json"
 

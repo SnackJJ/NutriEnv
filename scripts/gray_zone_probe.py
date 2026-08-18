@@ -6,10 +6,12 @@ The 15/15 experiment in portion_judge_probe.py only tested extreme gaps
 those pairs are legal FNDDS portion keys (piece vs QNS), not errors.
 
 This script:
-  1. Confirms sandwich / lasagna / omelet piece and qns from catalog-v1.sqlite.
-  2. Judges each of those 6 legal values plus 5 extreme controls.
-  3. Reports whether the judge is a safe absurdity filter at gray-zone scale.
-  4. Exits non-zero if any ground-truth assertion fails (the gate).
+  1. Confirms sandwich / lasagna / omelet piece and qns from catalog-v2.sqlite.
+  2. Adds catalog-v2 staple first-wins anchors (chicken piece 105 / tuna can 75 /
+     beef piece 65).
+  3. Judges each legal value plus 5 extreme controls.
+  4. Reports whether the judge is a safe absurdity filter at gray-zone scale.
+  5. Exits non-zero if any ground-truth assertion fails (the gate).
 
 Run:  .venv/bin/python scripts/gray_zone_probe.py
 """
@@ -37,7 +39,7 @@ from nutrienv.world.catalog_store import load_catalog  # noqa: E402
 
 load_dotenv_keys(ROOT / ".env.local")
 
-CATALOG_V1_PATH = ROOT / "data" / "fdc" / "catalog-v1.sqlite"
+CATALOG_V2_PATH = ROOT / "data" / "fdc" / "catalog-v2.sqlite"
 
 # v4-flash spends completion tokens on reasoning first. The 15/15 script's
 # max_tokens=120 is enough for extreme cases; gray-zone thinking overflows
@@ -57,6 +59,13 @@ GRAY_FOODS = (
     ("sandwich", "2706880", "sandwich"),
     ("lasagna", "2708750", "lasagna"),
     ("omelet", "2707198", "omelet"),
+)
+
+# Opus condition 2: catalog-v2 staple first-wins anchors (not their QNS).
+STAPLE_ANCHORS = (
+    ("chicken", "chicken_breast", "chicken breast", "piece", 105.0),
+    ("tuna", "tuna", "tuna", "can", 75.0),
+    ("beef", "beef", "beef", "piece", 65.0),
 )
 
 
@@ -89,8 +98,8 @@ def _ratio(a: float, b: float) -> str:
 
 
 def confirm_catalog() -> dict[str, dict]:
-    """Load catalog-v1 and require the documented piece/qns triples."""
-    catalog = load_catalog(CATALOG_V1_PATH)
+    """Load catalog-v2 and require the documented gray triples + staple anchors."""
+    catalog = load_catalog(CATALOG_V2_PATH)
     found: dict[str, dict] = {}
     for label, fdc_id, _diary in GRAY_FOODS:
         food = catalog[fdc_id]
@@ -109,6 +118,21 @@ def confirm_catalog() -> dict[str, dict]:
             "piece": piece,
             "qns": qns,
             "ratio": _ratio(piece, qns),
+        }
+    for label, slug, diary, key, grams in STAPLE_ANCHORS:
+        food = catalog[slug]
+        got = float(food["portions"][key])
+        if got != grams:
+            raise SystemExit(
+                f"catalog drift for staple {label} ({slug}): "
+                f"{key}={got}, expected {grams}"
+            )
+        found[slug] = {
+            "label": label,
+            "name": food["name"],
+            "key": key,
+            "grams": got,
+            "diary": diary,
         }
     return found
 
@@ -129,6 +153,18 @@ def build_cases(confirmed: dict[str, dict]) -> list[Case]:
                     expect_accept=True,
                 )
             )
+    for label, slug, diary, key, grams in STAPLE_ANCHORS:
+        info = confirmed[slug]
+        cases.append(
+            Case(
+                case_id=f"{label}-{key}-{grams:g}",
+                food=str(info["diary"]),
+                grams=float(info["grams"]),
+                group="gray",
+                source=f"FNDDS {key} staple first-wins ({slug}, {info['name']})",
+                expect_accept=True,
+            )
+        )
     cases.extend(
         [
             Case("ctrl-steak-030", "steak (beef)", 30.0, "absurd",
@@ -219,7 +255,7 @@ def conclude(results: list[Result]) -> bool:
     passed = gray_ok and absurd_rej and normal_ok
     if passed:
         verdict = (
-            "VERDICT: GATE_SAFE — all 6 legal FNDDS values accepted, "
+            f"VERDICT: GATE_SAFE — all {len(gray)} legal FNDDS values accepted, "
             "all absurd controls rejected, all normal controls accepted"
         )
     elif killed:
@@ -244,7 +280,7 @@ def main() -> None:
         f"temp={TEMPERATURE}  max_tokens={MAX_TOKENS}  "
         f"prompt=grams_gate.JUDGE_SYSTEM"
     )
-    print(f"catalog={CATALOG_V1_PATH}\n")
+    print(f"catalog={CATALOG_V2_PATH}\n")
     print("confirmed piece / qns:")
     for fdc_id, info in confirmed.items():
         print(
