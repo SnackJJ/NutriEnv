@@ -197,9 +197,11 @@ def test_assign_staples_fndds_only_uses_pins_and_skips_sr() -> None:
     ids=["default-catalog", "catalog.sqlite", "catalog-v1.sqlite"],
 )
 def test_fndds_only_build_refuses_frozen_catalog_paths(dest, tmp_path) -> None:
+    before = {p: _sha256(p) for p in (_LIVE, _V1, _V2) if p.is_file()}
     with pytest.raises(ValueError, match="fndds-only"):
         builder.build(include_branded=False, dest=dest, fndds_only=True)
-    assert not _V2.exists()
+    for path, digest in before.items():
+        assert _sha256(path) == digest
 
 
 def test_plan_lists_staple_swaps_without_writing_catalog_v2() -> None:
@@ -284,18 +286,58 @@ def test_dryrun_report_lists_gram_changes_and_staple_swaps(tmp_path) -> None:
     assert str(plan["counts"]["catalog_v2_foods"]) in text
     assert "survey.zip" in text
     assert "catalog-v2.sqlite" in text
-    assert not _V2.exists()
     assert "不写" in text
 
 
 def test_cli_fndds_only_dry_run_writes_report_only(tmp_path) -> None:
     dest = tmp_path / "catalog-v2-dryrun.md"
     before_live = _sha256(_LIVE)
+    before_v2 = _sha256(_V2) if _V2.is_file() else None
     rc = builder.main(
         ["--fndds-only", "--dry-run", "--report", str(dest)]
     )
     assert rc == 0
     assert dest.is_file()
     assert "2705956" in dest.read_text(encoding="utf-8")
-    assert not _V2.exists()
     assert _sha256(_LIVE) == before_live
+    if before_v2 is not None:
+        assert _sha256(_V2) == before_v2
+
+
+def test_catalog_v2_is_fndds_only_with_approved_staple_pins() -> None:
+    if not _V2.is_file():
+        pytest.fail("data/fdc/catalog-v2.sqlite is missing; rebuild with --fndds-only")
+    from nutrienv.world.catalog_store import load_catalog
+    from nutrienv.world.portions import resolve_portion
+
+    catalog = load_catalog(_V2)
+    types = {row.get("data_type") for row in catalog.values() if isinstance(row, dict)}
+    assert "sr_legacy_food" not in types
+    assert types == {"survey_fndds_food"}
+    survey = ROOT / "data" / "fdc" / "raw" / "survey.zip"
+    if not survey.is_file():
+        survey = ROOT / "data" / "fdc" / "raw" / "fndds.zip"
+    assert len({catalog.canonical_id(key) for key in catalog}) == (
+        builder.survey_fndds_ingest_stats(survey)["ingestible"]
+    )
+    assert catalog.canonical_id("chicken_breast") == "2705956"
+    assert catalog.canonical_id("tuna") == "2706311"
+    assert catalog.canonical_id("tofu") == "2707435"
+    assert catalog.canonical_id("salmon") == "2706286"
+    assert catalog.canonical_id("shrimp") == "2706363"
+    assert catalog.canonical_id("beef") == "2705855"
+    assert catalog.canonical_id("olive_oil") == "2710186"
+    assert catalog.canonical_id("black_beans") == "2707361"
+    assert catalog.canonical_id("peanut") == "2707514"
+    assert catalog.canonical_id("almond") == "2707486"
+    assert resolve_portion("chicken_breast", "a piece", catalog) == 105.0
+    assert resolve_portion("tuna", "a can", catalog) == 75.0
+    assert resolve_portion("tofu", "a piece", catalog) == 120.0
+    assert resolve_portion("salmon", "a piece", catalog) == 140.0
+    assert resolve_portion("shrimp", "a piece", catalog) == 10.0
+    assert resolve_portion("beef", "a piece", catalog) == 65.0
+    assert resolve_portion("olive_oil", "a tablespoon", catalog) == 14.0
+    assert resolve_portion("black_beans", "a cup", catalog) == 180.0
+    assert resolve_portion("peanut", "a cup", catalog) == 146.0
+    assert resolve_portion("almond", "a cup", catalog) == 141.0
+    assert resolve_portion("chicken_breast", "a chicken breast", catalog) is None
