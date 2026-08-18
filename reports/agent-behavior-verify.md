@@ -9,17 +9,21 @@
 .venv/bin/python scripts/agent_behavior_verify.py --model deepseek-v4-flash-0731
 .venv/bin/python scripts/agent_behavior_verify.py --model deepseek-v4-flash-0731 --ids oral-chicken-breast --repeat 3 --json-out reports/agent-behavior-cut-noun-ds.json
 .venv/bin/python scripts/agent_behavior_verify.py --model qwen3.7-flash-2026-07-15 --ids oral-chicken-breast --repeat 3 --json-out reports/agent-behavior-cut-noun-qwen.json
-.venv/bin/python -m pytest -q tests/test_agent_behavior_verify.py
+.venv/bin/python scripts/agent_behavior_verify.py --merge-cut-noun reports/agent-behavior-cut-noun-ds.json reports/agent-behavior-cut-noun-qwen.json
+.venv/bin/python scripts/agent_behavior_verify.py --write-report-from-json
+.venv/bin/python -m pytest -q
 ```
+
+无 API 时只跑最后两行：从已提交的 JSON 重建本报告。
 
 ## 0. Node 2 验收重划 + 手册修正
 
 | 项 | 地位 |
 |---|---|
-| `a piece of chicken` → 105 g | **验收**（本轮 PASS） |
-| `150 g of chicken` → 150 g | **验收**（本轮 PASS） |
-| `one apple` → 165 g | **验收**（本轮 PASS） |
-| `half a cup of milk` → 122 g | **验收**（本轮 PASS） |
+| `a piece of chicken` → 105 g | **验收** |
+| `150 g of chicken` → 150 g | **验收** |
+| `one apple` → 165 g | **验收** |
+| `half a cup of milk` → 122 g | **验收** |
 | 裸 `a chicken breast` | **观察 only**（oracle 仍是空账本；n≥3、≥2 模型见 §6） |
 
 手册 `_SYSTEM_V1_TAIL` 原写 `ask for grams`，但 ACTION_SCHEMAS 没有 ask/clarify。Opus 点 3：改成可达行为：
@@ -73,7 +77,7 @@ QNS vs first-wins：chicken 120 vs 105；tuna 85 vs 75；beef 85 vs 65。
 | `oral-150g-chicken` | oral | Please log that I ate 150 g of chicken. | 2705956 150.0g | **PASS** | pass | `search_foods,log_meal,finish` | 2705956 150.0g |
 | `oral-one-apple` | oral | Please log one apple. | 2709215 165.0g | **PASS** | pass | `search_foods,get_food,log_meal,finish` | 2709215 165.0g |
 | `oral-half-cup-milk` | oral | Please log half a cup of milk. | 2705385 122.0g | **PASS** | pass | `search_foods,get_food,log_meal,finish` | 2705385 122.0g |
-| `oral-chicken-breast` | oral（观察，手册修正前单次） | Please log a chicken breast. | empty ledger | FAIL | log_miss | `search_foods,get_food,log_meal,finish` | 2705956 105.0g |
+| `oral-chicken-breast` | oral（观察，手册修正前单次） | Please log a chicken breast. | empty ledger | **FAIL** | log_miss | `search_foods,get_food,log_meal,finish` | 2705956 105.0g |
 | `gray-sandwich-piece` | gray | Please log a piece of sandwich. | 2706880 175.0g | **PASS** | pass | `search_foods,get_food,log_meal,finish` | 2706880 175.0g |
 | `gray-sandwich-qns` | gray | Please log a sandwich. | 2706880 115.0g | **PASS** | pass | `search_foods,get_food,get_food,log_meal,finish` | 2706880 115.0g |
 | `gray-lasagna-piece` | gray | Please log a piece of lasagna. | 2708750 206.0g | **PASS** | pass | `search_foods,get_food,log_meal,finish` | 2708750 206.0g |
@@ -187,42 +191,41 @@ omelet 2.0× pair, dish noun/qns
 
 ## 5. 灰区（送 Opus）
 
-6 题 live ReAct，**6/6** end state 命中表值 oracle（sandwich 175/115、lasagna 206/250、omelet 55/110）。
+6 题 live ReAct，**6/6** 的 end state 命中表值 oracle。
 轨迹里有几次 `food_id` 非字符串的 `bad_schema`，agent 重试后写对了。
 omelet 的 BM25 前 8 名不含 2707198，agent 仍 `get_food` 到了该 id。
 lasagna search 第一名是 meatless `2708758`，agent 选了表值题的 `2708750`。
 
 本文件不封 gate。Opus 看上表轨迹后裁决。
 
-## 6. 裸切块名词行为观察（手册修正后，n=6，2 模型）
+## 6. 裸切块名词行为观察（手册修正后）
 
 不是验收。oracle 空账本；`resolve_portion(..., "a chicken breast")` 仍是 None。
 空账本 = 与手册新措辞一致；log 105 g = 干净的模型失败。
 
+n=6，模型 2 个。
+
 | 模型 | # | end state | tag | ops | ledger |
 |---|---|---|---|---|---|
-| `deepseek-v4-flash-0731` | 1 | 空账本 | pass | search → get_food 2705956 → get_food 2705954 → finish | (empty) |
-| `deepseek-v4-flash-0731` | 2 | 空账本 | pass | search → get_food 2705956 → finish | (empty) |
-| `deepseek-v4-flash-0731` | 3 | log 105 g | log_miss | search → get_food → log 105 → log 105 → finish | 2705956 105 g |
-| `qwen3.7-flash-2026-07-15` | 1 | log 105 g | log_miss | search → get_food → log 105 → finish | 2705956 105 g |
-| `qwen3.7-flash-2026-07-15` | 2 | log 105 g | log_miss | search → get_food → log 105 → finish | 2705956 105 g |
-| `qwen3.7-flash-2026-07-15` | 3 | log 105 g | log_miss | search → get_food → log 105 → finish | 2705956 105 g |
+| `deepseek-v4-flash-0731` | 1 | 空账本 | pass | `search_foods → get_food → get_food → finish` | (empty) |
+| `deepseek-v4-flash-0731` | 2 | 空账本 | pass | `search_foods → get_food → finish` | (empty) |
+| `deepseek-v4-flash-0731` | 3 | log 105 g | log_miss | `search_foods → get_food → log_meal → log_meal → finish` | 2705956 105.0g |
+| `qwen3.7-flash-2026-07-15` | 1 | log 105 g | log_miss | `search_foods → get_food → log_meal → finish` | 2705956 105.0g |
+| `qwen3.7-flash-2026-07-15` | 2 | log 105 g | log_miss | `search_foods → get_food → log_meal → finish` | 2705956 105.0g |
+| `qwen3.7-flash-2026-07-15` | 3 | log 105 g | log_miss | `search_foods → get_food → log_meal → finish` | 2705956 105.0g |
 
-flash-0731：**2/3** 按新手册 finish 不写；**1/3** 仍猜 piece=105。
-qwen3.7-flash：**0/3** 遵守，三次都记 105 g。
-合计空账本 2/6，模型失败 4/6。手册修正前那一次（§4）也是 105 g。
-
-`oral-150g-chicken` 搜到 2705956 后直接 `log_meal 150`，没再 `get_food`。克数来自 query 字面，end state 命中验收。
+`deepseek-v4-flash-0731`：**2/3** 空账本。
+`qwen3.7-flash-2026-07-15`：**0/3** 空账本。
+合计空账本 2/6，模型失败 4/6。
 
 ## 7. 机器可读结果
 
 - 验收轨迹：`reports/agent-behavior-verify.json`
-- 切块名词观察：`reports/agent-behavior-cut-noun.json`
+- 切块名词观察：`reports/agent-behavior-cut-noun.json`（`--merge-cut-noun` 写出）
 
 ## 8. pytest
 
 | 检查 | 结果 |
 |---|---|
-| `tests/test_agent_behavior_verify.py` + `test_react.py` routing | 通过（不断言 live Pass） |
-| 全量 pytest | **1046 passed** |
-
+| `tests/test_agent_behavior_verify.py` + routing | 通过（不断言 live Pass） |
+| 全量 pytest | **1049 passed** |

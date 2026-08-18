@@ -105,6 +105,123 @@ def test_cut_noun_observation_file_is_multi_model() -> None:
         assert "ledger" in row
 
 
+def _verify_mod():
+    import sys
+
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import agent_behavior_verify as verify  # noqa: E402
+
+    return verify
+
+
+def test_merge_cut_noun_payloads_joins_per_model_json() -> None:
+    verify = _verify_mod()
+    flash = {
+        "model": "deepseek-v4-flash-0731",
+        "date": "2026-08-18",
+        "cases": [
+            {
+                "repeat": 1,
+                "passed": True,
+                "tag": "pass",
+                "ops": ["finish"],
+                "ledger": [],
+                "actions": [{"op": "finish"}],
+            }
+        ],
+    }
+    qwen = {
+        "model": "qwen3.7-flash-2026-07-15",
+        "date": "2026-08-18",
+        "cases": [
+            {
+                "repeat": 1,
+                "passed": False,
+                "tag": "log_miss",
+                "ops": ["log_meal", "finish"],
+                "ledger": [{"food_id": "2705956", "grams": 105.0, "eaten_at": "now"}],
+                "actions": [{"op": "log_meal", "logged": {"grams": 105.0}}],
+            }
+        ],
+    }
+    merged = verify.merge_cut_noun_payloads([flash, qwen])
+    assert merged["kind"] == "cut_noun_observation"
+    assert merged["oracle"] == "empty ledger"
+    assert merged["resolve_portion"] is None
+    assert "do not log it, finish without logging that food" in merged["handbook"]
+    assert [row["model"] for row in merged["runs"]] == [
+        "deepseek-v4-flash-0731",
+        "qwen3.7-flash-2026-07-15",
+    ]
+    assert merged["runs"][0]["passed"] is True
+    assert merged["runs"][1]["ledger"][0]["grams"] == 105.0
+
+
+def test_render_report_includes_node2_observation_and_pytest() -> None:
+    verify = _verify_mod()
+    exam = {
+        "date": "2026-08-18",
+        "model": "deepseek-v4-flash-0731",
+        "harness": "react-v1",
+        "catalog": "data/fdc/catalog-v2.sqlite",
+        "max_steps": 12,
+        "cases": [
+            {
+                "id": "oral-piece-chicken",
+                "group": "oral",
+                "query": "Please log a piece of chicken.",
+                "note": "piece",
+                "oracle_food": "2705956",
+                "oracle_grams": 105.0,
+                "passed": True,
+                "tag": "pass",
+                "ops": ["search_foods", "log_meal", "finish"],
+                "ledger": [{"food_id": "2705956", "grams": 105.0}],
+                "actions": [],
+            }
+        ],
+    }
+    observation = verify.merge_cut_noun_payloads(
+        [
+            {
+                "model": "deepseek-v4-flash-0731",
+                "cases": [
+                    {
+                        "repeat": 1,
+                        "passed": True,
+                        "tag": "pass",
+                        "ops": ["finish"],
+                        "ledger": [],
+                        "actions": [],
+                    }
+                ],
+            },
+            {
+                "model": "qwen3.7-flash-2026-07-15",
+                "cases": [
+                    {
+                        "repeat": 1,
+                        "passed": False,
+                        "tag": "log_miss",
+                        "ops": ["log_meal"],
+                        "ledger": [{"food_id": "2705956", "grams": 105.0}],
+                        "actions": [],
+                    }
+                ],
+            },
+        ]
+    )
+    text = verify.render_report(exam, observation)
+    assert "Node 2" in text
+    assert "观察 only" in text
+    assert "do not log it, finish without logging that food" in text
+    assert "--merge-cut-noun" in text
+    assert "## 6. 裸切块名词行为观察" in text
+    assert "qwen3.7-flash-2026-07-15" in text
+    assert "## 8. pytest" in text
+    assert "agent-behavior-cut-noun.json" in text
+
+
 def test_get_food_exposes_catalog_v2_oral_portion_tiers(catalog_v2) -> None:
     env = _env(catalog_v2)
     chicken = env.step({"op": "get_food", "food_id": CHICKEN_FNDDS})["observation"]["food"]
