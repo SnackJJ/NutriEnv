@@ -101,6 +101,52 @@ def test_roster_complete_s0_round_trips_body_facts_through_load(
         assert profile["windows"] == {"kcal": [1800.0, 2200.0], "protein_g": [90.0, 140.0]}
 
 
+def test_oracle_profile_object_keeps_unmentioned_body_facts(tmp_path: Path) -> None:
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = {
+        "version": "test-roster",
+        "items": [
+            {
+                "id": "roster-upd-001",
+                "family": "update",
+                "persona": "everyday",
+                "query": "Add a shellfish allergy.",
+                "s0": {
+                    "profile": {
+                        "user_id": "roster-ada",
+                        "allergies": ["peanut"],
+                        "windows": {"kcal": [1800, 2200], "protein_g": [90, 140]},
+                        "sex": "female",
+                        "age_y": 34,
+                        "height_cm": 165.0,
+                        "weight_kg": 62.0,
+                        "activity": "light",
+                        "phase": "cut",
+                    },
+                    "ledger": [],
+                },
+                "oracle": {
+                    "profile": {"allergies": ["peanut", "shellfish"]},
+                    "ledger": "s0",
+                },
+            }
+        ],
+    }
+    path = tmp_path / "roster-update.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    task = load_split(path, catalog=demo_catalog())[0]
+    assert task.oracle.profile is not None
+    assert task.oracle.profile.allergies == ("peanut", "shellfish")
+    assert task.oracle.profile.sex == "female"
+    assert task.oracle.profile.age_y == 34
+    assert task.oracle.profile.height_cm == 165.0
+    assert task.oracle.profile.weight_kg == 62.0
+    assert task.oracle.profile.activity == "light"
+    assert task.oracle.profile.phase == "cut"
+    assert task.oracle.profile.windows == task.s0.profile.windows
+
+
 def test_load_split_v05_is_the_240() -> None:
     tasks = load_split(Path("data/splits/v0.5-gold.json"))
     assert len(tasks) == 240

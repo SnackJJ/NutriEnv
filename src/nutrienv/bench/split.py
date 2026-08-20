@@ -206,6 +206,12 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
             "windows": {key: list(bounds) for key, bounds in s0.profile.windows.items()},
             "plan_preset": copy.deepcopy(s0.profile.plan_preset),
             "version": s0.profile.version,
+            "sex": s0.profile.sex,
+            "age_y": s0.profile.age_y,
+            "height_cm": s0.profile.height_cm,
+            "weight_kg": s0.profile.weight_kg,
+            "activity": s0.profile.activity,
+            "phase": s0.profile.phase,
         }
         if "allergies" in profile_spec:
             merged["allergies"] = profile_spec["allergies"]
@@ -217,6 +223,9 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
             merged["windows"] = windows
         if "plan_preset" in profile_spec:
             merged["plan_preset"] = profile_spec["plan_preset"]
+        for field in ("sex", "age_y", "height_cm", "weight_kg", "activity", "phase"):
+            if field in profile_spec:
+                merged[field] = profile_spec[field]
         profile = _profile(merged, default_user=s0.profile.user_id)
     else:
         raise ValueError("oracle.profile must be omitted, 's0', or an object")
