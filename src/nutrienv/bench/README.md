@@ -35,8 +35,8 @@ reasons. Reject requires reject, an empty adopted plan, and the exact
 reason-code set; a fitting substitute fails, and `allow_empty_plan` does not
 bypass this. Reject oracles do not set plan-must-fit or allow-empty-plan.
 `update_band` is omitted for exact Profile equality (every frozen update item).
-`cut` / `fatigue` / `muscle` score windows against the ADR 0015 bands; allergies
-and other unmentioned fields stay exact. Daily-window math is imported from
+`cut` / `fatigue` / `muscle` score the band-relevant window keys against the
+ADR 0015 bands; allergies and non-band window keys stay exact. Daily-window math is imported from
 `nutrienv.world.derive_daily_windows`. A split oracle that names a new body
 fact or phase refreshes `profile.windows` with that same derivation so a
 fact-only Env patch can equal the Oracle.

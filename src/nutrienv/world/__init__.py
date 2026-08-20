@@ -4,6 +4,7 @@ from .catalog import FoodCatalog, SEARCH_LIMIT
 from .catalog_store import GOLD_CATALOG_PATH, load_catalog
 from .daily_windows import (
     ACTIVITY_PAL,
+    BAND_WINDOW_KEYS,
     UPDATE_BANDS,
     derive_daily_windows,
     derive_profile_windows,
@@ -37,6 +38,7 @@ __all__ = [
     "DRI_REFERENCE",
     "ACTIVITY_PAL",
     "UPDATE_BANDS",
+    "BAND_WINDOW_KEYS",
     "derive_daily_windows",
     "derive_profile_windows",
     "estimated_energy_requirement",

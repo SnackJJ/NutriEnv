@@ -13,6 +13,7 @@ __all__ = [
     "CUT_KCAL_DELTA",
     "MUSCLE_PROTEIN_G_PER_KG",
     "UPDATE_BANDS",
+    "BAND_WINDOW_KEYS",
     "derive_daily_windows",
     "derive_profile_windows",
     "estimated_energy_requirement",
@@ -33,6 +34,11 @@ CUT_KCAL_DELTA = 300.0
 # Hypertrophy protein floor: above the 0.8 g/kg maintain lo (ADR 0015).
 MUSCLE_PROTEIN_G_PER_KG = 1.6
 UPDATE_BANDS = frozenset({"cut", "fatigue", "muscle"})
+BAND_WINDOW_KEYS: dict[str, frozenset[str]] = {
+    "cut": frozenset({"kcal"}),
+    "fatigue": frozenset({"kcal"}),
+    "muscle": frozenset({"kcal", "protein_g"}),
+}
 _PROTEIN_G_PER_KG = 0.8
 
 _FDA_KCAL = DRI_REFERENCE["kcal"]["reference"]

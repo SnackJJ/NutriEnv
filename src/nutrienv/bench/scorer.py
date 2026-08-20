@@ -6,6 +6,7 @@ import math
 from dataclasses import replace
 
 from nutrienv.world.daily_windows import (
+    BAND_WINDOW_KEYS,
     estimated_energy_requirement,
     implicit_windows_pass,
 )
@@ -108,6 +109,15 @@ class Scorer:
             return False
         if replace(end, windows=expected.windows) != expected:
             return False
+        band_keys = BAND_WINDOW_KEYS.get(oracle.update_band or "", frozenset())
+        for key, bounds in expected.windows.items():
+            if key in band_keys:
+                continue
+            if end.windows.get(key) != bounds:
+                return False
+        for key in end.windows:
+            if key not in band_keys and key not in expected.windows:
+                return False
         if (
             expected.sex is None
             or expected.age_y is None
