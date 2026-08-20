@@ -176,7 +176,8 @@ def test_v05_gold_loads_via_load_exam() -> None:
     assert payload["version"] == "v0.5-gold"
     assert payload["catalog"] == "data/fdc/catalog.sqlite"
     for task in tasks:
-        assert validate_draft(task) == [], (task.id, validate_draft(task))
+        issues = validate_draft(task)
+        assert issues == [], (task.id, issues)
 
 
 def test_landing_verify_published_exam_helper() -> None:

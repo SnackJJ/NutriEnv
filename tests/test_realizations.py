@@ -144,7 +144,8 @@ def test_evaluate_rows_cover_tiers_and_resolve():
     keys = []
     for row in EVALUATE_ROWS:
         task = _task(row)
-        assert validate_draft(task) == [], (row.seed_id, validate_draft(task))
+        issues = validate_draft(task)
+        assert issues == [], (row.seed_id, issues)
         keys.append(semantic_key(task))
     assert len(keys) == len(EVALUATE_ROWS)
     assert len(set(keys)) == len(EVALUATE_ROWS)
@@ -202,7 +203,8 @@ def test_every_table_row_materializes_to_a_clean_draft():
     for table in tables:
         for row in table:
             task = _task(row)
-            assert validate_draft(task) == [], (row.seed_id, validate_draft(task))
+            issues = validate_draft(task)
+            assert issues == [], (row.seed_id, issues)
 
 
 def test_recommend_table_covers_declared_axes():

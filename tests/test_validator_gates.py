@@ -503,7 +503,8 @@ def test_every_frozen_item_still_validates():
     from nutrienv.bench.split import load_split
 
     for task in load_split(Path("data/splits/v0.5-gold.json")):
-        assert validate_draft(task) == [], (task.id, validate_draft(task))
+        issues = validate_draft(task)
+        assert issues == [], (task.id, issues)
 
 
 def test_update_gate_rejects_undeclared_preset_change():
