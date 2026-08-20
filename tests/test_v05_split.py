@@ -158,3 +158,16 @@ def test_v05_whole_exam_is_achievable():
             env.step({"op": "submit_plan", "items": plan})
         score = scorer.score(env.state(), task.oracle)
         assert score["passed"], (task.id, score)
+
+
+def test_v05_evaluate_gold_passes_with_items_only_submit_plan():
+    """Oracle.last_verdict None keeps today's scoring; inferred accept is enough."""
+    task = next(item for item in load_split(V05) if item.family == "evaluate")
+    assert task.oracle.last_verdict is None
+    assert task.oracle.last_plan
+    env = NutriEnv()
+    env.reset(task.s0)
+    out = env.step({"op": "submit_plan", "items": task.oracle.last_plan})
+    assert out["ok"] is True
+    assert env.state().last_verdict == "accept"
+    assert Scorer().score(env.state(), task.oracle)["passed"] is True

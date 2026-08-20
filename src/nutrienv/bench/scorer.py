@@ -54,7 +54,11 @@ class Scorer:
         return _ScoreResult(passed=False, tag=first_fail, sub_tags=tuple(sub_tags))
 
     def _score_one(self, end_state: WorldState, oracle: Oracle) -> dict:
-        if (
+        if oracle.last_verdict is not None:
+            verdict_error = self._score_verdict(end_state, oracle)
+            if verdict_error is not None:
+                return self._fail(verdict_error)
+        if oracle.last_verdict != "reject" and (
             oracle.last_plan is not None
             or oracle.plan_must_be_safe
             or oracle.plan_must_fit_windows
@@ -87,6 +91,25 @@ class Scorer:
     @staticmethod
     def _fail(tag: str) -> dict:
         return _ScoreResult(passed=False, tag=tag)
+
+    def _score_verdict(self, state: WorldState, oracle: Oracle) -> str | None:
+        if oracle.last_verdict == "accept":
+            if state.last_verdict != "accept":
+                return "wrong_goal"
+            if state.last_reasons:
+                return "wrong_goal"
+            if state.last_plan != oracle.last_plan:
+                return "wrong_goal"
+            return None
+        if oracle.last_verdict == "reject":
+            if state.last_verdict != "reject":
+                return "wrong_goal"
+            if state.last_plan != []:
+                return "wrong_goal"
+            if set(state.last_reasons) != set(oracle.last_reasons):
+                return "wrong_goal"
+            return None
+        return "wrong_goal"
 
     def _score_plan(self, state: WorldState, oracle: Oracle) -> str | None:
         items = state.last_plan

@@ -29,6 +29,11 @@ Oracle fields are query-scoped. `None` means that portion of state is not
 judged. A ledger oracle contains only rows appended after S0. For plans,
 `last_plan=[]` requests any non-empty allergen-safe plan satisfying every
 profile window; a non-empty oracle list requests those exact evaluation items.
+`last_verdict` is `None` (today's plan scoring, so old splits load), `"accept"`,
+or `"reject"`. Accept requires the exact adopted plan, accept, and empty
+reasons. Reject requires reject, an empty adopted plan, and the exact
+reason-code set; a fitting substitute fails, and `allow_empty_plan` does not
+bypass this. Reject oracles do not set plan-must-fit or allow-empty-plan.
 Catalog nutrients are summed as `amount_per_100g * grams / 100`.
 
 Scoring returns exactly `{"passed": bool, "tag": str}`. The tags are `pass`,

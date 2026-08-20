@@ -7,10 +7,11 @@ from pathlib import Path
 
 import pytest
 
+from nutrienv.bench.pipeline.freezer import task_to_item
 from nutrienv.bench.pipeline.run_batch import write_composite_sample
-from nutrienv.bench.realize import scored_oracles
+from nutrienv.bench.realize import Oracle, Task, compose_oracles, scored_oracles
 from nutrienv.bench.split import load_exam, load_split
-from nutrienv.world.catalog_fixture import demo_catalog
+from nutrienv.world.catalog_fixture import demo_catalog, demo_state
 from nutrienv.world.types import LedgerRow
 
 V05 = Path("data/splits/v0.5-gold.json")
@@ -124,3 +125,186 @@ def test_write_composite_sample_round_trips(tmp_path: Path):
         assert task.s0.profile.user_id
     assert result.payload["quota_ledger"]["composite_accepted"] == len(loaded)
     assert result.payload["quota_ledger"]["base_quota"] == 240
+
+
+def test_omitted_last_verdict_loads_as_none(tmp_path: Path):
+    for task in load_split(V05):
+        assert task.oracle.last_verdict is None
+        assert task.oracle.last_reasons == ()
+
+    state = demo_state()
+    task = Task(
+        "draft-eval-1",
+        "evaluate",
+        "Is 100 g of rice okay for lunch?",
+        state,
+        Oracle(
+            profile=state.profile,
+            last_plan=[{"food_id": "white_rice", "grams": 100.0}],
+            ledger=tuple(state.ledger),
+        ),
+    )
+    item = task_to_item(task)
+    assert "last_verdict" not in item["oracle"]
+    dest = tmp_path / "split.json"
+    dest.write_text(json.dumps({"items": [item]}), encoding="utf-8")
+    loaded = load_split(dest, catalog=state.catalog)
+    assert loaded[0].oracle.last_verdict is None
+    assert loaded[0].oracle.last_reasons == ()
+
+
+def test_empty_reject_child_freezes_and_loads_as_evaluate(tmp_path: Path):
+    state = demo_state()
+    lunch = LedgerRow("oats", 60.0, "today-lunch")
+    log_oracle = Oracle(
+        profile=state.profile,
+        ledger_tail=[lunch],
+        ledger=(*state.ledger, lunch),
+    )
+    reject_oracle = Oracle(
+        profile=state.profile,
+        last_plan=[],
+        last_verdict="reject",
+        last_reasons=("kcal_hi",),
+        ledger=tuple(state.ledger),
+    )
+    task = Task(
+        "draft-comp-1",
+        "log",
+        "I ate oats; is leftover pizza okay tonight?",
+        state,
+        compose_oracles(log_oracle, reject_oracle),
+    )
+    item = task_to_item(task)
+    child = item["oracle"]["sub_oracles"][1]
+    assert child["last_verdict"] == "reject"
+    assert child["last_plan"] == []
+    assert child["last_reasons"] == ["kcal_hi"]
+    assert "plan_must_fit_windows" not in child
+    assert "allow_empty_plan" not in child
+
+    dest = tmp_path / "split.json"
+    dest.write_text(json.dumps({"items": [item]}), encoding="utf-8")
+    loaded = load_split(dest, catalog=state.catalog)
+    reject = loaded[0].oracle.sub_oracles[1]
+    assert reject.last_verdict == "reject"
+    assert reject.last_plan == []
+    assert reject.last_reasons == ("kcal_hi",)
+    assert reject.plan_must_fit_windows is False
+    assert reject.allow_empty_plan is False
+
+
+def test_reject_freeze_drops_prohibited_plan_flags(tmp_path: Path):
+    state = demo_state()
+    oracle = Oracle(
+        profile=state.profile,
+        last_plan=[],
+        last_verdict="reject",
+        last_reasons=("allergy",),
+        plan_must_fit_windows=True,
+        allow_empty_plan=True,
+        plan_must_be_safe=True,
+        ledger=tuple(state.ledger),
+    )
+    task = Task(
+        "draft-eval-reject",
+        "evaluate",
+        "Is leftover pizza okay tonight?",
+        state,
+        oracle,
+    )
+    payload = task_to_item(task)["oracle"]
+    assert payload["last_verdict"] == "reject"
+    assert payload["last_plan"] == []
+    assert "plan_must_fit_windows" not in payload
+    assert "allow_empty_plan" not in payload
+
+    dest = tmp_path / "split.json"
+    dest.write_text(json.dumps({"items": [task_to_item(task)]}), encoding="utf-8")
+    loaded = load_split(dest, catalog=state.catalog)[0].oracle
+    assert loaded.last_verdict == "reject"
+    assert loaded.plan_must_fit_windows is False
+    assert loaded.allow_empty_plan is False
+
+
+def _verdict_item(*, last_verdict=None, last_reasons=None) -> dict:
+    oracle: dict = {
+        "profile": "s0",
+        "last_plan": [{"food_id": "white_rice", "grams": 100.0}],
+        "ledger": "s0",
+    }
+    if last_verdict is not None:
+        oracle["last_verdict"] = last_verdict
+    if last_reasons is not None:
+        oracle["last_reasons"] = last_reasons
+    return {
+        "id": "draft-eval-1",
+        "family": "evaluate",
+        "persona": "everyday",
+        "situations": [],
+        "query": "Is 100 g of rice okay for lunch?",
+        "s0": {
+            "profile": {
+                "user_id": "draft",
+                "allergies": ["peanut"],
+                "windows": {"kcal": [1800.0, 2200.0]},
+            },
+            "ledger": [],
+        },
+        "oracle": oracle,
+    }
+
+
+def test_load_rejects_reasons_unless_verdict_is_reject(tmp_path: Path):
+    dest = tmp_path / "split.json"
+    dest.write_text(
+        json.dumps({"items": [_verdict_item(last_verdict="accept", last_reasons=["allergy"])]}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="last_reasons"):
+        load_split(dest, catalog=demo_catalog())
+
+    dest.write_text(
+        json.dumps({"items": [_verdict_item(last_reasons=["kcal_hi"])]}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="last_reasons"):
+        load_split(dest, catalog=demo_catalog())
+
+    dest.write_text(
+        json.dumps({"items": [_verdict_item(last_verdict="accept", last_reasons=[])]}),
+        encoding="utf-8",
+    )
+    loaded = load_split(dest, catalog=demo_catalog())[0]
+    assert loaded.oracle.last_verdict == "accept"
+    assert loaded.oracle.last_reasons == ()
+
+
+def _reject_item(**oracle_extra) -> dict:
+    item = _verdict_item(last_verdict="reject", last_reasons=["allergy"])
+    item["oracle"]["last_plan"] = []
+    item["oracle"].update(oracle_extra)
+    return item
+
+
+def test_load_rejects_plan_flags_on_reject_oracle(tmp_path: Path):
+    dest = tmp_path / "split.json"
+    dest.write_text(
+        json.dumps({"items": [_reject_item(plan_must_fit_windows=True)]}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="plan_must_fit_windows"):
+        load_split(dest, catalog=demo_catalog())
+
+    dest.write_text(
+        json.dumps({"items": [_reject_item(allow_empty_plan=True)]}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="allow_empty_plan"):
+        load_split(dest, catalog=demo_catalog())
+
+    dest.write_text(json.dumps({"items": [_reject_item()]}), encoding="utf-8")
+    loaded = load_split(dest, catalog=demo_catalog())[0].oracle
+    assert loaded.last_verdict == "reject"
+    assert loaded.plan_must_fit_windows is False
+    assert loaded.allow_empty_plan is False

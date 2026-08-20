@@ -104,6 +104,11 @@ class Oracle:
     ``plan_windows``, when set, is what the submitted plan is checked against.
     Use it when the agent reads daily windows on the profile but the meal must
     fit the remainder after the ledger.  Profile equality still uses ``profile``.
+
+    ``last_verdict`` is ``None`` (legacy: today's plan scoring), ``"accept"``,
+    or ``"reject"``.  ``last_reasons`` is the closed reason-code set a reject
+    oracle requires.  Reject oracles leave ``plan_must_fit_windows`` and
+    ``allow_empty_plan`` unset; the verdict branch owns scoring.
     """
 
     profile: Profile | None = None
@@ -116,6 +121,8 @@ class Oracle:
     plan_must_fit_windows: bool = False
     allow_empty_plan: bool = False
     plan_windows: dict[str, tuple[float, float]] | None = None
+    last_verdict: str | None = None
+    last_reasons: tuple[str, ...] = ()
     # None = single-family oracle (frozen v0.5 / v1.0 path). A non-empty
     # tuple is a composite container: Scorer judges only the children.
     sub_oracles: tuple[Oracle, ...] | None = None

@@ -14,6 +14,7 @@ from nutrienv.world.types import (
     LedgerRow,
     Profile,
     WorldState,
+    normalize_reasons,
     normalize_tags,
     normalize_window,
 )
@@ -295,14 +296,33 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
             _oracle(item, s0, catalog, allow_subs=False) for item in sub_raw
         )
 
+    last_verdict = value.get("last_verdict")
+    if last_verdict is not None and last_verdict not in {"accept", "reject"}:
+        raise ValueError("oracle.last_verdict must be omitted, 'accept', or 'reject'")
+    last_reasons = ()
+    if "last_reasons" in value:
+        last_reasons = normalize_reasons(value["last_reasons"])
+    if last_verdict != "reject" and last_reasons:
+        raise ValueError("oracle.last_reasons require last_verdict 'reject'")
+    plan_must_be_safe = bool(value.get("plan_must_be_safe", False))
+    plan_must_fit_windows = bool(value.get("plan_must_fit_windows", False))
+    allow_empty_plan = bool(value.get("allow_empty_plan", False))
+    if last_verdict == "reject":
+        if plan_must_fit_windows:
+            raise ValueError("reject oracle must not set plan_must_fit_windows")
+        if allow_empty_plan:
+            raise ValueError("reject oracle must not set allow_empty_plan")
+
     return Oracle(
         profile=profile,
         last_plan=copy.deepcopy(last_plan) if last_plan is not None else None,
         ledger_tail=ledger_tail,
         ledger=ledger,
-        plan_must_be_safe=bool(value.get("plan_must_be_safe", False)),
-        plan_must_fit_windows=bool(value.get("plan_must_fit_windows", False)),
-        allow_empty_plan=bool(value.get("allow_empty_plan", False)),
+        plan_must_be_safe=plan_must_be_safe,
+        plan_must_fit_windows=plan_must_fit_windows,
+        allow_empty_plan=allow_empty_plan,
         plan_windows=plan_windows,
+        last_verdict=last_verdict,
+        last_reasons=last_reasons,
         sub_oracles=sub_oracles,
     )

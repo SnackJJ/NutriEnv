@@ -131,16 +131,12 @@ def _oracle_payload(oracle: Oracle, *, family: str) -> dict[str, object]:
             {"food_id": item["food_id"], "grams": item["grams"]}
             for item in (oracle.last_plan or [])
         ]
-        if oracle.plan_must_fit_windows:
-            payload["plan_must_fit_windows"] = True
-        if oracle.plan_must_be_safe:
-            payload["plan_must_be_safe"] = True
-        if oracle.allow_empty_plan:
-            payload["allow_empty_plan"] = True
+        _attach_plan_flags(payload, oracle)
         if oracle.plan_windows:
             payload["plan_windows"] = {
                 key: list(bounds) for key, bounds in oracle.plan_windows.items()
             }
+        _attach_verdict(payload, oracle)
         payload["ledger"] = "s0"
         return payload
     if oracle.ledger_tail is not None:
@@ -154,20 +150,36 @@ def _oracle_payload(oracle: Oracle, *, family: str) -> dict[str, object]:
             {"food_id": item["food_id"], "grams": item["grams"]}
             for item in oracle.last_plan
         ]
+    _attach_plan_flags(payload, oracle)
+    if oracle.plan_windows:
+        payload["plan_windows"] = {
+            key: list(bounds) for key, bounds in oracle.plan_windows.items()
+        }
+    _attach_verdict(payload, oracle)
+    return payload
+
+
+def _attach_plan_flags(payload: dict[str, object], oracle: Oracle) -> None:
+    if oracle.last_verdict == "reject":
+        return
     if oracle.plan_must_be_safe:
         payload["plan_must_be_safe"] = True
     if oracle.plan_must_fit_windows:
         payload["plan_must_fit_windows"] = True
     if oracle.allow_empty_plan:
         payload["allow_empty_plan"] = True
-    if oracle.plan_windows:
-        payload["plan_windows"] = {
-            key: list(bounds) for key, bounds in oracle.plan_windows.items()
-        }
-    return payload
+
+
+def _attach_verdict(payload: dict[str, object], oracle: Oracle) -> None:
+    if oracle.last_verdict is not None:
+        payload["last_verdict"] = oracle.last_verdict
+    if oracle.last_verdict == "reject":
+        payload["last_reasons"] = list(oracle.last_reasons)
 
 
 def _sub_family(oracle: Oracle) -> str:
+    if oracle.last_verdict == "reject":
+        return "evaluate"
     if oracle.last_plan is not None and oracle.ledger_tail is None:
         return "evaluate" if oracle.last_plan else "recommend"
     if oracle.last_plan == []:
