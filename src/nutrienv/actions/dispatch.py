@@ -224,6 +224,9 @@ def _submit_plan(state: WorldState, args: dict, _default_eaten_at: str) -> dict:
         )
 
     state.last_plan = normalized
+    if normalized:
+        state.last_verdict = "accept"
+        state.last_reasons = ()
     return {"op": "submit_plan", "items": copy.deepcopy(normalized)}
 
 

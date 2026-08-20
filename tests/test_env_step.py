@@ -213,3 +213,19 @@ def test_zero_kcal_coffee_exploit_is_rejected() -> None:
     assert after.ledger == before.ledger
     assert after.profile == before.profile
     assert after.last_plan == before.last_plan
+
+
+def test_nonempty_submit_plan_without_verdict_sets_accept() -> None:
+    env = NutriEnv()
+    env.reset(demo_state())
+
+    out = env.step(
+        {"op": "submit_plan", "items": [{"food_id": "egg", "grams": 100}]}
+    )
+
+    assert out["ok"] is True
+    state = env.state()
+    assert state.last_verdict == "accept"
+    assert state.last_plan == [{"food_id": "egg", "grams": 100.0}]
+    assert state.last_reasons == ()
+

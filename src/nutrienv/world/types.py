@@ -60,12 +60,16 @@ class WorldState:
 
     ``last_plan`` holds the items of the most recent ``submit_plan`` as
     ``[{"food_id": str, "grams": float}, ...]``; it is empty until one lands.
+    ``last_verdict`` is ``None`` (silence), ``"accept"``, or ``"reject"``.
+    ``last_reasons`` is the closed reason-code set from a reject.
     """
 
     profile: Profile
     ledger: list[LedgerRow] = field(default_factory=list)
     catalog: Mapping[str, dict] = field(default_factory=dict)
     last_plan: list = field(default_factory=list)
+    last_verdict: str | None = None
+    last_reasons: tuple[str, ...] = ()
 
 
 def normalize_tags(values: object) -> tuple[str, ...]:
