@@ -24,6 +24,9 @@ Body facts (`sex`, `age_y`, `height_cm`, `weight_kg`, `activity`) are optional. 
 omits them still loads: the fields stay `None` and stored windows are not rewritten onto a
 fictional body. `phase` is `maintain`, `cut`, or `muscle`, default `maintain`. Persona names
 and `plan_preset` flavor are not these fields. `reset` and `get_profile` show them.
+`update_profile` that patches body facts or `phase` re-derives daily windows from
+Mifflin×PAL and the FDA six-key template (protein lo from weight, sodium hi 2300, then the
+phase shift) when the roster body is complete. A windows-only patch does not re-derive.
 
 `catalog` maps `food_id -> {name, nutrients, allergen_tags, aliases, portions?}`. Nutrients are
 **per 100 g** under the keys `kcal, protein_g, carb_g, fat_g, fiber_g, sodium_mg`.
@@ -59,7 +62,7 @@ env.state() -> WorldState           # the live end state, for the scorer
 | `get_dri` | — | static FDA reference table + the profile's own windows |
 | `log_meal` | `food_id`, `grams`, `eaten_at?` | appends a `LedgerRow` |
 | `submit_plan` | `items: [{food_id, grams}]`, `verdict?`, `reasons?` | writes `last_plan`, `last_verdict`, `last_reasons` |
-| `update_profile` | `patch` | patches `allergies, medications, windows, plan_preset, version` |
+| `update_profile` | `patch` | patches `allergies, medications, windows, plan_preset, version, sex, age_y, height_cm, weight_kg, activity, phase` |
 | `update_plan` | `patch` | shallow-merges into `profile.plan_preset` |
 
 Schemas are strict: an unknown key anywhere in the envelope or in a plan item is `bad_schema`.
@@ -84,6 +87,9 @@ or an unknown reason token is `bad_schema` and leaves the world unchanged.
 3. **`windows` and `plan_preset` merge key-wise.** Patching `{"windows": {"kcal": [2000, 2400]}}`
    leaves `protein_g` at its S0 value. Window values become `(lo, hi)` floats and require `lo <= hi`.
    `allergies` / `medications` replace wholesale — a patch is the new full list.
+   Patching body facts or `phase` is the exception: unmentioned window keys refresh from the
+   world derivation. A windows-only patch does not re-derive. Incomplete bodies are not
+   invented — the facts write, the stored windows stay.
 4. **`version` is never auto-bumped.** It changes only if the patch says so, so unmentioned fields
    stay at S0 (ADR 0004).
 5. **`user_id` is not patchable** — it is identity, not a nutrition field. Patching it is `bad_schema`.

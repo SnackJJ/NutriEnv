@@ -10,14 +10,18 @@ Two invariants hold for every handler:
 from __future__ import annotations
 
 import copy
+import math
 import re
 from dataclasses import replace
 
 from ..world.catalog import canonical_food_id
+from ..world.daily_windows import ACTIVITY_PAL, derive_daily_windows
 from ..world.dri import BASIS, DRI_REFERENCE
 from ..world.types import (
+    PHASES,
     ImplausibleQuantity,
     LedgerRow,
+    Profile,
     WorldState,
     food_view,
     ledger_totals,
@@ -60,10 +64,16 @@ DEFAULT_EATEN_AT = "now"
 SEARCH_ALL = "*"
 
 #: Profile fields an ``update_profile`` patch may touch. ``user_id`` is identity,
-#: not a nutrition field, so it is not patchable.
+#: not a nutrition field, so it is not patchable. Body facts and ``phase``
+#: refresh daily windows when the roster body is complete (ADR 0014).
+_BODY_PATCH_KEYS = frozenset(
+    {"sex", "age_y", "height_cm", "weight_kg", "activity", "phase"}
+)
 PROFILE_PATCH_KEYS = frozenset(
     {"allergies", "medications", "windows", "plan_preset", "version"}
+    | _BODY_PATCH_KEYS
 )
+_SEXES = frozenset({"male", "female"})
 
 
 def dispatch(
@@ -305,6 +315,7 @@ def _update_profile(state: WorldState, args: dict, _default_eaten_at: str) -> di
                 raw = _expand_food_allergies(state, raw)
             changes[field] = raw
 
+    patched_window_keys: list[str] = []
     if "windows" in patch:
         incoming = as_dict(patch["windows"], "windows")
         windows = dict(state.profile.windows)
@@ -314,7 +325,38 @@ def _update_profile(state: WorldState, args: dict, _default_eaten_at: str) -> di
                 windows[name] = normalize_window(value)
             except ValueError as exc:
                 raise ActionError("bad_schema", f"windows[{name!r}]: {exc}") from exc
+            patched_window_keys.append(name)
         changes["windows"] = windows
+
+    if "sex" in patch:
+        sex = as_nonempty_str(patch["sex"], "sex")
+        if sex not in _SEXES:
+            raise ActionError("bad_schema", "sex must be 'male' or 'female'")
+        changes["sex"] = sex
+
+    if "age_y" in patch:
+        age_y = patch["age_y"]
+        if isinstance(age_y, bool) or not isinstance(age_y, int):
+            raise ActionError("bad_schema", "'age_y' must be an int")
+        changes["age_y"] = age_y
+
+    if "height_cm" in patch:
+        changes["height_cm"] = _as_finite_float(patch["height_cm"], "height_cm")
+
+    if "weight_kg" in patch:
+        changes["weight_kg"] = _as_finite_float(patch["weight_kg"], "weight_kg")
+
+    if "activity" in patch:
+        activity = as_nonempty_str(patch["activity"], "activity")
+        if activity not in ACTIVITY_PAL:
+            raise ActionError("bad_schema", f"unknown activity: {activity!r}")
+        changes["activity"] = activity
+
+    if "phase" in patch:
+        phase = as_nonempty_str(patch["phase"], "phase")
+        if phase not in PHASES:
+            raise ActionError("bad_schema", "phase must be 'maintain', 'cut', or 'muscle'")
+        changes["phase"] = phase
 
     if "plan_preset" in patch:
         incoming = as_dict(patch["plan_preset"], "plan_preset")
@@ -329,8 +371,44 @@ def _update_profile(state: WorldState, args: dict, _default_eaten_at: str) -> di
             raise ActionError("bad_schema", "'version' must be an int")
         changes["version"] = version
 
+    if _BODY_PATCH_KEYS & patch.keys():
+        preview = replace(state.profile, **changes)
+        derived = _derived_windows(preview)
+        if derived is not None:
+            for key in patched_window_keys:
+                derived[key] = changes["windows"][key]
+            changes["windows"] = derived
+
     state.profile = replace(state.profile, **changes)
     return {"op": "update_profile", "profile": profile_view(state.profile)}
+
+
+def _as_finite_float(value: object, field: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ActionError("bad_schema", f"'{field}' must be a number")
+    if not math.isfinite(value):
+        raise ActionError("bad_schema", f"'{field}' must be finite")
+    return float(value)
+
+
+def _derived_windows(profile: Profile) -> dict[str, tuple[float, float]] | None:
+    if (
+        profile.sex not in _SEXES
+        or profile.age_y is None
+        or profile.height_cm is None
+        or profile.weight_kg is None
+        or profile.activity not in ACTIVITY_PAL
+        or profile.phase not in PHASES
+    ):
+        return None
+    return derive_daily_windows(
+        sex=profile.sex,
+        age_y=profile.age_y,
+        height_cm=profile.height_cm,
+        weight_kg=profile.weight_kg,
+        activity=profile.activity,
+        phase=profile.phase,
+    )
 
 
 def _update_plan(state: WorldState, args: dict, _default_eaten_at: str) -> dict:
