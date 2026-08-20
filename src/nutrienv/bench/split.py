@@ -9,7 +9,14 @@ from pathlib import Path
 
 from nutrienv.world.catalog import canonical_food_id
 from nutrienv.world.catalog_store import load_catalog
-from nutrienv.world.types import LedgerRow, Profile, WorldState, normalize_tags, normalize_window
+from nutrienv.world.types import (
+    PHASES,
+    LedgerRow,
+    Profile,
+    WorldState,
+    normalize_tags,
+    normalize_window,
+)
 
 from .realize import FAMILIES, Oracle, Task
 from .situations import SITUATIONS
@@ -150,6 +157,9 @@ def _profile(value: object, *, default_user: str) -> Profile:
     if not isinstance(windows_raw, dict):
         raise ValueError("windows must be an object")
     windows = {str(key): normalize_window(bounds) for key, bounds in windows_raw.items()}
+    age_y = value.get("age_y")
+    height_cm = value.get("height_cm")
+    weight_kg = value.get("weight_kg")
     return Profile(
         user_id=str(value.get("user_id") or default_user),
         allergies=normalize_tags(value.get("allergies") or []),
@@ -157,7 +167,22 @@ def _profile(value: object, *, default_user: str) -> Profile:
         windows=windows,
         plan_preset=copy.deepcopy(value.get("plan_preset") or {}),
         version=int(value.get("version") or 1),
+        sex=value.get("sex"),
+        age_y=None if age_y is None else int(age_y),
+        height_cm=None if height_cm is None else float(height_cm),
+        weight_kg=None if weight_kg is None else float(weight_kg),
+        activity=value.get("activity"),
+        phase=_phase(value),
     )
+
+
+def _phase(value: dict) -> str:
+    if "phase" not in value:
+        return "maintain"
+    phase = value["phase"]
+    if phase not in PHASES:
+        raise ValueError("phase must be 'maintain', 'cut', or 'muscle'")
+    return phase
 
 
 def _row(value: object, catalog: object) -> LedgerRow:
@@ -197,6 +222,12 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
             "windows": {key: list(bounds) for key, bounds in s0.profile.windows.items()},
             "plan_preset": copy.deepcopy(s0.profile.plan_preset),
             "version": s0.profile.version,
+            "sex": s0.profile.sex,
+            "age_y": s0.profile.age_y,
+            "height_cm": s0.profile.height_cm,
+            "weight_kg": s0.profile.weight_kg,
+            "activity": s0.profile.activity,
+            "phase": s0.profile.phase,
         }
         if "allergies" in profile_spec:
             merged["allergies"] = profile_spec["allergies"]
@@ -208,6 +239,16 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
             merged["windows"] = windows
         if "plan_preset" in profile_spec:
             merged["plan_preset"] = profile_spec["plan_preset"]
+        named = sorted(
+            key
+            for key in ("sex", "age_y", "height_cm", "weight_kg", "activity", "phase")
+            if key in profile_spec
+        )
+        if named:
+            raise ValueError(
+                "oracle.profile cannot change body facts "
+                f"{named}; update_profile does not patch them"
+            )
         profile = _profile(merged, default_user=s0.profile.user_id)
     else:
         raise ValueError("oracle.profile must be omitted, 's0', or an object")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -12,6 +13,252 @@ from nutrienv.world.types import LedgerRow
 
 _WINDOW_LEAK = re.compile(r"\b(?:kcal|protein_g|carb_g|fat_g)\s+\d")
 _SLUG = re.compile(r"\b[a-z]+_[a-z0-9_]+\b")
+
+
+def test_legacy_split_items_load_without_rewriting_windows() -> None:
+    path = Path("data/splits/v0.5-gold.json")
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    tasks = {task.id: task for task in load_split(path)}
+    for item in raw["items"]:
+        stored = item["s0"]["profile"]
+        loaded = tasks[item["id"]].s0.profile
+        for key, bounds in stored["windows"].items():
+            assert loaded.windows[key] == (float(bounds[0]), float(bounds[1])), item["id"]
+        assert "sex" not in stored
+        assert "age_y" not in stored
+        assert "height_cm" not in stored
+        assert "weight_kg" not in stored
+        assert "activity" not in stored
+        assert "phase" not in stored
+        assert loaded.sex is None
+        assert loaded.age_y is None
+        assert loaded.height_cm is None
+        assert loaded.weight_kg is None
+        assert loaded.activity is None
+        assert loaded.phase == "maintain"
+    gym = tasks["v0-rec-gym-001"]
+    assert gym.persona == "gym"
+    assert gym.s0.profile.plan_preset == {"goal": "muscle"}
+    assert gym.s0.profile.activity is None
+    assert gym.s0.profile.windows["kcal"] == (400.0, 750.0)
+
+
+def test_roster_complete_s0_round_trips_body_facts_through_load(
+    tmp_path: Path,
+) -> None:
+    from nutrienv.env import NutriEnv
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = {
+        "version": "test-roster",
+        "items": [
+            {
+                "id": "roster-s0-001",
+                "family": "log",
+                "persona": "gym",
+                "query": "Please log breakfast.",
+                "s0": {
+                    "profile": {
+                        "user_id": "roster-ada",
+                        "allergies": ["peanut"],
+                        "windows": {"kcal": [1800, 2200], "protein_g": [90, 140]},
+                        "sex": "female",
+                        "age_y": 34,
+                        "height_cm": 165.0,
+                        "weight_kg": 62.0,
+                        "activity": "light",
+                        "phase": "cut",
+                    },
+                    "ledger": [],
+                },
+                "oracle": {"profile": "s0", "ledger": "s0"},
+            }
+        ],
+    }
+    path = tmp_path / "roster.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    task = load_split(path, catalog=demo_catalog())[0]
+    assert task.persona == "gym"
+    assert task.s0.profile.sex == "female"
+    assert task.s0.profile.age_y == 34
+    assert task.s0.profile.height_cm == 165.0
+    assert task.s0.profile.weight_kg == 62.0
+    assert task.s0.profile.activity == "light"
+    assert task.s0.profile.phase == "cut"
+    assert task.s0.profile.windows == {"kcal": (1800.0, 2200.0), "protein_g": (90.0, 140.0)}
+    assert task.oracle.profile == task.s0.profile
+
+    env = NutriEnv()
+    opening = env.reset(task.s0)["profile"]
+    observed = env.step({"op": "get_profile"})["observation"]["profile"]
+    for profile in (opening, observed):
+        assert profile["sex"] == "female"
+        assert profile["age_y"] == 34
+        assert profile["height_cm"] == 165.0
+        assert profile["weight_kg"] == 62.0
+        assert profile["activity"] == "light"
+        assert profile["phase"] == "cut"
+        assert profile["windows"] == {"kcal": [1800.0, 2200.0], "protein_g": [90.0, 140.0]}
+
+
+def test_oracle_profile_object_keeps_unmentioned_body_facts(tmp_path: Path) -> None:
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = {
+        "version": "test-roster",
+        "items": [
+            {
+                "id": "roster-upd-001",
+                "family": "update",
+                "persona": "everyday",
+                "query": "Add a shellfish allergy.",
+                "s0": {
+                    "profile": {
+                        "user_id": "roster-ada",
+                        "allergies": ["peanut"],
+                        "windows": {"kcal": [1800, 2200], "protein_g": [90, 140]},
+                        "sex": "female",
+                        "age_y": 34,
+                        "height_cm": 165.0,
+                        "weight_kg": 62.0,
+                        "activity": "light",
+                        "phase": "cut",
+                    },
+                    "ledger": [],
+                },
+                "oracle": {
+                    "profile": {"allergies": ["peanut", "shellfish"]},
+                    "ledger": "s0",
+                },
+            }
+        ],
+    }
+    path = tmp_path / "roster-update.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    task = load_split(path, catalog=demo_catalog())[0]
+    assert task.oracle.profile is not None
+    assert task.oracle.profile.allergies == ("peanut", "shellfish")
+    assert task.oracle.profile.sex == "female"
+    assert task.oracle.profile.age_y == 34
+    assert task.oracle.profile.height_cm == 165.0
+    assert task.oracle.profile.weight_kg == 62.0
+    assert task.oracle.profile.activity == "light"
+    assert task.oracle.profile.phase == "cut"
+    assert task.oracle.profile.windows == task.s0.profile.windows
+
+
+@pytest.mark.parametrize("phase", ["", None, "bulk"])
+def test_load_split_rejects_invalid_phase(tmp_path: Path, phase: str | None) -> None:
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = {
+        "version": "test-roster",
+        "items": [
+            {
+                "id": "roster-phase-001",
+                "family": "log",
+                "persona": "everyday",
+                "query": "Please log breakfast.",
+                "s0": {
+                    "profile": {
+                        "user_id": "roster-ada",
+                        "allergies": ["peanut"],
+                        "windows": {"kcal": [1800, 2200], "protein_g": [90, 140]},
+                        "phase": phase,
+                    },
+                    "ledger": [],
+                },
+                "oracle": {"profile": "s0", "ledger": "s0"},
+            }
+        ],
+    }
+    path = tmp_path / "bad-phase.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="phase"):
+        load_split(path, catalog=demo_catalog())
+
+
+def test_oracle_profile_cannot_override_body_facts(tmp_path: Path) -> None:
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = {
+        "version": "test-roster",
+        "items": [
+            {
+                "id": "roster-upd-body-001",
+                "family": "update",
+                "persona": "everyday",
+                "query": "I now weigh 80 kilograms.",
+                "s0": {
+                    "profile": {
+                        "user_id": "roster-ada",
+                        "allergies": ["peanut"],
+                        "windows": {"kcal": [1800, 2200], "protein_g": [90, 140]},
+                        "sex": "female",
+                        "age_y": 34,
+                        "height_cm": 165.0,
+                        "weight_kg": 62.0,
+                        "activity": "light",
+                        "phase": "cut",
+                    },
+                    "ledger": [],
+                },
+                "oracle": {
+                    "profile": {
+                        "allergies": ["peanut"],
+                        "weight_kg": 80.0,
+                    },
+                    "ledger": "s0",
+                },
+            }
+        ],
+    }
+    path = tmp_path / "roster-body-override.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="body"):
+        load_split(path, catalog=demo_catalog())
+
+
+def test_freezer_round_trips_roster_body_facts(tmp_path: Path) -> None:
+    from nutrienv.bench.pipeline.freezer import task_to_item
+    from nutrienv.bench.realize import Oracle, Task
+    from nutrienv.world.catalog_fixture import demo_catalog
+    from nutrienv.world.types import Profile, WorldState
+
+    catalog = demo_catalog()
+    profile = Profile(
+        user_id="roster-ada",
+        allergies=("peanut",),
+        windows={"kcal": (1800.0, 2200.0), "protein_g": (90.0, 140.0)},
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=62.0,
+        activity="light",
+        phase="cut",
+    )
+    task = Task(
+        "roster-s0-001",
+        "log",
+        "Please log breakfast.",
+        WorldState(profile=profile, catalog=catalog),
+        Oracle(profile=profile, ledger=()),
+        (),
+        "gym",
+    )
+    item = task_to_item(task)
+    stored = item["s0"]["profile"]
+    assert stored["sex"] == "female"
+    assert stored["age_y"] == 34
+    assert stored["height_cm"] == 165.0
+    assert stored["weight_kg"] == 62.0
+    assert stored["activity"] == "light"
+    assert stored["phase"] == "cut"
+    path = tmp_path / "frozen.json"
+    path.write_text(json.dumps({"version": "test", "items": [item]}), encoding="utf-8")
+    loaded = load_split(path, catalog=catalog)[0]
+    assert loaded.s0.profile == profile
+    assert loaded.oracle.profile == profile
 
 
 def test_load_split_v05_is_the_240() -> None:

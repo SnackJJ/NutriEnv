@@ -6,6 +6,10 @@ Bench must mirror these rules when it builds an Oracle, because Pass is
 - ``allergies`` / ``medications`` are a set of names: stripped, lowercased,
   de-duplicated, sorted. Use :func:`normalize_tags` to build Oracle values.
 - ``windows`` values are ``(lo, hi)`` floats with ``lo <= hi``.
+- Body facts (``sex``, ``age_y``, ``height_cm``, ``weight_kg``, ``activity``)
+  are optional. Omitted keys stay ``None``; load does not invent a body.
+  ``phase`` is ``maintain``, ``cut``, or ``muscle``; omitted defaults to
+  ``maintain``.
 - Only the keys a patch mentions change; everything else stays as S0.
   ``version`` is never bumped by Env, only by an explicit patch.
 """
@@ -24,6 +28,7 @@ __all__ = [
     "ImplausibleQuantity",
     "MAX_ITEM_GRAMS",
     "REASON_CODES",
+    "PHASES",
     "normalize_tags",
     "normalize_reasons",
     "normalize_window",
@@ -33,6 +38,9 @@ __all__ = [
     "ledger_totals",
     "food_view",
 ]
+
+
+PHASES = frozenset({"maintain", "cut", "muscle"})
 
 
 REASON_CODES = frozenset(
@@ -64,6 +72,12 @@ class Profile:
     windows: dict[str, tuple[float, float]] = field(default_factory=dict)
     plan_preset: dict = field(default_factory=dict)
     version: int = 1
+    sex: str | None = None
+    age_y: int | None = None
+    height_cm: float | None = None
+    weight_kg: float | None = None
+    activity: str | None = None
+    phase: str = "maintain"
 
 
 @dataclass(frozen=True)

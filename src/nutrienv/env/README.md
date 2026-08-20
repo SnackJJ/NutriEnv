@@ -11,13 +11,19 @@ from nutrienv.world.catalog_fixture import demo_state, demo_catalog, demo_profil
 ## Types — `nutrienv.world.types`
 
 ```python
-Profile(user_id, allergies=(), medications=(), windows={}, plan_preset={}, version=1)  # frozen
+Profile(user_id, allergies=(), medications=(), windows={}, plan_preset={}, version=1,
+        sex=None, age_y=None, height_cm=None, weight_kg=None, activity=None, phase="maintain")  # frozen
 LedgerRow(food_id, grams, eaten_at)                                                    # frozen
 WorldState(profile, ledger=[], catalog={}, last_plan=[], last_verdict=None, last_reasons=())  # mutable
 ```
 
 `last_verdict` is `None` (silence), `"accept"`, or `"reject"`. `last_reasons` is a sorted unique
 tuple of closed reason codes (`allergy` and `{kcal,protein_g,carb_g,fat_g,fiber_g,sodium_mg}_hi/_lo`).
+
+Body facts (`sex`, `age_y`, `height_cm`, `weight_kg`, `activity`) are optional. A split that
+omits them still loads: the fields stay `None` and stored windows are not rewritten onto a
+fictional body. `phase` is `maintain`, `cut`, or `muscle`, default `maintain`. Persona names
+and `plan_preset` flavor are not these fields. `reset` and `get_profile` show them.
 
 `catalog` maps `food_id -> {name, nutrients, allergen_tags, aliases, portions?}`. Nutrients are
 **per 100 g** under the keys `kcal, protein_g, carb_g, fat_g, fiber_g, sodium_mg`.

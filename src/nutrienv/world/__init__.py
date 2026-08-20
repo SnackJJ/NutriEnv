@@ -9,6 +9,7 @@ from .types import (
     LedgerRow,
     MAX_ITEM_GRAMS,
     Profile,
+    PHASES,
     REASON_CODES,
     WorldState,
     food_view,
@@ -45,5 +46,6 @@ __all__ = [
     "ImplausibleQuantity",
     "MAX_ITEM_GRAMS",
     "REASON_CODES",
+    "PHASES",
     "normalize_reasons",
 ]
