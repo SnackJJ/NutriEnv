@@ -527,3 +527,13 @@ def test_env_readme_documents_verdict_envelope() -> None:
     assert "verdict?" in text
     assert "reasons?" in text
 
+
+def test_env_readme_documents_profile_body_facts() -> None:
+    text = Path("src/nutrienv/env/README.md").read_text(encoding="utf-8")
+    assert "age_y" in text
+    assert "height_cm" in text
+    assert "weight_kg" in text
+    assert "activity" in text
+    assert "phase" in text
+    assert "maintain" in text
+
