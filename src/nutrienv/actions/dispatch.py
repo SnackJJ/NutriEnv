@@ -235,6 +235,8 @@ def _submit_plan(state: WorldState, args: dict, _default_eaten_at: str) -> dict:
             raise ActionError("bad_schema", f"'reasons': {exc}") from exc
 
     if verdict == "reject":
+        if normalized:
+            raise ActionError("bad_schema", "reject requires empty items")
         state.last_plan = []
         state.last_verdict = "reject"
         state.last_reasons = reasons

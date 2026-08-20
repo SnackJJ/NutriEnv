@@ -265,3 +265,29 @@ def test_reject_with_empty_items_sets_reasons_and_clears_plan() -> None:
     assert state.last_plan == []
     assert state.last_reasons == ("allergy", "kcal_hi")
 
+
+def test_reject_with_nonempty_plan_is_illegal_and_leaves_world_unchanged() -> None:
+    env = NutriEnv()
+    env.reset(demo_state())
+    env.step({"op": "submit_plan", "items": [{"food_id": "egg", "grams": 100}]})
+    before = copy.deepcopy(env.state())
+
+    out = env.step(
+        {
+            "op": "submit_plan",
+            "items": [{"food_id": "oats", "grams": 50}],
+            "verdict": "reject",
+            "reasons": ["kcal_hi"],
+        }
+    )
+
+    assert out["ok"] is False
+    assert out["error"]["code"] == "bad_schema"
+    after = env.state()
+    assert after.ledger == before.ledger
+    assert after.profile == before.profile
+    assert after.last_plan == before.last_plan
+    assert after.last_verdict == before.last_verdict
+    assert after.last_reasons == before.last_reasons
+    assert after.catalog == before.catalog
+
