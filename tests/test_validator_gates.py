@@ -389,6 +389,31 @@ def test_recommend_gate_rejects_unsatisfiable_windows():
     assert any("unpassable" in item for item in issues)
 
 
+def test_reject_evaluate_is_not_dropped_as_unpassable():
+    s0 = _draft_s0()
+    s0.profile = replace(
+        s0.profile,
+        windows={"kcal": (0.0, 1.0), "protein_g": (100.0, 110.0)},
+    )
+    task = Task(
+        "draft",
+        "evaluate",
+        "I was going to eat peanut butter, is that okay?",
+        s0,
+        Oracle(
+            profile=s0.profile,
+            last_plan=[],
+            last_verdict="reject",
+            last_reasons=("allergy",),
+            plan_must_fit_windows=True,
+            ledger=tuple(s0.ledger),
+        ),
+    )
+    issues = validate_draft(task)
+    assert not any("unpassable" in item for item in issues)
+    assert not any("last_plan is empty" in item for item in issues)
+
+
 def test_recommend_gate_accepts_a_normal_meal():
     task = _recommend_draft({"kcal": (400.0, 800.0), "protein_g": (20.0, 50.0)})
     assert validate_draft(task) == []
