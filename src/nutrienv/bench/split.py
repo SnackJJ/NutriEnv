@@ -269,15 +269,23 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
         last_reasons = normalize_reasons(value["last_reasons"])
     if last_verdict != "reject" and last_reasons:
         raise ValueError("oracle.last_reasons require last_verdict 'reject'")
+    plan_must_be_safe = bool(value.get("plan_must_be_safe", False))
+    plan_must_fit_windows = bool(value.get("plan_must_fit_windows", False))
+    allow_empty_plan = bool(value.get("allow_empty_plan", False))
+    if last_verdict == "reject":
+        if plan_must_fit_windows:
+            raise ValueError("reject oracle must not set plan_must_fit_windows")
+        if allow_empty_plan:
+            raise ValueError("reject oracle must not set allow_empty_plan")
 
     return Oracle(
         profile=profile,
         last_plan=copy.deepcopy(last_plan) if last_plan is not None else None,
         ledger_tail=ledger_tail,
         ledger=ledger,
-        plan_must_be_safe=bool(value.get("plan_must_be_safe", False)),
-        plan_must_fit_windows=bool(value.get("plan_must_fit_windows", False)),
-        allow_empty_plan=bool(value.get("allow_empty_plan", False)),
+        plan_must_be_safe=plan_must_be_safe,
+        plan_must_fit_windows=plan_must_fit_windows,
+        allow_empty_plan=allow_empty_plan,
         plan_windows=plan_windows,
         last_verdict=last_verdict,
         last_reasons=last_reasons,

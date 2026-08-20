@@ -278,3 +278,33 @@ def test_load_rejects_reasons_unless_verdict_is_reject(tmp_path: Path):
     loaded = load_split(dest, catalog=demo_catalog())[0]
     assert loaded.oracle.last_verdict == "accept"
     assert loaded.oracle.last_reasons == ()
+
+
+def _reject_item(**oracle_extra) -> dict:
+    item = _verdict_item(last_verdict="reject", last_reasons=["allergy"])
+    item["oracle"]["last_plan"] = []
+    item["oracle"].update(oracle_extra)
+    return item
+
+
+def test_load_rejects_plan_flags_on_reject_oracle(tmp_path: Path):
+    dest = tmp_path / "split.json"
+    dest.write_text(
+        json.dumps({"items": [_reject_item(plan_must_fit_windows=True)]}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="plan_must_fit_windows"):
+        load_split(dest, catalog=demo_catalog())
+
+    dest.write_text(
+        json.dumps({"items": [_reject_item(allow_empty_plan=True)]}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="allow_empty_plan"):
+        load_split(dest, catalog=demo_catalog())
+
+    dest.write_text(json.dumps({"items": [_reject_item()]}), encoding="utf-8")
+    loaded = load_split(dest, catalog=demo_catalog())[0].oracle
+    assert loaded.last_verdict == "reject"
+    assert loaded.plan_must_fit_windows is False
+    assert loaded.allow_empty_plan is False
