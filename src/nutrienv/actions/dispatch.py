@@ -152,6 +152,8 @@ def _get_profile(state: WorldState, _args: dict, _default_eaten_at: str) -> dict
         "op": "get_profile",
         "profile": profile_view(state.profile),
         "last_plan": copy.deepcopy(state.last_plan),
+        "last_verdict": state.last_verdict,
+        "last_reasons": list(state.last_reasons),
     }
 
 

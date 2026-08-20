@@ -428,3 +428,36 @@ def test_unknown_verdict_is_illegal_and_leaves_world_unchanged() -> None:
     assert after.last_verdict == "accept"
     assert after.last_plan == before.last_plan
 
+
+def test_reset_and_get_profile_expose_verdict_and_reasons() -> None:
+    env = NutriEnv()
+    opening = env.reset(demo_state())
+    assert opening["last_verdict"] is None
+    assert opening["last_reasons"] == []
+
+    env.step({"op": "submit_plan", "items": [{"food_id": "egg", "grams": 100}]})
+    accepted = env.step({"op": "get_profile"})["observation"]
+    assert accepted["last_verdict"] == "accept"
+    assert accepted["last_reasons"] == []
+    assert accepted["last_plan"] == [{"food_id": "egg", "grams": 100.0}]
+
+    env.step(
+        {
+            "op": "submit_plan",
+            "items": [],
+            "verdict": "reject",
+            "reasons": ["fiber_g_lo", "allergy"],
+        }
+    )
+    rejected = env.step({"op": "get_profile"})["observation"]
+    assert rejected["last_verdict"] == "reject"
+    assert rejected["last_reasons"] == ["allergy", "fiber_g_lo"]
+    assert rejected["last_plan"] == []
+
+    seeded = demo_state()
+    seeded.last_verdict = "reject"
+    seeded.last_reasons = ("kcal_hi",)
+    seeded_obs = NutriEnv().reset(seeded)
+    assert seeded_obs["last_verdict"] == "reject"
+    assert seeded_obs["last_reasons"] == ["kcal_hi"]
+
