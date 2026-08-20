@@ -14,7 +14,7 @@ import math
 import re
 from dataclasses import replace
 
-from ..world.catalog import canonical_food_id
+from ..world.catalog import canonical_food_id, iter_catalog_entries
 from ..world.daily_windows import ACTIVITY_PAL, derive_profile_windows
 from ..world.dri import BASIS, DRI_REFERENCE
 from ..world.types import (
@@ -135,7 +135,7 @@ def _search_mapping(catalog: dict, needle: str) -> list[dict]:
     if needle == SEARCH_ALL or not needle:
         return []
     results = []
-    for food_id, entry in catalog.items():
+    for food_id, entry in iter_catalog_entries(catalog):
         if not isinstance(entry, dict):
             continue
         if _search_match(needle, food_id, entry):

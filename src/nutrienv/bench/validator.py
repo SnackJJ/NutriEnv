@@ -428,7 +428,7 @@ def _food_mentions_tag(query: str, tag: str, catalog) -> bool:
     phrases = {tag, tag.replace("_", " ")}
     if any(_token_in_query(phrase, query) for phrase in phrases):
         return True
-    for entry in catalog.values():
+    for _, entry in iter_catalog_entries(catalog):
         tags = entry.get("allergen_tags") or []
         if tag not in tags:
             continue
@@ -680,7 +680,7 @@ def _validate_condition(task: Task, query: str) -> list[str]:
         issues.append("condition meal kcal ceiling must be <= 800")
     allergies = set(task.s0.profile.allergies)
     carries = False
-    for food_id, entry in task.s0.catalog.items():
+    for food_id, entry in iter_catalog_entries(task.s0.catalog):
         tags = set(entry.get("allergen_tags") or [])
         if not allergies.intersection(tags):
             continue
