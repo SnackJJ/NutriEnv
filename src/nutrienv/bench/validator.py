@@ -9,7 +9,7 @@ from __future__ import annotations
 import itertools
 import re
 
-from nutrienv.world.catalog import canonical_food_id
+from nutrienv.world.catalog import canonical_food_id, iter_catalog_entries
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals, normalize_tags
 
@@ -285,7 +285,7 @@ def _tag_set(values) -> set[str]:
 
 def _catalog_tags(catalog) -> set[str]:
     tags: set[str] = set()
-    for entry in catalog.values():
+    for _, entry in iter_catalog_entries(catalog):
         for tag in entry.get("allergen_tags") or []:
             tags.add(str(tag))
     return tags
@@ -298,9 +298,6 @@ def _token_in_query(token: str, query: str) -> bool:
     return re.search(rf"(?<![\w]){re.escape(token)}(?![\w])", query) is not None
 
 
-_FOOD_IDENTITY_INDEX: dict[int, dict[str, set[str]]] = {}
-
-
 def _index_spoken_name(index: dict[str, set[str]], name: str, identity: str) -> None:
     key = name.strip().lower()
     if len(key) < 3 or "," in key:
@@ -309,15 +306,15 @@ def _index_spoken_name(index: dict[str, set[str]], name: str, identity: str) -> 
 
 
 def _food_identity_index(catalog) -> dict[str, set[str]]:
-    cached = _FOOD_IDENTITY_INDEX.get(id(catalog))
+    cached = getattr(catalog, "_identity_index", None)
     if cached is not None:
         return cached
     index: dict[str, set[str]] = {}
-    for food_id in catalog:
+    for food_id, entry in iter_catalog_entries(catalog):
         identity = canonical_food_id(catalog, str(food_id))
         _index_spoken_name(index, str(food_id), identity)
         _index_spoken_name(index, str(food_id).replace("_", " "), identity)
-        for alias in (catalog.get(food_id) or {}).get("aliases") or []:
+        for alias in entry.get("aliases") or []:
             _index_spoken_name(index, str(alias), identity)
             _index_spoken_name(index, str(alias).replace("_", " "), identity)
     aliases = getattr(catalog, "_aliases", None)
@@ -326,7 +323,12 @@ def _food_identity_index(catalog) -> dict[str, set[str]]:
             identity = canonical_food_id(catalog, str(fdc_id))
             _index_spoken_name(index, str(slug), identity)
             _index_spoken_name(index, str(slug).replace("_", " "), identity)
-    _FOOD_IDENTITY_INDEX[id(catalog)] = index
+    try:
+        # Hang it on the catalog, not a global id() table: an id is reused once
+        # the object it named is collected, and that served a stale index.
+        catalog._identity_index = index
+    except (AttributeError, TypeError):
+        pass
     return index
 
 

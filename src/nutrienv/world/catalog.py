@@ -14,7 +14,7 @@ import sqlite3
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 
-__all__ = ["FoodCatalog", "SEARCH_LIMIT", "canonical_food_id"]
+__all__ = ["FoodCatalog", "SEARCH_LIMIT", "canonical_food_id", "iter_catalog_entries"]
 
 SEARCH_LIMIT = 25
 _TOKEN = re.compile(r"[a-z0-9]+")
@@ -244,6 +244,17 @@ class FoodCatalog(Mapping[str, dict]):
             return self._overlay[canonical]
         return self._base[canonical]
 
+    def iter_entries(self) -> Iterator[tuple[str, dict]]:
+        """Canonical ``(food_id, entry)`` pairs for a read-only scan.
+
+        ``__getitem__`` deep-copies each entry because a clone shares ``_base``
+        with its parent and the caller may mutate what it gets. A scan does not
+        mutate, so it reads ``_base`` directly: the entries are shared, and a
+        caller that wants to change one must copy it first.
+        """
+        for food_id in self:
+            yield food_id, self._base[food_id]
+
     def __contains__(self, food_id: object) -> bool:
         if not isinstance(food_id, str):
             return False
@@ -283,6 +294,14 @@ class FoodCatalog(Mapping[str, dict]):
         clone._overlay = copy.deepcopy(self._overlay)
         memo[id(self)] = clone
         return clone
+
+
+def iter_catalog_entries(catalog) -> Iterator[tuple[str, dict]]:
+    """Read-only ``(food_id, entry)`` scan over a catalog or a plain mapping."""
+    scan = getattr(catalog, "iter_entries", None)
+    if scan is not None:
+        return scan()
+    return ((str(food_id), catalog[food_id]) for food_id in catalog)
 
 
 def _prepend_unique(head: list[dict], tail: list[dict], limit: int) -> list[dict]:

@@ -1,4 +1,9 @@
-from nutrienv.world.catalog import FoodCatalog, SEARCH_LIMIT, canonical_food_id
+from nutrienv.world.catalog import (
+    FoodCatalog,
+    SEARCH_LIMIT,
+    canonical_food_id,
+    iter_catalog_entries,
+)
 from nutrienv.world.catalog_fixture import demo_catalog
 from nutrienv.world.catalog_store import GOLD_CATALOG_PATH, load_catalog
 
@@ -37,3 +42,24 @@ def test_canonical_food_id_plain_dict() -> None:
     catalog = {"oats": {"name": "Rolled oats"}}
     assert canonical_food_id(catalog, "oats") == "oats"
     assert canonical_food_id(catalog, "missing") == "missing"
+
+
+def test_iter_entries_scans_without_copying_but_getitem_still_does() -> None:
+    """A read-only scan shares entries; ``[]`` keeps its copy-on-write guard.
+
+    A clone shares ``_base`` with its parent, so ``__getitem__`` deep-copies
+    what it hands out. Scanning the whole catalog that way costs one deepcopy
+    per food per task, which is why validators read through ``iter_entries``.
+    """
+    catalog = load_catalog()
+    scanned = dict(catalog.iter_entries())
+    assert len(scanned) == len(catalog)
+    food_id = next(iter(scanned))
+    assert scanned[food_id] is catalog._base[food_id]
+    assert catalog[food_id] is not catalog._base[food_id]
+    assert catalog[food_id] == scanned[food_id]
+
+
+def test_iter_catalog_entries_accepts_a_plain_mapping() -> None:
+    plain = {"oats": {"name": "Rolled oats"}}
+    assert list(iter_catalog_entries(plain)) == [("oats", plain["oats"])]
