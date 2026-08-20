@@ -13,8 +13,11 @@ from nutrienv.world.catalog_fixture import demo_state, demo_catalog, demo_profil
 ```python
 Profile(user_id, allergies=(), medications=(), windows={}, plan_preset={}, version=1)  # frozen
 LedgerRow(food_id, grams, eaten_at)                                                    # frozen
-WorldState(profile, ledger=[], catalog={}, last_plan=[])                               # mutable
+WorldState(profile, ledger=[], catalog={}, last_plan=[], last_verdict=None, last_reasons=())  # mutable
 ```
+
+`last_verdict` is `None` (silence), `"accept"`, or `"reject"`. `last_reasons` is a sorted unique
+tuple of closed reason codes (`allergy` and `{kcal,protein_g,carb_g,fat_g,fiber_g,sodium_mg}_hi/_lo`).
 
 `catalog` maps `food_id -> {name, nutrients, allergen_tags, aliases, portions?}`. Nutrients are
 **per 100 g** under the keys `kcal, protein_g, carb_g, fat_g, fiber_g, sodium_mg`.
@@ -28,7 +31,7 @@ env.step(action: dict) -> dict      # {ok, observation, error?, done}
 env.state() -> WorldState           # the live end state, for the scorer
 ```
 
-- `reset` returns `{op, profile, ledger, ledger_totals, last_plan, catalog_size}`.
+- `reset` returns `{op, profile, ledger, ledger_totals, last_plan, last_verdict, last_reasons, catalog_size}`.
   Find foods with `search_foods` (BM25 over the local USDA snapshot). The opening
   observation does not list every id.
 - `step` on a legal action → `{"ok": True, "observation": {...}, "done": False}`.
@@ -45,18 +48,24 @@ env.state() -> WorldState           # the live end state, for the scorer
 |---|---|---|
 | `search_foods` | `q` | BM25 over name/aliases/food_id; top 25. `q="*"` is empty, not a dump |
 | `get_food` | `food_id` | full catalog entry, including `portions` |
-| `get_profile` | — | profile view |
+| `get_profile` | — | profile view plus `last_plan`, `last_verdict`, `last_reasons` |
 | `get_ledger` | — | all rows, each with scaled `nutrients`, plus `totals` |
 | `get_dri` | — | static FDA reference table + the profile's own windows |
 | `log_meal` | `food_id`, `grams`, `eaten_at?` | appends a `LedgerRow` |
-| `submit_plan` | `items: [{food_id, grams}]` | replaces `state.last_plan` |
+| `submit_plan` | `items: [{food_id, grams}]`, `verdict?`, `reasons?` | writes `last_plan`, `last_verdict`, `last_reasons` |
 | `update_profile` | `patch` | patches `allergies, medications, windows, plan_preset, version` |
 | `update_plan` | `patch` | shallow-merges into `profile.plan_preset` |
 
 Schemas are strict: an unknown key anywhere in the envelope or in a plan item is `bad_schema`.
 `grams` must be a finite number `> 0` and at most 2000. A submitted plan's
 total may not exceed 4000 g. Either breach is `implausible_quantity`, not
-`bad_schema`. An empty `items` list is legal.
+`bad_schema`. An empty `items` list is legal. `submit_plan` is total on
+`(last_verdict, last_plan, last_reasons)`: omitted verdict with non-empty items infers
+accept; omitted verdict with empty items is silence (`None`, `[]`, `()`), not reject.
+`verdict=accept` requires a non-empty plan and forbids the `reasons` key (including
+`reasons=[]`). `verdict=reject` requires empty items; empty or omitted reasons are
+legal physics. Reject plus a plan, accept plus `reasons`, reasons without a verdict,
+or an unknown reason token is `bad_schema` and leaves the world unchanged.
 
 ## Rules bench-gen must mirror when building an Oracle
 

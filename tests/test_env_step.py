@@ -493,3 +493,11 @@ def test_reset_and_get_profile_expose_verdict_and_reasons() -> None:
     assert seeded_obs["last_verdict"] == "reject"
     assert seeded_obs["last_reasons"] == ["kcal_hi"]
 
+
+def test_env_readme_documents_verdict_envelope() -> None:
+    text = Path("src/nutrienv/env/README.md").read_text(encoding="utf-8")
+    assert "last_verdict" in text
+    assert "last_reasons" in text
+    assert "verdict?" in text
+    assert "reasons?" in text
+
