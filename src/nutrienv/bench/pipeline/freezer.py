@@ -77,6 +77,13 @@ def task_to_item(task: Task) -> dict:
     }
     if task.s0.profile.plan_preset:
         profile["plan_preset"] = dict(task.s0.profile.plan_preset)
+    body = task.s0.profile
+    for key in ("sex", "age_y", "height_cm", "weight_kg", "activity"):
+        value = getattr(body, key)
+        if value is not None:
+            profile[key] = value
+    if body.phase != "maintain":
+        profile["phase"] = body.phase
     s0: dict[str, object] = {
         "profile": profile,
         "ledger": [

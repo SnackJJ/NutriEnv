@@ -147,6 +147,48 @@ def test_oracle_profile_object_keeps_unmentioned_body_facts(tmp_path: Path) -> N
     assert task.oracle.profile.windows == task.s0.profile.windows
 
 
+def test_freezer_round_trips_roster_body_facts(tmp_path: Path) -> None:
+    from nutrienv.bench.pipeline.freezer import task_to_item
+    from nutrienv.bench.realize import Oracle, Task
+    from nutrienv.world.catalog_fixture import demo_catalog
+    from nutrienv.world.types import Profile, WorldState
+
+    catalog = demo_catalog()
+    profile = Profile(
+        user_id="roster-ada",
+        allergies=("peanut",),
+        windows={"kcal": (1800.0, 2200.0), "protein_g": (90.0, 140.0)},
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=62.0,
+        activity="light",
+        phase="cut",
+    )
+    task = Task(
+        "roster-s0-001",
+        "log",
+        "Please log breakfast.",
+        WorldState(profile=profile, catalog=catalog),
+        Oracle(profile=profile, ledger=()),
+        (),
+        "gym",
+    )
+    item = task_to_item(task)
+    stored = item["s0"]["profile"]
+    assert stored["sex"] == "female"
+    assert stored["age_y"] == 34
+    assert stored["height_cm"] == 165.0
+    assert stored["weight_kg"] == 62.0
+    assert stored["activity"] == "light"
+    assert stored["phase"] == "cut"
+    path = tmp_path / "frozen.json"
+    path.write_text(json.dumps({"version": "test", "items": [item]}), encoding="utf-8")
+    loaded = load_split(path, catalog=catalog)[0]
+    assert loaded.s0.profile == profile
+    assert loaded.oracle.profile == profile
+
+
 def test_load_split_v05_is_the_240() -> None:
     tasks = load_split(Path("data/splits/v0.5-gold.json"))
     assert len(tasks) == 240
