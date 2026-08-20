@@ -147,6 +147,37 @@ def test_oracle_profile_object_keeps_unmentioned_body_facts(tmp_path: Path) -> N
     assert task.oracle.profile.windows == task.s0.profile.windows
 
 
+@pytest.mark.parametrize("phase", ["", None, "bulk"])
+def test_load_split_rejects_invalid_phase(tmp_path: Path, phase: str | None) -> None:
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = {
+        "version": "test-roster",
+        "items": [
+            {
+                "id": "roster-phase-001",
+                "family": "log",
+                "persona": "everyday",
+                "query": "Please log breakfast.",
+                "s0": {
+                    "profile": {
+                        "user_id": "roster-ada",
+                        "allergies": ["peanut"],
+                        "windows": {"kcal": [1800, 2200], "protein_g": [90, 140]},
+                        "phase": phase,
+                    },
+                    "ledger": [],
+                },
+                "oracle": {"profile": "s0", "ledger": "s0"},
+            }
+        ],
+    }
+    path = tmp_path / "bad-phase.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="phase"):
+        load_split(path, catalog=demo_catalog())
+
+
 def test_oracle_profile_cannot_override_body_facts(tmp_path: Path) -> None:
     from nutrienv.world.catalog_fixture import demo_catalog
 

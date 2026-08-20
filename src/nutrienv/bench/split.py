@@ -9,7 +9,14 @@ from pathlib import Path
 
 from nutrienv.world.catalog import canonical_food_id
 from nutrienv.world.catalog_store import load_catalog
-from nutrienv.world.types import LedgerRow, Profile, WorldState, normalize_tags, normalize_window
+from nutrienv.world.types import (
+    PHASES,
+    LedgerRow,
+    Profile,
+    WorldState,
+    normalize_tags,
+    normalize_window,
+)
 
 from .realize import FAMILIES, Oracle, Task
 from .situations import SITUATIONS
@@ -165,8 +172,17 @@ def _profile(value: object, *, default_user: str) -> Profile:
         height_cm=None if height_cm is None else float(height_cm),
         weight_kg=None if weight_kg is None else float(weight_kg),
         activity=value.get("activity"),
-        phase=value.get("phase") or "maintain",
+        phase=_phase(value),
     )
+
+
+def _phase(value: dict) -> str:
+    if "phase" not in value:
+        return "maintain"
+    phase = value["phase"]
+    if phase not in PHASES:
+        raise ValueError("phase must be 'maintain', 'cut', or 'muscle'")
+    return phase
 
 
 def _row(value: object, catalog: object) -> LedgerRow:
