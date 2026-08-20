@@ -27,12 +27,14 @@ from .situations import SITUATIONS
 __all__ = ["GOLD_SPLIT_PATH", "EXAM_SPLIT_PATH", "load_split", "load_exam"]
 
 _ROOT = Path(__file__).resolve().parents[3]
-# v0 calibration set, not the published 240-item exam.
-GOLD_SPLIT_PATH = _ROOT / "data" / "splits" / "v0-gold.json"
+# Archived v0 calibration set; kept for archaeology through load_split.
+GOLD_SPLIT_PATH = _ROOT / "data" / "splits" / "archive" / "v0-gold.json"
+# No published exam is active while the v1.x mill lands. The old v0.5 path is
+# intentionally missing; load_exam fails closed until the next exam is frozen.
 EXAM_SPLIT_PATH = _ROOT / "data" / "splits" / "v0.5-gold.json"
-# Transitional published exam is v0.5-gold. v1.0-gold was archived (ticket 07);
-# ticket 11 will publish the next exam.
-_EXAM_VERSIONS = frozenset({"v0.5-gold"})
+# v0.5-gold was archived with its v0.x parents (ticket 08 migration). No
+# version is accepted on the formal path until the next exam lands.
+_EXAM_VERSIONS = frozenset()
 
 
 def load_split(path: Path | str | None = None, *, catalog=None) -> list[Task]:

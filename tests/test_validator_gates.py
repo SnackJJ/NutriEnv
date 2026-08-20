@@ -22,7 +22,7 @@ from nutrienv.bench.windows import windows_unsatisfiable
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.types import Profile, WorldState, normalize_tags
 
-_LEGACY_CATALOG = Path(__file__).resolve().parents[1] / "data" / "fdc" / "catalog.sqlite"
+_LEGACY_CATALOG = Path(__file__).resolve().parents[1] / "data" / "fdc" / "archive" / "catalog.sqlite"
 
 
 def _task(row):
@@ -511,7 +511,7 @@ def test_every_frozen_item_still_validates():
 
     from nutrienv.bench.split import load_split
 
-    for task in load_split(Path("data/splits/v0.5-gold.json")):
+    for task in load_split(Path("data/splits/archive/v0.5-gold.json")):
         issues = validate_draft(task)
         assert issues == [], (task.id, issues)
 

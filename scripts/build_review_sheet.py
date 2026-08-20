@@ -525,7 +525,7 @@ def _resolve(path: str) -> Path:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--split", default="data/splits/v0.5-gold.json")
+    parser.add_argument("--split", default="data/splits/archive/v0.5-gold.json")
     parser.add_argument("--out", default="reports/review-sheet.json")
     parser.add_argument(
         "--allow-catalog-sha-mismatch",

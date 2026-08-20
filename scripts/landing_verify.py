@@ -39,7 +39,7 @@ from nutrienv.bench.validator import validate_draft, validate_oracle_grams  # no
 from nutrienv.world.catalog_store import load_catalog  # noqa: E402
 from nutrienv.world.portions import resolve_portion  # noqa: E402
 
-_SPLIT = _ROOT / "data" / "splits" / "v0.5-gold.json"
+_SPLIT = _ROOT / "data" / "splits" / "archive" / "v0.5-gold.json"
 _EXAM_N = 240
 # v0.5-gold is a frozen legacy exam. These 9 items fail validate_oracle_grams
 # (the oral grams gate landed after that freeze). Ids plus oracle ledger_tail

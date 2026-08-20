@@ -69,13 +69,13 @@ def test_freeze_split_rejects_unanchored_oracle_before_writing(
 def test_freeze_split_accepts_existing_v02_through_v05_items(
     tmp_path: Path,
 ) -> None:
-    source = ROOT / "data" / "splits" / "v0.5-gold.json"
+    source = ROOT / "data" / "splits" / "archive" / "v0.5-gold.json"
     payload = json.loads(source.read_text(encoding="utf-8"))
     target = tmp_path / "v0.5-gold.json"
 
     # v0.5 items were authored against the frozen legacy catalog, not the
     # active catalog-v2 snapshot.
-    legacy_catalog = ROOT / "data" / "fdc" / "catalog.sqlite"
+    legacy_catalog = ROOT / "data" / "fdc" / "archive" / "catalog.sqlite"
     materialize_split.freeze_split(payload, target, load_catalog(legacy_catalog))
 
     assert target.is_file()

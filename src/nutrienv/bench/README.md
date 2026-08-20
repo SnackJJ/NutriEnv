@@ -52,9 +52,13 @@ Scoring returns exactly `{"passed": bool, "tag": str}`. The tags are `pass`,
 
 Situations use the active local USDA FDC catalog (`data/fdc/catalog-v2.sqlite`,
 FNDDS-only, built by `scripts/download_fdc.py` and
-`scripts/build_fdc_catalog.py --fndds-only --out data/fdc/catalog-v2.sqlite`). The published exam is a frozen split (ADR 0006, ADR 0009). `data/splits/v0-gold.json` is the 40-item calibration set; `v0.1-gold.json` is 64, `v0.2-gold.json` is 100 and `v0.3-gold.json` is 156, each copying its parent's items unchanged and appending a reviewed slice. Increments are materialized by `scripts/materialize_split.py <version>`, which drives the public `realize(material, query)` seam, so a frozen file cannot drift from the table that produced it. `evaluate` reached its full 48-item allocation in v0.3. The destination ruler is 240 sliced items; increments are new files, never an overwrite of v0-gold. Everyday is the majority persona; cut / gym / leftover / flex are reasons people ask; hypertension is one thin item. Lookup is not in the headline split. Leftover recommend tasks show daily windows on the Profile and score the meal against `Oracle.plan_windows` (the remainder; ADR 0007). `scripts/run_react.py` runs the published 240-item exam by default (fail-closed `load_exam`); pass `--split` to run a calibration/history file.
+`scripts/build_fdc_catalog.py --fndds-only --out data/fdc/catalog-v2.sqlite`).
 
-The published exam is `data/splits/v0.5-gold.json`, loaded through `load_exam()`, which binds it to the exact catalog file recorded in the manifest: it rejects a wrong version, a missing or non-`.sqlite` catalog, or a `catalog_sha256` mismatch. The manifest field therefore records the *currently verified* catalog for v0.5, while the parent v0.1–v0.4 splits keep the hash of the catalog frozen at their materialization time (`e1ffbb1a…`, pre-2026-08-16 rebuild). Any future catalog rebuild must update the `catalog_sha256` of every in-use split, or the exam will refuse to start.
+The v0.x exam line is archived in `data/splits/archive/` (v0-gold through
+v0.5-gold), bound to the archived legacy catalog `data/fdc/archive/catalog.sqlite`.
+There is currently **no published exam** on the formal path: `load_exam()` fails
+closed until the v1.x mill freezes the next exam. Archived splits can still be
+loaded through `load_split()` for archaeology; `load_exam()` rejects them.
 
 Diversity comes from `realizations.py` tables. Every family the exam scores is table-backed: `FUZZY_ROWS` (24), `LEFTOVER_ROWS` (27), `UPDATE_ROWS` (22), `CONSTRAIN_ROWS` (22, split into `kind="condition"` and `kind="conflict"`), `EVALUATE_ROWS` (55). Gold-shaped rows come first in each table so the factory still covers the calibration shapes.
 

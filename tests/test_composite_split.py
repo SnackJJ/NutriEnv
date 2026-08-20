@@ -14,7 +14,7 @@ from nutrienv.bench.split import load_exam, load_split
 from nutrienv.world.catalog_fixture import demo_catalog, demo_state
 from nutrienv.world.types import LedgerRow
 
-V05 = Path("data/splits/v0.5-gold.json")
+V05 = Path("data/splits/archive/v0.5-gold.json")
 
 
 def test_old_payloads_without_sub_oracles_still_load():
@@ -36,7 +36,7 @@ def test_load_exam_round_trip_composite_json(tmp_path: Path):
     catalog = demo_catalog()
     payload = {
         "version": "v1.0-composite-sample",
-        "catalog": "data/fdc/catalog-v1.sqlite",
+        "catalog": "data/fdc/archive/catalog-v1.sqlite",
         "catalog_sha256": "0" * 64,
         "items": [
             {

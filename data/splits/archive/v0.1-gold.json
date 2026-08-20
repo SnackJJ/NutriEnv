@@ -1,6 +1,6 @@
 {
   "version": "v0.1-gold",
-  "catalog": "data/fdc/catalog.sqlite",
+  "catalog": "data/fdc/archive/catalog.sqlite",
   "catalog_sha256": "e1ffbb1a594a99a404c9a34dadfe09409bebaf702cb65173686e30caf3fdcbf7",
   "parent": "v0-gold",
   "notes": "v0-gold 40 KEEP plus first increment: 16 novel fuzzy_portion logs and 8 novel leftover recommends from realizations.py. Destination exam is 240 (ADR 0009). Do not treat this file as the 240.",
@@ -11,7 +11,7 @@
       "situations": [
         "fuzzy_portion"
       ],
-      "query": "I had half a cup of milk with breakfast \u2014 can you log that?",
+      "query": "I had half a cup of milk with breakfast — can you log that?",
       "s0": {
         "profile": {
           "user_id": "gold-log-fuzzy",
@@ -171,7 +171,7 @@
       "situations": [
         "ledger_gap"
       ],
-      "query": "I forgot to log lunch \u2014 150g of chicken breast. Add just that.",
+      "query": "I forgot to log lunch — 150g of chicken breast. Add just that.",
       "s0": {
         "profile": {
           "user_id": "gold-log-gap",
@@ -219,7 +219,7 @@
       "id": "v0-log-eaten-001",
       "family": "log",
       "situations": [],
-      "query": "Log the shrimp I ate for lunch \u2014 about 150g.",
+      "query": "Log the shrimp I ate for lunch — about 150g.",
       "s0": {
         "profile": {
           "user_id": "gold-log-eaten",
@@ -301,7 +301,7 @@
       "id": "v0-update-kcal-001",
       "family": "update",
       "situations": [],
-      "query": "I've been exhausted. Move my whole calorie range up by 200 \u2014 both the floor and the ceiling. Leave everything else alone.",
+      "query": "I've been exhausted. Move my whole calorie range up by 200 — both the floor and the ceiling. Leave everything else alone.",
       "s0": {
         "profile": {
           "user_id": "gold-upd-kcal",
@@ -337,7 +337,7 @@
       "id": "v0-update-both-001",
       "family": "update",
       "situations": [],
-      "query": "Add shellfish to my allergies \u2014 I reacted to shrimp \u2014 and move my whole calorie range up by 200. Don't change anything else.",
+      "query": "Add shellfish to my allergies — I reacted to shrimp — and move my whole calorie range up by 200. Don't change anything else.",
       "s0": {
         "profile": {
           "user_id": "gold-upd-both",
@@ -595,7 +595,7 @@
       "family": "recommend",
       "persona": "gym",
       "situations": [],
-      "query": "Just finished lifting \u2014 what should I eat?",
+      "query": "Just finished lifting — what should I eat?",
       "s0": {
         "profile": {
           "user_id": "gold-rec-gym",
@@ -779,7 +779,7 @@
       "situations": [
         "fuzzy_portion"
       ],
-      "query": "I had two eggs this morning \u2014 can you log that?",
+      "query": "I had two eggs this morning — can you log that?",
       "s0": {
         "profile": {
           "user_id": "gold-log-eggs",
@@ -829,7 +829,7 @@
       "situations": [
         "fuzzy_portion"
       ],
-      "query": "Just ate a banana as a snack \u2014 can you log it?",
+      "query": "Just ate a banana as a snack — can you log it?",
       "s0": {
         "profile": {
           "user_id": "gold-log-banana",
@@ -979,7 +979,7 @@
       "situations": [
         "near_synonym"
       ],
-      "query": "Log the prawns I had for dinner \u2014 about 150 grams.",
+      "query": "Log the prawns I had for dinner — about 150 grams.",
       "s0": {
         "profile": {
           "user_id": "gold-log-prawn",
@@ -1972,7 +1972,7 @@
       "situations": [
         "fuzzy_portion"
       ],
-      "query": "Had a slice of cheddar at lunch \u2014 can you log that?",
+      "query": "Had a slice of cheddar at lunch — can you log that?",
       "s0": {
         "profile": {
           "user_id": "v01-fz-cheddar-slice",
@@ -2137,7 +2137,7 @@
       "situations": [
         "fuzzy_portion"
       ],
-      "query": "Just ate an apple as a snack \u2014 can you log it?",
+      "query": "Just ate an apple as a snack — can you log it?",
       "s0": {
         "profile": {
           "user_id": "v01-fz-apple-piece",

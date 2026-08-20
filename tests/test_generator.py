@@ -22,7 +22,7 @@ from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals
 
-_LEGACY_CATALOG = Path(__file__).resolve().parents[1] / "data" / "fdc" / "catalog.sqlite"
+_LEGACY_CATALOG = Path(__file__).resolve().parents[1] / "data" / "fdc" / "archive" / "catalog.sqlite"
 
 
 def _task(row, *, catalog=None):

@@ -11,7 +11,7 @@ from nutrienv.world.catalog_fixture import demo_state
 from nutrienv.world.daily_windows import derive_daily_windows
 from nutrienv.world.types import LedgerRow, Profile
 
-V04 = Path("data/splits/v0.4-gold.json")
+V04 = Path("data/splits/archive/v0.4-gold.json")
 
 
 def test_illegal_food_id_does_not_mutate() -> None:

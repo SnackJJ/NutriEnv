@@ -10,7 +10,7 @@ import pytest
 from nutrienv.bench.pipeline import catalog_digest, pass_through_reviewer, run_batch
 from nutrienv.bench.split import load_exam
 
-V05 = Path("data/splits/v0.5-gold.json")
+V05 = Path("data/splits/archive/v0.5-gold.json")
 
 
 def _catalog() -> dict:
@@ -279,10 +279,10 @@ def test_catalog_sha_mismatch_raises(tmp_path: Path) -> None:
         )
 
 
-def test_sample_v05_gold_loads_via_load_exam() -> None:
+def test_archived_v05_is_rejected_by_load_exam() -> None:
     assert V05.is_file()
-    tasks = load_exam(V05)
-    assert len(tasks) == 240
+    with pytest.raises(ValueError, match="version"):
+        load_exam(V05)
     payload = V05.read_text(encoding="utf-8")
     assert '"version": "v0.5-gold"' in payload
-    assert "data/fdc/catalog.sqlite" in payload
+    assert "data/fdc/archive/catalog.sqlite" in payload

@@ -1306,7 +1306,7 @@ def render_report(state: Mapping) -> str:
             "",
             "## Landing / exam switch",
             "",
-            "- `EXAM_SPLIT_PATH` points at `data/splits/v0.5-gold.json` "
+            "- `EXAM_SPLIT_PATH` points at the formal exam path (currently no published exam); v0.5 is archived at `data/splits/archive/v0.5-gold.json` "
             "(transitional published exam).",
             "- The v1.0-gold 20-item pilot is archived at "
             "`data/splits/archive/v1.0-gold.json`; it is not the exam.",
@@ -1326,7 +1326,7 @@ def render_report(state: Mapping) -> str:
         lines.extend(
             [
                 "",
-                f"Pilot freeze sha256 (archived; exam is `data/splits/v0.5-gold.json`): `{freeze_sha}`.",
+                f"Pilot freeze sha256 (archived; v0.5 exam is archived at `data/splits/archive/v0.5-gold.json`): `{freeze_sha}`.",
                 "",
             ]
         )

@@ -1,5 +1,5 @@
 {
-  "catalog": "data/fdc/catalog-v1.sqlite",
+  "catalog": "data/fdc/archive/catalog-v1.sqlite",
   "catalog_sha256": "f49e4f904905abbb8b4ebb02c908935f01776280a2c00b3de1a3e890cad5ae91",
   "items": [
     {

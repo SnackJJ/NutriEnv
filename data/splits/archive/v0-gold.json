@@ -1,6 +1,6 @@
 {
   "version": "v0-gold",
-  "catalog": "data/fdc/catalog.sqlite",
+  "catalog": "data/fdc/archive/catalog.sqlite",
   "notes": "Hand-authored. Facts live in S0; the query is what a person would say. Personas: everyday (majority), cut, gym, leftover, flex; htn is one thin item. Do not import NutriBench/NGQA items. No medication tasks.",
   "items": [
     {

@@ -119,15 +119,11 @@ def test_run_split_rejects_retired_factory() -> None:
         run_split(n=1, seed=0)
 
 
-def test_run_split_default_loads_exam() -> None:
-    from nutrienv.bench import load_exam
+def test_run_split_default_fails_closed_when_no_exam() -> None:
+    import pytest
 
-    first = load_exam()[0].id
-    result = run_split(task_ids=[first])
-    assert result["split"] is None
-    assert result["seed"] is None
-    assert result["n"] == 1
-    assert result["details"][0]["id"] == first
+    with pytest.raises(FileNotFoundError, match="split not found"):
+        run_split()
 
 
 def test_run_split_workers_match_serial_results() -> None:

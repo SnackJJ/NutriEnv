@@ -47,9 +47,9 @@ _FNDDS_TARGETS = {
     "peanut": "2707514",
     "almond": "2707486",
 }
-_LIVE = ROOT / "data" / "fdc" / "catalog.sqlite"
-_V1 = ROOT / "data" / "fdc" / "catalog-v1.sqlite"
-_SPLIT = ROOT / "data" / "splits" / "v0.5-gold.json"
+_LIVE = ROOT / "data" / "fdc" / "archive" / "catalog.sqlite"
+_V1 = ROOT / "data" / "fdc" / "archive" / "catalog-v1.sqlite"
+_SPLIT = ROOT / "data" / "splits" / "archive" / "v0.5-gold.json"
 _V2 = ROOT / "data" / "fdc" / "catalog-v2.sqlite"
 
 
@@ -194,7 +194,7 @@ def test_assign_staples_fndds_only_uses_pins_and_skips_sr() -> None:
 @pytest.mark.parametrize(
     "dest",
     [None, _LIVE, _V1],
-    ids=["default-catalog", "catalog.sqlite", "catalog-v1.sqlite"],
+    ids=["default-catalog", "archive/catalog.sqlite", "archive/catalog-v1.sqlite"],
 )
 def test_fndds_only_build_refuses_frozen_catalog_paths(dest, tmp_path) -> None:
     before = {p: _sha256(p) for p in (_LIVE, _V1, _V2) if p.is_file()}

@@ -20,8 +20,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import generate_batch  # noqa: E402
 
-CATALOG_V1 = ROOT / "data/fdc/catalog-v1.sqlite"
-V10_REL = "data/fdc/catalog-v1.sqlite"
+CATALOG_V1 = ROOT / "data/fdc/archive/catalog-v1.sqlite"
+V10_REL = "data/fdc/archive/catalog-v1.sqlite"
 
 
 def _catalog() -> dict:

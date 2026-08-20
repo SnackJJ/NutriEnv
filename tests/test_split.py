@@ -17,7 +17,7 @@ _SLUG = re.compile(r"\b[a-z]+_[a-z0-9_]+\b")
 
 
 def test_legacy_split_items_load_without_rewriting_windows() -> None:
-    path = Path("data/splits/v0.5-gold.json")
+    path = Path("data/splits/archive/v0.5-gold.json")
     raw = json.loads(path.read_text(encoding="utf-8"))
     tasks = {task.id: task for task in load_split(path)}
     for item in raw["items"]:
@@ -428,18 +428,17 @@ def test_freezer_round_trips_phase_cut_oracle_so_fact_only_update_passes(
 
 
 def test_load_split_v05_is_the_240() -> None:
-    tasks = load_split(Path("data/splits/v0.5-gold.json"))
+    tasks = load_split(Path("data/splits/archive/v0.5-gold.json"))
     assert len(tasks) == 240
     assert len({task.id for task in tasks}) == 240
 
 
-def test_load_split_default_is_v05() -> None:
+def test_load_split_default_fails_closed_when_no_exam() -> None:
     from nutrienv.bench.split import EXAM_SPLIT_PATH
 
     assert EXAM_SPLIT_PATH.name == "v0.5-gold.json"
-    tasks = load_split()
-    assert len(tasks) == 240
-    assert len({task.id for task in tasks}) == 240
+    with pytest.raises(FileNotFoundError, match="split not found"):
+        load_split()
 
 
 def test_gold_split_exists_and_loads() -> None:

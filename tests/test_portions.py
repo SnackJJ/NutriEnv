@@ -289,7 +289,7 @@ def catalog_v1():
     from pathlib import Path
 
     return load_catalog(
-        Path(__file__).resolve().parents[1] / "data" / "fdc" / "catalog-v1.sqlite"
+        Path(__file__).resolve().parents[1] / "data" / "fdc" / "archive" / "catalog-v1.sqlite"
     )
 
 

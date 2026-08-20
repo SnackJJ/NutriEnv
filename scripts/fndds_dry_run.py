@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Dry-run a full FNDDS portion ingest against the frozen catalog and gold split.
 
-Does not write ``data/fdc/catalog.sqlite``, does not touch gold JSON, and does
+Does not write ``data/fdc/archive/catalog.sqlite``, does not touch gold JSON, and does
 not import or modify ``scripts/build_fdc_catalog.py``. Re-run:
 
     .venv/bin/python scripts/fndds_dry_run.py
@@ -20,8 +20,8 @@ from typing import Iterable
 
 _ROOT = Path(__file__).resolve().parents[1]
 _SURVEY = _ROOT / "data" / "fdc" / "raw" / "survey.zip"
-_DB = _ROOT / "data" / "fdc" / "catalog.sqlite"
-_SPLIT = _ROOT / "data" / "splits" / "v0.5-gold.json"
+_DB = _ROOT / "data" / "fdc" / "archive" / "catalog.sqlite"
+_SPLIT = _ROOT / "data" / "splits" / "archive" / "v0.5-gold.json"
 _DRIFT_OUT = _ROOT / "reports" / "dry-run-drift.json"
 _SUMMARY_OUT = _ROOT / "reports" / "dry-run-summary.md"
 
@@ -481,7 +481,7 @@ def build_report(
             "split_version": split.get("version"),
             "n_split_items": len(split.get("items") or []),
             "note": (
-                "Read-only dry-run. catalog.sqlite, gold JSON, and "
+                "Read-only dry-run. data/fdc/archive/catalog.sqlite, gold JSON, and "
                 "build_fdc_catalog.py were not modified."
             ),
         },
@@ -525,7 +525,7 @@ def write_summary(report: dict, dest: Path) -> None:
     lines: list[str] = [
         "# FNDDS 完整接入 dry-run",
         "",
-        "只读对比：未改 `data/fdc/catalog.sqlite`、未改任何 gold JSON、未改 "
+        "只读对比：未改 `data/fdc/archive/catalog.sqlite`、未改任何 gold JSON、未改 "
         "`scripts/build_fdc_catalog.py`。",
         "",
         f"- survey: `{meta['survey']}`",

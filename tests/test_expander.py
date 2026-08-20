@@ -31,7 +31,7 @@ from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.portions import resolve_portion
 
 ROOT = Path(__file__).resolve().parents[1]
-CATALOG_V1 = ROOT / "data" / "fdc" / "catalog-v1.sqlite"
+CATALOG_V1 = ROOT / "data" / "fdc" / "archive" / "catalog-v1.sqlite"
 
 _OK = {
     "items": [{"food": "milk", "expression": "a cup"}],
@@ -106,7 +106,7 @@ def _tracking_complete(seen: list[str], query_for=None):
 @pytest.fixture(scope="module")
 def catalog_v1():
     if not CATALOG_V1.is_file():
-        pytest.fail("data/fdc/catalog-v1.sqlite is missing")
+        pytest.fail("data/fdc/archive/catalog-v1.sqlite is missing")
     return load_catalog(CATALOG_V1)
 
 

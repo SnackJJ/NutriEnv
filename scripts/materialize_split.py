@@ -43,8 +43,8 @@ from nutrienv.world.portions import OUNCE_GRAMS, resolve_portion
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SPLITS = ROOT / "data" / "splits"
-CATALOG = ROOT / "data" / "fdc" / "catalog.sqlite"
+SPLITS = ROOT / "data" / "splits" / "archive"
+CATALOG = ROOT / "data" / "fdc" / "archive" / "catalog.sqlite"
 
 _MASS_IN_QUERY = re.compile(
     r"\b(?P<quantity>\d+(?:\.\d+)?|half|quarter|one|two|three|four)"
@@ -635,7 +635,7 @@ def build(version: str, *, target: Path | None = None) -> Path:
     )
     payload = {
         "version": f"{version}-gold",
-        "catalog": "data/fdc/catalog.sqlite",
+        "catalog": "data/fdc/archive/catalog.sqlite",
         "catalog_sha256": hashlib.sha256(CATALOG.read_bytes()).hexdigest(),
         "parent": spec["parent"],
         "notes": spec["notes"],

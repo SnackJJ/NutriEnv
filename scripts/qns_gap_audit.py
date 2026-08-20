@@ -16,7 +16,7 @@ from nutrienv.world.portions import resolve_portion
 
 ROOT = Path(__file__).resolve().parents[1]
 SURVEY_ZIP_PATH = ROOT / "data" / "fdc" / "raw" / "survey.zip"
-EXAM_SPLIT_PATH = ROOT / "data" / "splits" / "v0.5-gold.json"
+EXAM_SPLIT_PATH = ROOT / "data" / "splits" / "archive" / "v0.5-gold.json"
 REPORT_OUTPUT_PATH = ROOT / "reports" / "qns-gap-audit.json"
 
 

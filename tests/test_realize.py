@@ -16,7 +16,7 @@ from nutrienv.bench.realize import (
 )
 from nutrienv.world.catalog_store import load_catalog
 
-_LEGACY_CATALOG = Path(__file__).resolve().parents[1] / "data" / "fdc" / "catalog.sqlite"
+_LEGACY_CATALOG = Path(__file__).resolve().parents[1] / "data" / "fdc" / "archive" / "catalog.sqlite"
 _ROWS = list(iter_realization_rows())
 _IDS = [row.seed_id for row in _ROWS]
 

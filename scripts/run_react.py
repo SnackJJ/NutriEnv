@@ -31,7 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--split",
         default=None,
-        help="frozen split JSON (default: published 240-item exam (v0.5-gold) via load_exam)",
+        help="frozen split JSON (default: load_exam, which fails closed until the next exam is frozen)",
     )
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument(

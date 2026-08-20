@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """Build the local FDC sqlite catalog from official CSV zips.
 
-Default path is the v0.5 safe-overlay freeze (``data/fdc/catalog.sqlite``).
+Default path is the archived v0.x safe-overlay freeze
+(``data/fdc/archive/catalog.sqlite``).
 Full FNDDS strategy (seq_num first-wins) writes a *new* file:
 
-    .venv/bin/python scripts/build_fdc_catalog.py --out data/fdc/catalog-v1.sqlite
+    .venv/bin/python scripts/build_fdc_catalog.py --out data/fdc/archive/catalog-v1.sqlite
 
 FNDDS-only (no SR Legacy; catalog-v2) is a *new* file after dry-run approval:
 
     .venv/bin/python scripts/build_fdc_catalog.py --fndds-only --dry-run
     .venv/bin/python scripts/build_fdc_catalog.py --fndds-only --out data/fdc/catalog-v2.sqlite
 
-``--full`` / ``--fndds-only`` without ``--out``, or targeting catalog.sqlite /
-catalog-v1.sqlite, is refused.
+``--full`` / ``--fndds-only`` without ``--out``, or targeting
+``data/fdc/archive/catalog.sqlite`` / ``data/fdc/archive/catalog-v1.sqlite``, is refused.
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
 _RAW = _ROOT / "data" / "fdc" / "raw"
-_DB = _ROOT / "data" / "fdc" / "catalog.sqlite"
+_DB = _ROOT / "data" / "fdc" / "archive" / "catalog.sqlite"
 
 _NUTRIENT_BY_ID = {
     "1008": "kcal",
@@ -1028,8 +1029,8 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
     lines: list[str] = [
         "# catalog-v2 dry-run：FNDDS-only + staple 重钉",
         "",
-        "只读对照：**不写** `data/fdc/catalog-v2.sqlite`，不改 `catalog.sqlite`、",
-        "`catalog-v1.sqlite`、任何 `data/splits/*.json`。本文件是 AGENTS.md 纪律 2",
+        "只读对照：**不写** `data/fdc/catalog-v2.sqlite`，不改 `data/fdc/archive/catalog.sqlite`、",
+        "`data/fdc/archive/catalog-v1.sqlite`、任何 `data/splits/*.json`。本文件是 AGENTS.md 纪律 2",
         "要求的落地前清单，供 codex 审查 + 主 agent 裁决后再重建。",
         "",
         "复跑：",
@@ -1041,10 +1042,10 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
         "## 框定",
         "",
         "- catalog-v2 是新文件（`data/fdc/catalog-v2.sqlite`），不覆盖",
-        "  `catalog.sqlite` 与 `catalog-v1.sqlite`。",
+        "  `data/fdc/archive/catalog.sqlite` 与 `data/fdc/archive/catalog-v1.sqlite`。",
         "- FNDDS 食物数与份量图来自 `survey.zip`（food.csv / food_nutrient /",
         "  food_portion），不是现成 sqlite 的 COUNT / portions 拷贝。",
-        "- v0.5-gold 绑 `catalog.sqlite`，本 dry-run 与日后 catalog-v2 对其零影响。",
+        "- v0.5-gold（已归档）绑 `data/fdc/archive/catalog.sqlite`，本 dry-run 与 catalog-v2 对其零影响。",
         "",
         "## 食物数对账（survey.zip）",
         "",
@@ -1149,7 +1150,7 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
         "",
         f"split 里这 10 个 slug 共 **{n_gold}** 行（peanut 不在 gold 25 里）。",
         "冻结克数写在 JSON 里，不随 catalog-v2 变。**本票不改 v0.5-gold，",
-        "也不改 catalog.sqlite。**",
+        "也不改 `data/fdc/archive/catalog.sqlite`。**",
         "",
         "| slug | gold 行数 |",
         "|---|---:|",
@@ -1189,12 +1190,12 @@ def build(
         if dest is None or dest.resolve() in _protected_catalogs():
             raise ValueError(
                 "fndds-only rebuild must write a new file (--out); "
-                "refusing to overwrite catalog.sqlite or catalog-v1.sqlite"
+                "refusing to overwrite data/fdc/archive/catalog.sqlite or data/fdc/archive/catalog-v1.sqlite"
             )
     if full and (dest is None or dest.resolve() == _DB.resolve()):
         raise ValueError(
             "full strategy must write a new file (--out); "
-            "refusing to overwrite catalog.sqlite"
+            "refusing to overwrite data/fdc/archive/catalog.sqlite"
         )
     foods: dict[str, dict] = {}
     packs = ingest_sources(fndds_only=fndds_only, include_branded=include_branded)
@@ -1309,13 +1310,13 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--dry-run currently supports --fndds-only only")
         plan = plan_fndds_only_rebuild(
             live_catalog=_DB,
-            split_path=_ROOT / "data" / "splits" / "v0.5-gold.json",
+            split_path=_ROOT / "data" / "splits" / "archive" / "v0.5-gold.json",
         )
         write_catalog_v2_dryrun(plan, args.report)
         print(f"wrote {args.report}")
         return 0
     if full and dest is None:
-        parser.error("full strategy requires --out PATH (refusing to overwrite catalog.sqlite)")
+        parser.error("full strategy requires --out PATH (refusing to overwrite data/fdc/archive/catalog.sqlite)")
     if fndds_only and dest is None:
         parser.error("fndds-only requires --out PATH or --dry-run")
     build(
