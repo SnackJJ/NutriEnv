@@ -9,6 +9,7 @@ from pathlib import Path
 
 from nutrienv.world.catalog import canonical_food_id
 from nutrienv.world.catalog_store import load_catalog
+from nutrienv.world.daily_windows import UPDATE_BANDS
 from nutrienv.world.types import (
     PHASES,
     LedgerRow,
@@ -313,6 +314,10 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
         if allow_empty_plan:
             raise ValueError("reject oracle must not set allow_empty_plan")
 
+    update_band = value.get("update_band")
+    if update_band is not None and update_band not in UPDATE_BANDS:
+        raise ValueError("oracle.update_band must be 'cut', 'fatigue', or 'muscle'")
+
     return Oracle(
         profile=profile,
         last_plan=copy.deepcopy(last_plan) if last_plan is not None else None,
@@ -324,5 +329,6 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
         plan_windows=plan_windows,
         last_verdict=last_verdict,
         last_reasons=last_reasons,
+        update_band=update_band,
         sub_oracles=sub_oracles,
     )

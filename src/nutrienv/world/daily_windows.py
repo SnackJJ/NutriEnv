@@ -11,7 +11,10 @@ __all__ = [
     "ACTIVITY_PAL",
     "CUT_KCAL_DELTA",
     "MUSCLE_PROTEIN_G_PER_KG",
+    "UPDATE_BANDS",
     "derive_daily_windows",
+    "estimated_energy_requirement",
+    "implicit_windows_pass",
 ]
 
 
@@ -27,8 +30,47 @@ ACTIVITY_PAL: dict[str, float] = {
 CUT_KCAL_DELTA = 300.0
 # Hypertrophy protein floor: above the 0.8 g/kg maintain lo (ADR 0015).
 MUSCLE_PROTEIN_G_PER_KG = 1.6
+UPDATE_BANDS = frozenset({"cut", "fatigue", "muscle"})
+_PROTEIN_G_PER_KG = 0.8
 
 _FDA_KCAL = DRI_REFERENCE["kcal"]["reference"]
+
+
+def estimated_energy_requirement(
+    *,
+    sex: str,
+    age_y: int,
+    height_cm: float,
+    weight_kg: float,
+    activity: str,
+) -> float:
+    """Mifflin-St Jeor BMR × PAL, kcal/day."""
+    pal = ACTIVITY_PAL[activity]
+    bmr = 10.0 * weight_kg + 6.25 * height_cm - 5.0 * age_y
+    bmr += 5.0 if sex == "male" else -161.0
+    return bmr * pal
+
+
+def implicit_windows_pass(
+    band: str,
+    windows: dict[str, tuple[float, float]],
+    *,
+    eer: float,
+    weight_kg: float,
+    s0_windows: dict[str, tuple[float, float]],
+) -> bool:
+    """Whether end windows fall in an ADR 0015 implicit-update band."""
+    if band not in UPDATE_BANDS or "kcal" not in windows:
+        return False
+    kcal_lo, kcal_hi = windows["kcal"]
+    if band == "cut":
+        return eer - 500.0 <= kcal_hi <= eer - 100.0
+    if band == "fatigue":
+        if "kcal" not in s0_windows:
+            return False
+        return s0_windows["kcal"][1] < kcal_hi <= eer
+    protein_lo = windows.get("protein_g", (0.0, 0.0))[0]
+    return protein_lo > _PROTEIN_G_PER_KG * weight_kg and kcal_lo >= eer
 
 
 def derive_daily_windows(
@@ -41,15 +83,15 @@ def derive_daily_windows(
     phase: str = "maintain",
 ) -> dict[str, tuple[float, float]]:
     """Daily (lo, hi) windows from body facts, PAL, and the FDA DV template."""
-    pal = ACTIVITY_PAL[activity]
-    bmr = 10.0 * weight_kg + 6.25 * height_cm - 5.0 * age_y
-    if sex == "male":
-        bmr += 5.0
-    else:
-        bmr -= 161.0
-    eer = bmr * pal
+    eer = estimated_energy_requirement(
+        sex=sex,
+        age_y=age_y,
+        height_cm=height_cm,
+        weight_kg=weight_kg,
+        activity=activity,
+    )
     scale = eer / _FDA_KCAL
-    protein_lo = 0.8 * weight_kg
+    protein_lo = _PROTEIN_G_PER_KG * weight_kg
     protein_dv = DRI_REFERENCE["protein_g"]["reference"] * scale
     protein_hi = max(protein_dv, protein_lo)
     kcal_lo = eer

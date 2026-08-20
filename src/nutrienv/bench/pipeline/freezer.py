@@ -137,6 +137,7 @@ def _oracle_payload(oracle: Oracle, *, family: str) -> dict[str, object]:
                 key: list(bounds) for key, bounds in oracle.plan_windows.items()
             }
         _attach_verdict(payload, oracle)
+        _attach_update_band(payload, oracle)
         payload["ledger"] = "s0"
         return payload
     if oracle.ledger_tail is not None:
@@ -156,6 +157,7 @@ def _oracle_payload(oracle: Oracle, *, family: str) -> dict[str, object]:
             key: list(bounds) for key, bounds in oracle.plan_windows.items()
         }
     _attach_verdict(payload, oracle)
+    _attach_update_band(payload, oracle)
     return payload
 
 
@@ -175,6 +177,11 @@ def _attach_verdict(payload: dict[str, object], oracle: Oracle) -> None:
         payload["last_verdict"] = oracle.last_verdict
     if oracle.last_verdict == "reject":
         payload["last_reasons"] = list(oracle.last_reasons)
+
+
+def _attach_update_band(payload: dict[str, object], oracle: Oracle) -> None:
+    if oracle.update_band:
+        payload["update_band"] = oracle.update_band
 
 
 def _sub_family(oracle: Oracle) -> str:

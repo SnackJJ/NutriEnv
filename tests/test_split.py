@@ -219,6 +219,47 @@ def test_oracle_profile_cannot_override_body_facts(tmp_path: Path) -> None:
         load_split(path, catalog=demo_catalog())
 
 
+def test_load_split_reads_implicit_update_band(tmp_path: Path) -> None:
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = {
+        "version": "test-roster",
+        "items": [
+            {
+                "id": "roster-upd-cut-001",
+                "family": "update",
+                "persona": "everyday",
+                "query": "I'm cutting now.",
+                "s0": {
+                    "profile": {
+                        "user_id": "roster-ada",
+                        "allergies": ["peanut"],
+                        "windows": {"kcal": [1800, 2200], "protein_g": [90, 140]},
+                        "sex": "female",
+                        "age_y": 34,
+                        "height_cm": 165.0,
+                        "weight_kg": 62.0,
+                        "activity": "light",
+                    },
+                    "ledger": [],
+                },
+                "oracle": {
+                    "profile": {"allergies": ["peanut"]},
+                    "ledger": "s0",
+                    "update_band": "cut",
+                },
+            }
+        ],
+    }
+    path = tmp_path / "implicit-cut.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    task = load_split(path, catalog=demo_catalog())[0]
+    assert task.oracle.update_band == "cut"
+    assert task.oracle.profile is not None
+    assert task.oracle.profile.allergies == ("peanut",)
+    assert task.oracle.profile.weight_kg == 62.0
+
+
 def test_freezer_round_trips_roster_body_facts(tmp_path: Path) -> None:
     from nutrienv.bench.pipeline.freezer import task_to_item
     from nutrienv.bench.realize import Oracle, Task

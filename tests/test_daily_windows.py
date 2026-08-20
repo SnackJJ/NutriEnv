@@ -2,7 +2,7 @@
 
 import pytest
 
-from nutrienv.world.daily_windows import derive_daily_windows
+from nutrienv.world.daily_windows import derive_daily_windows, implicit_windows_pass
 
 
 _ADA = dict(
@@ -103,3 +103,77 @@ def test_muscle_phase_raises_protein_lo_and_keeps_kcal_lo_at_least_eer() -> None
     assert windows["kcal"][0] >= eer
     assert windows["kcal"][0] <= windows["kcal"][1]
     assert windows["sodium_mg"] == (0.0, 2300.0)
+
+
+@pytest.mark.parametrize(
+    "kcal_hi, ok",
+    [
+        (1315.34375, True),   # EER − 500
+        (1715.34375, True),   # EER − 100
+        (1315.34374, False),
+        (1715.34376, False),
+    ],
+)
+def test_cut_band_edges_are_the_published_eer_offsets(kcal_hi: float, ok: bool) -> None:
+    eer = 1815.34375
+    windows = {"kcal": (kcal_hi, kcal_hi)}
+    assert (
+        implicit_windows_pass(
+            "cut", windows, eer=eer, weight_kg=62.0, s0_windows={}
+        )
+        is ok
+    )
+
+
+def test_fatigue_band_is_strictly_above_s0_and_at_most_maintain_eer() -> None:
+    eer = 1815.34375
+    s0 = {"kcal": (1515.34375, 1515.34375)}
+    assert implicit_windows_pass(
+        "fatigue",
+        {"kcal": (1650.0, 1650.0)},
+        eer=eer,
+        weight_kg=62.0,
+        s0_windows=s0,
+    )
+    assert implicit_windows_pass(
+        "fatigue",
+        {"kcal": (eer, eer)},
+        eer=eer,
+        weight_kg=62.0,
+        s0_windows=s0,
+    )
+    assert not implicit_windows_pass(
+        "fatigue", s0, eer=eer, weight_kg=62.0, s0_windows=s0
+    )
+    assert not implicit_windows_pass(
+        "fatigue",
+        {"kcal": (eer + 0.01, eer + 0.01)},
+        eer=eer,
+        weight_kg=62.0,
+        s0_windows=s0,
+    )
+
+
+def test_muscle_band_needs_protein_above_rda_and_kcal_lo_at_eer() -> None:
+    eer = 1815.34375
+    assert implicit_windows_pass(
+        "muscle",
+        {"kcal": (eer, eer), "protein_g": (49.61, 99.2)},
+        eer=eer,
+        weight_kg=62.0,
+        s0_windows={},
+    )
+    assert not implicit_windows_pass(
+        "muscle",
+        {"kcal": (eer, eer), "protein_g": (49.6, 49.6)},
+        eer=eer,
+        weight_kg=62.0,
+        s0_windows={},
+    )
+    assert not implicit_windows_pass(
+        "muscle",
+        {"kcal": (eer - 0.01, eer), "protein_g": (99.2, 99.2)},
+        eer=eer,
+        weight_kg=62.0,
+        s0_windows={},
+    )

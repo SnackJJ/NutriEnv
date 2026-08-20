@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 
+from nutrienv.world.daily_windows import (
+    estimated_energy_requirement,
+    implicit_windows_pass,
+)
 from nutrienv.world.types import LedgerRow, Profile, WorldState, normalize_tags
 
 from .realize import Oracle, scored_oracles
@@ -69,8 +74,12 @@ class Scorer:
 
         # Profile equality also protects recommend/evaluate constraints from an
         # agent that tries to make its own plan pass by weakening the profile.
-        if oracle.profile is not None and end_state.profile != oracle.profile:
-            return self._fail("update_miss")
+        if oracle.profile is not None:
+            if oracle.update_band:
+                if not self._implicit_update_ok(end_state.profile, oracle):
+                    return self._fail("update_miss")
+            elif end_state.profile != oracle.profile:
+                return self._fail("update_miss")
 
         if oracle.ledger_tail is not None:
             expected = oracle.ledger_tail
@@ -91,6 +100,36 @@ class Scorer:
     @staticmethod
     def _fail(tag: str) -> dict:
         return _ScoreResult(passed=False, tag=tag)
+
+    @staticmethod
+    def _implicit_update_ok(end: Profile, oracle: Oracle) -> bool:
+        expected = oracle.profile
+        if expected is None:
+            return False
+        if replace(end, windows=expected.windows) != expected:
+            return False
+        if (
+            expected.sex is None
+            or expected.age_y is None
+            or expected.height_cm is None
+            or expected.weight_kg is None
+            or expected.activity is None
+        ):
+            return False
+        eer = estimated_energy_requirement(
+            sex=expected.sex,
+            age_y=expected.age_y,
+            height_cm=expected.height_cm,
+            weight_kg=expected.weight_kg,
+            activity=expected.activity,
+        )
+        return implicit_windows_pass(
+            oracle.update_band or "",
+            end.windows,
+            eer=eer,
+            weight_kg=expected.weight_kg,
+            s0_windows=expected.windows,
+        )
 
     def _score_verdict(self, state: WorldState, oracle: Oracle) -> str | None:
         if oracle.last_verdict == "accept":

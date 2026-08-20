@@ -3,7 +3,8 @@ from dataclasses import replace
 from nutrienv.bench import Oracle, Scorer
 from nutrienv.env import NutriEnv
 from nutrienv.world.catalog_fixture import demo_state
-from nutrienv.world.types import LedgerRow
+from nutrienv.world.daily_windows import derive_daily_windows
+from nutrienv.world.types import LedgerRow, Profile
 
 
 def test_plan_pass_and_diagnostic_tags():
@@ -238,3 +239,115 @@ def test_accept_oracle_out_of_window_plan_fails() -> None:
     assert out["ok"] is True
     assert env.state().last_verdict == "accept"
     assert Scorer().score(env.state(), oracle)["tag"] == "window"
+
+
+def _ada_state(*, phase: str = "maintain"):
+    state = demo_state()
+    windows = derive_daily_windows(
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=62.0,
+        activity="light",
+        phase=phase,
+    )
+    state.profile = Profile(
+        user_id="roster-ada",
+        allergies=("peanut",),
+        windows=windows,
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=62.0,
+        activity="light",
+        phase=phase,
+    )
+    return state
+
+
+def test_implicit_cut_band_passes_phase_patch_and_rejects_allergy_drift() -> None:
+    """I'm cutting (no number): windows in [EER−500, EER−100]; allergies stay."""
+    s0 = _ada_state()
+    env = NutriEnv()
+    env.reset(s0)
+    env.step({"op": "update_profile", "patch": {"phase": "cut"}})
+    oracle = Oracle(
+        profile=replace(s0.profile, phase="cut"),
+        update_band="cut",
+        ledger=tuple(s0.ledger),
+    )
+    assert Scorer().score(env.state(), oracle) == {"passed": True, "tag": "pass"}
+
+    env.step({"op": "update_profile", "patch": {"allergies": ["peanut", "milk"]}})
+    assert Scorer().score(env.state(), oracle)["tag"] == "update_miss"
+
+
+def test_implicit_cut_band_rejects_kcal_hi_outside_published_range() -> None:
+    eer = 1815.34375
+    s0 = _ada_state()
+    oracle = Oracle(
+        profile=replace(s0.profile, phase="cut"),
+        update_band="cut",
+        ledger=tuple(s0.ledger),
+    )
+    env = NutriEnv()
+    env.reset(s0)
+    env.step({"op": "update_profile", "patch": {"phase": "cut"}})
+    env.step(
+        {
+            "op": "update_profile",
+            "patch": {"windows": {"kcal": [eer - 50.0, eer - 50.0]}},
+        }
+    )
+    assert Scorer().score(env.state(), oracle)["tag"] == "update_miss"
+
+
+def test_implicit_fatigue_band_raises_kcal_toward_maintain() -> None:
+    eer = 1815.34375
+    s0 = _ada_state(phase="cut")
+    s0_hi = s0.profile.windows["kcal"][1]
+    oracle = Oracle(profile=s0.profile, update_band="fatigue", ledger=tuple(s0.ledger))
+    env = NutriEnv()
+    env.reset(s0)
+    eased = (s0_hi + eer) / 2.0
+    env.step({"op": "update_profile", "patch": {"windows": {"kcal": [eased, eased]}}})
+    assert Scorer().score(env.state(), oracle) == {"passed": True, "tag": "pass"}
+
+    env.step({"op": "update_profile", "patch": {"windows": {"kcal": [eer + 1.0, eer + 1.0]}}})
+    assert Scorer().score(env.state(), oracle)["tag"] == "update_miss"
+
+
+def test_implicit_fatigue_keeps_unmentioned_allergies_exact() -> None:
+    s0 = _ada_state(phase="cut")
+    s0_hi = s0.profile.windows["kcal"][1]
+    oracle = Oracle(profile=s0.profile, update_band="fatigue", ledger=tuple(s0.ledger))
+    env = NutriEnv()
+    env.reset(s0)
+    env.step(
+        {
+            "op": "update_profile",
+            "patch": {
+                "windows": {"kcal": [s0_hi + 100.0, s0_hi + 100.0]},
+                "allergies": ["peanut", "milk"],
+            },
+        }
+    )
+    assert Scorer().score(env.state(), oracle)["tag"] == "update_miss"
+
+
+def test_implicit_muscle_band_requires_protein_above_rda() -> None:
+    s0 = _ada_state()
+    env = NutriEnv()
+    env.reset(s0)
+    env.step({"op": "update_profile", "patch": {"phase": "muscle"}})
+    oracle = Oracle(
+        profile=replace(s0.profile, phase="muscle"),
+        update_band="muscle",
+        ledger=tuple(s0.ledger),
+    )
+    assert Scorer().score(env.state(), oracle) == {"passed": True, "tag": "pass"}
+
+    env.step(
+        {"op": "update_profile", "patch": {"windows": {"protein_g": [49.6, 49.6]}}}
+    )
+    assert Scorer().score(env.state(), oracle)["tag"] == "update_miss"
