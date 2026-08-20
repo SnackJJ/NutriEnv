@@ -359,6 +359,74 @@ def test_freezer_round_trips_roster_body_facts(tmp_path: Path) -> None:
     assert loaded.oracle.profile == profile
 
 
+def test_freezer_round_trips_phase_cut_oracle_so_fact_only_update_passes(
+    tmp_path: Path,
+) -> None:
+    from dataclasses import replace
+
+    from nutrienv.bench.pipeline.freezer import task_to_item
+    from nutrienv.bench.realize import Oracle, Task
+    from nutrienv.bench.scorer import Scorer
+    from nutrienv.env import NutriEnv
+    from nutrienv.world.catalog_fixture import demo_catalog
+    from nutrienv.world.daily_windows import derive_daily_windows
+    from nutrienv.world.types import Profile, WorldState
+
+    catalog = demo_catalog()
+    maintain = derive_daily_windows(
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=62.0,
+        activity="light",
+        phase="maintain",
+    )
+    cut = derive_daily_windows(
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=62.0,
+        activity="light",
+        phase="cut",
+    )
+    s0_profile = Profile(
+        user_id="roster-ada",
+        allergies=("peanut",),
+        windows=maintain,
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=62.0,
+        activity="light",
+        phase="maintain",
+    )
+    oracle_profile = replace(s0_profile, phase="cut", windows=cut)
+    task = Task(
+        "roster-upd-cut-001",
+        "update",
+        "I'm cutting now.",
+        WorldState(profile=s0_profile, catalog=catalog),
+        Oracle(profile=oracle_profile, ledger=()),
+        (),
+        "everyday",
+    )
+    item = task_to_item(task)
+    assert item["oracle"]["profile"] != "s0"
+    assert item["oracle"]["profile"]["phase"] == "cut"
+    path = tmp_path / "frozen-cut.json"
+    path.write_text(json.dumps({"version": "test", "items": [item]}), encoding="utf-8")
+    loaded = load_split(path, catalog=catalog)[0]
+    assert loaded.oracle.profile is not None
+    assert loaded.oracle.profile.phase == "cut"
+    assert loaded.oracle.profile.windows == cut
+
+    env = NutriEnv()
+    env.reset(loaded.s0)
+    out = env.step({"op": "update_profile", "patch": {"phase": "cut"}})
+    assert out["ok"] is True
+    assert Scorer().score(env.state(), loaded.oracle) == {"passed": True, "tag": "pass"}
+
+
 def test_load_split_v05_is_the_240() -> None:
     tasks = load_split(Path("data/splits/v0.5-gold.json"))
     assert len(tasks) == 240
