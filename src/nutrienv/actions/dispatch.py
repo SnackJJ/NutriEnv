@@ -255,7 +255,7 @@ def _submit_plan(state: WorldState, args: dict, _default_eaten_at: str) -> dict:
     if verdict == "accept":
         if not normalized:
             raise ActionError("bad_schema", "accept requires a non-empty plan")
-        if reasons:
+        if reasons is not None:
             raise ActionError("bad_schema", "accept cannot include reasons")
         state.last_plan = normalized
         state.last_verdict = "accept"

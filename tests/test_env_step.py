@@ -324,6 +324,38 @@ def test_accept_with_reasons_is_illegal_and_leaves_world_unchanged() -> None:
     assert after.profile == before.profile
 
 
+def test_accept_with_empty_reasons_is_illegal_and_leaves_world_unchanged() -> None:
+    env = NutriEnv()
+    env.reset(demo_state())
+    env.step(
+        {
+            "op": "submit_plan",
+            "items": [],
+            "verdict": "reject",
+            "reasons": ["kcal_hi"],
+        }
+    )
+    before = copy.deepcopy(env.state())
+
+    out = env.step(
+        {
+            "op": "submit_plan",
+            "items": [{"food_id": "egg", "grams": 100}],
+            "verdict": "accept",
+            "reasons": [],
+        }
+    )
+
+    assert out["ok"] is False
+    assert out["error"]["code"] == "bad_schema"
+    after = env.state()
+    assert after.last_verdict == "reject"
+    assert after.last_plan == []
+    assert after.last_reasons == ("kcal_hi",)
+    assert after.ledger == before.ledger
+    assert after.profile == before.profile
+
+
 def test_reasons_without_verdict_are_illegal_and_leave_world_unchanged() -> None:
     env = NutriEnv()
     env.reset(demo_state())
