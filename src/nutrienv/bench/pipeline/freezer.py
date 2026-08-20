@@ -134,6 +134,7 @@ def _oracle_payload(oracle: Oracle, *, family: str) -> dict[str, object]:
             payload["plan_windows"] = {
                 key: list(bounds) for key, bounds in oracle.plan_windows.items()
             }
+        _attach_verdict(payload, oracle)
         payload["ledger"] = "s0"
         return payload
     if oracle.ledger_tail is not None:
@@ -157,10 +158,20 @@ def _oracle_payload(oracle: Oracle, *, family: str) -> dict[str, object]:
         payload["plan_windows"] = {
             key: list(bounds) for key, bounds in oracle.plan_windows.items()
         }
+    _attach_verdict(payload, oracle)
     return payload
 
 
+def _attach_verdict(payload: dict[str, object], oracle: Oracle) -> None:
+    if oracle.last_verdict is not None:
+        payload["last_verdict"] = oracle.last_verdict
+    if oracle.last_verdict == "reject" or oracle.last_reasons:
+        payload["last_reasons"] = list(oracle.last_reasons)
+
+
 def _sub_family(oracle: Oracle) -> str:
+    if oracle.last_verdict == "reject":
+        return "evaluate"
     if oracle.last_plan is not None and oracle.ledger_tail is None:
         return "evaluate" if oracle.last_plan else "recommend"
     if oracle.last_plan == []:

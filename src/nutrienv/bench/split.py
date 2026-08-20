@@ -9,7 +9,14 @@ from pathlib import Path
 
 from nutrienv.world.catalog import canonical_food_id
 from nutrienv.world.catalog_store import load_catalog
-from nutrienv.world.types import LedgerRow, Profile, WorldState, normalize_tags, normalize_window
+from nutrienv.world.types import (
+    LedgerRow,
+    Profile,
+    WorldState,
+    normalize_reasons,
+    normalize_tags,
+    normalize_window,
+)
 
 from .realize import FAMILIES, Oracle, Task
 from .situations import SITUATIONS
@@ -254,6 +261,13 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
             _oracle(item, s0, catalog, allow_subs=False) for item in sub_raw
         )
 
+    last_verdict = value.get("last_verdict")
+    if last_verdict is not None and last_verdict not in {"accept", "reject"}:
+        raise ValueError("oracle.last_verdict must be omitted, 'accept', or 'reject'")
+    last_reasons = ()
+    if "last_reasons" in value:
+        last_reasons = normalize_reasons(value["last_reasons"])
+
     return Oracle(
         profile=profile,
         last_plan=copy.deepcopy(last_plan) if last_plan is not None else None,
@@ -263,5 +277,7 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
         plan_must_fit_windows=bool(value.get("plan_must_fit_windows", False)),
         allow_empty_plan=bool(value.get("allow_empty_plan", False)),
         plan_windows=plan_windows,
+        last_verdict=last_verdict,
+        last_reasons=last_reasons,
         sub_oracles=sub_oracles,
     )

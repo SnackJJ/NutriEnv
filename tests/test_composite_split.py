@@ -7,10 +7,11 @@ from pathlib import Path
 
 import pytest
 
+from nutrienv.bench.pipeline.freezer import task_to_item
 from nutrienv.bench.pipeline.run_batch import write_composite_sample
-from nutrienv.bench.realize import scored_oracles
+from nutrienv.bench.realize import Oracle, Task, compose_oracles, scored_oracles
 from nutrienv.bench.split import load_exam, load_split
-from nutrienv.world.catalog_fixture import demo_catalog
+from nutrienv.world.catalog_fixture import demo_catalog, demo_state
 from nutrienv.world.types import LedgerRow
 
 V05 = Path("data/splits/v0.5-gold.json")
@@ -124,3 +125,70 @@ def test_write_composite_sample_round_trips(tmp_path: Path):
         assert task.s0.profile.user_id
     assert result.payload["quota_ledger"]["composite_accepted"] == len(loaded)
     assert result.payload["quota_ledger"]["base_quota"] == 240
+
+
+def test_omitted_last_verdict_loads_as_none(tmp_path: Path):
+    for task in load_split(V05):
+        assert task.oracle.last_verdict is None
+        assert task.oracle.last_reasons == ()
+
+    state = demo_state()
+    task = Task(
+        "draft-eval-1",
+        "evaluate",
+        "Is 100 g of rice okay for lunch?",
+        state,
+        Oracle(
+            profile=state.profile,
+            last_plan=[{"food_id": "white_rice", "grams": 100.0}],
+            ledger=tuple(state.ledger),
+        ),
+    )
+    item = task_to_item(task)
+    assert "last_verdict" not in item["oracle"]
+    dest = tmp_path / "split.json"
+    dest.write_text(json.dumps({"items": [item]}), encoding="utf-8")
+    loaded = load_split(dest, catalog=state.catalog)
+    assert loaded[0].oracle.last_verdict is None
+    assert loaded[0].oracle.last_reasons == ()
+
+
+def test_empty_reject_child_freezes_and_loads_as_evaluate(tmp_path: Path):
+    state = demo_state()
+    lunch = LedgerRow("oats", 60.0, "today-lunch")
+    log_oracle = Oracle(
+        profile=state.profile,
+        ledger_tail=[lunch],
+        ledger=(*state.ledger, lunch),
+    )
+    reject_oracle = Oracle(
+        profile=state.profile,
+        last_plan=[],
+        last_verdict="reject",
+        last_reasons=("kcal_hi",),
+        ledger=tuple(state.ledger),
+    )
+    task = Task(
+        "draft-comp-1",
+        "log",
+        "I ate oats; is leftover pizza okay tonight?",
+        state,
+        compose_oracles(log_oracle, reject_oracle),
+    )
+    item = task_to_item(task)
+    child = item["oracle"]["sub_oracles"][1]
+    assert child["last_verdict"] == "reject"
+    assert child["last_plan"] == []
+    assert child["last_reasons"] == ["kcal_hi"]
+    assert "plan_must_fit_windows" not in child
+    assert "allow_empty_plan" not in child
+
+    dest = tmp_path / "split.json"
+    dest.write_text(json.dumps({"items": [item]}), encoding="utf-8")
+    loaded = load_split(dest, catalog=state.catalog)
+    reject = loaded[0].oracle.sub_oracles[1]
+    assert reject.last_verdict == "reject"
+    assert reject.last_plan == []
+    assert reject.last_reasons == ("kcal_hi",)
+    assert reject.plan_must_fit_windows is False
+    assert reject.allow_empty_plan is False
