@@ -1,6 +1,7 @@
 from dataclasses import replace
 
 from nutrienv.bench import Oracle, Scorer
+from nutrienv.env import NutriEnv
 from nutrienv.world.catalog_fixture import demo_state
 from nutrienv.world.types import LedgerRow
 
@@ -45,3 +46,26 @@ def test_exact_evaluation_plan_and_empty_plan_goal():
     assert Scorer().score(state, oracle)["tag"] == "wrong_goal"
     state.last_plan = expected
     assert Scorer().score(state, oracle)["passed"]
+
+
+def test_reject_oracle_matching_reject_passes() -> None:
+    state = demo_state()
+    oracle = Oracle(
+        profile=state.profile,
+        last_plan=[],
+        last_verdict="reject",
+        last_reasons=("allergy",),
+        ledger=tuple(state.ledger),
+    )
+    env = NutriEnv()
+    env.reset(state)
+    out = env.step(
+        {
+            "op": "submit_plan",
+            "items": [],
+            "verdict": "reject",
+            "reasons": ["allergy"],
+        }
+    )
+    assert out["ok"] is True
+    assert Scorer().score(env.state(), oracle) == {"passed": True, "tag": "pass"}
