@@ -797,3 +797,112 @@ def test_gold_spoken_food_phrases_are_searchable() -> None:
 def test_load_split_rejects_missing_file(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         load_split(tmp_path / "missing.json")
+
+
+def _fatigue_split(oracle: dict) -> dict:
+    """A cut person who says the deficit is exhausting. S0 windows are the band floor."""
+    body = {
+        "sex": "female",
+        "age_y": 34,
+        "height_cm": 165.0,
+        "weight_kg": 62.0,
+        "activity": "light",
+    }
+    cut_windows = derive_daily_windows(**body, phase="cut")
+    return {
+        "version": "test-roster",
+        "items": [
+            {
+                "id": "roster-upd-fatigue-001",
+                "family": "update",
+                "persona": "cut",
+                "query": "This deficit is leaving me exhausted.",
+                "s0": {
+                    "profile": {
+                        "user_id": "roster-ada",
+                        "allergies": ["peanut"],
+                        "windows": {k: list(v) for k, v in cut_windows.items()},
+                        "phase": "cut",
+                        **body,
+                    },
+                    "ledger": [],
+                },
+                "oracle": oracle,
+            }
+        ],
+    }
+
+
+def test_band_oracle_keeps_s0_windows_through_a_phase_change(tmp_path: Path) -> None:
+    """A fatigue oracle that names the target phase must not re-derive windows.
+
+    Deriving them would make ``expected.windows`` the maintain windows, and the
+    fatigue band ("higher than S0, at most maintain EER") would then compare the
+    end state against itself and never Pass.
+    """
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = _fatigue_split(
+        {"profile": {"phase": "maintain"}, "ledger": "s0", "update_band": "fatigue"}
+    )
+    path = tmp_path / "fatigue-phase.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    task = load_split(path, catalog=demo_catalog())[0]
+    assert task.oracle.update_band == "fatigue"
+    assert task.oracle.profile is not None
+    assert task.oracle.profile.phase == "maintain"
+    assert task.oracle.profile.windows == task.s0.profile.windows
+
+
+def test_band_oracle_rejects_named_windows(tmp_path: Path) -> None:
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = _fatigue_split(
+        {
+            "profile": {"windows": {"kcal": [1400.0, 1600.0]}},
+            "ledger": "s0",
+            "update_band": "fatigue",
+        }
+    )
+    path = tmp_path / "fatigue-named-windows.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="band baseline"):
+        load_split(path, catalog=demo_catalog())
+
+
+def test_band_oracle_requires_a_profile(tmp_path: Path) -> None:
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = _fatigue_split({"ledger": "s0", "update_band": "fatigue"})
+    path = tmp_path / "fatigue-no-profile.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="requires oracle.profile"):
+        load_split(path, catalog=demo_catalog())
+
+
+def test_fatigue_band_survives_a_freeze_load_round_trip(tmp_path: Path) -> None:
+    """The published exam is frozen JSON, so a band that only works in memory is broken."""
+    from nutrienv.bench.pipeline.freezer import task_to_item
+    from nutrienv.bench.scorer import Scorer
+    from nutrienv.env import NutriEnv
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = _fatigue_split(
+        {"profile": {"phase": "maintain"}, "ledger": "s0", "update_band": "fatigue"}
+    )
+    path = tmp_path / "fatigue.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    task = load_split(path, catalog=demo_catalog())[0]
+
+    frozen = tmp_path / "fatigue-refrozen.json"
+    frozen.write_text(
+        json.dumps({"version": "test-roster", "items": [task_to_item(task)]}),
+        encoding="utf-8",
+    )
+    reloaded = load_split(frozen, catalog=demo_catalog())[0]
+    assert reloaded.oracle.profile.windows == reloaded.s0.profile.windows
+
+    env = NutriEnv()
+    env.reset(reloaded.s0)
+    env.step({"op": "update_profile", "patch": {"phase": "maintain"}})
+    assert Scorer().score(env.state(), reloaded.oracle) == {"passed": True, "tag": "pass"}

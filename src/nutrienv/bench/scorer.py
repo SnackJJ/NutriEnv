@@ -107,7 +107,11 @@ class Scorer:
         expected = oracle.profile
         if expected is None:
             return False
-        if replace(end, windows=expected.windows) != expected:
+        # phase is a means, not the verdict: the handbook offers both a phase
+        # patch and a direct window move, and ADR 0015 scores where the windows
+        # landed. A wrong phase still fails below, because Env derives its
+        # windows and they miss the band.
+        if replace(end, windows=expected.windows, phase=expected.phase) != expected:
             return False
         band_keys = BAND_WINDOW_KEYS.get(oracle.update_band or "", frozenset())
         for key, bounds in expected.windows.items():
@@ -133,6 +137,8 @@ class Scorer:
             weight_kg=expected.weight_kg,
             activity=expected.activity,
         )
+        # A band oracle carries S0's windows unchanged (split.py enforces it),
+        # so expected.windows is the S0 baseline fatigue must rise above.
         return implicit_windows_pass(
             oracle.update_band or "",
             end.windows,
