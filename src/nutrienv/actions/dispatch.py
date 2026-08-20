@@ -15,13 +15,12 @@ import re
 from dataclasses import replace
 
 from ..world.catalog import canonical_food_id
-from ..world.daily_windows import ACTIVITY_PAL, derive_daily_windows
+from ..world.daily_windows import ACTIVITY_PAL, derive_profile_windows
 from ..world.dri import BASIS, DRI_REFERENCE
 from ..world.types import (
     PHASES,
     ImplausibleQuantity,
     LedgerRow,
-    Profile,
     WorldState,
     food_view,
     ledger_totals,
@@ -371,7 +370,7 @@ def _update_profile(state: WorldState, args: dict, _default_eaten_at: str) -> di
 
     if _BODY_PATCH_KEYS & patch.keys():
         preview = replace(state.profile, **changes)
-        derived = _derived_windows(preview)
+        derived = derive_profile_windows(preview)
         if derived is not None:
             changes["windows"] = derived
 
@@ -386,25 +385,6 @@ def _as_finite_float(value: object, field: str) -> float:
         raise ActionError("bad_schema", f"'{field}' must be finite")
     return float(value)
 
-
-def _derived_windows(profile: Profile) -> dict[str, tuple[float, float]] | None:
-    if (
-        profile.sex not in _SEXES
-        or profile.age_y is None
-        or profile.height_cm is None
-        or profile.weight_kg is None
-        or profile.activity not in ACTIVITY_PAL
-        or profile.phase not in PHASES
-    ):
-        return None
-    return derive_daily_windows(
-        sex=profile.sex,
-        age_y=profile.age_y,
-        height_cm=profile.height_cm,
-        weight_kg=profile.weight_kg,
-        activity=profile.activity,
-        phase=profile.phase,
-    )
 
 
 def _update_plan(state: WorldState, args: dict, _default_eaten_at: str) -> dict:

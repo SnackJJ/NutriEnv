@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from nutrienv.bench.split import GOLD_SPLIT_PATH, load_split
+from nutrienv.world.daily_windows import derive_daily_windows
 from nutrienv.world.types import LedgerRow
 
 _WINDOW_LEAK = re.compile(r"\b(?:kcal|protein_g|carb_g|fat_g)\s+\d")
@@ -220,7 +221,59 @@ def test_oracle_profile_can_carry_patched_weight(tmp_path: Path) -> None:
     assert task.oracle.profile.weight_kg == 80.0
     assert task.oracle.profile.sex == "female"
     assert task.oracle.profile.phase == "cut"
-    assert task.oracle.profile.windows == task.s0.profile.windows
+    assert task.oracle.profile.windows == derive_daily_windows(
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=80.0,
+        activity="light",
+        phase="cut",
+    )
+    assert task.oracle.profile.windows != task.s0.profile.windows
+
+
+def test_fact_only_weight_patch_matches_loaded_oracle(tmp_path: Path) -> None:
+    from nutrienv.bench.scorer import Scorer
+    from nutrienv.env import NutriEnv
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = {
+        "version": "test-roster",
+        "items": [
+            {
+                "id": "roster-upd-body-001",
+                "family": "update",
+                "persona": "everyday",
+                "query": "I now weigh 80 kilograms.",
+                "s0": {
+                    "profile": {
+                        "user_id": "roster-ada",
+                        "allergies": ["peanut"],
+                        "windows": {"kcal": [1800, 2200], "protein_g": [90, 140]},
+                        "sex": "female",
+                        "age_y": 34,
+                        "height_cm": 165.0,
+                        "weight_kg": 62.0,
+                        "activity": "light",
+                        "phase": "cut",
+                    },
+                    "ledger": [],
+                },
+                "oracle": {
+                    "profile": {"weight_kg": 80.0},
+                    "ledger": "s0",
+                },
+            }
+        ],
+    }
+    path = tmp_path / "roster-weight.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    task = load_split(path, catalog=demo_catalog())[0]
+    env = NutriEnv()
+    env.reset(task.s0)
+    out = env.step({"op": "update_profile", "patch": {"weight_kg": 80.0}})
+    assert out["ok"] is True
+    assert Scorer().score(env.state(), task.oracle) == {"passed": True, "tag": "pass"}
 
 
 def test_load_split_reads_implicit_update_band(tmp_path: Path) -> None:

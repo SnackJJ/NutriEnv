@@ -5,11 +5,12 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 
 from nutrienv.world.catalog import canonical_food_id
 from nutrienv.world.catalog_store import load_catalog
-from nutrienv.world.daily_windows import UPDATE_BANDS
+from nutrienv.world.daily_windows import UPDATE_BANDS, derive_profile_windows
 from nutrienv.world.types import (
     PHASES,
     LedgerRow,
@@ -245,6 +246,13 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
             if key in profile_spec:
                 merged[key] = profile_spec[key]
         profile = _profile(merged, default_user=s0.profile.user_id)
+        if any(
+            key in profile_spec
+            for key in ("sex", "age_y", "height_cm", "weight_kg", "activity", "phase")
+        ):
+            derived = derive_profile_windows(profile)
+            if derived is not None:
+                profile = replace(profile, windows=derived)
     else:
         raise ValueError("oracle.profile must be omitted, 's0', or an object")
 

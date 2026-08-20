@@ -6,6 +6,7 @@ from .daily_windows import (
     ACTIVITY_PAL,
     UPDATE_BANDS,
     derive_daily_windows,
+    derive_profile_windows,
     estimated_energy_requirement,
     implicit_windows_pass,
 )
@@ -37,6 +38,7 @@ __all__ = [
     "ACTIVITY_PAL",
     "UPDATE_BANDS",
     "derive_daily_windows",
+    "derive_profile_windows",
     "estimated_energy_requirement",
     "implicit_windows_pass",
     "FoodCatalog",

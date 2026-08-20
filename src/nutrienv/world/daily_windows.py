@@ -6,6 +6,7 @@ Bench imports this. The formula does not live in Bench.
 from __future__ import annotations
 
 from .dri import DRI_REFERENCE
+from .types import PHASES, Profile
 
 __all__ = [
     "ACTIVITY_PAL",
@@ -13,6 +14,7 @@ __all__ = [
     "MUSCLE_PROTEIN_G_PER_KG",
     "UPDATE_BANDS",
     "derive_daily_windows",
+    "derive_profile_windows",
     "estimated_energy_requirement",
     "implicit_windows_pass",
 ]
@@ -119,3 +121,26 @@ def derive_daily_windows(
         ),
         "sodium_mg": (0.0, 2300.0),
     }
+
+
+def derive_profile_windows(
+    profile: Profile,
+) -> dict[str, tuple[float, float]] | None:
+    """Derive daily windows from a Profile, or None if the body is incomplete."""
+    if (
+        profile.sex not in {"male", "female"}
+        or profile.age_y is None
+        or profile.height_cm is None
+        or profile.weight_kg is None
+        or profile.activity not in ACTIVITY_PAL
+        or profile.phase not in PHASES
+    ):
+        return None
+    return derive_daily_windows(
+        sex=profile.sex,
+        age_y=profile.age_y,
+        height_cm=profile.height_cm,
+        weight_kg=profile.weight_kg,
+        activity=profile.activity,
+        phase=profile.phase,
+    )
