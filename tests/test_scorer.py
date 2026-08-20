@@ -194,3 +194,39 @@ def test_accept_oracle_requires_the_exact_adopted_plan() -> None:
         }
     )
     assert Scorer().score(env.state(), oracle)["passed"] is False
+
+
+def test_accept_oracle_allergenic_plan_fails() -> None:
+    state = demo_state()
+    expected = [{"food_id": "peanut_butter", "grams": 25.0}]
+    oracle = Oracle(
+        profile=state.profile,
+        last_plan=expected,
+        last_verdict="accept",
+        ledger=tuple(state.ledger),
+    )
+    env = NutriEnv()
+    env.reset(state)
+    out = env.step({"op": "submit_plan", "items": expected})
+    assert out["ok"] is True
+    assert env.state().last_verdict == "accept"
+    assert Scorer().score(env.state(), oracle)["tag"] == "allergy"
+
+
+def test_accept_oracle_out_of_window_plan_fails() -> None:
+    state = demo_state()
+    state.profile = replace(state.profile, windows={"kcal": (120.0, 140.0)})
+    expected = [{"food_id": "white_rice", "grams": 200.0}]
+    oracle = Oracle(
+        profile=state.profile,
+        last_plan=expected,
+        last_verdict="accept",
+        plan_must_fit_windows=True,
+        ledger=tuple(state.ledger),
+    )
+    env = NutriEnv()
+    env.reset(state)
+    out = env.step({"op": "submit_plan", "items": expected})
+    assert out["ok"] is True
+    assert env.state().last_verdict == "accept"
+    assert Scorer().score(env.state(), oracle)["tag"] == "window"

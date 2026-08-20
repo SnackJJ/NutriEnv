@@ -58,7 +58,7 @@ class Scorer:
             verdict_error = self._score_verdict(end_state, oracle)
             if verdict_error is not None:
                 return self._fail(verdict_error)
-        elif (
+        if oracle.last_verdict != "reject" and (
             oracle.last_plan is not None
             or oracle.plan_must_be_safe
             or oracle.plan_must_fit_windows
