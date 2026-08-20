@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from nutrienv.bench.windows import any_pair_unsatisfiable
+from nutrienv.world.catalog import iter_catalog_entries
 from nutrienv.world.portions import resolve_portion
 
 from .tables import (
@@ -42,7 +43,7 @@ __all__ = [
 
 def _catalog_tags(catalog) -> set[str]:
     tags: set[str] = set()
-    for entry in catalog.values():
+    for _, entry in iter_catalog_entries(catalog):
         for tag in entry.get("allergen_tags") or []:
             tags.add(str(tag))
     return tags
