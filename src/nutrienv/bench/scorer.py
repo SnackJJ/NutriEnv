@@ -93,6 +93,14 @@ class Scorer:
         return _ScoreResult(passed=False, tag=tag)
 
     def _score_verdict(self, state: WorldState, oracle: Oracle) -> str | None:
+        if oracle.last_verdict == "accept":
+            if state.last_verdict != "accept":
+                return "wrong_goal"
+            if state.last_reasons:
+                return "wrong_goal"
+            if state.last_plan != oracle.last_plan:
+                return "wrong_goal"
+            return None
         if oracle.last_verdict == "reject":
             if state.last_verdict != "reject":
                 return "wrong_goal"

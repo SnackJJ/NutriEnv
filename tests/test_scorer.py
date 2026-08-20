@@ -157,3 +157,40 @@ def test_allow_empty_plan_does_not_pass_a_reject_oracle() -> None:
     assert env.state().last_verdict is None
     assert env.state().last_plan == []
     assert Scorer().score(env.state(), oracle)["tag"] == "wrong_goal"
+
+
+def test_accept_oracle_requires_the_exact_adopted_plan() -> None:
+    state = demo_state()
+    expected = [{"food_id": "white_rice", "grams": 100.0}]
+    oracle = Oracle(
+        profile=state.profile,
+        last_plan=expected,
+        last_verdict="accept",
+        ledger=tuple(state.ledger),
+    )
+    env = NutriEnv()
+    env.reset(state)
+    env.step({"op": "submit_plan", "items": expected})
+    assert env.state().last_verdict == "accept"
+    assert Scorer().score(env.state(), oracle) == {"passed": True, "tag": "pass"}
+
+    env.reset(state)
+    env.step(
+        {
+            "op": "submit_plan",
+            "items": [{"food_id": "chicken_breast", "grams": 80.0}],
+            "verdict": "accept",
+        }
+    )
+    assert Scorer().score(env.state(), oracle)["tag"] == "wrong_goal"
+
+    env.reset(state)
+    env.step(
+        {
+            "op": "submit_plan",
+            "items": [],
+            "verdict": "reject",
+            "reasons": ["allergy"],
+        }
+    )
+    assert Scorer().score(env.state(), oracle)["passed"] is False
