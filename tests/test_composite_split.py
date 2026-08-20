@@ -225,3 +225,56 @@ def test_reject_freeze_drops_prohibited_plan_flags(tmp_path: Path):
     assert loaded.last_verdict == "reject"
     assert loaded.plan_must_fit_windows is False
     assert loaded.allow_empty_plan is False
+
+
+def _verdict_item(*, last_verdict=None, last_reasons=None) -> dict:
+    oracle: dict = {
+        "profile": "s0",
+        "last_plan": [{"food_id": "white_rice", "grams": 100.0}],
+        "ledger": "s0",
+    }
+    if last_verdict is not None:
+        oracle["last_verdict"] = last_verdict
+    if last_reasons is not None:
+        oracle["last_reasons"] = last_reasons
+    return {
+        "id": "draft-eval-1",
+        "family": "evaluate",
+        "persona": "everyday",
+        "situations": [],
+        "query": "Is 100 g of rice okay for lunch?",
+        "s0": {
+            "profile": {
+                "user_id": "draft",
+                "allergies": ["peanut"],
+                "windows": {"kcal": [1800.0, 2200.0]},
+            },
+            "ledger": [],
+        },
+        "oracle": oracle,
+    }
+
+
+def test_load_rejects_reasons_unless_verdict_is_reject(tmp_path: Path):
+    dest = tmp_path / "split.json"
+    dest.write_text(
+        json.dumps({"items": [_verdict_item(last_verdict="accept", last_reasons=["allergy"])]}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="last_reasons"):
+        load_split(dest, catalog=demo_catalog())
+
+    dest.write_text(
+        json.dumps({"items": [_verdict_item(last_reasons=["kcal_hi"])]}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="last_reasons"):
+        load_split(dest, catalog=demo_catalog())
+
+    dest.write_text(
+        json.dumps({"items": [_verdict_item(last_verdict="accept", last_reasons=[])]}),
+        encoding="utf-8",
+    )
+    loaded = load_split(dest, catalog=demo_catalog())[0]
+    assert loaded.oracle.last_verdict == "accept"
+    assert loaded.oracle.last_reasons == ()

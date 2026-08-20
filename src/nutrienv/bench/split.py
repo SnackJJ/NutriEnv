@@ -267,6 +267,8 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
     last_reasons = ()
     if "last_reasons" in value:
         last_reasons = normalize_reasons(value["last_reasons"])
+    if last_verdict != "reject" and last_reasons:
+        raise ValueError("oracle.last_reasons require last_verdict 'reject'")
 
     return Oracle(
         profile=profile,

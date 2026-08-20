@@ -166,7 +166,7 @@ def _attach_plan_flags(payload: dict[str, object], oracle: Oracle) -> None:
 def _attach_verdict(payload: dict[str, object], oracle: Oracle) -> None:
     if oracle.last_verdict is not None:
         payload["last_verdict"] = oracle.last_verdict
-    if oracle.last_verdict == "reject" or oracle.last_reasons:
+    if oracle.last_verdict == "reject":
         payload["last_reasons"] = list(oracle.last_reasons)
 
 
