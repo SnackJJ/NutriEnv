@@ -8,7 +8,7 @@ from pathlib import Path
 from nutrienv.bench.split import load_split
 from nutrienv.env import NutriEnv
 from nutrienv.world.catalog_fixture import demo_state
-from nutrienv.world.types import LedgerRow
+from nutrienv.world.types import LedgerRow, Profile
 
 V04 = Path("data/splits/v0.4-gold.json")
 
@@ -459,6 +459,32 @@ def test_unknown_verdict_is_illegal_and_leaves_world_unchanged() -> None:
     after = env.state()
     assert after.last_verdict == "accept"
     assert after.last_plan == before.last_plan
+
+
+def test_roster_complete_s0_round_trips_body_facts_through_reset_and_get_profile() -> None:
+    s0 = demo_state()
+    s0.profile = Profile(
+        user_id="roster-ada",
+        allergies=("peanut",),
+        windows={"kcal": (1800.0, 2200.0), "protein_g": (90.0, 140.0)},
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=62.0,
+        activity="light",
+        phase="cut",
+    )
+    env = NutriEnv()
+    opening = env.reset(s0)["profile"]
+    observed = env.step({"op": "get_profile"})["observation"]["profile"]
+    for profile in (opening, observed):
+        assert profile["sex"] == "female"
+        assert profile["age_y"] == 34
+        assert profile["height_cm"] == 165.0
+        assert profile["weight_kg"] == 62.0
+        assert profile["activity"] == "light"
+        assert profile["phase"] == "cut"
+        assert profile["windows"] == {"kcal": [1800.0, 2200.0], "protein_g": [90.0, 140.0]}
 
 
 def test_reset_and_get_profile_expose_verdict_and_reasons() -> None:

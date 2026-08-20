@@ -150,6 +150,9 @@ def _profile(value: object, *, default_user: str) -> Profile:
     if not isinstance(windows_raw, dict):
         raise ValueError("windows must be an object")
     windows = {str(key): normalize_window(bounds) for key, bounds in windows_raw.items()}
+    age_y = value.get("age_y")
+    height_cm = value.get("height_cm")
+    weight_kg = value.get("weight_kg")
     return Profile(
         user_id=str(value.get("user_id") or default_user),
         allergies=normalize_tags(value.get("allergies") or []),
@@ -157,6 +160,12 @@ def _profile(value: object, *, default_user: str) -> Profile:
         windows=windows,
         plan_preset=copy.deepcopy(value.get("plan_preset") or {}),
         version=int(value.get("version") or 1),
+        sex=value.get("sex"),
+        age_y=None if age_y is None else int(age_y),
+        height_cm=None if height_cm is None else float(height_cm),
+        weight_kg=None if weight_kg is None else float(weight_kg),
+        activity=value.get("activity"),
+        phase=value.get("phase") or "maintain",
     )
 
 

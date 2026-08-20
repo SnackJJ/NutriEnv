@@ -43,6 +43,64 @@ def test_legacy_split_items_load_without_rewriting_windows() -> None:
     assert gym.s0.profile.windows["kcal"] == (400.0, 750.0)
 
 
+def test_roster_complete_s0_round_trips_body_facts_through_load(
+    tmp_path: Path,
+) -> None:
+    from nutrienv.env import NutriEnv
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = {
+        "version": "test-roster",
+        "items": [
+            {
+                "id": "roster-s0-001",
+                "family": "log",
+                "persona": "gym",
+                "query": "Please log breakfast.",
+                "s0": {
+                    "profile": {
+                        "user_id": "roster-ada",
+                        "allergies": ["peanut"],
+                        "windows": {"kcal": [1800, 2200], "protein_g": [90, 140]},
+                        "sex": "female",
+                        "age_y": 34,
+                        "height_cm": 165.0,
+                        "weight_kg": 62.0,
+                        "activity": "light",
+                        "phase": "cut",
+                    },
+                    "ledger": [],
+                },
+                "oracle": {"profile": "s0", "ledger": "s0"},
+            }
+        ],
+    }
+    path = tmp_path / "roster.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    task = load_split(path, catalog=demo_catalog())[0]
+    assert task.persona == "gym"
+    assert task.s0.profile.sex == "female"
+    assert task.s0.profile.age_y == 34
+    assert task.s0.profile.height_cm == 165.0
+    assert task.s0.profile.weight_kg == 62.0
+    assert task.s0.profile.activity == "light"
+    assert task.s0.profile.phase == "cut"
+    assert task.s0.profile.windows == {"kcal": (1800.0, 2200.0), "protein_g": (90.0, 140.0)}
+    assert task.oracle.profile == task.s0.profile
+
+    env = NutriEnv()
+    opening = env.reset(task.s0)["profile"]
+    observed = env.step({"op": "get_profile"})["observation"]["profile"]
+    for profile in (opening, observed):
+        assert profile["sex"] == "female"
+        assert profile["age_y"] == 34
+        assert profile["height_cm"] == 165.0
+        assert profile["weight_kg"] == 62.0
+        assert profile["activity"] == "light"
+        assert profile["phase"] == "cut"
+        assert profile["windows"] == {"kcal": [1800.0, 2200.0], "protein_g": [90.0, 140.0]}
+
+
 def test_load_split_v05_is_the_240() -> None:
     tasks = load_split(Path("data/splits/v0.5-gold.json"))
     assert len(tasks) == 240
