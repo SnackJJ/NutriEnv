@@ -746,6 +746,9 @@ def _validate_evaluate(task: Task, query: str) -> list[str]:
         food_id = str(item["food_id"])
         entry = task.s0.catalog.get(food_id) or {}
         names = [food_id.replace("_", " "), str(entry.get("name") or "")]
+        name = str(entry.get("name") or "")
+        if "," in name:
+            names.append(name.split(",", 1)[0])
         names.extend(str(alias) for alias in (entry.get("aliases") or []))
         if not any(_token_in_query(name, query) for name in names if name):
             issues.append(f"evaluate food {food_id} is not mentioned in the query")

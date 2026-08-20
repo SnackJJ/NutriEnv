@@ -39,16 +39,21 @@ def sample_pools(
     family: str,
     n_pools: int,
     pool_size: int = POOL_SIZE,
+    spoken_only: bool = False,
 ) -> list[FoodPool]:
     """Draw ``n_pools`` independent pools of ~``pool_size`` foods.
 
     Uses ``random.Random(seed)`` only. Eligible foods are those with at least
-    one PortionFact the grammar can speak. Pool membership is sorted then
-    sampled so the same seed yields the same pools.
+    one PortionFact the grammar can speak. When ``spoken_only`` is true, foods
+    whose only speakable portion is a plain cup are excluded, so the pool can
+    contain snacks and milk rather than only solid-cup mains. Pool membership
+    is sorted then sampled so the same seed yields the same pools.
     """
     if n_pools <= 0:
         return []
     eligible = _eligible_foods(catalog)
+    if spoken_only:
+        eligible = [food_id for food_id in eligible if not _cup_only(catalog, food_id)]
     if not eligible:
         raise ValueError("catalog has no foods with speakable PortionFacts")
     rng = random.Random(seed)
@@ -97,6 +102,16 @@ def portion_alternatives(entry: Mapping) -> tuple[PortionAlternative, ...]:
                 )
             )
     return tuple(out)
+
+
+def _cup_only(catalog: Mapping, food_id: str) -> bool:
+    """True when a food's only speakable portion is a plain cup."""
+    entry = catalog.get(food_id) or {}
+    portions = entry.get("portions") or {}
+    if not isinstance(portions, Mapping):
+        return False
+    keys = {str(key) for key in portions if _numeric(portions.get(key))}
+    return keys == {"cup"}
 
 
 def _eligible_foods(catalog: Mapping) -> list[str]:

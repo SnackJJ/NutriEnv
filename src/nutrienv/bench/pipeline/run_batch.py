@@ -626,6 +626,15 @@ def _finish_one(
                 implausible = True
             else:
                 draft_issues = list(validate_draft(task))
+                if vote_on:
+                    # The semantic vote is the speech gate when it is on;
+                    # validate_draft may still fail "not mentioned" for a
+                    # rewritten query that the vote accepted.
+                    draft_issues = [
+                        issue
+                        for issue in draft_issues
+                        if "not mentioned in the query" not in issue
+                    ]
                 draft_issues.extend(_composite_draft_issues(task))
                 if draft_issues:
                     draft_fail = True

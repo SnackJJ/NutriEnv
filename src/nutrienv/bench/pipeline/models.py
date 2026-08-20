@@ -10,6 +10,7 @@ __all__ = [
     "DEFAULT_EXPANDER_MODEL",
     "DEFAULT_EXPANDER_MODELS",
     "DISABLED_EXPANDER_MODELS",
+    "QWEN_EXPANDER_MODELS",
     "assign_model",
     "enabled_route",
     "parse_model_route",
@@ -35,6 +36,11 @@ DISABLED_EXPANDER_MODELS: frozenset[str] = frozenset(
 )
 
 DEFAULT_EXPANDER_MODEL = "qwen3.8-max"
+
+# Single-task generate_one runs only the Qwen legs of the route table.
+QWEN_EXPANDER_MODELS: tuple[str, ...] = tuple(
+    model_id for model_id in DEFAULT_EXPANDER_MODELS if "qwen" in model_id.lower()
+)
 
 
 def parse_model_route(model_route: object) -> tuple[str, ...]:

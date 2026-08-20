@@ -47,7 +47,12 @@ def resolve_candidate(
     skip_gram_backresolve: bool = False,
     pool: FoodPool | None = None,
 ) -> tuple[object, Rejected | None]:
-    """Build a Task or a rejection. ``seen`` is the resolved-id multiset set."""
+    """Build a Task or a rejection. ``seen`` is the resolved-id multiset set.
+
+    When ``skip_gram_backresolve`` is true, query speech checks (back-resolve
+    and containment) are left to the semantic vote; the payload items are
+    still bound to pool/catalog table grams.
+    """
     index = food_index if food_index is not None else build_food_index(catalog)
     resolved: list[tuple[str, str, float]] = []
     for spoken, expression in candidate.items:
@@ -69,9 +74,9 @@ def resolve_candidate(
             ):
                 return None, Rejected(candidate.query, "backresolve", candidate.family)
 
-    for food_id, _expression, _grams in resolved:
-        if not _mentioned(food_id, catalog, candidate.query, candidate.items):
-            return None, Rejected(candidate.query, "containment", candidate.family)
+        for food_id, _expression, _grams in resolved:
+            if not _mentioned(food_id, catalog, candidate.query, candidate.items):
+                return None, Rejected(candidate.query, "containment", candidate.family)
 
     key = tuple(sorted(food_id for food_id, _expression, _grams in resolved))
     if candidate.family == COMPOSITE_FAMILY or len(candidate.steps) > 1:

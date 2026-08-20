@@ -377,7 +377,7 @@ def build_system_prompt(*, persona: str, family: str) -> str:
     )
 
 
-def build_user_prompt(pool: FoodPool) -> str:
+def build_user_prompt(pool: FoodPool, *, family: str = "log") -> str:
     """Compact pool table: spoken name + portion key → grams per unit."""
     lines = [
         f"Food pool {pool.pool_id} (pick 1-3 foods):",
@@ -398,6 +398,13 @@ def build_user_prompt(pool: FoodPool) -> str:
             bits = [f"{key}={grams:g}g" for key, grams in per_unit.items()]
             lines.append("  portions (key → grams per 1 unit): " + ", ".join(bits))
     lines.append("")
+    if family == "evaluate":
+        lines.append(
+            "The user wants this exact meal assessed as a plan. "
+            "Write an evaluate request; do not include kcal numbers."
+        )
+    else:
+        lines.append("The user already ate this meal. Write a log request.")
     lines.append("Compose one meal. Output the JSON object only.")
     return "\n".join(lines)
 
@@ -498,7 +505,7 @@ class LlmExpander:
         self._index += 1
         messages = (
             {"role": "system", "content": build_system_prompt(persona=persona, family=family)},
-            {"role": "user", "content": build_user_prompt(pool)},
+            {"role": "user", "content": build_user_prompt(pool, family=family)},
         )
         last: dict[str, object] = {"items": [], "query": ""}
         for _attempt in range(1 + self._parse_retries):
