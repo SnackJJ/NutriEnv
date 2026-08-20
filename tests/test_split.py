@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -12,6 +13,34 @@ from nutrienv.world.types import LedgerRow
 
 _WINDOW_LEAK = re.compile(r"\b(?:kcal|protein_g|carb_g|fat_g)\s+\d")
 _SLUG = re.compile(r"\b[a-z]+_[a-z0-9_]+\b")
+
+
+def test_legacy_split_items_load_without_rewriting_windows() -> None:
+    path = Path("data/splits/v0.5-gold.json")
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    tasks = {task.id: task for task in load_split(path)}
+    for item in raw["items"]:
+        stored = item["s0"]["profile"]
+        loaded = tasks[item["id"]].s0.profile
+        for key, bounds in stored["windows"].items():
+            assert loaded.windows[key] == (float(bounds[0]), float(bounds[1])), item["id"]
+        assert "sex" not in stored
+        assert "age_y" not in stored
+        assert "height_cm" not in stored
+        assert "weight_kg" not in stored
+        assert "activity" not in stored
+        assert "phase" not in stored
+        assert loaded.sex is None
+        assert loaded.age_y is None
+        assert loaded.height_cm is None
+        assert loaded.weight_kg is None
+        assert loaded.activity is None
+        assert loaded.phase == "maintain"
+    gym = tasks["v0-rec-gym-001"]
+    assert gym.persona == "gym"
+    assert gym.s0.profile.plan_preset == {"goal": "muscle"}
+    assert gym.s0.profile.activity is None
+    assert gym.s0.profile.windows["kcal"] == (400.0, 750.0)
 
 
 def test_load_split_v05_is_the_240() -> None:
