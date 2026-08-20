@@ -291,3 +291,140 @@ def test_reject_with_nonempty_plan_is_illegal_and_leaves_world_unchanged() -> No
     assert after.last_reasons == before.last_reasons
     assert after.catalog == before.catalog
 
+
+def test_accept_with_reasons_is_illegal_and_leaves_world_unchanged() -> None:
+    env = NutriEnv()
+    env.reset(demo_state())
+    env.step(
+        {
+            "op": "submit_plan",
+            "items": [],
+            "verdict": "reject",
+            "reasons": ["kcal_hi"],
+        }
+    )
+    before = copy.deepcopy(env.state())
+
+    out = env.step(
+        {
+            "op": "submit_plan",
+            "items": [{"food_id": "egg", "grams": 100}],
+            "verdict": "accept",
+            "reasons": ["kcal_hi"],
+        }
+    )
+
+    assert out["ok"] is False
+    assert out["error"]["code"] == "bad_schema"
+    after = env.state()
+    assert after.last_verdict == "reject"
+    assert after.last_plan == []
+    assert after.last_reasons == ("kcal_hi",)
+    assert after.ledger == before.ledger
+    assert after.profile == before.profile
+
+
+def test_reasons_without_verdict_are_illegal_and_leave_world_unchanged() -> None:
+    env = NutriEnv()
+    env.reset(demo_state())
+    env.step({"op": "submit_plan", "items": [{"food_id": "egg", "grams": 100}]})
+    before = copy.deepcopy(env.state())
+
+    out = env.step(
+        {
+            "op": "submit_plan",
+            "items": [{"food_id": "oats", "grams": 40}],
+            "reasons": ["kcal_hi"],
+        }
+    )
+
+    assert out["ok"] is False
+    assert out["error"]["code"] == "bad_schema"
+    after = env.state()
+    assert after.last_verdict == "accept"
+    assert after.last_plan == before.last_plan
+    assert after.last_reasons == ()
+    assert after.ledger == before.ledger
+    assert after.profile == before.profile
+
+
+def test_reject_with_empty_reasons_is_legal_physics() -> None:
+    env = NutriEnv()
+    env.reset(demo_state())
+    env.step({"op": "submit_plan", "items": [{"food_id": "egg", "grams": 100}]})
+
+    omitted = env.step({"op": "submit_plan", "items": [], "verdict": "reject"})
+    assert omitted["ok"] is True
+    assert env.state().last_verdict == "reject"
+    assert env.state().last_plan == []
+    assert env.state().last_reasons == ()
+
+    env.step({"op": "submit_plan", "items": [{"food_id": "egg", "grams": 100}]})
+    empty = env.step(
+        {"op": "submit_plan", "items": [], "verdict": "reject", "reasons": []}
+    )
+    assert empty["ok"] is True
+    assert env.state().last_verdict == "reject"
+    assert env.state().last_plan == []
+    assert env.state().last_reasons == ()
+
+
+def test_unknown_reason_token_is_illegal_and_leaves_world_unchanged() -> None:
+    env = NutriEnv()
+    env.reset(demo_state())
+    env.step({"op": "submit_plan", "items": [{"food_id": "egg", "grams": 100}]})
+    before = copy.deepcopy(env.state())
+
+    out = env.step(
+        {
+            "op": "submit_plan",
+            "items": [],
+            "verdict": "reject",
+            "reasons": ["not_a_reason"],
+        }
+    )
+
+    assert out["ok"] is False
+    assert out["error"]["code"] == "bad_schema"
+    after = env.state()
+    assert after.last_verdict == before.last_verdict
+    assert after.last_plan == before.last_plan
+    assert after.last_reasons == before.last_reasons
+
+
+def test_accept_with_empty_items_is_illegal_and_leaves_world_unchanged() -> None:
+    env = NutriEnv()
+    env.reset(demo_state())
+    env.step({"op": "submit_plan", "items": [{"food_id": "egg", "grams": 100}]})
+    before = copy.deepcopy(env.state())
+
+    out = env.step({"op": "submit_plan", "items": [], "verdict": "accept"})
+
+    assert out["ok"] is False
+    assert out["error"]["code"] == "bad_schema"
+    after = env.state()
+    assert after.last_verdict == "accept"
+    assert after.last_plan == before.last_plan
+    assert after.last_reasons == ()
+
+
+def test_unknown_verdict_is_illegal_and_leaves_world_unchanged() -> None:
+    env = NutriEnv()
+    env.reset(demo_state())
+    env.step({"op": "submit_plan", "items": [{"food_id": "egg", "grams": 100}]})
+    before = copy.deepcopy(env.state())
+
+    out = env.step(
+        {
+            "op": "submit_plan",
+            "items": [{"food_id": "oats", "grams": 40}],
+            "verdict": "maybe",
+        }
+    )
+
+    assert out["ok"] is False
+    assert out["error"]["code"] == "bad_schema"
+    after = env.state()
+    assert after.last_verdict == "accept"
+    assert after.last_plan == before.last_plan
+

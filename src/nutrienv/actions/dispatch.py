@@ -227,29 +227,45 @@ def _submit_plan(state: WorldState, args: dict, _default_eaten_at: str) -> dict:
     verdict = (
         as_nonempty_str(args["verdict"], "verdict") if "verdict" in args else None
     )
-    reasons = ()
+    if verdict is not None and verdict not in {"accept", "reject"}:
+        raise ActionError("bad_schema", "verdict must be 'accept' or 'reject'")
+
+    reasons = None
     if "reasons" in args:
         try:
             reasons = normalize_reasons(args["reasons"])
         except ValueError as exc:
             raise ActionError("bad_schema", f"'reasons': {exc}") from exc
 
-    if verdict == "reject":
+    if verdict is None:
+        if reasons is not None:
+            raise ActionError("bad_schema", "reasons require a verdict")
         if normalized:
-            raise ActionError("bad_schema", "reject requires empty items")
-        state.last_plan = []
-        state.last_verdict = "reject"
-        state.last_reasons = reasons
-        return {"op": "submit_plan", "items": []}
+            state.last_plan = normalized
+            state.last_verdict = "accept"
+            state.last_reasons = ()
+        else:
+            state.last_plan = []
+            state.last_verdict = None
+            state.last_reasons = ()
+        return {"op": "submit_plan", "items": copy.deepcopy(state.last_plan)}
 
-    state.last_plan = normalized
-    if normalized:
+    if verdict == "accept":
+        if not normalized:
+            raise ActionError("bad_schema", "accept requires a non-empty plan")
+        if reasons:
+            raise ActionError("bad_schema", "accept cannot include reasons")
+        state.last_plan = normalized
         state.last_verdict = "accept"
         state.last_reasons = ()
-    else:
-        state.last_verdict = None
-        state.last_reasons = ()
-    return {"op": "submit_plan", "items": copy.deepcopy(normalized)}
+        return {"op": "submit_plan", "items": copy.deepcopy(normalized)}
+
+    if normalized:
+        raise ActionError("bad_schema", "reject requires empty items")
+    state.last_plan = []
+    state.last_verdict = "reject"
+    state.last_reasons = reasons if reasons is not None else ()
+    return {"op": "submit_plan", "items": []}
 
 
 def _expand_food_allergies(state: WorldState, tags: tuple[str, ...]) -> tuple[str, ...]:
