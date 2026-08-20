@@ -111,6 +111,20 @@ def test_react_manual_teaches_evaluate_verdict_not_empty_items_as_reject() -> No
     assert len(react_manual("v0").split()) <= 400
 
 
+def test_react_manual_teaches_implicit_update_direction_without_step_sizes() -> None:
+    for version in REACT_VERSIONS:
+        text = react_manual(version)
+        assert "cutting" in text
+        assert "0.8" in text
+        assert "muscle" in text
+        assert "tiring" in text
+        assert "allerg" in text
+        lowered = text.lower()
+        assert "step size" in lowered or "no published" in lowered
+        assert "500" not in text
+    assert len(react_manual("v0").split()) <= 400
+
+
 def test_react_version_rejects_unknown_and_clone_keeps_it() -> None:
     import pytest
 
