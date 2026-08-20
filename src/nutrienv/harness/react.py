@@ -41,7 +41,7 @@ Available ops:
 - get_ledger
 - get_dri
 - log_meal {food_id, grams, eaten_at?}
-- submit_plan {items: [{food_id, grams}, ...]}
+- submit_plan {items: [{food_id, grams}, ...], verdict?, reasons?}
 - update_profile {patch}
 - update_plan {patch}
 - finish  (hand-in: stop the episode; the current world is scored)
@@ -55,7 +55,10 @@ How an episode is graded:
 - log_meal without eaten_at is stamped "now". If the query names a meal, copy the ledger's token style (today-breakfast, today-lunch, …).
 - A leftover / already-ate question: daily windows on get_profile are not the meal budget. Ledger rows may include nutrients; use them when present, otherwise use get_food. Subtract eaten nutrients from the daily windows, then submit_plan for the remainder.
 - After the required writes, emit finish. submit_plan is a hand-in: do not update_plan afterwards.
-- Profile allergies are catalog allergen_tags (shellfish, peanut), not food names. If last_plan already violates the windows, submit_plan {"items": []}.
+- Profile allergies are catalog allergen_tags (shellfish, peanut), not food names.
+- Evaluate: submit_plan with verdict=accept and the exact named meal, or verdict=reject, empty items, and the closed reason codes that fire (allergy; {kcal,protein_g,carb_g,fat_g,fiber_g,sodium_mg}_hi/_lo). Doing nothing fails.
+- Recommend: submit_plan a safe meal that fits the windows; omit verdict.
+- When planning a single meal without explicit bounds, target the meal energy share: breakfast 25-30%, lunch 30-40%, dinner 30-40% of daily energy.
 """
 
 _SYSTEM_V1_TAIL = """
