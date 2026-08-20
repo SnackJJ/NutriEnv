@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from dataclasses import replace
 
 from nutrienv.bench.pipeline.resolver import resolve_candidate
@@ -20,9 +22,16 @@ from nutrienv.bench.windows import windows_unsatisfiable
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.types import Profile, WorldState, normalize_tags
 
+_LEGACY_CATALOG = Path(__file__).resolve().parents[1] / "data" / "fdc" / "catalog.sqlite"
+
 
 def _task(row):
-    return realize(material_from_row(row), spoken_query(row))
+    # Realization rows are authored against the frozen legacy catalog.
+    return realize(
+        material_from_row(row, catalog=load_catalog(_LEGACY_CATALOG)),
+        spoken_query(row),
+        catalog=load_catalog(_LEGACY_CATALOG),
+    )
 
 
 def _update_until(predicate):

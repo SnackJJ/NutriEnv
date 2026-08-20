@@ -167,8 +167,12 @@ def test_evaluate_spoken_yogurt_grams_still_pass():
     assert validate_draft(task) == []
 
 
-def test_evaluate_spoken_grams_bind_to_the_named_food():
-    good = realize(material_from_row(_eval_row("ev-pair-chicken-rice")), spoken_query(_eval_row("ev-pair-chicken-rice")))
+def test_evaluate_spoken_grams_bind_to_the_named_food(catalog_v1):
+    good = realize(
+        material_from_row(_eval_row("ev-pair-chicken-rice"), catalog=catalog_v1),
+        spoken_query(_eval_row("ev-pair-chicken-rice")),
+        catalog=catalog_v1,
+    )
     assert validate_draft(good) == []
 
     rebound = replace(
@@ -205,10 +209,11 @@ def test_log_chicken_grams_and_cup_of_rice(catalog_v1):
     assert validate_oracle_grams(both) == []
 
 
-def test_evaluate_rice_grams_with_chicken_do_not_authorize_chicken():
+def test_evaluate_rice_grams_with_chicken_do_not_authorize_chicken(catalog_v1):
     good = realize(
-        material_from_row(_eval_row("ev-pair-chicken-rice")),
+        material_from_row(_eval_row("ev-pair-chicken-rice"), catalog=catalog_v1),
         spoken_query(_eval_row("ev-pair-chicken-rice")),
+        catalog=catalog_v1,
     )
     rebound = replace(good, query="Evaluate: 150 g of rice with chicken")
     issues = validate_draft(rebound)

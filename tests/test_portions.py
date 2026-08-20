@@ -135,7 +135,7 @@ def live_catalog():
         ("2705824", "a thick slice", None),            # M8 explicit measure
         ("2705824", "two thin slices", None),          # M9
         ("2707777", "two thin slices", None),          # M10 must not be 84.0
-        ("2707777", "two slices", 48.0),               # M11 unchanged
+        ("2707777", "two slices", 32.0),               # M11 FNDDS-only slice
         ("2705824", "a large steak", None),            # M12 REFUSED_MODIFIERS
         ("2705866", "a thick pork chop", None),        # M13 chop not DISH_NOUNS
         ("2705824", "a thick", None),                  # M14 no unit to bind
@@ -185,11 +185,11 @@ def test_fl_oz_phrases_match_design(live_catalog, food_id, phrase, grams):
         ("orange", "a serving", 154.0),                # Q1 qns
         ("broccoli", "a serving", 45.0),               # Q2
         ("avocado", "a serving", 30.0),                # Q3
-        ("peanut_butter", "a serving", 32.0),          # Q4 newly resolvable
+        ("peanut_butter", "a serving", 45.0),          # Q4 serving key wins over qns
         ("potato", "a serving", 285.0),                # Q5
         ("cheddar", "a serving", 21.0),                # Q6 qns = slice
-        ("167668", "a serving of fried rice", 137.0),  # Q7 no qns, cup fallback
-        ("salmon", "a serving", None),                 # Q8 no portion keys
+        ("167668", "a serving of fried rice", None),   # Q7 SR Legacy absent from FNDDS-only
+        ("salmon", "a serving", 140.0),                # Q8 FNDDS qns/piece
         ("2706880", "a sandwich", 115.0),              # Q9 qns, not piece
         ("2706880", "two sandwiches", 230.0),          # Q10
         ("2707198", "an omelet", 110.0),               # Q11
@@ -242,9 +242,9 @@ def test_manual_expressions_all_resolve(live_catalog):
     ):
         assert word in manual
     assert resolve_portion("milk_whole", "half a cup", live_catalog) == 122.0
-    assert resolve_portion("olive_oil", "a tablespoon", live_catalog) == 13.5
-    assert resolve_portion("olive_oil", "a teaspoon", live_catalog) == 4.5
-    assert resolve_portion("cheddar", "a slice", live_catalog) == 21.0
+    assert resolve_portion("olive_oil", "a tablespoon", live_catalog) == 14.0
+    assert resolve_portion("olive_oil", "a teaspoon", live_catalog) is None
+    assert resolve_portion("cheddar", "a slice", live_catalog) == 9.0
     assert resolve_portion("egg", "a piece", live_catalog) == 50.0
     assert "can" in UNIT_SYNONYMS
     assert resolve_portion("milk_whole", "8 fl oz", live_catalog) == 244.0

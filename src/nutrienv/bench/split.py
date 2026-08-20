@@ -38,9 +38,12 @@ _EXAM_VERSIONS = frozenset({"v0.5-gold"})
 def load_split(path: Path | str | None = None, *, catalog=None) -> list[Task]:
     """Read a frozen JSON split and attach a catalog to every S0.
 
-    ``catalog=None`` loads :func:`load_catalog` with no path (the gold sqlite).
-    Pass a catalog object when the caller has already resolved and verified
-    the file that must be attached.
+    ``catalog=None`` prefers the split's recorded ``catalog`` path when the
+    payload has one, so frozen increments stay bound to the catalog they were
+    authored against. If the payload records no catalog, the active default
+    catalog (:func:`load_catalog` with no path) is used. Pass a catalog object
+    when the caller has already resolved and verified the file that must be
+    attached.
     """
     target = Path(path) if path is not None else EXAM_SPLIT_PATH
     if not target.is_file():
@@ -50,7 +53,14 @@ def load_split(path: Path | str | None = None, *, catalog=None) -> list[Task]:
     if not isinstance(items, list) or not items:
         raise ValueError("split must contain a non-empty items list")
     if catalog is None:
-        catalog = load_catalog()
+        catalog_field = payload.get("catalog") if isinstance(payload, dict) else None
+        if isinstance(catalog_field, str) and catalog_field:
+            catalog_path = Path(catalog_field)
+            if not catalog_path.is_absolute():
+                catalog_path = _ROOT / catalog_field
+            catalog = load_catalog(catalog_path)
+        else:
+            catalog = load_catalog()
     return [_item(entry, catalog) for entry in items]
 
 

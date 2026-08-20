@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from nutrienv.bench.realizations import (
     CONSTRAIN_ROWS,
     EVALUATE_ROWS,
@@ -28,15 +30,17 @@ from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals
 
+_LEGACY_CATALOG = Path(__file__).resolve().parents[1] / "data" / "fdc" / "catalog.sqlite"
+
 
 def _task(row, *, catalog=None):
-    foods = catalog if catalog is not None else load_catalog()
+    foods = catalog if catalog is not None else load_catalog(_LEGACY_CATALOG)
     material = material_from_row(row, catalog=foods)
     return realize(material, spoken_query(row), catalog=foods)
 
 
 def test_fuzzy_table_resolves_and_keys_are_unique():
-    catalog = load_catalog()
+    catalog = load_catalog(_LEGACY_CATALOG)
     assert len(FUZZY_ROWS) >= 16
     assert_fuzzy_resolves(catalog)
     keys = [fuzzy_key(row) for row in FUZZY_ROWS]
@@ -46,7 +50,7 @@ def test_fuzzy_table_resolves_and_keys_are_unique():
 
 
 def test_leftover_table_remainders_are_positive_and_unique():
-    catalog = load_catalog()
+    catalog = load_catalog(_LEGACY_CATALOG)
     assert len(LEFTOVER_ROWS) >= 27
     assert_leftover_rows(catalog)
     keys = [leftover_key(row) for row in LEFTOVER_ROWS]
@@ -61,7 +65,7 @@ def test_leftover_table_remainders_are_positive_and_unique():
 
 
 def test_update_constrain_evaluate_tables_have_unique_keys():
-    catalog = load_catalog()
+    catalog = load_catalog(_LEGACY_CATALOG)
     assert len(UPDATE_ROWS) >= 34
     assert len(CONSTRAIN_ROWS) >= 42
     assert {row.kind for row in CONSTRAIN_ROWS} == {"condition", "conflict"}
@@ -86,7 +90,7 @@ def test_cut_leftover_rows_carry_plan_preset():
 
 
 def test_evaluate_windows_are_derived_from_live_totals():
-    catalog = load_catalog()
+    catalog = load_catalog(_LEGACY_CATALOG)
     for row in EVALUATE_ROWS:
         items = []
         for food_id, phrase in row.items:
@@ -121,7 +125,7 @@ def test_evaluate_rows_cover_tiers_and_resolve():
     import re
     from collections import Counter
 
-    catalog = load_catalog()
+    catalog = load_catalog(_LEGACY_CATALOG)
     assert len(EVALUATE_ROWS) >= 55
     counts = Counter(row.tier for row in EVALUATE_ROWS)
     assert counts["single"] >= 7
@@ -208,7 +212,7 @@ def test_every_table_row_materializes_to_a_clean_draft():
 
 
 def test_recommend_table_covers_declared_axes():
-    catalog = load_catalog()
+    catalog = load_catalog(_LEGACY_CATALOG)
     assert len(RECOMMEND_ROWS) >= 40
     assert_recommend_rows(catalog)
     personas = {row.persona for row in RECOMMEND_ROWS}
@@ -294,7 +298,7 @@ def test_constrain_conflict_spans_three_mechanisms():
 
 
 def test_allergen_conflict_rows_are_infeasible_only_with_the_allergy():
-    catalog = load_catalog()
+    catalog = load_catalog(_LEGACY_CATALOG)
     allergen_rows = [
         row
         for row in CONSTRAIN_ROWS
@@ -333,7 +337,7 @@ def _is_asymmetric(delta) -> bool:
 
 
 def test_log_situation_tables_cover_the_four_shapes():
-    catalog = load_catalog()
+    catalog = load_catalog(_LEGACY_CATALOG)
     assert len(MULTI_ITEM_LOG_ROWS) >= 6
     assert len(UNIT_CONVERT_ROWS) >= 5
     assert len(NEAR_SYNONYM_ROWS) >= 5
@@ -380,7 +384,7 @@ def test_log_situation_tables_cover_the_four_shapes():
 
 
 def test_update_table_covers_new_axes():
-    catalog = load_catalog()
+    catalog = load_catalog(_LEGACY_CATALOG)
     assert len(UPDATE_ROWS) >= 34
     assert_update_rows(catalog)
     removals = [row for row in UPDATE_ROWS if row.remove_allergens]

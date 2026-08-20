@@ -615,7 +615,7 @@ def freeze_split(payload: dict, target: Path, catalog) -> None:
 def build(version: str, *, target: Path | None = None) -> Path:
     spec = INCREMENTS[version]
     tag = "v" + version[1:].replace(".", "")      # v0.2 -> v02
-    catalog = load_catalog()
+    catalog = load_catalog(CATALOG)
     parent_path = SPLITS / f"{spec['parent']}.json"
     parent = json.loads(parent_path.read_text(encoding="utf-8"))
 

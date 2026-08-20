@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from dataclasses import replace
 
 import pytest
@@ -14,13 +16,18 @@ from nutrienv.bench.realize import (
 )
 from nutrienv.world.catalog_store import load_catalog
 
+_LEGACY_CATALOG = Path(__file__).resolve().parents[1] / "data" / "fdc" / "catalog.sqlite"
 _ROWS = list(iter_realization_rows())
 _IDS = [row.seed_id for row in _ROWS]
 
 
 @pytest.fixture(scope="module")
 def catalog():
-    return load_catalog()
+    # The realization tables were authored against the frozen legacy catalog
+    # (SR Legacy + FNDDS safe-overlay). Rows such as ``fz-oil-tsp`` and
+    # ``ev-long-tofu-rice-veg-oil`` require the SR ``tsp`` key that
+    # catalog-v2 (FNDDS-only) intentionally drops.
+    return load_catalog(_LEGACY_CATALOG)
 
 
 @pytest.mark.parametrize("row", _ROWS, ids=_IDS)

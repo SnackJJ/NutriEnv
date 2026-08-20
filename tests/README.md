@@ -13,7 +13,16 @@ python -m pytest -q
 
 `pyproject.toml` already points pytest at `tests/` and puts `src/` on `pythonpath`.
 
-The default world catalog is `data/fdc/catalog.sqlite` (FNDDS + SR Legacy). Rebuild with:
+The default world catalog is `data/fdc/catalog-v2.sqlite` (FNDDS-only).
+The legacy `data/fdc/catalog.sqlite` (FNDDS + SR Legacy) is still kept because
+the frozen v0.x splits are bound to it. Rebuild the active catalog with:
+
+```bash
+python scripts/download_fdc.py --sets fndds
+python scripts/build_fdc_catalog.py --fndds-only --out data/fdc/catalog-v2.sqlite
+```
+
+The legacy snapshot is rebuilt with:
 
 ```bash
 python scripts/download_fdc.py --sets sr_legacy fndds

@@ -73,6 +73,9 @@ def test_freeze_split_accepts_existing_v02_through_v05_items(
     payload = json.loads(source.read_text(encoding="utf-8"))
     target = tmp_path / "v0.5-gold.json"
 
-    materialize_split.freeze_split(payload, target, load_catalog())
+    # v0.5 items were authored against the frozen legacy catalog, not the
+    # active catalog-v2 snapshot.
+    legacy_catalog = ROOT / "data" / "fdc" / "catalog.sqlite"
+    materialize_split.freeze_split(payload, target, load_catalog(legacy_catalog))
 
     assert target.is_file()

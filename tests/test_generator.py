@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from nutrienv.bench.realize import material_from_row, realize, spoken_query
 from nutrienv.bench.realizations import (
     CONSTRAIN_ROWS,
@@ -20,9 +22,11 @@ from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals
 
+_LEGACY_CATALOG = Path(__file__).resolve().parents[1] / "data" / "fdc" / "catalog.sqlite"
+
 
 def _task(row, *, catalog=None):
-    foods = catalog if catalog is not None else load_catalog()
+    foods = catalog if catalog is not None else load_catalog(_LEGACY_CATALOG)
     material = material_from_row(row, catalog=foods)
     return realize(material, spoken_query(row), catalog=foods)
 

@@ -30,7 +30,7 @@ def test_load_catalog_prefers_fdc_snapshot_when_built():
         assert hits[0]["food_id"].isdigit() or "milk" in hits[0]["name"].lower()
         assert len(hits) <= SEARCH_LIMIT
         assert catalog.canonical_id("oats") == "2708489"
-        assert catalog.canonical_id("chicken_breast") == "171477"
+        assert catalog.canonical_id("chicken_breast") == "2705956"
 
 
 def test_canonical_food_id_foodcatalog() -> None:
