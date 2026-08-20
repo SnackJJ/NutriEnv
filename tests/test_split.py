@@ -178,7 +178,7 @@ def test_load_split_rejects_invalid_phase(tmp_path: Path, phase: str | None) -> 
         load_split(path, catalog=demo_catalog())
 
 
-def test_oracle_profile_cannot_override_body_facts(tmp_path: Path) -> None:
+def test_oracle_profile_can_carry_patched_weight(tmp_path: Path) -> None:
     from nutrienv.world.catalog_fixture import demo_catalog
 
     payload = {
@@ -215,8 +215,12 @@ def test_oracle_profile_cannot_override_body_facts(tmp_path: Path) -> None:
     }
     path = tmp_path / "roster-body-override.json"
     path.write_text(json.dumps(payload), encoding="utf-8")
-    with pytest.raises(ValueError, match="body"):
-        load_split(path, catalog=demo_catalog())
+    task = load_split(path, catalog=demo_catalog())[0]
+    assert task.oracle.profile is not None
+    assert task.oracle.profile.weight_kg == 80.0
+    assert task.oracle.profile.sex == "female"
+    assert task.oracle.profile.phase == "cut"
+    assert task.oracle.profile.windows == task.s0.profile.windows
 
 
 def test_load_split_reads_implicit_update_band(tmp_path: Path) -> None:

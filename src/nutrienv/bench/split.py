@@ -241,16 +241,9 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
             merged["windows"] = windows
         if "plan_preset" in profile_spec:
             merged["plan_preset"] = profile_spec["plan_preset"]
-        named = sorted(
-            key
-            for key in ("sex", "age_y", "height_cm", "weight_kg", "activity", "phase")
-            if key in profile_spec
-        )
-        if named:
-            raise ValueError(
-                "oracle.profile cannot change body facts "
-                f"{named}; update_profile does not patch them"
-            )
+        for key in ("sex", "age_y", "height_cm", "weight_kg", "activity", "phase"):
+            if key in profile_spec:
+                merged[key] = profile_spec[key]
         profile = _profile(merged, default_user=s0.profile.user_id)
     else:
         raise ValueError("oracle.profile must be omitted, 's0', or an object")
