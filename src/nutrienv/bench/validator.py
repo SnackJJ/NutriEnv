@@ -254,11 +254,12 @@ def validate_draft(task: Task) -> list[str]:
         issues.extend(_validate_conflict(task))
     if task.family == "evaluate":
         issues.extend(_validate_evaluate(task, query))
-    if (
-        task.oracle.last_plan == []
-        and task.oracle.plan_must_fit_windows
-        and task.oracle.last_verdict != "reject"
-    ):
+    if task.oracle.last_verdict == "reject":
+        if task.oracle.plan_must_fit_windows:
+            issues.append("reject oracle must not set plan_must_fit_windows")
+        if task.oracle.allow_empty_plan:
+            issues.append("reject oracle must not set allow_empty_plan")
+    if task.oracle.last_plan == [] and task.oracle.plan_must_fit_windows:
         # Scorer judges the plan against oracle.profile (else S0). Search
         # that profile so a draft the gate admits is one the Scorer can pass.
         # plan_windows, when pinned (leftover remainder), stays the judged

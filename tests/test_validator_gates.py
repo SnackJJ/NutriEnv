@@ -405,13 +405,36 @@ def test_reject_evaluate_is_not_dropped_as_unpassable():
             last_plan=[],
             last_verdict="reject",
             last_reasons=("allergy",),
-            plan_must_fit_windows=True,
             ledger=tuple(s0.ledger),
         ),
     )
     issues = validate_draft(task)
     assert not any("unpassable" in item for item in issues)
     assert not any("last_plan is empty" in item for item in issues)
+
+
+def test_reject_oracle_must_not_set_plan_flags():
+    s0 = _draft_s0()
+    base = Oracle(
+        profile=s0.profile,
+        last_plan=[],
+        last_verdict="reject",
+        last_reasons=("allergy",),
+        ledger=tuple(s0.ledger),
+    )
+    task = Task(
+        "draft",
+        "evaluate",
+        "I was going to eat peanut butter, is that okay?",
+        s0,
+        replace(base, plan_must_fit_windows=True),
+    )
+    issues = validate_draft(task)
+    assert any("plan_must_fit_windows" in item for item in issues)
+
+    task = replace(task, oracle=replace(base, allow_empty_plan=True))
+    issues = validate_draft(task)
+    assert any("allow_empty_plan" in item for item in issues)
 
 
 def test_recommend_gate_accepts_a_normal_meal():
