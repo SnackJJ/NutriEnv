@@ -104,7 +104,7 @@ class Scorer:
         if oracle.last_verdict == "reject":
             if state.last_verdict != "reject":
                 return "wrong_goal"
-            if state.last_plan:
+            if state.last_plan != []:
                 return "wrong_goal"
             if set(state.last_reasons) != set(oracle.last_reasons):
                 return "wrong_goal"

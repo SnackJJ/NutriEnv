@@ -124,6 +124,14 @@ def test_reject_reasons_are_compared_as_a_set() -> None:
     assert scorer.score(state, oracle)["passed"] is False
 
 
+def test_reject_oracle_missing_last_plan_is_not_empty() -> None:
+    state = demo_state()
+    state.last_verdict = "reject"
+    state.last_plan = None
+    state.last_reasons = ("allergy",)
+    assert Scorer().score(state, _reject_oracle(state))["tag"] == "wrong_goal"
+
+
 def test_env_accepts_wrong_legal_reason_scorer_fails() -> None:
     state = demo_state()
     env = NutriEnv()
