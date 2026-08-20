@@ -147,6 +147,47 @@ def test_oracle_profile_object_keeps_unmentioned_body_facts(tmp_path: Path) -> N
     assert task.oracle.profile.windows == task.s0.profile.windows
 
 
+def test_oracle_profile_cannot_override_body_facts(tmp_path: Path) -> None:
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = {
+        "version": "test-roster",
+        "items": [
+            {
+                "id": "roster-upd-body-001",
+                "family": "update",
+                "persona": "everyday",
+                "query": "I now weigh 80 kilograms.",
+                "s0": {
+                    "profile": {
+                        "user_id": "roster-ada",
+                        "allergies": ["peanut"],
+                        "windows": {"kcal": [1800, 2200], "protein_g": [90, 140]},
+                        "sex": "female",
+                        "age_y": 34,
+                        "height_cm": 165.0,
+                        "weight_kg": 62.0,
+                        "activity": "light",
+                        "phase": "cut",
+                    },
+                    "ledger": [],
+                },
+                "oracle": {
+                    "profile": {
+                        "allergies": ["peanut"],
+                        "weight_kg": 80.0,
+                    },
+                    "ledger": "s0",
+                },
+            }
+        ],
+    }
+    path = tmp_path / "roster-body-override.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="body"):
+        load_split(path, catalog=demo_catalog())
+
+
 def test_freezer_round_trips_roster_body_facts(tmp_path: Path) -> None:
     from nutrienv.bench.pipeline.freezer import task_to_item
     from nutrienv.bench.realize import Oracle, Task
