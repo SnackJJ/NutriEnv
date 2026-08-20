@@ -229,3 +229,18 @@ def test_nonempty_submit_plan_without_verdict_sets_accept() -> None:
     assert state.last_plan == [{"food_id": "egg", "grams": 100.0}]
     assert state.last_reasons == ()
 
+
+def test_empty_submit_plan_without_verdict_is_silence_not_leftover_accept() -> None:
+    env = NutriEnv()
+    env.reset(demo_state())
+    env.step({"op": "submit_plan", "items": [{"food_id": "egg", "grams": 100}]})
+    assert env.state().last_verdict == "accept"
+
+    out = env.step({"op": "submit_plan", "items": []})
+
+    assert out["ok"] is True
+    state = env.state()
+    assert state.last_verdict is None
+    assert state.last_plan == []
+    assert state.last_reasons == ()
+
