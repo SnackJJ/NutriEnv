@@ -2,6 +2,7 @@
 
 from .catalog import FoodCatalog, SEARCH_LIMIT
 from .catalog_store import GOLD_CATALOG_PATH, load_catalog
+from .daily_windows import ACTIVITY_PAL, derive_daily_windows
 from .dri import DRI_REFERENCE
 from .portions import GRAM_UNITS, OUNCE_GRAMS, OUNCE_UNITS, UNIT_SYNONYMS, resolve_portion
 from .types import (
@@ -27,6 +28,8 @@ __all__ = [
     "LedgerRow",
     "WorldState",
     "DRI_REFERENCE",
+    "ACTIVITY_PAL",
+    "derive_daily_windows",
     "FoodCatalog",
     "SEARCH_LIMIT",
     "GOLD_CATALOG_PATH",
