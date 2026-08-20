@@ -9,6 +9,8 @@ from .dri import DRI_REFERENCE
 
 __all__ = [
     "ACTIVITY_PAL",
+    "CUT_KCAL_DELTA",
+    "MUSCLE_PROTEIN_G_PER_KG",
     "derive_daily_windows",
 ]
 
@@ -20,6 +22,11 @@ ACTIVITY_PAL: dict[str, float] = {
     "active": 1.725,
     "very_active": 1.9,
 }
+
+# Canonical cut lands in ADR 0015's [EER−500, EER−100] kcal-hi band.
+CUT_KCAL_DELTA = 300.0
+# Hypertrophy protein floor: above the 0.8 g/kg maintain lo (ADR 0015).
+MUSCLE_PROTEIN_G_PER_KG = 1.6
 
 _FDA_KCAL = DRI_REFERENCE["kcal"]["reference"]
 
@@ -45,8 +52,16 @@ def derive_daily_windows(
     protein_lo = 0.8 * weight_kg
     protein_dv = DRI_REFERENCE["protein_g"]["reference"] * scale
     protein_hi = max(protein_dv, protein_lo)
+    kcal_lo = eer
+    kcal_hi = eer
+    if phase == "cut":
+        kcal_lo = eer - CUT_KCAL_DELTA
+        kcal_hi = eer - CUT_KCAL_DELTA
+    elif phase == "muscle":
+        protein_lo = MUSCLE_PROTEIN_G_PER_KG * weight_kg
+        protein_hi = max(protein_hi, protein_lo)
     return {
-        "kcal": (eer, eer),
+        "kcal": (kcal_lo, kcal_hi),
         "protein_g": (protein_lo, protein_hi),
         "carb_g": (
             DRI_REFERENCE["carb_g"]["reference"] * scale,

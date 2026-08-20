@@ -82,3 +82,24 @@ def test_pal_scales_energy_and_leaves_sodium_hi_at_2300(
     assert windows["kcal"] == (eer, eer)
     assert windows["sodium_mg"] == (0.0, 2300.0)
     assert windows["protein_g"][0] == 49.6
+
+
+def test_cut_phase_puts_kcal_hi_in_the_published_deficit_band() -> None:
+    """maintain → cut: kcal hi in [EER−500, EER−100] (ADR 0015). Ada EER 1815.34375."""
+    eer = 1815.34375
+    windows = derive_daily_windows(activity="light", phase="cut", **_ADA)
+    kcal_lo, kcal_hi = windows["kcal"]
+    assert eer - 500.0 <= kcal_hi <= eer - 100.0
+    assert kcal_lo <= kcal_hi
+    assert windows["sodium_mg"] == (0.0, 2300.0)
+    assert windows["protein_g"][0] == 49.6
+
+
+def test_muscle_phase_raises_protein_lo_and_keeps_kcal_lo_at_least_eer() -> None:
+    """→ muscle: protein lo > 0.8 g/kg, kcal lo ≥ maintain EER (ADR 0015)."""
+    eer = 1815.34375
+    windows = derive_daily_windows(activity="light", phase="muscle", **_ADA)
+    assert windows["protein_g"][0] > 49.6
+    assert windows["kcal"][0] >= eer
+    assert windows["kcal"][0] <= windows["kcal"][1]
+    assert windows["sodium_mg"] == (0.0, 2300.0)
