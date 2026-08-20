@@ -192,3 +192,36 @@ def test_empty_reject_child_freezes_and_loads_as_evaluate(tmp_path: Path):
     assert reject.last_reasons == ("kcal_hi",)
     assert reject.plan_must_fit_windows is False
     assert reject.allow_empty_plan is False
+
+
+def test_reject_freeze_drops_prohibited_plan_flags(tmp_path: Path):
+    state = demo_state()
+    oracle = Oracle(
+        profile=state.profile,
+        last_plan=[],
+        last_verdict="reject",
+        last_reasons=("allergy",),
+        plan_must_fit_windows=True,
+        allow_empty_plan=True,
+        plan_must_be_safe=True,
+        ledger=tuple(state.ledger),
+    )
+    task = Task(
+        "draft-eval-reject",
+        "evaluate",
+        "Is leftover pizza okay tonight?",
+        state,
+        oracle,
+    )
+    payload = task_to_item(task)["oracle"]
+    assert payload["last_verdict"] == "reject"
+    assert payload["last_plan"] == []
+    assert "plan_must_fit_windows" not in payload
+    assert "allow_empty_plan" not in payload
+
+    dest = tmp_path / "split.json"
+    dest.write_text(json.dumps({"items": [task_to_item(task)]}), encoding="utf-8")
+    loaded = load_split(dest, catalog=state.catalog)[0].oracle
+    assert loaded.last_verdict == "reject"
+    assert loaded.plan_must_fit_windows is False
+    assert loaded.allow_empty_plan is False
