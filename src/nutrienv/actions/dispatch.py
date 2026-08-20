@@ -315,7 +315,6 @@ def _update_profile(state: WorldState, args: dict, _default_eaten_at: str) -> di
                 raw = _expand_food_allergies(state, raw)
             changes[field] = raw
 
-    patched_window_keys: list[str] = []
     if "windows" in patch:
         incoming = as_dict(patch["windows"], "windows")
         windows = dict(state.profile.windows)
@@ -325,7 +324,6 @@ def _update_profile(state: WorldState, args: dict, _default_eaten_at: str) -> di
                 windows[name] = normalize_window(value)
             except ValueError as exc:
                 raise ActionError("bad_schema", f"windows[{name!r}]: {exc}") from exc
-            patched_window_keys.append(name)
         changes["windows"] = windows
 
     if "sex" in patch:
@@ -375,8 +373,6 @@ def _update_profile(state: WorldState, args: dict, _default_eaten_at: str) -> di
         preview = replace(state.profile, **changes)
         derived = _derived_windows(preview)
         if derived is not None:
-            for key in patched_window_keys:
-                derived[key] = changes["windows"][key]
             changes["windows"] = derived
 
     state.profile = replace(state.profile, **changes)

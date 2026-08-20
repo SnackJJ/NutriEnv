@@ -555,6 +555,33 @@ def test_patching_phase_rederives_daily_windows() -> None:
     )
 
 
+def test_body_plus_windows_patch_rederives_fully() -> None:
+    """A weight patch is not windows-only; stale window keys in the same
+    patch do not survive (ticket 04)."""
+    env = NutriEnv()
+    s0 = _ada_state()
+    env.reset(s0)
+    stale = {key: list(bounds) for key, bounds in s0.profile.windows.items()}
+
+    out = env.step(
+        {"op": "update_profile", "patch": {"weight_kg": 80.0, "windows": stale}}
+    )
+
+    assert out["ok"] is True
+    profile = env.state().profile
+    assert profile.weight_kg == 80.0
+    expected = derive_daily_windows(
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=80.0,
+        activity="light",
+        phase="maintain",
+    )
+    assert profile.windows == expected
+    assert profile.windows != s0.profile.windows
+
+
 def test_windows_only_patch_does_not_rederive() -> None:
     env = NutriEnv()
     s0 = _ada_state()

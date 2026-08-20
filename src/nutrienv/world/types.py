@@ -12,7 +12,8 @@ Bench must mirror these rules when it builds an Oracle, because Pass is
   ``maintain``.
 - Only the keys a patch mentions change; everything else stays as S0.
   Exception: a body-fact or ``phase`` patch refreshes ``windows`` from the
-  world derivation when the body is complete. A windows-only patch does not.
+  world derivation when the body is complete, including when the same patch
+  also names ``windows``. A windows-only patch does not.
   ``version`` is never bumped by Env, only by an explicit patch.
 """
 

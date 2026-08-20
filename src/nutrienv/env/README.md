@@ -87,9 +87,10 @@ or an unknown reason token is `bad_schema` and leaves the world unchanged.
 3. **`windows` and `plan_preset` merge key-wise.** Patching `{"windows": {"kcal": [2000, 2400]}}`
    leaves `protein_g` at its S0 value. Window values become `(lo, hi)` floats and require `lo <= hi`.
    `allergies` / `medications` replace wholesale — a patch is the new full list.
-   Patching body facts or `phase` is the exception: unmentioned window keys refresh from the
-   world derivation. A windows-only patch does not re-derive. Incomplete bodies are not
-   invented — the facts write, the stored windows stay.
+   Patching body facts or `phase` is the exception: windows refresh from the world
+   derivation even if the same patch also names `windows`. A windows-only patch does
+   not re-derive. Incomplete bodies are not invented — the facts write, the stored
+   windows stay.
 4. **`version` is never auto-bumped.** It changes only if the patch says so, so unmentioned fields
    stay at S0 (ADR 0004).
 5. **`user_id` is not patchable** — it is identity, not a nutrition field. Patching it is `bad_schema`.
