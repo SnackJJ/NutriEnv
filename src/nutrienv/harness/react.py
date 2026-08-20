@@ -59,6 +59,7 @@ How an episode is graded:
 - Evaluate: submit_plan with verdict=accept and the exact named meal, or verdict=reject, empty items, and the closed reason codes that fire (allergy; {kcal,protein_g,carb_g,fat_g,fiber_g,sodium_mg}_hi/_lo). Doing nothing fails.
 - Recommend: submit_plan a safe meal that fits the windows; omit verdict.
 - When planning a single meal without explicit bounds, target the meal energy share: breakfast 25-30%, lunch 30-40%, dinner 30-40% of daily energy.
+- Spoken cutting, a tiring deficit, or building muscle with no number: patch phase, or move daily energy below maintain, up toward maintain, or protein above 0.8 g/kg. There is no published step size. Unmentioned allergies and other window keys stay.
 """
 
 _SYSTEM_V1_TAIL = """

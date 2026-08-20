@@ -109,6 +109,10 @@ class Oracle:
     or ``"reject"``.  ``last_reasons`` is the closed reason-code set a reject
     oracle requires.  Reject oracles leave ``plan_must_fit_windows`` and
     ``allow_empty_plan`` unset; the verdict branch owns scoring.
+
+    ``update_band`` is ``None`` (exact Profile equality) or an ADR 0015
+    implicit intent (``cut``, ``fatigue``, ``muscle``): windows Pass in the
+    published band; allergies and other unmentioned fields stay exact.
     """
 
     profile: Profile | None = None
@@ -123,6 +127,7 @@ class Oracle:
     plan_windows: dict[str, tuple[float, float]] | None = None
     last_verdict: str | None = None
     last_reasons: tuple[str, ...] = ()
+    update_band: str | None = None
     # None = single-family oracle (frozen v0.5 / v1.0 path). A non-empty
     # tuple is a composite container: Scorer judges only the children.
     sub_oracles: tuple[Oracle, ...] | None = None

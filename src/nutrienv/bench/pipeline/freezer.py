@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -104,7 +105,7 @@ def task_to_item(task: Task) -> dict:
         "situations": list(task.situations),
         "query": task.query,
         "s0": s0,
-        "oracle": _oracle_payload(task.oracle, family=task.family),
+        "oracle": _oracle_payload(task.oracle, family=task.family, s0=task.s0),
     }
 
 
@@ -115,15 +116,18 @@ def _oracle_gram_issues(task: Task) -> list[str]:
     return issues
 
 
-def _oracle_payload(oracle: Oracle, *, family: str) -> dict[str, object]:
+def _oracle_payload(oracle: Oracle, *, family: str, s0) -> dict[str, object]:
     if oracle.sub_oracles:
         return {
             "profile": "s0",
             "sub_oracles": [
-                _oracle_payload(sub, family=_sub_family(sub)) for sub in oracle.sub_oracles
+                _oracle_payload(sub, family=_sub_family(sub), s0=s0)
+                for sub in oracle.sub_oracles
             ],
         }
-    payload: dict[str, object] = {"profile": "s0"}
+    payload: dict[str, object] = {
+        "profile": _oracle_profile_payload(oracle.profile, s0.profile),
+    }
     if family == "evaluate" or (
         oracle.last_plan is not None and oracle.ledger_tail is None
     ):
@@ -137,6 +141,7 @@ def _oracle_payload(oracle: Oracle, *, family: str) -> dict[str, object]:
                 key: list(bounds) for key, bounds in oracle.plan_windows.items()
             }
         _attach_verdict(payload, oracle)
+        _attach_update_band(payload, oracle)
         payload["ledger"] = "s0"
         return payload
     if oracle.ledger_tail is not None:
@@ -156,6 +161,7 @@ def _oracle_payload(oracle: Oracle, *, family: str) -> dict[str, object]:
             key: list(bounds) for key, bounds in oracle.plan_windows.items()
         }
     _attach_verdict(payload, oracle)
+    _attach_update_band(payload, oracle)
     return payload
 
 
@@ -175,6 +181,37 @@ def _attach_verdict(payload: dict[str, object], oracle: Oracle) -> None:
         payload["last_verdict"] = oracle.last_verdict
     if oracle.last_verdict == "reject":
         payload["last_reasons"] = list(oracle.last_reasons)
+
+
+def _attach_update_band(payload: dict[str, object], oracle: Oracle) -> None:
+    if oracle.update_band:
+        payload["update_band"] = oracle.update_band
+
+
+def _oracle_profile_payload(oracle_profile, s0_profile) -> object:
+    if oracle_profile is None or oracle_profile == s0_profile:
+        return "s0"
+    diff: dict[str, object] = {}
+    if oracle_profile.allergies != s0_profile.allergies:
+        diff["allergies"] = list(oracle_profile.allergies)
+    if oracle_profile.medications != s0_profile.medications:
+        diff["medications"] = list(oracle_profile.medications)
+    if oracle_profile.plan_preset != s0_profile.plan_preset:
+        diff["plan_preset"] = copy.deepcopy(oracle_profile.plan_preset)
+    if oracle_profile.version != s0_profile.version:
+        diff["version"] = oracle_profile.version
+    moved = {
+        key: list(bounds)
+        for key, bounds in oracle_profile.windows.items()
+        if s0_profile.windows.get(key) != bounds
+    }
+    if moved:
+        diff["windows"] = moved
+    for key in ("sex", "age_y", "height_cm", "weight_kg", "activity", "phase"):
+        value = getattr(oracle_profile, key)
+        if value != getattr(s0_profile, key):
+            diff[key] = value
+    return diff if diff else "s0"
 
 
 def _sub_family(oracle: Oracle) -> str:

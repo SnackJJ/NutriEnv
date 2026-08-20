@@ -5,10 +5,12 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 
 from nutrienv.world.catalog import canonical_food_id
 from nutrienv.world.catalog_store import load_catalog
+from nutrienv.world.daily_windows import UPDATE_BANDS, derive_profile_windows
 from nutrienv.world.types import (
     PHASES,
     LedgerRow,
@@ -240,17 +242,17 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
             merged["windows"] = windows
         if "plan_preset" in profile_spec:
             merged["plan_preset"] = profile_spec["plan_preset"]
-        named = sorted(
-            key
-            for key in ("sex", "age_y", "height_cm", "weight_kg", "activity", "phase")
-            if key in profile_spec
-        )
-        if named:
-            raise ValueError(
-                "oracle.profile cannot change body facts "
-                f"{named}; update_profile does not patch them"
-            )
+        for key in ("sex", "age_y", "height_cm", "weight_kg", "activity", "phase"):
+            if key in profile_spec:
+                merged[key] = profile_spec[key]
         profile = _profile(merged, default_user=s0.profile.user_id)
+        if any(
+            key in profile_spec
+            for key in ("sex", "age_y", "height_cm", "weight_kg", "activity", "phase")
+        ):
+            derived = derive_profile_windows(profile)
+            if derived is not None:
+                profile = replace(profile, windows=derived)
     else:
         raise ValueError("oracle.profile must be omitted, 's0', or an object")
 
@@ -313,6 +315,10 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
         if allow_empty_plan:
             raise ValueError("reject oracle must not set allow_empty_plan")
 
+    update_band = value.get("update_band")
+    if update_band is not None and update_band not in UPDATE_BANDS:
+        raise ValueError("oracle.update_band must be 'cut', 'fatigue', or 'muscle'")
+
     return Oracle(
         profile=profile,
         last_plan=copy.deepcopy(last_plan) if last_plan is not None else None,
@@ -324,5 +330,6 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
         plan_windows=plan_windows,
         last_verdict=last_verdict,
         last_reasons=last_reasons,
+        update_band=update_band,
         sub_oracles=sub_oracles,
     )

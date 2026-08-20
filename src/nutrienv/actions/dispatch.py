@@ -10,12 +10,15 @@ Two invariants hold for every handler:
 from __future__ import annotations
 
 import copy
+import math
 import re
 from dataclasses import replace
 
 from ..world.catalog import canonical_food_id
+from ..world.daily_windows import ACTIVITY_PAL, derive_profile_windows
 from ..world.dri import BASIS, DRI_REFERENCE
 from ..world.types import (
+    PHASES,
     ImplausibleQuantity,
     LedgerRow,
     WorldState,
@@ -60,10 +63,16 @@ DEFAULT_EATEN_AT = "now"
 SEARCH_ALL = "*"
 
 #: Profile fields an ``update_profile`` patch may touch. ``user_id`` is identity,
-#: not a nutrition field, so it is not patchable.
+#: not a nutrition field, so it is not patchable. Body facts and ``phase``
+#: refresh daily windows when the roster body is complete (ADR 0014).
+_BODY_PATCH_KEYS = frozenset(
+    {"sex", "age_y", "height_cm", "weight_kg", "activity", "phase"}
+)
 PROFILE_PATCH_KEYS = frozenset(
     {"allergies", "medications", "windows", "plan_preset", "version"}
+    | _BODY_PATCH_KEYS
 )
+_SEXES = frozenset({"male", "female"})
 
 
 def dispatch(
@@ -316,6 +325,36 @@ def _update_profile(state: WorldState, args: dict, _default_eaten_at: str) -> di
                 raise ActionError("bad_schema", f"windows[{name!r}]: {exc}") from exc
         changes["windows"] = windows
 
+    if "sex" in patch:
+        sex = as_nonempty_str(patch["sex"], "sex")
+        if sex not in _SEXES:
+            raise ActionError("bad_schema", "sex must be 'male' or 'female'")
+        changes["sex"] = sex
+
+    if "age_y" in patch:
+        age_y = patch["age_y"]
+        if isinstance(age_y, bool) or not isinstance(age_y, int):
+            raise ActionError("bad_schema", "'age_y' must be an int")
+        changes["age_y"] = age_y
+
+    if "height_cm" in patch:
+        changes["height_cm"] = _as_finite_float(patch["height_cm"], "height_cm")
+
+    if "weight_kg" in patch:
+        changes["weight_kg"] = _as_finite_float(patch["weight_kg"], "weight_kg")
+
+    if "activity" in patch:
+        activity = as_nonempty_str(patch["activity"], "activity")
+        if activity not in ACTIVITY_PAL:
+            raise ActionError("bad_schema", f"unknown activity: {activity!r}")
+        changes["activity"] = activity
+
+    if "phase" in patch:
+        phase = as_nonempty_str(patch["phase"], "phase")
+        if phase not in PHASES:
+            raise ActionError("bad_schema", "phase must be 'maintain', 'cut', or 'muscle'")
+        changes["phase"] = phase
+
     if "plan_preset" in patch:
         incoming = as_dict(patch["plan_preset"], "plan_preset")
         changes["plan_preset"] = {
@@ -329,8 +368,23 @@ def _update_profile(state: WorldState, args: dict, _default_eaten_at: str) -> di
             raise ActionError("bad_schema", "'version' must be an int")
         changes["version"] = version
 
+    if _BODY_PATCH_KEYS & patch.keys():
+        preview = replace(state.profile, **changes)
+        derived = derive_profile_windows(preview)
+        if derived is not None:
+            changes["windows"] = derived
+
     state.profile = replace(state.profile, **changes)
     return {"op": "update_profile", "profile": profile_view(state.profile)}
+
+
+def _as_finite_float(value: object, field: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ActionError("bad_schema", f"'{field}' must be a number")
+    if not math.isfinite(value):
+        raise ActionError("bad_schema", f"'{field}' must be finite")
+    return float(value)
+
 
 
 def _update_plan(state: WorldState, args: dict, _default_eaten_at: str) -> dict:

@@ -2,6 +2,15 @@
 
 from .catalog import FoodCatalog, SEARCH_LIMIT
 from .catalog_store import GOLD_CATALOG_PATH, load_catalog
+from .daily_windows import (
+    ACTIVITY_PAL,
+    BAND_WINDOW_KEYS,
+    UPDATE_BANDS,
+    derive_daily_windows,
+    derive_profile_windows,
+    estimated_energy_requirement,
+    implicit_windows_pass,
+)
 from .dri import DRI_REFERENCE
 from .portions import GRAM_UNITS, OUNCE_GRAMS, OUNCE_UNITS, UNIT_SYNONYMS, resolve_portion
 from .types import (
@@ -27,6 +36,13 @@ __all__ = [
     "LedgerRow",
     "WorldState",
     "DRI_REFERENCE",
+    "ACTIVITY_PAL",
+    "UPDATE_BANDS",
+    "BAND_WINDOW_KEYS",
+    "derive_daily_windows",
+    "derive_profile_windows",
+    "estimated_energy_requirement",
+    "implicit_windows_pass",
     "FoodCatalog",
     "SEARCH_LIMIT",
     "GOLD_CATALOG_PATH",

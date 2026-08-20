@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from nutrienv.bench.split import GOLD_SPLIT_PATH, load_split
+from nutrienv.world.daily_windows import derive_daily_windows
 from nutrienv.world.types import LedgerRow
 
 _WINDOW_LEAK = re.compile(r"\b(?:kcal|protein_g|carb_g|fat_g)\s+\d")
@@ -178,7 +179,7 @@ def test_load_split_rejects_invalid_phase(tmp_path: Path, phase: str | None) -> 
         load_split(path, catalog=demo_catalog())
 
 
-def test_oracle_profile_cannot_override_body_facts(tmp_path: Path) -> None:
+def test_oracle_profile_can_carry_patched_weight(tmp_path: Path) -> None:
     from nutrienv.world.catalog_fixture import demo_catalog
 
     payload = {
@@ -215,8 +216,105 @@ def test_oracle_profile_cannot_override_body_facts(tmp_path: Path) -> None:
     }
     path = tmp_path / "roster-body-override.json"
     path.write_text(json.dumps(payload), encoding="utf-8")
-    with pytest.raises(ValueError, match="body"):
-        load_split(path, catalog=demo_catalog())
+    task = load_split(path, catalog=demo_catalog())[0]
+    assert task.oracle.profile is not None
+    assert task.oracle.profile.weight_kg == 80.0
+    assert task.oracle.profile.sex == "female"
+    assert task.oracle.profile.phase == "cut"
+    assert task.oracle.profile.windows == derive_daily_windows(
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=80.0,
+        activity="light",
+        phase="cut",
+    )
+    assert task.oracle.profile.windows != task.s0.profile.windows
+
+
+def test_fact_only_weight_patch_matches_loaded_oracle(tmp_path: Path) -> None:
+    from nutrienv.bench.scorer import Scorer
+    from nutrienv.env import NutriEnv
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = {
+        "version": "test-roster",
+        "items": [
+            {
+                "id": "roster-upd-body-001",
+                "family": "update",
+                "persona": "everyday",
+                "query": "I now weigh 80 kilograms.",
+                "s0": {
+                    "profile": {
+                        "user_id": "roster-ada",
+                        "allergies": ["peanut"],
+                        "windows": {"kcal": [1800, 2200], "protein_g": [90, 140]},
+                        "sex": "female",
+                        "age_y": 34,
+                        "height_cm": 165.0,
+                        "weight_kg": 62.0,
+                        "activity": "light",
+                        "phase": "cut",
+                    },
+                    "ledger": [],
+                },
+                "oracle": {
+                    "profile": {"weight_kg": 80.0},
+                    "ledger": "s0",
+                },
+            }
+        ],
+    }
+    path = tmp_path / "roster-weight.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    task = load_split(path, catalog=demo_catalog())[0]
+    env = NutriEnv()
+    env.reset(task.s0)
+    out = env.step({"op": "update_profile", "patch": {"weight_kg": 80.0}})
+    assert out["ok"] is True
+    assert Scorer().score(env.state(), task.oracle) == {"passed": True, "tag": "pass"}
+
+
+def test_load_split_reads_implicit_update_band(tmp_path: Path) -> None:
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = {
+        "version": "test-roster",
+        "items": [
+            {
+                "id": "roster-upd-cut-001",
+                "family": "update",
+                "persona": "everyday",
+                "query": "I'm cutting now.",
+                "s0": {
+                    "profile": {
+                        "user_id": "roster-ada",
+                        "allergies": ["peanut"],
+                        "windows": {"kcal": [1800, 2200], "protein_g": [90, 140]},
+                        "sex": "female",
+                        "age_y": 34,
+                        "height_cm": 165.0,
+                        "weight_kg": 62.0,
+                        "activity": "light",
+                    },
+                    "ledger": [],
+                },
+                "oracle": {
+                    "profile": {"allergies": ["peanut"]},
+                    "ledger": "s0",
+                    "update_band": "cut",
+                },
+            }
+        ],
+    }
+    path = tmp_path / "implicit-cut.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    task = load_split(path, catalog=demo_catalog())[0]
+    assert task.oracle.update_band == "cut"
+    assert task.oracle.profile is not None
+    assert task.oracle.profile.allergies == ("peanut",)
+    assert task.oracle.profile.weight_kg == 62.0
 
 
 def test_freezer_round_trips_roster_body_facts(tmp_path: Path) -> None:
@@ -259,6 +357,74 @@ def test_freezer_round_trips_roster_body_facts(tmp_path: Path) -> None:
     loaded = load_split(path, catalog=catalog)[0]
     assert loaded.s0.profile == profile
     assert loaded.oracle.profile == profile
+
+
+def test_freezer_round_trips_phase_cut_oracle_so_fact_only_update_passes(
+    tmp_path: Path,
+) -> None:
+    from dataclasses import replace
+
+    from nutrienv.bench.pipeline.freezer import task_to_item
+    from nutrienv.bench.realize import Oracle, Task
+    from nutrienv.bench.scorer import Scorer
+    from nutrienv.env import NutriEnv
+    from nutrienv.world.catalog_fixture import demo_catalog
+    from nutrienv.world.daily_windows import derive_daily_windows
+    from nutrienv.world.types import Profile, WorldState
+
+    catalog = demo_catalog()
+    maintain = derive_daily_windows(
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=62.0,
+        activity="light",
+        phase="maintain",
+    )
+    cut = derive_daily_windows(
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=62.0,
+        activity="light",
+        phase="cut",
+    )
+    s0_profile = Profile(
+        user_id="roster-ada",
+        allergies=("peanut",),
+        windows=maintain,
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=62.0,
+        activity="light",
+        phase="maintain",
+    )
+    oracle_profile = replace(s0_profile, phase="cut", windows=cut)
+    task = Task(
+        "roster-upd-cut-001",
+        "update",
+        "I'm cutting now.",
+        WorldState(profile=s0_profile, catalog=catalog),
+        Oracle(profile=oracle_profile, ledger=()),
+        (),
+        "everyday",
+    )
+    item = task_to_item(task)
+    assert item["oracle"]["profile"] != "s0"
+    assert item["oracle"]["profile"]["phase"] == "cut"
+    path = tmp_path / "frozen-cut.json"
+    path.write_text(json.dumps({"version": "test", "items": [item]}), encoding="utf-8")
+    loaded = load_split(path, catalog=catalog)[0]
+    assert loaded.oracle.profile is not None
+    assert loaded.oracle.profile.phase == "cut"
+    assert loaded.oracle.profile.windows == cut
+
+    env = NutriEnv()
+    env.reset(loaded.s0)
+    out = env.step({"op": "update_profile", "patch": {"phase": "cut"}})
+    assert out["ok"] is True
+    assert Scorer().score(env.state(), loaded.oracle) == {"passed": True, "tag": "pass"}
 
 
 def test_load_split_v05_is_the_240() -> None:

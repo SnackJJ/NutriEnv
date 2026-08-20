@@ -8,6 +8,7 @@ from pathlib import Path
 from nutrienv.bench.split import load_split
 from nutrienv.env import NutriEnv
 from nutrienv.world.catalog_fixture import demo_state
+from nutrienv.world.daily_windows import derive_daily_windows
 from nutrienv.world.types import LedgerRow, Profile
 
 V04 = Path("data/splits/v0.4-gold.json")
@@ -487,6 +488,148 @@ def test_roster_complete_s0_round_trips_body_facts_through_reset_and_get_profile
         assert profile["windows"] == {"kcal": [1800.0, 2200.0], "protein_g": [90.0, 140.0]}
 
 
+def _ada_state(*, phase: str = "maintain", weight_kg: float = 62.0) -> object:
+    s0 = demo_state()
+    windows = derive_daily_windows(
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=weight_kg,
+        activity="light",
+        phase=phase,
+    )
+    s0.profile = Profile(
+        user_id="roster-ada",
+        allergies=("peanut",),
+        windows=windows,
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=weight_kg,
+        activity="light",
+        phase=phase,
+    )
+    return s0
+
+
+def test_patching_weight_rederives_daily_windows() -> None:
+    env = NutriEnv()
+    s0 = _ada_state()
+    env.reset(s0)
+    before = env.state().profile.windows
+
+    out = env.step({"op": "update_profile", "patch": {"weight_kg": 80.0}})
+
+    assert out["ok"] is True
+    profile = env.state().profile
+    assert profile.weight_kg == 80.0
+    assert profile.allergies == ("peanut",)
+    assert profile.windows != before
+    assert profile.windows == derive_daily_windows(
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=80.0,
+        activity="light",
+        phase="maintain",
+    )
+
+
+def test_patching_phase_rederives_daily_windows() -> None:
+    env = NutriEnv()
+    env.reset(_ada_state())
+
+    out = env.step({"op": "update_profile", "patch": {"phase": "cut"}})
+
+    assert out["ok"] is True
+    profile = env.state().profile
+    assert profile.phase == "cut"
+    assert profile.weight_kg == 62.0
+    assert profile.windows == derive_daily_windows(
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=62.0,
+        activity="light",
+        phase="cut",
+    )
+
+
+def test_body_plus_windows_patch_rederives_fully() -> None:
+    """A weight patch is not windows-only; stale window keys in the same
+    patch do not survive (ticket 04)."""
+    env = NutriEnv()
+    s0 = _ada_state()
+    env.reset(s0)
+    stale = {key: list(bounds) for key, bounds in s0.profile.windows.items()}
+
+    out = env.step(
+        {"op": "update_profile", "patch": {"weight_kg": 80.0, "windows": stale}}
+    )
+
+    assert out["ok"] is True
+    profile = env.state().profile
+    assert profile.weight_kg == 80.0
+    expected = derive_daily_windows(
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=80.0,
+        activity="light",
+        phase="maintain",
+    )
+    assert profile.windows == expected
+    assert profile.windows != s0.profile.windows
+
+
+def test_windows_only_patch_does_not_rederive() -> None:
+    env = NutriEnv()
+    s0 = _ada_state()
+    env.reset(s0)
+    custom = [2100.0, 2500.0]
+
+    out = env.step({"op": "update_profile", "patch": {"windows": {"kcal": custom}}})
+
+    assert out["ok"] is True
+    profile = env.state().profile
+    assert profile.weight_kg == 62.0
+    assert profile.phase == "maintain"
+    assert profile.windows["kcal"] == (2100.0, 2500.0)
+    assert profile.windows["protein_g"] == s0.profile.windows["protein_g"]
+    assert profile.windows["sodium_mg"] == s0.profile.windows["sodium_mg"]
+
+
+def test_incomplete_body_patch_does_not_invent_windows() -> None:
+    env = NutriEnv()
+    s0 = demo_state()
+    env.reset(s0)
+    before = dict(s0.profile.windows)
+
+    out = env.step({"op": "update_profile", "patch": {"weight_kg": 80.0}})
+
+    assert out["ok"] is True
+    profile = env.state().profile
+    assert profile.weight_kg == 80.0
+    assert profile.sex is None
+    assert profile.windows == before
+
+
+def test_invalid_body_patch_is_atomic() -> None:
+    env = NutriEnv()
+    env.reset(_ada_state())
+    before = copy.deepcopy(env.state())
+
+    out = env.step(
+        {"op": "update_profile", "patch": {"weight_kg": 80.0, "windows": {"kcal": [2500, 2100]}}}
+    )
+
+    assert out["ok"] is False
+    assert out["error"]["code"] == "bad_schema"
+    after = env.state()
+    assert after.profile == before.profile
+    assert after.ledger == before.ledger
+
+
 def test_reset_and_get_profile_expose_verdict_and_reasons() -> None:
     env = NutriEnv()
     opening = env.reset(demo_state())
@@ -536,4 +679,6 @@ def test_env_readme_documents_profile_body_facts() -> None:
     assert "activity" in text
     assert "phase" in text
     assert "maintain" in text
+    assert "re-derive" in text
+    assert "windows-only" in text
 
