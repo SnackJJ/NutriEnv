@@ -48,15 +48,18 @@ def test_exact_evaluation_plan_and_empty_plan_goal():
     assert Scorer().score(state, oracle)["passed"]
 
 
-def test_reject_oracle_matching_reject_passes() -> None:
-    state = demo_state()
-    oracle = Oracle(
+def _reject_oracle(state, reasons=("allergy",)):
+    return Oracle(
         profile=state.profile,
         last_plan=[],
         last_verdict="reject",
-        last_reasons=("allergy",),
+        last_reasons=reasons,
         ledger=tuple(state.ledger),
     )
+
+
+def test_reject_oracle_matching_reject_passes() -> None:
+    state = demo_state()
     env = NutriEnv()
     env.reset(state)
     out = env.step(
@@ -68,4 +71,36 @@ def test_reject_oracle_matching_reject_passes() -> None:
         }
     )
     assert out["ok"] is True
-    assert Scorer().score(env.state(), oracle) == {"passed": True, "tag": "pass"}
+    assert Scorer().score(env.state(), _reject_oracle(state)) == {
+        "passed": True,
+        "tag": "pass",
+    }
+
+
+def test_reject_oracle_silence_fails() -> None:
+    state = demo_state()
+    env = NutriEnv()
+    env.reset(state)
+    assert Scorer().score(env.state(), _reject_oracle(state))["passed"] is False
+    env.step({"op": "submit_plan", "items": []})
+    assert env.state().last_verdict is None
+    assert Scorer().score(env.state(), _reject_oracle(state))["tag"] == "wrong_goal"
+
+
+def test_reject_oracle_fitting_substitute_fails() -> None:
+    state = demo_state()
+    substitute = [{"food_id": "white_rice", "grams": 100.0}]
+    env = NutriEnv()
+    env.reset(state)
+    omitted = env.step({"op": "submit_plan", "items": substitute})
+    assert omitted["ok"] is True
+    assert env.state().last_verdict == "accept"
+    assert Scorer().score(env.state(), _reject_oracle(state))["tag"] == "wrong_goal"
+
+    env.reset(state)
+    accepted = env.step(
+        {"op": "submit_plan", "items": substitute, "verdict": "accept"}
+    )
+    assert accepted["ok"] is True
+    assert env.state().last_verdict == "accept"
+    assert Scorer().score(env.state(), _reject_oracle(state))["passed"] is False
