@@ -26,7 +26,7 @@ ACTION_SCHEMAS: dict[str, tuple[frozenset[str], frozenset[str]]] = {
     "get_ledger": (frozenset(), frozenset()),
     "get_dri": (frozenset(), frozenset()),
     "log_meal": (frozenset({"food_id", "grams"}), frozenset({"eaten_at"})),
-    "submit_plan": (frozenset({"items"}), frozenset()),
+    "submit_plan": (frozenset({"items"}), frozenset({"verdict", "reasons"})),
     "update_profile": (frozenset({"patch"}), frozenset()),
     "update_plan": (frozenset({"patch"}), frozenset()),
 }

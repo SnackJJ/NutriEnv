@@ -23,6 +23,7 @@ from ..world.types import (
     ledger_totals,
     ledger_view,
     normalize_grams,
+    normalize_reasons,
     normalize_tags,
     normalize_window,
     profile_view,
@@ -222,6 +223,22 @@ def _submit_plan(state: WorldState, args: dict, _default_eaten_at: str) -> dict:
             "implausible_quantity",
             f"plan total {total:g} g exceeds {MAX_PLAN_GRAMS:g} g",
         )
+
+    verdict = (
+        as_nonempty_str(args["verdict"], "verdict") if "verdict" in args else None
+    )
+    reasons = ()
+    if "reasons" in args:
+        try:
+            reasons = normalize_reasons(args["reasons"])
+        except ValueError as exc:
+            raise ActionError("bad_schema", f"'reasons': {exc}") from exc
+
+    if verdict == "reject":
+        state.last_plan = []
+        state.last_verdict = "reject"
+        state.last_reasons = reasons
+        return {"op": "submit_plan", "items": []}
 
     state.last_plan = normalized
     if normalized:

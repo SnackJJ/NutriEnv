@@ -23,7 +23,9 @@ __all__ = [
     "WorldState",
     "ImplausibleQuantity",
     "MAX_ITEM_GRAMS",
+    "REASON_CODES",
     "normalize_tags",
+    "normalize_reasons",
     "normalize_window",
     "normalize_grams",
     "profile_view",
@@ -31,6 +33,25 @@ __all__ = [
     "ledger_totals",
     "food_view",
 ]
+
+
+REASON_CODES = frozenset(
+    {
+        "allergy",
+        "kcal_hi",
+        "kcal_lo",
+        "protein_g_hi",
+        "protein_g_lo",
+        "carb_g_hi",
+        "carb_g_lo",
+        "fat_g_hi",
+        "fat_g_lo",
+        "fiber_g_hi",
+        "fiber_g_lo",
+        "sodium_mg_hi",
+        "sodium_mg_lo",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -70,6 +91,21 @@ class WorldState:
     last_plan: list = field(default_factory=list)
     last_verdict: str | None = None
     last_reasons: tuple[str, ...] = ()
+
+
+def normalize_reasons(values: object) -> tuple[str, ...]:
+    """Canonicalize reject reasons into a sorted unique tuple of closed codes."""
+    if isinstance(values, (str, bytes)) or not isinstance(values, (list, tuple)):
+        raise ValueError("expected a list of strings")
+    out: set[str] = set()
+    for value in values:
+        if not isinstance(value, str):
+            raise ValueError("expected a list of strings")
+        token = value.strip()
+        if token not in REASON_CODES:
+            raise ValueError(f"unknown reason: {token!r}")
+        out.add(token)
+    return tuple(sorted(out))
 
 
 def normalize_tags(values: object) -> tuple[str, ...]:
