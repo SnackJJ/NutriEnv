@@ -23,6 +23,7 @@ from ..world.types import (
     ledger_totals,
     ledger_view,
     normalize_grams,
+    normalize_reasons,
     normalize_tags,
     normalize_window,
     profile_view,
@@ -151,6 +152,8 @@ def _get_profile(state: WorldState, _args: dict, _default_eaten_at: str) -> dict
         "op": "get_profile",
         "profile": profile_view(state.profile),
         "last_plan": copy.deepcopy(state.last_plan),
+        "last_verdict": state.last_verdict,
+        "last_reasons": list(state.last_reasons),
     }
 
 
@@ -223,8 +226,48 @@ def _submit_plan(state: WorldState, args: dict, _default_eaten_at: str) -> dict:
             f"plan total {total:g} g exceeds {MAX_PLAN_GRAMS:g} g",
         )
 
-    state.last_plan = normalized
-    return {"op": "submit_plan", "items": copy.deepcopy(normalized)}
+    verdict = (
+        as_nonempty_str(args["verdict"], "verdict") if "verdict" in args else None
+    )
+    if verdict is not None and verdict not in {"accept", "reject"}:
+        raise ActionError("bad_schema", "verdict must be 'accept' or 'reject'")
+
+    reasons = None
+    if "reasons" in args:
+        try:
+            reasons = normalize_reasons(args["reasons"])
+        except ValueError as exc:
+            raise ActionError("bad_schema", f"'reasons': {exc}") from exc
+
+    if verdict is None:
+        if reasons is not None:
+            raise ActionError("bad_schema", "reasons require a verdict")
+        if normalized:
+            state.last_plan = normalized
+            state.last_verdict = "accept"
+            state.last_reasons = ()
+        else:
+            state.last_plan = []
+            state.last_verdict = None
+            state.last_reasons = ()
+        return {"op": "submit_plan", "items": copy.deepcopy(state.last_plan)}
+
+    if verdict == "accept":
+        if not normalized:
+            raise ActionError("bad_schema", "accept requires a non-empty plan")
+        if reasons is not None:
+            raise ActionError("bad_schema", "accept cannot include reasons")
+        state.last_plan = normalized
+        state.last_verdict = "accept"
+        state.last_reasons = ()
+        return {"op": "submit_plan", "items": copy.deepcopy(normalized)}
+
+    if normalized:
+        raise ActionError("bad_schema", "reject requires empty items")
+    state.last_plan = []
+    state.last_verdict = "reject"
+    state.last_reasons = reasons if reasons is not None else ()
+    return {"op": "submit_plan", "items": []}
 
 
 def _expand_food_allergies(state: WorldState, tags: tuple[str, ...]) -> tuple[str, ...]:

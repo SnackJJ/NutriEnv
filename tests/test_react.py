@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from nutrienv.bench import Oracle
 from nutrienv.harness.react import (
+    REACT_VERSIONS,
     ReActHarness,
     _parse_action,
     context_messages,
@@ -84,6 +85,30 @@ def test_react_v1_extends_v0_with_catalog_portions_only() -> None:
     harness = ReActHarness(api_key="dummy", version="v1")
     assert harness.label == "react-v1"
     assert "portions" in harness.messages[0]["content"]
+
+
+def test_react_manual_teaches_evaluate_verdict_not_empty_items_as_reject() -> None:
+    for version in REACT_VERSIONS:
+        text = react_manual(version)
+        assert "If last_plan already violates the windows" not in text
+        assert "verdict=accept" in text
+        assert "verdict=reject" in text
+        assert "omit verdict" in text
+        assert "25-30%" in text
+        assert "30-40%" in text
+        assert "allergy" in text
+        for nutrient in (
+            "kcal",
+            "protein_g",
+            "carb_g",
+            "fat_g",
+            "fiber_g",
+            "sodium_mg",
+        ):
+            assert nutrient in text
+        assert "_hi" in text
+        assert "_lo" in text
+    assert len(react_manual("v0").split()) <= 400
 
 
 def test_react_version_rejects_unknown_and_clone_keeps_it() -> None:

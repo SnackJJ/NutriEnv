@@ -48,6 +48,8 @@ class NutriEnv:
             "ledger": ledger_view(self._state.ledger, self._state.catalog),
             "ledger_totals": ledger_totals(self._state.ledger, self._state.catalog),
             "last_plan": copy.deepcopy(self._state.last_plan),
+            "last_verdict": self._state.last_verdict,
+            "last_reasons": list(self._state.last_reasons),
             "catalog_size": len(self._state.catalog),
         }
 
