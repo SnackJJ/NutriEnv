@@ -36,10 +36,13 @@ reason-code set; a fitting substitute fails, and `allow_empty_plan` does not
 bypass this. Reject oracles do not set plan-must-fit or allow-empty-plan.
 `update_band` is omitted for exact Profile equality (every frozen update item).
 `cut` / `fatigue` / `muscle` score the band-relevant window keys against the
-ADR 0015 bands; allergies and non-band window keys stay exact. Daily-window math is imported from
+ADR 0015 bands; allergies and non-band window keys stay exact, and `phase` is
+free because the handbook offers both a phase patch and a direct window move.
+Daily-window math is imported from
 `nutrienv.world.derive_daily_windows`. A split oracle that names a new body
 fact or phase refreshes `profile.windows` with that same derivation so a
-fact-only Env patch can equal the Oracle.
+fact-only Env patch can equal the Oracle. A band oracle is the exception: it
+keeps S0's windows, which are the baseline `fatigue` must rise above.
 Catalog nutrients are summed as `amount_per_100g * grams / 100`.
 
 Scoring returns exactly `{"passed": bool, "tag": str}`. The tags are `pass`,

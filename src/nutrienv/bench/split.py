@@ -212,6 +212,10 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
         return Oracle()
     if not isinstance(value, dict):
         raise ValueError("oracle must be an object")
+    update_band = value.get("update_band")
+    if update_band is not None and update_band not in UPDATE_BANDS:
+        raise ValueError("oracle.update_band must be 'cut', 'fatigue', or 'muscle'")
+
     profile_spec = value.get("profile")
     if profile_spec is None:
         profile = None
@@ -246,7 +250,7 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
             if key in profile_spec:
                 merged[key] = profile_spec[key]
         profile = _profile(merged, default_user=s0.profile.user_id)
-        if any(
+        if not update_band and any(
             key in profile_spec
             for key in ("sex", "age_y", "height_cm", "weight_kg", "activity", "phase")
         ):
@@ -255,6 +259,18 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
                 profile = replace(profile, windows=derived)
     else:
         raise ValueError("oracle.profile must be omitted, 's0', or an object")
+
+    if update_band:
+        # A band oracle's windows are S0's: the exact baseline for non-band
+        # keys, and for fatigue the floor the end state must rise above.
+        # Re-deriving or naming them compares the end state against itself.
+        if profile is None:
+            raise ValueError("oracle.update_band requires oracle.profile")
+        if profile.windows != s0.profile.windows:
+            raise ValueError(
+                "oracle.update_band keeps S0 windows as the band baseline; "
+                "the oracle profile must not name or re-derive windows"
+            )
 
     tail_raw = value.get("ledger_tail")
     ledger_tail = None if tail_raw is None else [_row(row, catalog) for row in tail_raw]
@@ -314,10 +330,6 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
             raise ValueError("reject oracle must not set plan_must_fit_windows")
         if allow_empty_plan:
             raise ValueError("reject oracle must not set allow_empty_plan")
-
-    update_band = value.get("update_band")
-    if update_band is not None and update_band not in UPDATE_BANDS:
-        raise ValueError("oracle.update_band must be 'cut', 'fatigue', or 'muscle'")
 
     return Oracle(
         profile=profile,

@@ -392,3 +392,32 @@ def test_implicit_muscle_band_requires_protein_above_rda() -> None:
         {"op": "update_profile", "patch": {"windows": {"carb_g": [0.0, 1.0]}}}
     )
     assert Scorer().score(env.state(), oracle)["tag"] == "update_miss"
+
+
+def test_implicit_fatigue_accepts_either_route_the_handbook_offers() -> None:
+    """The manual offers a phase patch or a direct window move; both satisfy the band.
+
+    phase is the means, not the verdict. A wrong phase still fails, because the
+    windows Env derives from it miss the band.
+    """
+    eer = 1815.34375
+    oracle_s0 = _ada_state(phase="cut")
+    oracle = Oracle(
+        profile=oracle_s0.profile, update_band="fatigue", ledger=tuple(oracle_s0.ledger)
+    )
+    s0_hi = oracle_s0.profile.windows["kcal"][1]
+
+    env = NutriEnv()
+    env.reset(_ada_state(phase="cut"))
+    env.step({"op": "update_profile", "patch": {"phase": "maintain"}})
+    assert Scorer().score(env.state(), oracle) == {"passed": True, "tag": "pass"}
+
+    env.reset(_ada_state(phase="cut"))
+    eased = (s0_hi + eer) / 2.0
+    env.step({"op": "update_profile", "patch": {"windows": {"kcal": [eased, eased]}}})
+    assert Scorer().score(env.state(), oracle) == {"passed": True, "tag": "pass"}
+
+    # Staying in cut is not a rise: the derived windows are S0's, not above them.
+    env.reset(_ada_state(phase="cut"))
+    env.step({"op": "update_profile", "patch": {"phase": "cut"}})
+    assert Scorer().score(env.state(), oracle)["tag"] == "update_miss"

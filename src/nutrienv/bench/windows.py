@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from nutrienv.world.catalog import iter_catalog_entries
 from nutrienv.world.types import normalize_tags
 
 __all__ = ["KCAL_RATIO_CAP", "windows_unsatisfiable", "any_pair_unsatisfiable"]
@@ -29,7 +30,7 @@ def windows_unsatisfiable(
     ceiling_value = float(windows.get(ceiling_nutrient, (0.0, 0.0))[1])
     floor_value = float(windows.get(floor_nutrient, (0.0, 0.0))[0])
     best = 0.0
-    for entry in catalog.values():
+    for _, entry in iter_catalog_entries(catalog):
         try:
             tags = _tag_set(entry.get("allergen_tags") or [])
         except ValueError:
