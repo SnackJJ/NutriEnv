@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import copy
-import inspect
 import json
 import random
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 from nutrienv.bench.realize import Oracle, Task
@@ -20,7 +19,6 @@ from .sampler import sample_pools
 from .semantic_vote import GRAM_TOLERANCE
 from .types import (
     DEFAULT_GENERATE_POOL_SIZE,
-    Expander,
     FoodPool,
     PoolFood,
     Rejected,
@@ -29,8 +27,11 @@ from .types import (
 __all__ = [
     "AMOUNT_PATHS",
     "GenerateOneResult",
+    "LogExpander",
     "build_log_system_prompt",
+    "build_log_user_prompt",
     "generate_one",
+    "make_log_expander",
     "parse_query_foods_payload",
 ]
 
@@ -59,7 +60,7 @@ class GenerateOneResult:
 def generate_one(
     *,
     catalog: Mapping,
-    expander: Expander,
+    expander: Callable[..., object],
     family: str = "log",
     seed: int = 0,
     person: RosterPerson | None = None,
@@ -95,8 +96,8 @@ def generate_one(
         return GenerateOneResult(
             accepted=None, rejected=Rejected("", "empty_pool", "log")
         )
-    raw = _call_expander(
-        expander, pool, persona=chosen.persona, amount_path=path
+    raw = expander(
+        pool, persona=chosen.persona, family="log", amount_path=path
     )
     payload = parse_query_foods_payload(raw)
     if payload is None:
@@ -190,6 +191,66 @@ def build_log_system_prompt(*, amount_path: str, persona: str = "everyday") -> s
     return "\n".join(lines)
 
 
+def build_log_user_prompt(pool: FoodPool) -> str:
+    """Pool table for the Log expander. foods in JSON must be these ids."""
+    lines = [
+        f"Food pool {pool.pool_id} (pick 1-3 foods; JSON foods must be pool ids):",
+    ]
+    for food in pool.foods:
+        spoken = food.aliases[0] if food.aliases else food.name.split(",", 1)[0]
+        lines.append(f"- id={food.food_id} spoken={spoken} — {food.name}")
+    lines.append("")
+    lines.append("The user already ate this meal. Write a log request.")
+    lines.append("Compose one meal. Output the JSON object only.")
+    return "\n".join(lines)
+
+
+class LogExpander:
+    """Mill expander: {query, foods} JSON, amount path in the system prompt."""
+
+    def __init__(
+        self,
+        *,
+        complete: Callable[[str, Sequence[Mapping[str, str]]], str],
+        parse_retries: int = 1,
+    ) -> None:
+        self._complete = complete
+        self._parse_retries = max(0, int(parse_retries))
+
+    def __call__(
+        self,
+        pool: FoodPool,
+        *,
+        persona: str,
+        family: str,
+        amount_path: str,
+    ) -> dict[str, object]:
+        messages = (
+            {
+                "role": "system",
+                "content": build_log_system_prompt(
+                    amount_path=amount_path, persona=persona
+                ),
+            },
+            {"role": "user", "content": build_log_user_prompt(pool)},
+        )
+        last: dict[str, object] = {"query": "", "foods": []}
+        for _attempt in range(1 + self._parse_retries):
+            parsed = parse_query_foods_payload(self._complete("log-expander", messages))
+            if parsed is not None:
+                return parsed
+        return last
+
+
+def make_log_expander(
+    *,
+    complete: Callable[[str, Sequence[Mapping[str, str]]], str],
+    parse_retries: int = 1,
+) -> LogExpander:
+    """Build the Log mill expander. complete is injected; no live API required."""
+    return LogExpander(complete=complete, parse_retries=parse_retries)
+
+
 def _bind_log_foods(
     query: str,
     foods: Sequence[str],
@@ -272,25 +333,6 @@ def _speech_amount_path(text: str) -> str | None:
     if len(classes) != 1:
         return None
     return next(iter(classes))
-
-
-def _call_expander(
-    expander: Expander,
-    pool: FoodPool,
-    *,
-    persona: str,
-    amount_path: str,
-) -> object:
-    kwargs: dict[str, str] = {"persona": persona, "family": "log"}
-    try:
-        params = inspect.signature(expander).parameters
-    except (TypeError, ValueError):
-        params = {}
-    if "amount_path" in params or any(
-        item.kind is inspect.Parameter.VAR_KEYWORD for item in params.values()
-    ):
-        kwargs["amount_path"] = amount_path
-    return expander(pool, **kwargs)
 
 
 def _without_small_gram_foods(pool: FoodPool) -> FoodPool:

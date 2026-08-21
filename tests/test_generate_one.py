@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import inspect
+import json
 
 from nutrienv.bench.pipeline.generate_one import (
     build_log_system_prompt,
     generate_one,
+    make_log_expander,
 )
 from nutrienv.bench.pipeline.roster import ROSTER
 from nutrienv.bench.realize import GOLD_WINDOWS
@@ -46,7 +48,7 @@ def _catalog() -> dict:
     }
 
 
-def _cup_expander(pool, *, persona, family):
+def _cup_expander(pool, *, persona, family, amount_path=None):
     for food in pool.foods:
         if any(alt.key == "cup" and alt.quantity == 1.0 for alt in food.alternatives):
             name = food.aliases[0] if food.aliases else food.name.split(",")[0]
@@ -98,7 +100,7 @@ def _run(expander, **overrides):
 
 
 def test_generate_one_binds_grams_from_speech_not_expander_json() -> None:
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "query": "Please log a cup of milk for lunch.",
             "foods": ["milk_whole"],
@@ -113,7 +115,7 @@ def test_generate_one_binds_grams_from_speech_not_expander_json() -> None:
 
 
 def test_generate_one_rejects_grams_field_in_expander_json() -> None:
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "query": "Please log a cup of milk for lunch.",
             "foods": ["milk_whole"],
@@ -127,7 +129,7 @@ def test_generate_one_rejects_grams_field_in_expander_json() -> None:
 
 
 def test_generate_one_rejects_old_items_expression_schema() -> None:
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "items": [{"food": "milk_whole", "expression": "a cup"}],
             "query": "Please log a cup of milk for lunch.",
@@ -140,7 +142,7 @@ def test_generate_one_rejects_old_items_expression_schema() -> None:
 
 
 def test_generate_one_rejects_extra_keys_beside_query_and_foods() -> None:
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "query": "Please log a cup of milk for lunch.",
             "foods": ["milk_whole"],
@@ -154,7 +156,7 @@ def test_generate_one_rejects_extra_keys_beside_query_and_foods() -> None:
 
 
 def test_generate_one_foods_must_be_pool_ids_not_spoken_names() -> None:
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "query": "Please log a cup of milk for lunch.",
             "foods": ["milk"],
@@ -167,7 +169,7 @@ def test_generate_one_foods_must_be_pool_ids_not_spoken_names() -> None:
 
 
 def test_generate_one_rejects_food_id_absent_from_pool() -> None:
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "query": "Please log a cup of milk for lunch.",
             "foods": ["tofu"],
@@ -180,7 +182,7 @@ def test_generate_one_rejects_food_id_absent_from_pool() -> None:
 
 
 def test_generate_one_rejects_unresolvable_speech() -> None:
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "query": "Please log a slice of milk for lunch.",
             "foods": ["milk_whole"],
@@ -193,7 +195,7 @@ def test_generate_one_rejects_unresolvable_speech() -> None:
 
 
 def test_generate_one_explicit_grams_path_may_contain_150_g() -> None:
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "query": "Please log 150 g of chicken for lunch.",
             "foods": ["chicken_breast"],
@@ -208,7 +210,7 @@ def test_generate_one_explicit_grams_path_may_contain_150_g() -> None:
 
 
 def test_generate_one_unspecified_rejects_named_cup() -> None:
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "query": "Please log a cup of rice for lunch.",
             "foods": ["white_rice"],
@@ -221,7 +223,7 @@ def test_generate_one_unspecified_rejects_named_cup() -> None:
 
 
 def test_generate_one_named_measure_rejects_explicit_grams() -> None:
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "query": "Please log 150 g of chicken for lunch.",
             "foods": ["chicken_breast"],
@@ -234,7 +236,7 @@ def test_generate_one_named_measure_rejects_explicit_grams() -> None:
 
 
 def test_generate_one_binds_each_food_from_its_local_phrase() -> None:
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "query": "Please log a cup of chicken and two cups of rice for lunch.",
             "foods": ["chicken_breast", "white_rice"],
@@ -249,7 +251,7 @@ def test_generate_one_binds_each_food_from_its_local_phrase() -> None:
 
 
 def test_generate_one_mixed_cup_and_bowl_does_not_freeze_rice_as_cup() -> None:
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "query": "Please log a cup of chicken and a bowl of rice for lunch.",
             "foods": ["chicken_breast", "white_rice"],
@@ -262,7 +264,7 @@ def test_generate_one_mixed_cup_and_bowl_does_not_freeze_rice_as_cup() -> None:
 
 
 def test_generate_one_unspecified_two_bowls_bind_qns_not_cup() -> None:
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "query": "Please log a bowl of chicken and a bowl of rice for lunch.",
             "foods": ["chicken_breast", "white_rice"],
@@ -277,7 +279,7 @@ def test_generate_one_unspecified_two_bowls_bind_qns_not_cup() -> None:
 
 
 def test_generate_one_unspecified_bowl_of_rice_binds_qns_not_cup() -> None:
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "query": "Please log a bowl of rice for lunch.",
             "foods": ["white_rice"],
@@ -302,7 +304,7 @@ def test_generate_one_does_not_hide_solid_cup() -> None:
         "milk_whole": _food("Milk, whole", {"cup": 244.0}, ("milk",)),
     }
 
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "query": "Please log a cup of oats for lunch.",
             "foods": ["oats"],
@@ -321,7 +323,7 @@ def test_generate_one_excludes_or_rejects_small_gram_so_band_cannot_pass_double(
         "shrimp": _food("Shrimp, cooked", {"piece": 10.0}, ("shrimp",)),
     }
 
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "query": "Please log a piece of shrimp for lunch.",
             "foods": ["shrimp"],
@@ -343,7 +345,7 @@ def test_generate_one_rejects_naked_cut_noun_not_as_gold_pass() -> None:
         ),
     }
 
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "query": "Please log a chicken breast for lunch.",
             "foods": ["chicken_breast"],
@@ -362,7 +364,7 @@ def test_generate_one_has_no_skip_hard_bind_flag() -> None:
 
 
 def test_generate_one_cannot_skip_bind_to_admit_unresolvable_speech() -> None:
-    def expand(_pool, *, persona, family):
+    def expand(_pool, *, persona, family, amount_path=None):
         return {
             "query": "Please log some milk for lunch.",
             "foods": ["milk_whole"],
@@ -374,7 +376,7 @@ def test_generate_one_cannot_skip_bind_to_admit_unresolvable_speech() -> None:
     assert result.rejected.reason == "unresolvable"
 
 
-def test_generate_one_passes_amount_path_when_expander_accepts_it() -> None:
+def test_generate_one_always_passes_amount_path_to_expander() -> None:
     seen: dict[str, str] = {}
 
     def expand(_pool, *, persona, family, amount_path):
@@ -387,6 +389,32 @@ def test_generate_one_passes_amount_path_when_expander_accepts_it() -> None:
     result = _run(expand, amount_path="explicit_grams", pool_size=12)
     assert result.accepted is not None
     assert seen["amount_path"] == "explicit_grams"
+
+
+def test_generate_one_mill_expander_uses_amount_path_system_prompt() -> None:
+    seen: list[str] = []
+
+    def complete(_model_id, messages):
+        seen.append(messages[0]["content"])
+        return json.dumps(
+            {
+                "query": "Please log a cup of milk for lunch.",
+                "foods": ["milk_whole"],
+            }
+        )
+
+    result = _run(
+        make_log_expander(complete=complete),
+        amount_path="named_measure",
+        pool_size=12,
+        person=ROSTER[0],
+    )
+    assert seen
+    assert seen[0] == build_log_system_prompt(
+        amount_path="named_measure", persona=ROSTER[0].persona
+    )
+    assert result.accepted is not None
+    assert result.accepted.oracle.ledger_tail[0].grams == 244.0
 
 
 def test_roster_is_twenty_adults() -> None:
