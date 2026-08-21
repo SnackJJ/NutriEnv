@@ -30,7 +30,6 @@ __all__ = [
     "LeftoverFloorReport",
     "SituationFloorReport",
     "TierCoverageReport",
-    "classify_evaluate_tier",
     "constrained_recommends",
     "evaluate_tier_coverage",
     "evaluate_unfits",
@@ -49,9 +48,6 @@ CONSTRAINED_RECOMMEND_FLOOR = 8
 
 # Situation names a split may declare for its hard-S0 recommend items.
 _HARD_SITUATIONS = frozenset({"condition_suitability", "conflict_windows"})
-
-# Spoken raw gram phrase ("200 g chicken"), as in validator's parse rules.
-_SPOKEN_GRAMS = re.compile(r"(?<!\d)(\d+(?:\.\d+)?)\s*g(?:rams?)?\b")
 
 
 def _leaks_windows(task: Task) -> bool:
@@ -123,10 +119,11 @@ def recommend_coverage(
     )
 
 
-# Structural difficulty tiers any frozen split exposes without its authoring
-# tables, with the per-tier floors migrated from tests/archive/
-# test_v03_split.py::test_v03_evaluate_covers_every_difficulty_tier. Exported
-# policy is read-only: a caller must not be able to bend the gate.
+# Difficulty tiers a split declares on its evaluate items, with the per-tier
+# floors migrated from tests/archive/test_v03_split.py::
+# test_v03_evaluate_covers_every_difficulty_tier. The tier is authoring data
+# on the frozen row (``Task.tier``); nothing is inferred from item content.
+# Exported policy is read-only: a caller must not be able to bend the gate.
 DEFAULT_EVALUATE_TIER_FLOORS = MappingProxyType({
     "single": 7,
     "pair": 11,
@@ -136,60 +133,6 @@ DEFAULT_EVALUATE_TIER_FLOORS = MappingProxyType({
     "synonym": 3,
 })
 EVALUATE_TIERS = tuple(DEFAULT_EVALUATE_TIER_FLOORS)
-
-
-def _norm_phrase(text: object) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", str(text).lower()).strip()
-
-
-def _has_word(phrase: str, norm_text: str) -> bool:
-    return (
-        bool(phrase)
-        and re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", norm_text) is not None
-    )
-
-
-def _names_a_plan_food_only_by_synonym(task: Task) -> bool:
-    """True when a named-meal food appears only under wording that does not
-    restate its identity ("prawns" for shrimp, "plain yogurt" for
-    greek_yogurt). An alias inside the slug or name ("chicken" for
-    chicken_breast, "rice" for white_rice) still reads as canonical."""
-    named = task.oracle.evaluated_plan or task.oracle.last_plan or ()
-    if not named:
-        return False
-    query = _norm_phrase(task.query)
-    for item in named:
-        entry = task.s0.catalog.get(str(item["food_id"]))
-        if not isinstance(entry, dict):
-            continue
-        slug = _norm_phrase(str(item["food_id"]).replace("_", " "))
-        name = _norm_phrase(entry.get("name"))
-        primary = [form for form in (slug, name) if form]
-        if any(_has_word(form, query) for form in primary):
-            continue
-        aliases = [_norm_phrase(alias) for alias in entry.get("aliases") or ()]
-        mentioned = [alias for alias in aliases if _has_word(alias, query)]
-        if mentioned and all(
-            not any(alias in form for form in primary) for alias in mentioned
-        ):
-            return True
-    return False
-
-
-def classify_evaluate_tier(task: Task) -> str:
-    """Structural tier of one evaluate item, readable off the frozen Task."""
-    if _names_a_plan_food_only_by_synonym(task):
-        return "synonym"
-    if _SPOKEN_GRAMS.search(task.query):
-        return "explicit_grams"
-    size = len(task.oracle.evaluated_plan or task.oracle.last_plan or ())
-    if size >= 4:
-        return "long"
-    if size == 3:
-        return "triple"
-    if size == 2:
-        return "pair"
-    return "single"
 
 
 @dataclass(frozen=True)
@@ -203,17 +146,17 @@ def evaluate_tier_coverage(
     *,
     floors: Mapping[str, int] | None = None,
 ) -> TierCoverageReport:
-    """Difficulty-tier coverage of the evaluate slice against migrated floors.
+    """Declared-tier coverage of the evaluate slice against migrated floors.
 
-    The slots are only worth having if they differ on a declared axis. The
-    structural axis is the named-meal size plus speech style (raw-gram
-    phrases, near-synonym naming); defaults are the v0.3 floors exactly.
+    Items are grouped by ``Task.tier`` exactly as each split declares it;
+    items with no declared tier count toward no floor. Defaults are the
+    v0.3 floors exactly.
     """
     declared = DEFAULT_EVALUATE_TIER_FLOORS if floors is None else floors
     counts = {tier: 0 for tier in EVALUATE_TIERS}
     for task in tasks:
-        if task.family == "evaluate":
-            counts[classify_evaluate_tier(task)] += 1
+        if task.family == "evaluate" and task.tier in counts:
+            counts[task.tier] += 1
     missing = tuple(sorted(
         tier for tier, least in declared.items() if counts.get(tier, 0) < least
     ))
