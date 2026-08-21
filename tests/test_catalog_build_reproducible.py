@@ -11,6 +11,7 @@ Seams (no archived-catalog rewrite, no catalog-v2 rewrite):
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import sqlite3
 import sys
@@ -120,6 +121,14 @@ def _point_raw_at(tmp_path: Path, survey: Path, monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(builder, "_RAW", raw)
 
 
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _snapshot_catalog_shas() -> dict[Path, str]:
+    return {path: _sha256(path) for path in (_LIVE, _V1, _V2) if path.is_file()}
+
+
 def _foods_rows(path: Path) -> list[tuple]:
     conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     try:
@@ -151,3 +160,19 @@ def test_foods_json_cells_pin_key_order_not_scan_order(
     assert portions == '{"cup": 248.0, "fl_oz": 31.0, "qns": 248.0}'
     assert tags == "[]"
     assert aliases == "[]"
+
+
+def test_two_builds_from_the_same_zip_write_identical_foods_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    before = _snapshot_catalog_shas()
+    survey = _write_survey_zip(tmp_path / "survey.zip")
+    _point_raw_at(tmp_path, survey, monkeypatch)
+    first = tmp_path / "a.sqlite"
+    second = tmp_path / "b.sqlite"
+    builder.build(include_branded=False, dest=first, fndds_only=True)
+    builder.build(include_branded=False, dest=second, fndds_only=True)
+    assert _foods_rows(first) == _foods_rows(second)
+    assert first.read_bytes() == second.read_bytes()
+    for path, digest in before.items():
+        assert _sha256(path) == digest
