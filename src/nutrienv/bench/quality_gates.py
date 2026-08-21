@@ -249,11 +249,15 @@ def leftover_floor(
 
 
 def evaluate_unfits(tasks: Sequence[Task]) -> tuple[str, ...]:
-    """Ids of evaluate items whose gold verdict is reject (unfit named meal)."""
+    """Ids of evaluate items carrying ADR 0017's unfit envelope: a reject
+    verdict over an empty named plan. A reject that still names a meal is
+    legacy shape, not Evaluate-unfit."""
     return tuple(
         task.id
         for task in tasks
-        if task.family == "evaluate" and task.oracle.last_verdict == "reject"
+        if task.family == "evaluate"
+        and task.oracle.last_verdict == "reject"
+        and task.oracle.last_plan == []
     )
 
 
@@ -285,8 +289,11 @@ def constrained_recommends(tasks: Sequence[Task]) -> tuple[str, ...]:
     """Ids of recommend tasks whose S0 is hard (ADR 0016 constrained set).
 
     A recommend is constrained when any of these reads off the frozen item:
-    declared hard situations, impossible windows (no plan can satisfy them),
-    or a named-dish allergy trap.
+    declared hard situations, impossible windows -- judged on the remainder
+    ``oracle.plan_windows`` when the item pins one, else on the daily
+    profile -- a leftover/remainder scene (eaten food earlier that day with
+    the plan judged on pinned remainder windows), or a named-dish allergy
+    trap.
     """
     ids = []
     for task in tasks:
@@ -295,9 +302,17 @@ def constrained_recommends(tasks: Sequence[Task]) -> tuple[str, ...]:
         if _HARD_SITUATIONS & set(task.situations):
             ids.append(task.id)
             continue
+        windows = (
+            task.oracle.plan_windows
+            if task.oracle.plan_windows is not None
+            else task.s0.profile.windows
+        )
         if any_pair_unsatisfiable(
-            task.s0.profile.windows, task.s0.catalog, task.s0.profile.allergies
+            windows, task.s0.catalog, task.s0.profile.allergies
         ):
+            ids.append(task.id)
+            continue
+        if task.s0.ledger and task.oracle.plan_windows is not None:
             ids.append(task.id)
             continue
         if _query_names_allergen_food(task):

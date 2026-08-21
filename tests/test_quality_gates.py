@@ -393,3 +393,55 @@ def test_a_split_missing_a_tier_or_below_floor_fails_the_gate():
 
     no_long = [task for task in full if not task.id.startswith("ev-long-")]
     assert evaluate_tier_coverage(no_long).missing == ("long",)
+
+
+def test_only_rejects_with_the_empty_plan_unfit_contract_count():
+    tasks = [
+        _unfit_eval_task("ev-contract"),
+        _task(
+            "ev-legacy-reject",
+            family="evaluate",
+            oracle=Oracle(
+                last_plan=[_FOOD],
+                evaluated_plan=[_FOOD],
+                last_verdict="reject",
+            ),
+        ),
+        _task(
+            "ev-verdictless-empty",
+            family="evaluate",
+            oracle=Oracle(last_plan=[], evaluated_plan=[_FOOD]),
+        ),
+    ]
+    assert evaluate_unfits(tasks) == ("ev-contract",)
+
+
+def test_constrained_recommends_cover_remainder_and_judge_plan_windows():
+    tasks = [
+        _task("rec-plain"),
+        _task(
+            "rec-impossible-in-plan-windows",
+            windows={"kcal": (1500.0, 2200.0), "protein_g": (90.0, 140.0)},
+            oracle=Oracle(plan_windows={"kcal": (0.0, 300.0), "protein_g": (90.0, 140.0)}),
+        ),
+        _task(
+            "rec-satisfiable-plan-windows",
+            windows={"kcal": (1500.0, 2200.0), "protein_g": (90.0, 140.0)},
+            oracle=Oracle(plan_windows={"kcal": (400.0, 600.0), "protein_g": (20.0, 60.0)}),
+        ),
+        _task(
+            "rec-leftover-remainder",
+            query="What can I still eat today?",
+            ledger=(LedgerRow("white_rice", 200.0, "lunch"),),
+            oracle=Oracle(plan_windows={"kcal": (100.0, 300.0)}),
+        ),
+        _task(
+            "rec-ledger-without-remainder",
+            query="What now?",
+            ledger=(LedgerRow("banana", 118.0, "lunch"),),
+        ),
+    ]
+    assert constrained_recommends(tasks) == (
+        "rec-impossible-in-plan-windows",
+        "rec-leftover-remainder",
+    )
