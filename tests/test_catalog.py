@@ -1,3 +1,7 @@
+import copy
+
+import pytest
+
 from nutrienv.world.catalog import (
     FoodCatalog,
     SEARCH_LIMIT,
@@ -6,6 +10,7 @@ from nutrienv.world.catalog import (
 )
 from nutrienv.world.catalog_fixture import demo_catalog
 from nutrienv.world.catalog_store import GOLD_CATALOG_PATH, load_catalog
+from nutrienv.world.types import food_view
 
 
 def test_fixture_catalog_search_is_token_and_not_a_dump():
@@ -44,22 +49,68 @@ def test_canonical_food_id_plain_dict() -> None:
     assert canonical_food_id(catalog, "missing") == "missing"
 
 
-def test_iter_entries_scans_without_copying_but_getitem_still_does() -> None:
-    """A read-only scan shares entries; ``[]`` keeps its copy-on-write guard.
+def test_catalog_entry_rejects_in_place_assignment() -> None:
+    catalog = FoodCatalog.from_mapping(demo_catalog())
+    entry = catalog["shrimp"]
+    with pytest.raises(TypeError):
+        entry["name"] = "hack"
+    assert catalog["shrimp"]["name"] == "Shrimp, cooked"
 
-    A clone shares ``_base`` with its parent, so ``__getitem__`` deep-copies
-    what it hands out. Scanning the whole catalog that way costs one deepcopy
-    per food per task, which is why validators read through ``iter_entries``.
-    """
+
+def test_catalog_entry_rejects_nested_dict_assignment() -> None:
+    catalog = FoodCatalog.from_mapping(demo_catalog())
+    entry = catalog["shrimp"]
+    with pytest.raises(TypeError):
+        entry["nutrients"]["kcal"] = 0
+    with pytest.raises(TypeError):
+        entry["portions"]["piece"] = 1
+    assert catalog["shrimp"]["nutrients"]["kcal"] == 99.0
+    assert catalog["shrimp"]["portions"]["piece"] == 7.0
+
+
+def test_catalog_entry_rejects_nested_list_mutation() -> None:
+    catalog = FoodCatalog.from_mapping(demo_catalog())
+    entry = catalog["shrimp"]
+    with pytest.raises((TypeError, AttributeError)):
+        entry["allergen_tags"].append("milk")
+    with pytest.raises((TypeError, AttributeError)):
+        entry["aliases"].append("scampi")
+    assert list(catalog["shrimp"]["allergen_tags"]) == ["shellfish"]
+    assert list(catalog["shrimp"]["aliases"]) == ["prawn", "prawns"]
+
+
+def test_food_view_returns_a_mutable_observation_copy() -> None:
+    catalog = FoodCatalog.from_mapping(
+        {"mystery": {"name": "Mystery", "nutrients": {}, "allergen_tags": [], "aliases": []}}
+    )
+    view = food_view(catalog, "mystery")
+    assert view["food_id"] == "mystery"
+    assert view["name"] == "Mystery"
+    assert view["portions"] == {}
+    view["name"] = "hack"
+    view["portions"]["cup"] = 10.0
+    view["allergen_tags"].append("milk")
+    view.setdefault("extra", 1)
+    assert catalog["mystery"]["name"] == "Mystery"
+    assert "portions" not in catalog["mystery"]
+    assert list(catalog["mystery"]["allergen_tags"]) == []
+    assert "extra" not in catalog["mystery"]
+
+
+def test_iter_catalog_entries_reads_the_same_objects_as_getitem() -> None:
     catalog = load_catalog()
-    scanned = dict(catalog.iter_entries())
+    scanned = dict(iter_catalog_entries(catalog))
     assert len(scanned) == len(catalog)
     food_id = next(iter(scanned))
-    assert scanned[food_id] is catalog._base[food_id]
-    assert catalog[food_id] is not catalog._base[food_id]
-    assert catalog[food_id] == scanned[food_id]
+    assert catalog[food_id] is scanned[food_id]
 
 
 def test_iter_catalog_entries_accepts_a_plain_mapping() -> None:
     plain = {"oats": {"name": "Rolled oats"}}
     assert list(iter_catalog_entries(plain)) == [("oats", plain["oats"])]
+
+
+def test_cloned_catalog_shares_frozen_entries() -> None:
+    catalog = FoodCatalog.from_mapping(demo_catalog())
+    clone = copy.deepcopy(catalog)
+    assert catalog["shrimp"] is clone["shrimp"]

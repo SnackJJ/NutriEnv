@@ -7,7 +7,6 @@ the USDA API.
 
 from __future__ import annotations
 
-import copy
 import json
 import re
 import sqlite3
@@ -18,6 +17,47 @@ __all__ = ["FoodCatalog", "SEARCH_LIMIT", "canonical_food_id", "iter_catalog_ent
 
 SEARCH_LIMIT = 25
 _TOKEN = re.compile(r"[a-z0-9]+")
+
+
+class FrozenDict(dict):
+    """A dict that rejects in-place writes. Nested values freeze separately."""
+
+    def __setitem__(self, key, value):
+        raise TypeError("catalog entry is immutable")
+
+    def __delitem__(self, key):
+        raise TypeError("catalog entry is immutable")
+
+    def clear(self):
+        raise TypeError("catalog entry is immutable")
+
+    def pop(self, *args, **kwargs):
+        raise TypeError("catalog entry is immutable")
+
+    def popitem(self):
+        raise TypeError("catalog entry is immutable")
+
+    def setdefault(self, *args, **kwargs):
+        raise TypeError("catalog entry is immutable")
+
+    def update(self, *args, **kwargs):
+        raise TypeError("catalog entry is immutable")
+
+
+def _freeze_mapping(entry: Mapping) -> FrozenDict:
+    frozen = FrozenDict()
+    dict.update(frozen, {key: _freeze_value(value) for key, value in entry.items()})
+    return frozen
+
+
+def _freeze_value(value: object) -> object:
+    if isinstance(value, FrozenDict):
+        return value
+    if isinstance(value, dict):
+        return _freeze_mapping(value)
+    if isinstance(value, list):
+        return tuple(_freeze_value(item) for item in value)
+    return value
 
 
 def _tokens(text: str) -> list[str]:
@@ -56,8 +96,12 @@ class FoodCatalog(Mapping[str, dict]):
                 self._base[slug] = self._base[food_id]
         self._db_path = Path(db_path) if db_path is not None else None
         self._size = size if size is not None else len({self._canonical(k) for k in foods})
-        self._cow = False
-        self._overlay: dict[str, dict] = {}
+        seen: dict[int, FrozenDict] = {}
+        for key, entry in list(self._base.items()):
+            token = id(entry)
+            if token not in seen:
+                seen[token] = entry if isinstance(entry, FrozenDict) else _freeze_mapping(entry)
+            self._base[key] = seen[token]
 
     @classmethod
     def from_mapping(cls, foods: Mapping[str, dict]) -> FoodCatalog:
@@ -222,7 +266,7 @@ class FoodCatalog(Mapping[str, dict]):
                     return None
         finally:
             conn.close()
-        entry = _row_to_entry(row)
+        entry = _freeze_mapping(_row_to_entry(row))
         self._base[row["food_id"]] = entry
         return entry
 
@@ -238,22 +282,7 @@ class FoodCatalog(Mapping[str, dict]):
             looked = self._lookup_db(canonical)
             if looked is None:
                 raise KeyError(food_id)
-        if self._cow:
-            if canonical not in self._overlay:
-                self._overlay[canonical] = copy.deepcopy(self._base[canonical])
-            return self._overlay[canonical]
         return self._base[canonical]
-
-    def iter_entries(self) -> Iterator[tuple[str, dict]]:
-        """Canonical ``(food_id, entry)`` pairs for a read-only scan.
-
-        ``__getitem__`` deep-copies each entry because a clone shares ``_base``
-        with its parent and the caller may mutate what it gets. A scan does not
-        mutate, so it reads ``_base`` directly: the entries are shared, and a
-        caller that wants to change one must copy it first.
-        """
-        for food_id in self:
-            yield food_id, self._base[food_id]
 
     def __contains__(self, food_id: object) -> bool:
         if not isinstance(food_id, str):
@@ -277,11 +306,7 @@ class FoodCatalog(Mapping[str, dict]):
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, FoodCatalog):
-            return (
-                self._db_path == other._db_path
-                and self._aliases == other._aliases
-                and self._overlay == other._overlay
-            )
+            return self._db_path == other._db_path and self._aliases == other._aliases
         return NotImplemented
 
     def __deepcopy__(self, memo: dict) -> FoodCatalog:
@@ -290,17 +315,12 @@ class FoodCatalog(Mapping[str, dict]):
         clone._aliases = self._aliases
         clone._db_path = self._db_path
         clone._size = self._size
-        clone._cow = True
-        clone._overlay = copy.deepcopy(self._overlay)
         memo[id(self)] = clone
         return clone
 
 
 def iter_catalog_entries(catalog) -> Iterator[tuple[str, dict]]:
-    """Read-only ``(food_id, entry)`` scan over a catalog or a plain mapping."""
-    scan = getattr(catalog, "iter_entries", None)
-    if scan is not None:
-        return scan()
+    """``(food_id, entry)`` pairs from a catalog or a plain mapping."""
     return ((str(food_id), catalog[food_id]) for food_id in catalog)
 
 
