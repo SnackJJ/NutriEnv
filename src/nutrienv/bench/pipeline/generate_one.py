@@ -9,7 +9,7 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 
-from nutrienv.bench.realize import Oracle, Task, realize_evaluate
+from nutrienv.bench.realize import Oracle, Task, compose_oracles, realize_evaluate
 from nutrienv.world.daily_windows import (
     derive_profile_windows,
     estimated_energy_requirement,
@@ -67,6 +67,11 @@ _RECOMMEND_SHELLS_BY_OCCASION: dict[str, str] = {
 }
 # Recommend additionally accepts the thin snack occasion (no energy share).
 _RECOMMEND_OCCASIONS: frozenset[str] = frozenset(_OCCASIONS) | {"snack"}
+_NEXT_OCCASION: dict[str, str] = {
+    "breakfast": "lunch",
+    "lunch": "dinner",
+    "dinner": "dinner",
+}
 _NAMED_PORTION_KEYS = frozenset(
     {"cup", "tbsp", "tsp", "slice", "piece", "can", "fl_oz"}
 )
@@ -136,8 +141,9 @@ def generate_one(
     """One mill item: roster person → world windows → pool → expander → speech bind.
 
     Recommend items are template-filled (``shell``/``slots``) with no expander.
+    Composite log-then-recommend remainder is computed after the log tail.
     """
-    if family not in {"log", "evaluate", "recommend", "update"}:
+    if family not in {"log", "evaluate", "recommend", "update", "composite"}:
         raise ValueError(f"generate_one does not implement {family!r}")
     if amount_path is not None and amount_path not in AMOUNT_PATHS:
         raise ValueError(f"unknown amount_path {amount_path!r}")
@@ -239,6 +245,16 @@ def generate_one(
             amount_path=path,
             last_meal=last_meal,
         )
+    if family == "composite":
+        rec_occasion = _NEXT_OCCASION.get(occasion, "dinner")
+        return _log_then_recommend(
+            query,
+            bound,
+            s0,
+            seed=seed,
+            rec_occasion=rec_occasion,
+            persona=chosen.persona,
+        )
     oracle = Oracle(
         profile=copy.deepcopy(profile),
         ledger_tail=bound,
@@ -252,6 +268,50 @@ def generate_one(
         oracle,
         ("multi_item_log",),
         chosen.persona,
+    )
+    return GenerateOneResult(accepted=task, rejected=None)
+
+
+def _log_then_recommend(
+    query: str,
+    bound: Sequence,
+    s0: WorldState,
+    *,
+    seed: int,
+    rec_occasion: str,
+    persona: str,
+) -> GenerateOneResult:
+    """Log sub-oracle plus recommend remainder after that log tail."""
+    tail = list(bound)
+    final_ledger = (*s0.ledger, *tail)
+    log_oracle = Oracle(
+        profile=copy.deepcopy(s0.profile),
+        ledger_tail=tail,
+        ledger=final_ledger,
+    )
+    eaten = ledger_totals(list(final_ledger), s0.catalog)
+    plan_windows = plan_windows_for_meal(s0.profile.windows, eaten, rec_occasion)
+    if plan_windows is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "empty_windows", "composite")
+        )
+    rec_oracle = Oracle(
+        profile=copy.deepcopy(s0.profile),
+        last_plan=[],
+        ledger_tail=list(tail),
+        ledger=final_ledger,
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=plan_windows,
+    )
+    task = Task(
+        f"one-comp-{seed:04d}",
+        "log",
+        query,
+        s0,
+        compose_oracles(log_oracle, rec_oracle),
+        ("multi_item_log",),
+        persona,
     )
     return GenerateOneResult(accepted=task, rejected=None)
 
