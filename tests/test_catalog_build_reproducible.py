@@ -4,7 +4,7 @@ Seams (no archived-catalog rewrite, no catalog-v2 rewrite):
 
 - ``build(...)`` writes ``foods`` JSON cells with sorted keys
 - two builds from the same raw zip yield identical ``foods`` rows
-- ``plan_fndds_only_rebuild`` reports a byte-level portions check
+- ``plan_fndds_only_rebuild`` reports sqlite foods JSON cell byte diffs
 - archived v0.x still ``load_split``s; ``load_exam`` stays fail-closed
 """
 
@@ -241,21 +241,46 @@ def test_foods_json_cell_byte_check_detects_key_order_drift(tmp_path: Path) -> N
     ]
 
 
-def test_plan_zero_drift_includes_byte_level_portion_json(
+def test_foods_json_cell_byte_check_is_zero_when_text_matches(tmp_path: Path) -> None:
+    left = _write_foods_sqlite(tmp_path / "left.sqlite", _CANON_CELLS)
+    right = _write_foods_sqlite(tmp_path / "right.sqlite", _CANON_CELLS)
+    result = builder.diff_foods_json_cells(left, right)
+    assert result["foods_compared"] == 1
+    assert result["value_diffs"] == 0
+    assert result["byte_diffs"] == 0
+    assert result["key_order_only_diffs"] == 0
+    assert result["byte_diff_columns"] == []
+
+
+def test_plan_byte_check_detects_sqlite_key_order_drift(
     tmp_path: Path,
 ) -> None:
     before = _snapshot_catalog_shas()
+    left = _write_foods_sqlite(tmp_path / "left.sqlite", _CANON_CELLS)
+    right = _write_foods_sqlite(tmp_path / "right.sqlite", _DRIFT_CELLS)
     plan = builder.plan_fndds_only_rebuild(
-        live_catalog=_LIVE, split_path=_SPLIT
+        live_catalog=_LIVE,
+        split_path=_SPLIT,
+        sqlite_pair=(left, right),
     )
-    raw = plan["raw_scan"]
-    assert raw["portion_map_diffs"] == 0
-    assert raw["portion_json_diffs"] == 0
+    cells = plan["raw_scan"]["json_cells"]
+    assert plan["raw_scan"]["portion_map_diffs"] == 0
+    assert cells["value_diffs"] == 0
+    assert cells["key_order_only_diffs"] == 1
+    assert cells["byte_diff_columns"] == [
+        "aliases",
+        "allergen_tags",
+        "nutrients",
+        "portions",
+    ]
     dest = tmp_path / "catalog-v2-dryrun.md"
     builder.write_catalog_v2_dryrun(plan, dest)
     text = dest.read_text(encoding="utf-8")
-    assert "JSON 字节" in text
-    assert str(raw["portion_json_diffs"]) in text
+    assert "sqlite" in text.lower()
+    assert "key_order_only" in text or "仅序列化" in text
+    for column in ("nutrients", "portions", "allergen_tags", "aliases"):
+        assert f"`{column}`" in text
+    assert str(cells["key_order_only_diffs"]) in text
     for path, digest in before.items():
         assert _sha256(path) == digest
 

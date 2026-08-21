@@ -24,6 +24,7 @@ import importlib.util
 import json
 import re
 import sqlite3
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -856,8 +857,14 @@ def plan_fndds_only_rebuild(
     sr_legacy_zip: Path | None = None,
     split_path: Path | None = None,
     reference_catalog: Path | None = None,
+    sqlite_pair: tuple[Path, Path] | None = None,
 ) -> dict:
-    """Read-only catalog-v2 plan. Count and FNDDS portions come from survey.zip."""
+    """Read-only catalog-v2 plan. Count and FNDDS portions come from survey.zip.
+
+    Does not write ``catalog-v2.sqlite``. ``sqlite_pair`` is two catalog
+    sqlite files whose ``foods`` JSON cells are compared as TEXT. When
+    omitted, the planner builds twice into a temp dir from the same zips.
+    """
     del reference_catalog  # no longer used; kept so old callers do not crash
     survey_zip = survey_zip or (
         _RAW / "fndds.zip" if (_RAW / "fndds.zip").is_file() else _RAW / "survey.zip"
@@ -867,14 +874,10 @@ def plan_fndds_only_rebuild(
         _survey_scan(survey_zip)
     )
     portion_map_diffs = 0
-    portion_json_diffs = 0
     for fdc_id in set(builder_portions) | set(independent_portions):
-        left = builder_portions.get(fdc_id) or {}
-        right = independent_portions.get(fdc_id) or {}
-        if left != right:
+        if builder_portions.get(fdc_id) != independent_portions.get(fdc_id):
             portion_map_diffs += 1
-        if dump_catalog_json(left) != dump_catalog_json(right):
-            portion_json_diffs += 1
+    json_cells = _json_cells_from_sqlite_pair(sqlite_pair)
 
     live_foods, live_aliases, live_counts = _read_catalog(live_catalog)
     sr_ids = {
@@ -989,7 +992,7 @@ def plan_fndds_only_rebuild(
             "builder_foods_with_portions": len(builder_portions),
             "independent_foods_with_portions": len(independent_portions),
             "portion_map_diffs": portion_map_diffs,
-            "portion_json_diffs": portion_json_diffs,
+            "json_cells": json_cells,
         },
         "staple_swaps": swaps,
         "nutrition_deltas": nutrition_deltas,
@@ -1031,6 +1034,7 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
     swaps = plan["staple_swaps"]
     gold_rows = plan.get("gold_rows") or []
     raw_scan = plan.get("raw_scan") or {}
+    cells = raw_scan.get("json_cells") or {}
     excluded = ", ".join(f"`{fid}`" for fid in (counts.get("no_kcal_ids") or []))
     lines: list[str] = [
         "# catalog-v2 dry-run：FNDDS-only + staple 重钉",
@@ -1070,10 +1074,19 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
         f"- 独立 `fndds_dry_run.collect_full_fndds`："
         f"**{raw_scan.get('independent_foods_with_portions', 0)}**",
         f"- 两图不一致的食物数：**{raw_scan.get('portion_map_diffs', 0)}**",
-        f"- 两图 JSON 字节不一致的食物数：**{raw_scan.get('portion_json_diffs', 0)}**"
-        "（落地 sqlite `portions` cell 的 canonical JSON，不只是 dict 取值）",
         "",
-        "零漂移指这两次 **survey.zip** 扫描取值与 JSON 字节都一致，不是拿 catalog-v1.sqlite 自己比自己。",
+        "上项是 survey.zip 扫描的取值对照。sqlite `foods` JSON cell 字节对照见下节。",
+        "",
+        "## sqlite foods JSON cell 字节对照",
+        "",
+        f"- 对比食物数：**{cells.get('foods_compared', 0)}**",
+        f"- 解析后取值不一致：**{cells.get('value_diffs', 0)}**",
+        f"- sqlite TEXT 字节不一致：**{cells.get('byte_diffs', 0)}**",
+        f"- 取值相同、仅序列化不同：**{cells.get('key_order_only_diffs', 0)}**",
+        "- 列：`nutrients` / `portions` / `allergen_tags` / `aliases`",
+        "",
+        "零漂移要求取值与 sqlite TEXT 都一致。仅键序或 JSON 空白不同也会记入 "
+        "`key_order_only`。不写 `catalog-v2.sqlite`；对照用临时库或调用方传入的一对 sqlite。",
         "",
         "## 哪些 staple 换条目",
         "",
@@ -1259,6 +1272,20 @@ def diff_foods_json_cells(left: Path, right: Path) -> dict:
         "key_order_only_diffs": key_order_only,
         "byte_diff_columns": sorted(columns_hit),
     }
+
+
+def _json_cells_from_sqlite_pair(
+    sqlite_pair: tuple[Path, Path] | None,
+) -> dict:
+    """Diff two catalog sqlite files; build a temp pair when none is given."""
+    if sqlite_pair is not None:
+        return diff_foods_json_cells(sqlite_pair[0], sqlite_pair[1])
+    with tempfile.TemporaryDirectory() as tmp:
+        first = Path(tmp) / "a.sqlite"
+        second = Path(tmp) / "b.sqlite"
+        build(include_branded=False, dest=first, fndds_only=True)
+        build(include_branded=False, dest=second, fndds_only=True)
+        return diff_foods_json_cells(first, second)
 
 
 def _protected_catalogs() -> tuple[Path, ...]:
