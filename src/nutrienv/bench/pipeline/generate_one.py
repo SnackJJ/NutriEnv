@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import inspect
 import json
 import random
 from collections.abc import Mapping, Sequence
@@ -64,7 +65,7 @@ def generate_one(
 
     rng = random.Random(seed)
     chosen = person if person is not None else sample_roster_person(seed)
-    path = amount_path if amount_path is not None else rng.choice(list(AMOUNT_PATHS))
+    path = amount_path if amount_path is not None else rng.choice(AMOUNT_PATHS)
     profile = profile_for(chosen)
     pools = sample_pools(
         catalog,
@@ -82,7 +83,9 @@ def generate_one(
         return GenerateOneResult(
             accepted=None, rejected=Rejected("", "empty_pool", "log")
         )
-    raw = expander(pool, persona=chosen.persona, family="log")
+    raw = _call_expander(
+        expander, pool, persona=chosen.persona, amount_path=path
+    )
     payload = parse_query_foods_payload(raw)
     if payload is None:
         return GenerateOneResult(
@@ -197,6 +200,25 @@ def _bind_log_foods(
     if not rows:
         return None, "unresolvable"
     return rows, None
+
+
+def _call_expander(
+    expander: Expander,
+    pool: FoodPool,
+    *,
+    persona: str,
+    amount_path: str,
+) -> object:
+    kwargs: dict[str, str] = {"persona": persona, "family": "log"}
+    try:
+        params = inspect.signature(expander).parameters
+    except (TypeError, ValueError):
+        params = {}
+    if "amount_path" in params or any(
+        item.kind is inspect.Parameter.VAR_KEYWORD for item in params.values()
+    ):
+        kwargs["amount_path"] = amount_path
+    return expander(pool, **kwargs)
 
 
 def _without_small_gram_foods(pool: FoodPool) -> FoodPool:

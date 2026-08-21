@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import inspect
+
 from nutrienv.bench.pipeline.generate_one import (
     build_log_system_prompt,
     generate_one,
@@ -246,3 +248,67 @@ def test_generate_one_excludes_or_rejects_small_gram_so_band_cannot_pass_double(
     assert result.accepted is None
     assert result.rejected is not None
     assert result.rejected.reason in {"small_grams", "not_in_pool"}
+
+
+def test_generate_one_rejects_naked_cut_noun_not_as_gold_pass() -> None:
+    catalog = {
+        "milk_whole": _food("Milk, whole", {"cup": 244.0}, ("milk",)),
+        "chicken_breast": _food(
+            "Chicken breast, skinless, cooked",
+            {"cup": 140.0, "qns": 105.0},
+            ("chicken", "chicken breast"),
+        ),
+    }
+
+    def expand(_pool, *, persona, family):
+        return {
+            "query": "Please log a chicken breast for lunch.",
+            "foods": ["chicken_breast"],
+        }
+
+    result = _run(expand, catalog=catalog, pool_size=2)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason in {"unresolvable", "cut_noun"}
+
+
+def test_generate_one_has_no_skip_hard_bind_flag() -> None:
+    names = inspect.signature(generate_one).parameters
+    assert "skip_gram_backresolve" not in names
+    assert "skip_hard_bind" not in names
+
+
+def test_generate_one_cannot_skip_bind_to_admit_unresolvable_speech() -> None:
+    def expand(_pool, *, persona, family):
+        return {
+            "query": "Please log some milk for lunch.",
+            "foods": ["milk_whole"],
+        }
+
+    result = _run(expand)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason == "unresolvable"
+
+
+def test_generate_one_passes_amount_path_when_expander_accepts_it() -> None:
+    seen: dict[str, str] = {}
+
+    def expand(_pool, *, persona, family, amount_path):
+        seen["amount_path"] = amount_path
+        return {
+            "query": "Please log a cup of milk for lunch.",
+            "foods": ["milk_whole"],
+        }
+
+    result = _run(expand, amount_path="explicit_grams")
+    assert result.accepted is not None
+    assert seen["amount_path"] == "explicit_grams"
+
+
+def test_roster_is_twenty_adults() -> None:
+    assert len(ROSTER) == 20
+    assert all(19 <= person.age_y <= 75 for person in ROSTER)
+    sexes = {person.sex for person in ROSTER}
+    assert sexes == {"male", "female"}
+    assert len({person.user_id for person in ROSTER}) == 20
