@@ -365,17 +365,30 @@ def _local_clause(query: str, food_id: str, catalog: Mapping) -> str | None:
 
 
 def _ambiguous_mention(query: str, pool: FoodPool, catalog: Mapping) -> bool:
-    """True when one spoken name in the query maps to two pool ids."""
+    """True when two pool ids claim overlapping spoken spans (rice / white rice)."""
+    spans = _mention_spans(query, [food.food_id for food in pool.foods], catalog)
+    for index, (start, end, food_id) in enumerate(spans):
+        for other_start, other_end, other_id in spans[index + 1 :]:
+            if food_id != other_id and start < other_end and other_start < end:
+                return True
+    return False
+
+
+def _mention_spans(
+    query: str, food_ids: Sequence[str], catalog: Mapping
+) -> list[tuple[int, int, str]]:
     lowered = query.lower()
-    owners: dict[str, set[str]] = {}
-    for food in pool.foods:
-        for name in _spoken_names(food.food_id, catalog):
+    spans: list[tuple[int, int, str]] = []
+    for food_id in food_ids:
+        for name in _spoken_names(food_id, catalog):
             needle = name.strip().lower()
-            if len(needle) < 3:
+            if len(needle) < 3 or needle in _MENTION_STOP:
                 continue
-            if re.search(rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered):
-                owners.setdefault(needle, set()).add(food.food_id)
-    return any(len(ids) > 1 for ids in owners.values())
+            for match in re.finditer(
+                rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered
+            ):
+                spans.append((match.start(), match.end(), food_id))
+    return spans
 
 
 def _mentioned_food_ids(query: str, catalog: Mapping) -> set[str]:

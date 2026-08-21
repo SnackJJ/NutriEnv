@@ -194,6 +194,27 @@ def test_generate_one_rejects_food_id_absent_from_pool() -> None:
     assert result.rejected.reason == "not_in_pool"
 
 
+def test_generate_one_rejects_overlapping_rice_aliases() -> None:
+    catalog = {
+        "rice_nfs": _food("Paddy rice", {"cup": 160.0}, ("rice",)),
+        "white_rice": _food(
+            "White rice, cooked", {"cup": 158.0, "qns": 118.0}, ("white rice",)
+        ),
+        "milk_whole": _food("Milk, whole", {"cup": 244.0}, ("milk",)),
+    }
+
+    def expand(_pool, *, persona, family, amount_path=None):
+        return {
+            "query": "Please log a cup of white rice for lunch.",
+            "foods": ["white_rice", "rice_nfs"],
+        }
+
+    result = _run(expand, catalog=catalog, pool_size=3)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason == "ambiguous"
+
+
 def test_generate_one_rejects_ambiguous_shared_mention() -> None:
     catalog = {
         "coffee_ns": _food("Coffee, NS as to type", {"cup": 240.0}, ("coffee",)),
