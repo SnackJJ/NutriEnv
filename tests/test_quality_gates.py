@@ -1,9 +1,23 @@
 """Ticket 14: split-agnostic exam quality gates pinned on synthetic splits."""
 
 from nutrienv.bench.realize import Oracle, Task
-from nutrienv.bench.quality_gates import window_leaks
+from nutrienv.bench.quality_gates import CoverageReport, recommend_coverage, window_leaks
 from nutrienv.world.catalog_fixture import demo_catalog
 from nutrienv.world.types import LedgerRow, Profile, WorldState
+
+# Every tag the fixture catalog declares on some food.
+CATALOG_TAGS = (
+    "peanut", "shellfish", "egg", "milk", "tree_nut",
+    "fish", "soy", "gluten", "wheat",
+)
+
+
+def _covered_split():
+    """A recommend slice whose profiles jointly carry every catalog tag."""
+    return [
+        _task(f"rec-{tag}", query="What is for dinner?", allergies=(tag,))
+        for tag in CATALOG_TAGS
+    ]
 
 
 def _task(
@@ -43,3 +57,31 @@ def test_window_numbers_are_only_secrets_for_recommend():
         _task("log-1", family="log", query="I ate 200 g of rice for lunch."),
     ]
     assert window_leaks(tasks) == ()
+
+
+def test_recommend_coverage_reports_missing_personas_and_allergens():
+    full = _covered_split() + [
+        _task("rec-cut", query="Lunch?", allergies=("peanut",), persona="cut"),
+    ]
+    assert recommend_coverage(full, personas=("everyday", "cut")) == CoverageReport((), ())
+
+    holed = [task for task in full if task.id != "rec-soy"]
+    report = recommend_coverage(holed, personas=("everyday", "cut", "gym"))
+    assert report.missing_personas == ("gym",)
+    assert report.missing_allergens == ("soy",)
+
+
+def test_recommend_coverage_ignores_other_families():
+    tasks = [
+        _task("rec-1", query="Dinner?"),
+        _task("log-1", family="log", query="I ate eggs.", allergies=("egg",)),
+    ]
+    report = recommend_coverage(tasks, allergen_tags=("egg",))
+    assert report.missing_allergens == ("egg",)
+
+
+def test_recommend_coverage_defaults_to_every_catalog_tag():
+    covered = recommend_coverage(_covered_split())
+    assert covered.missing_allergens == ()
+    thin = recommend_coverage([_task("rec-thin")])
+    assert thin.missing_allergens == tuple(sorted(CATALOG_TAGS))

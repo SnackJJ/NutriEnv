@@ -11,10 +11,13 @@ split backs it.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
+
+from nutrienv.world.catalog import iter_catalog_entries
 
 from .realize import Task
 
-__all__ = ["window_leaks"]
+__all__ = ["CoverageReport", "window_leaks", "recommend_coverage"]
 
 
 def _leaks_windows(task: Task) -> bool:
@@ -35,3 +38,46 @@ def _leaks_windows(task: Task) -> bool:
 def window_leaks(tasks: Sequence[Task]) -> tuple[str, ...]:
     """Ids of recommend tasks whose query states one of their window numbers."""
     return tuple(task.id for task in tasks if task.family == "recommend" and _leaks_windows(task))
+
+
+@dataclass(frozen=True)
+class CoverageReport:
+    missing_personas: tuple[str, ...]
+    missing_allergens: tuple[str, ...]
+
+
+def _catalog_allergen_tags(catalog) -> set[str]:
+    tags: set[str] = set()
+    for _, entry in iter_catalog_entries(catalog):
+        for tag in entry.get("allergen_tags") or []:
+            tags.add(str(tag))
+    return tags
+
+
+def recommend_coverage(
+    tasks: Sequence[Task],
+    *,
+    personas: Sequence[str] = (),
+    allergen_tags: Sequence[str] | None = None,
+) -> CoverageReport:
+    """Persona x allergen coverage of the recommend slice.
+
+    The diversity claim is persona x allergy: if the admitted recommends
+    drop a declared persona or leave a catalog allergen tag uncovered by
+    every profile, the claim is not backed. ``allergen_tags=None`` derives
+    the claim from the split's own catalog (every declared tag).
+    """
+    recommends = [task for task in tasks if task.family == "recommend"]
+    seen = {task.persona for task in recommends}
+    covered: set[str] = set()
+    for task in recommends:
+        covered.update(task.s0.profile.allergies)
+    wanted = (
+        _catalog_allergen_tags(next((t.s0.catalog for t in tasks), {}))
+        if allergen_tags is None
+        else set(allergen_tags)
+    )
+    return CoverageReport(
+        missing_personas=tuple(sorted(set(personas) - seen)),
+        missing_allergens=tuple(sorted(wanted - covered)),
+    )
