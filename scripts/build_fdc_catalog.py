@@ -1246,10 +1246,10 @@ def build(
                     entry["name"],
                     entry["data_type"],
                     entry["category"],
-                    json.dumps(entry["nutrients"]),
-                    json.dumps(entry["portions"]),
-                    json.dumps(entry["allergen_tags"]),
-                    json.dumps(entry["aliases"]),
+                    json.dumps(entry["nutrients"], sort_keys=True),
+                    json.dumps(entry["portions"], sort_keys=True),
+                    json.dumps(entry["allergen_tags"], sort_keys=True),
+                    json.dumps(entry["aliases"], sort_keys=True),
                 )
             )
             fts_rows.append((fdc_id, entry["name"], f"{alias_text} {entry['name']}"))
