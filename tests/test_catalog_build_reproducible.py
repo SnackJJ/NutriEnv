@@ -13,12 +13,15 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import json
 import sqlite3
 import sys
 import zipfile
 from pathlib import Path
 
 import pytest
+
+from nutrienv.bench.split import EXAM_SPLIT_PATH, load_exam, load_split
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -30,6 +33,7 @@ _V2 = ROOT / "data" / "fdc" / "catalog-v2.sqlite"
 _SPLIT = ROOT / "data" / "splits" / "archive" / "v0.5-gold.json"
 # v0.5-gold pins this sha of data/fdc/archive/catalog.sqlite.
 _LIVE_SHA256 = "ff2f26325cc0cc71c3230f82060997afaeefcad0051b09989c662ac0b0fa2d90"
+_V1_SHA256 = "f49e4f904905abbb8b4ebb02c908935f01776280a2c00b3de1a3e890cad5ae91"
 
 
 def _csv(fieldnames: list[str], rows: list[dict[str, str]]) -> bytes:
@@ -191,7 +195,22 @@ def test_plan_zero_drift_includes_byte_level_portion_json(
     dest = tmp_path / "catalog-v2-dryrun.md"
     builder.write_catalog_v2_dryrun(plan, dest)
     text = dest.read_text(encoding="utf-8")
-    assert "portion_json_diffs" in text or "JSON 字节" in text
+    assert "JSON 字节" in text
     assert str(raw["portion_json_diffs"]) in text
     for path, digest in before.items():
         assert _sha256(path) == digest
+
+
+def test_archived_v0x_stays_pinned_and_load_exam_is_fail_closed() -> None:
+    payload = json.loads(_SPLIT.read_text(encoding="utf-8"))
+    assert payload["catalog"] == "data/fdc/archive/catalog.sqlite"
+    assert payload["catalog_sha256"] == _LIVE_SHA256
+    assert _sha256(_LIVE) == _LIVE_SHA256
+    assert _sha256(_V1) == _V1_SHA256
+    tasks = load_split(_SPLIT)
+    assert len(tasks) == 240
+    with pytest.raises(ValueError, match="version"):
+        load_exam(_SPLIT)
+    assert not EXAM_SPLIT_PATH.is_file()
+    with pytest.raises(FileNotFoundError):
+        load_exam()
