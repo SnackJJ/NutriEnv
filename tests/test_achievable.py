@@ -7,7 +7,10 @@ no assert); ``AchievabilityReport.unreachable``; later coverage and the
 
 from __future__ import annotations
 
+import json
+import sys
 from dataclasses import replace
+from pathlib import Path
 
 from nutrienv.bench import check_achievable
 from nutrienv.bench.realize import Oracle, Task, compose_oracles
@@ -348,3 +351,98 @@ def test_coverage_counts_update_band_and_body_facts() -> None:
     assert report.by_feature["body_facts"] == 1
     assert report.by_feature["ledger_tail"] == 1
     assert report.unreachable == ()
+
+
+def _cli():
+    root = Path(__file__).resolve().parents[1]
+    scripts = str(root / "scripts")
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    import check_achievable as cli
+
+    return cli
+
+
+def _draft_payload(item: dict) -> dict:
+    return {
+        "version": "pipeline-draft",
+        "catalog": "data/fdc/archive/catalog.sqlite",
+        "items": [item],
+    }
+
+
+def test_cli_checks_a_frozen_split_without_a_test_file(tmp_path: Path, capsys) -> None:
+    path = tmp_path / "pipeline-draft.json"
+    path.write_text(
+        json.dumps(
+            _draft_payload(
+                {
+                    "id": "cli-log-001",
+                    "family": "log",
+                    "query": "I had oats for breakfast.",
+                    "s0": {
+                        "profile": {
+                            "allergies": ["peanut"],
+                            "windows": {"kcal": [1800, 2200], "protein_g": [90, 140]},
+                        },
+                        "ledger": [],
+                    },
+                    "oracle": {
+                        "profile": "s0",
+                        "ledger_tail": [
+                            {
+                                "food_id": "oats",
+                                "grams": 60.0,
+                                "eaten_at": "today-breakfast",
+                            }
+                        ],
+                        "ledger": "s0_plus_tail",
+                    },
+                }
+            )
+        ),
+        encoding="utf-8",
+    )
+    code = _cli().main(["--split", str(path)])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "unreachable: 0" in out
+    assert "update_band: 0" in out
+    assert "family log: 1" in out
+
+
+def test_cli_exits_nonzero_when_an_item_is_unreachable(tmp_path: Path, capsys) -> None:
+    path = tmp_path / "pipeline-draft.json"
+    path.write_text(
+        json.dumps(
+            _draft_payload(
+                {
+                    "id": "cli-bad",
+                    "family": "log",
+                    "query": "I ate a made-up food.",
+                    "s0": {
+                        "profile": {
+                            "windows": {"kcal": [1800, 2200], "protein_g": [90, 140]},
+                        },
+                        "ledger": [],
+                    },
+                    "oracle": {
+                        "profile": "s0",
+                        "ledger_tail": [
+                            {
+                                "food_id": "not_a_food",
+                                "grams": 60.0,
+                                "eaten_at": "today-breakfast",
+                            }
+                        ],
+                        "ledger": "s0_plus_tail",
+                    },
+                }
+            )
+        ),
+        encoding="utf-8",
+    )
+    code = _cli().main(["--split", str(path)])
+    out = capsys.readouterr().out
+    assert code == 1
+    assert "cli-bad" in out
