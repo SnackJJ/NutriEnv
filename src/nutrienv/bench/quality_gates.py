@@ -21,13 +21,20 @@ from .realize import Task
 __all__ = [
     "DEFAULT_EVALUATE_TIER_FLOORS",
     "EVALUATE_TIERS",
+    "LEFTOVER_RECOMMEND_FLOOR",
     "CoverageReport",
+    "LeftoverFloorReport",
     "TierCoverageReport",
     "classify_evaluate_tier",
     "evaluate_tier_coverage",
+    "leftover_floor",
+    "leftover_recommends",
     "recommend_coverage",
     "window_leaks",
 ]
+
+# ADR 0009, kept by ADR 0016: at least this many leftover recommends.
+LEFTOVER_RECOMMEND_FLOOR = 24
 
 # Spoken raw gram phrase ("200 g chicken"), as in validator's parse rules.
 _SPOKEN_GRAMS = re.compile(r"(?<!\d)(\d+(?:\.\d+)?)\s*g(?:rams?)?\b")
@@ -140,3 +147,31 @@ def evaluate_tier_coverage(
         tier for tier, least in declared.items() if counts.get(tier, 0) < least
     ))
     return TierCoverageReport(counts=counts, missing=missing)
+
+
+@dataclass(frozen=True)
+class LeftoverFloorReport:
+    count: int
+    minimum: int
+
+
+def leftover_recommends(tasks: Sequence[Task]) -> tuple[str, ...]:
+    """Ids of recommend tasks carrying remainder geometry.
+
+    Leftover is a scene, not a persona name (ADR 0017): the S0 ledger holds
+    food eaten earlier that day. Older frozen splits tag the same geometry
+    with the ``leftover`` persona, so both count.
+    """
+    return tuple(
+        task.id
+        for task in tasks
+        if task.family == "recommend"
+        and (task.persona == "leftover" or task.s0.ledger)
+    )
+
+
+def leftover_floor(
+    tasks: Sequence[Task], *, minimum: int = LEFTOVER_RECOMMEND_FLOOR
+) -> LeftoverFloorReport:
+    """Count of leftover recommends against the ADR floor."""
+    return LeftoverFloorReport(count=len(leftover_recommends(tasks)), minimum=minimum)

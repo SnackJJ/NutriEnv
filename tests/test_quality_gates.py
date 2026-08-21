@@ -3,8 +3,11 @@
 from nutrienv.bench.realize import Oracle, Task
 from nutrienv.bench.quality_gates import (
     CoverageReport,
+    LeftoverFloorReport,
     classify_evaluate_tier,
     evaluate_tier_coverage,
+    leftover_floor,
+    leftover_recommends,
     recommend_coverage,
     window_leaks,
 )
@@ -135,3 +138,31 @@ def test_evaluate_tier_floors_are_declared_by_the_caller():
     tasks = [_eval_task(f"ev-{index}", meal=[_FOOD]) for index in range(5)]
     assert evaluate_tier_coverage(tasks, floors={"single": 4}).missing == ()
     assert evaluate_tier_coverage(tasks, floors={"single": 6, "pair": 0}).missing == ("single",)
+
+
+def test_leftover_recommends_count_by_scene_ledger_or_persona():
+    tasks = [
+        _task("rec-plain"),
+        _task(
+            "rec-scene",
+            query="Anything left for dinner?",
+            ledger=(LedgerRow("white_rice", 200.0, "lunch"),),
+        ),
+        _task("rec-persona", persona="leftover"),
+        _task(
+            "log-1",
+            family="log",
+            query="I ate rice.",
+            ledger=(LedgerRow("white_rice", 100.0, "dinner"),),
+        ),
+    ]
+    assert leftover_recommends(tasks) == ("rec-scene", "rec-persona")
+
+
+def test_leftover_floor_defaults_to_the_adr_number():
+    tasks = [
+        _task(f"rec-left-{index}", ledger=(LedgerRow("banana", 118.0, "lunch"),))
+        for index in range(24)
+    ]
+    assert leftover_floor(tasks) == LeftoverFloorReport(count=24, minimum=24)
+    assert leftover_floor(tasks[:-1]) == LeftoverFloorReport(count=23, minimum=24)
