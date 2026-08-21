@@ -142,6 +142,7 @@ def _oracle_payload(oracle: Oracle, *, family: str, s0) -> dict[str, object]:
             }
         _attach_verdict(payload, oracle)
         _attach_update_band(payload, oracle)
+        _attach_evaluated_plan(payload, oracle)
         payload["ledger"] = "s0"
         return payload
     if oracle.ledger_tail is not None:
@@ -162,6 +163,7 @@ def _oracle_payload(oracle: Oracle, *, family: str, s0) -> dict[str, object]:
         }
     _attach_verdict(payload, oracle)
     _attach_update_band(payload, oracle)
+    _attach_evaluated_plan(payload, oracle)
     return payload
 
 
@@ -186,6 +188,16 @@ def _attach_verdict(payload: dict[str, object], oracle: Oracle) -> None:
 def _attach_update_band(payload: dict[str, object], oracle: Oracle) -> None:
     if oracle.update_band:
         payload["update_band"] = oracle.update_band
+
+
+def _attach_evaluated_plan(payload: dict[str, object], oracle: Oracle) -> None:
+    if oracle.evaluated_plan:
+        payload["evaluated_plan"] = [
+            {"food_id": item["food_id"], "grams": item["grams"]}
+            for item in oracle.evaluated_plan
+        ]
+    if oracle.bound_labels:
+        payload["bound_labels"] = list(oracle.bound_labels)
 
 
 def _oracle_profile_payload(oracle_profile, s0_profile) -> object:

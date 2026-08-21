@@ -2,7 +2,11 @@
 
 import pytest
 
-from nutrienv.world.daily_windows import derive_daily_windows, implicit_windows_pass
+from nutrienv.world.daily_windows import (
+    derive_daily_windows,
+    implicit_windows_pass,
+    plan_windows_for_meal,
+)
 
 
 _ADA = dict(
@@ -177,3 +181,28 @@ def test_muscle_band_needs_protein_above_rda_and_kcal_lo_at_eer() -> None:
         weight_kg=62.0,
         s0_windows={},
     )
+
+
+def test_dinner_slot_on_empty_ledger_is_thirty_to_forty_percent_of_eer() -> None:
+    daily = derive_daily_windows(activity="light", phase="maintain", **_ADA)
+    windows = plan_windows_for_meal(daily, {}, "dinner")
+    assert windows is not None
+    assert windows["kcal"] == (544.6, 726.14)
+    assert windows["protein_g"][0] == 0.0
+    assert windows["fiber_g"][0] == 0.0
+    assert windows["sodium_mg"][1] == 2300.0
+
+
+def test_last_meal_empty_ledger_dinner_is_an_empty_intersection() -> None:
+    daily = derive_daily_windows(activity="light", phase="maintain", **_ADA)
+    assert plan_windows_for_meal(daily, {}, "dinner", last_meal=True) is None
+
+
+def test_breakfast_last_meal_does_not_take_protein_fiber_floor() -> None:
+    daily = derive_daily_windows(activity="light", phase="maintain", **_ADA)
+    windows = plan_windows_for_meal(
+        daily, {"kcal": 1300.0}, "breakfast", last_meal=True
+    )
+    assert windows is not None
+    assert windows["protein_g"][0] == 0.0
+    assert windows["fiber_g"][0] == 0.0

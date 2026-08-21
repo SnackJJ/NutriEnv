@@ -14,8 +14,16 @@ from dataclasses import dataclass, replace
 
 from nutrienv.world.catalog import canonical_food_id
 from nutrienv.world.catalog_store import load_catalog
+from nutrienv.world.daily_windows import meal_slot_and_remainder, plan_windows_for_meal
 from nutrienv.world.portions import resolve_portion
-from nutrienv.world.types import LedgerRow, Profile, WorldState, ledger_totals, normalize_tags
+from nutrienv.world.types import (
+    LedgerRow,
+    Profile,
+    WorldState,
+    ledger_totals,
+    normalize_reasons,
+    normalize_tags,
+)
 
 from .realizations import (
     CONSTRAIN_ROWS,
@@ -53,6 +61,9 @@ __all__ = [
     "iter_realization_rows",
     "compose_oracles",
     "scored_oracles",
+    "realize_evaluate",
+    "bind_evaluate_reasons",
+    "leftover_bound_labels",
 ]
 
 
@@ -113,6 +124,9 @@ class Oracle:
     ``update_band`` is ``None`` (exact Profile equality) or an ADR 0015
     implicit intent (``cut``, ``fatigue``, ``muscle``): windows Pass in the
     published band; allergies and other unmentioned fields stay exact.
+
+    ``evaluated_plan`` is the named meal on Evaluate Tasks. Env does not
+    adopt it on reject. Validator, reason bind, and Stage A read it.
     """
 
     profile: Profile | None = None
@@ -128,6 +142,8 @@ class Oracle:
     last_verdict: str | None = None
     last_reasons: tuple[str, ...] = ()
     update_band: str | None = None
+    evaluated_plan: list | None = None
+    bound_labels: tuple[str, ...] = ()
     # None = single-family oracle (frozen v0.5 / v1.0 path). A non-empty
     # tuple is a composite container: Scorer judges only the children.
     sub_oracles: tuple[Oracle, ...] | None = None
@@ -337,6 +353,113 @@ def compose_oracles(*oracles: Oracle) -> Oracle:
     if any(child.sub_oracles for child in oracles):
         raise ValueError("nested sub_oracles are not allowed")
     return Oracle(sub_oracles=tuple(oracles))
+
+
+def bind_evaluate_reasons(
+    items: list,
+    windows: dict[str, tuple[float, float]],
+    catalog: Mapping,
+    allergies: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Closed reason codes that fire for a named meal against plan_windows."""
+    codes: list[str] = []
+    banned = set(normalize_tags(list(allergies)))
+    for item in items:
+        entry = catalog.get(item["food_id"]) or {}
+        tags = set(normalize_tags(list(entry.get("allergen_tags") or [])))
+        if tags & banned:
+            codes.append("allergy")
+            break
+    rows = [
+        LedgerRow(str(item["food_id"]), float(item["grams"]), "eval") for item in items
+    ]
+    totals = ledger_totals(rows, catalog)
+    for key, (lo, hi) in windows.items():
+        amount = totals.get(key, 0.0)
+        if amount < lo:
+            codes.append(f"{key}_lo")
+        if amount > hi:
+            codes.append(f"{key}_hi")
+    return normalize_reasons(codes)
+
+
+def leftover_bound_labels(
+    items: list,
+    slot: dict[str, tuple[float, float]],
+    remainder: dict[str, tuple[float, float]],
+    catalog: Mapping,
+    *,
+    last_meal: bool = False,
+) -> tuple[str, ...]:
+    """leftover_over/under when remainder binds and the slot leg would pass."""
+    rows = [
+        LedgerRow(str(item["food_id"]), float(item["grams"]), "eval") for item in items
+    ]
+    totals = ledger_totals(rows, catalog)
+    labels: set[str] = set()
+    for key, (slot_lo, slot_hi) in slot.items():
+        rem_lo, rem_hi = remainder[key]
+        amount = totals.get(key, 0.0)
+        slot_ok = slot_lo <= amount <= slot_hi
+        if not slot_ok:
+            continue
+        if amount > rem_hi:
+            labels.add("leftover_over")
+        if last_meal and amount < rem_lo:
+            labels.add("leftover_under")
+    return tuple(sorted(labels))
+
+
+def realize_evaluate(
+    *,
+    task_id: str,
+    query: str,
+    items: list,
+    s0: WorldState,
+    occasion: str,
+    last_meal: bool = False,
+) -> Task:
+    """Construct a verdict-aware Evaluate Task. Empty intersections raise."""
+    meal = [
+        {"food_id": item["food_id"], "grams": float(item["grams"])} for item in items
+    ]
+    eaten = ledger_totals(s0.ledger, s0.catalog)
+    windows = plan_windows_for_meal(
+        s0.profile.windows, eaten, occasion, last_meal=last_meal
+    )
+    if windows is None:
+        raise ValueError("empty plan_windows intersection")
+    slot, remainder = meal_slot_and_remainder(
+        s0.profile.windows, eaten, occasion
+    )
+    labels = leftover_bound_labels(
+        meal, slot, remainder, s0.catalog, last_meal=last_meal
+    )
+    reasons = bind_evaluate_reasons(
+        meal, windows, s0.catalog, s0.profile.allergies
+    )
+    if reasons:
+        oracle = Oracle(
+            profile=copy.deepcopy(s0.profile),
+            last_plan=[],
+            last_verdict="reject",
+            last_reasons=reasons,
+            plan_windows=windows,
+            evaluated_plan=copy.deepcopy(meal),
+            bound_labels=labels,
+            ledger=tuple(s0.ledger),
+        )
+    else:
+        oracle = Oracle(
+            profile=copy.deepcopy(s0.profile),
+            last_plan=copy.deepcopy(meal),
+            last_verdict="accept",
+            plan_windows=windows,
+            evaluated_plan=copy.deepcopy(meal),
+            bound_labels=labels,
+            ledger=tuple(s0.ledger),
+        )
+    return Task(task_id, "evaluate", query, s0, oracle)
 
 
 def realize(

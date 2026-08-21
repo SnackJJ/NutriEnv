@@ -14,10 +14,14 @@ __all__ = [
     "MUSCLE_PROTEIN_G_PER_KG",
     "UPDATE_BANDS",
     "BAND_WINDOW_KEYS",
+    "MEAL_ENERGY_SHARE",
+    "SIX_WINDOW_KEYS",
     "derive_daily_windows",
     "derive_profile_windows",
     "estimated_energy_requirement",
     "implicit_windows_pass",
+    "plan_windows_for_meal",
+    "meal_slot_and_remainder",
 ]
 
 
@@ -42,6 +46,22 @@ BAND_WINDOW_KEYS: dict[str, frozenset[str]] = {
 _PROTEIN_G_PER_KG = 0.8
 
 _FDA_KCAL = DRI_REFERENCE["kcal"]["reference"]
+
+# ADR 0014 meal energy share (中国居民膳食指南 2022). Snack is not a slot.
+MEAL_ENERGY_SHARE: dict[str, tuple[float, float]] = {
+    "breakfast": (0.25, 0.30),
+    "lunch": (0.30, 0.40),
+    "dinner": (0.30, 0.40),
+}
+SIX_WINDOW_KEYS: tuple[str, ...] = (
+    "kcal",
+    "protein_g",
+    "carb_g",
+    "fat_g",
+    "fiber_g",
+    "sodium_mg",
+)
+
 
 
 def estimated_energy_requirement(
@@ -127,6 +147,64 @@ def derive_daily_windows(
         ),
         "sodium_mg": (0.0, 2300.0),
     }
+
+
+def meal_slot_and_remainder(
+    daily: dict[str, tuple[float, float]],
+    eaten: dict[str, float],
+    occasion: str,
+) -> tuple[dict[str, tuple[float, float]], dict[str, tuple[float, float]]]:
+    """Slot windows and ledger remainder, before intersection."""
+    if occasion not in MEAL_ENERGY_SHARE:
+        raise ValueError(f"unknown occasion {occasion!r}")
+    share_lo, share_hi = MEAL_ENERGY_SHARE[occasion]
+    slot: dict[str, tuple[float, float]] = {}
+    remainder: dict[str, tuple[float, float]] = {}
+    for key in SIX_WINDOW_KEYS:
+        daily_lo, daily_hi = daily[key]
+        used = float(eaten.get(key, 0.0))
+        remainder[key] = (
+            round(max(0.0, daily_lo - used), 2),
+            round(max(0.0, daily_hi - used), 2),
+        )
+        if key == "kcal":
+            slot[key] = (
+                round(daily_lo * share_lo, 2),
+                round(daily_hi * share_hi, 2),
+            )
+        else:
+            slot[key] = (0.0, round(daily_hi, 2))
+    return slot, remainder
+
+
+def plan_windows_for_meal(
+    daily: dict[str, tuple[float, float]],
+    eaten: dict[str, float],
+    occasion: str,
+    *,
+    last_meal: bool = False,
+) -> dict[str, tuple[float, float]] | None:
+    """Meal-slot ∩ remainder over the six catalog nutrients (ADR 0014).
+
+    Energy share applies to kcal. Breakfast/lunch do not take the full-day
+    protein/fiber floor, even as last_meal. Remainder lo binds on other keys
+    only when ``last_meal``. Remainder hi always caps. Empty intersection
+    (any key lo > hi) returns None so the mill can drop it.
+    """
+    slot, remainder = meal_slot_and_remainder(daily, eaten, occasion)
+    out: dict[str, tuple[float, float]] = {}
+    for key in SIX_WINDOW_KEYS:
+        slot_lo, slot_hi = slot[key]
+        rem_lo, rem_hi = remainder[key]
+        hi = min(slot_hi, rem_hi)
+        apply_rem_lo = last_meal and not (
+            key in {"protein_g", "fiber_g"} and occasion in {"breakfast", "lunch"}
+        )
+        lo = max(slot_lo, rem_lo) if apply_rem_lo else slot_lo
+        if lo > hi:
+            return None
+        out[key] = (lo, hi)
+    return out
 
 
 def derive_profile_windows(

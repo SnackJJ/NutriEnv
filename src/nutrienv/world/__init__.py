@@ -10,6 +10,10 @@ from .daily_windows import (
     derive_profile_windows,
     estimated_energy_requirement,
     implicit_windows_pass,
+    plan_windows_for_meal,
+    meal_slot_and_remainder,
+    MEAL_ENERGY_SHARE,
+    SIX_WINDOW_KEYS,
 )
 from .dri import DRI_REFERENCE
 from .portions import GRAM_UNITS, OUNCE_GRAMS, OUNCE_UNITS, UNIT_SYNONYMS, resolve_portion
@@ -43,6 +47,10 @@ __all__ = [
     "derive_profile_windows",
     "estimated_energy_requirement",
     "implicit_windows_pass",
+    "plan_windows_for_meal",
+    "meal_slot_and_remainder",
+    "MEAL_ENERGY_SHARE",
+    "SIX_WINDOW_KEYS",
     "FoodCatalog",
     "SEARCH_LIMIT",
     "GOLD_CATALOG_PATH",

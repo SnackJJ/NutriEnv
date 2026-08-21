@@ -15,6 +15,7 @@ from nutrienv.world.types import LedgerRow, ledger_totals, normalize_tags
 
 from .generator import Task
 from .portion_table import matches_portion_table
+from .realize import bind_evaluate_reasons
 from .realizations import UPDATE_ROWS
 from .windows import any_pair_unsatisfiable
 
@@ -203,6 +204,11 @@ def validate_oracle_grams(task: Task) -> list[str]:
             (f"last_plan[{index}]", str(item["food_id"]), item["grams"])
             for index, item in enumerate(task.oracle.last_plan)
         )
+    if task.oracle.evaluated_plan:
+        items.extend(
+            (f"evaluated_plan[{index}]", str(item["food_id"]), item["grams"])
+            for index, item in enumerate(task.oracle.evaluated_plan)
+        )
 
     for location, food_id, grams in items:
         if matches_portion_table(food_id, grams, task.s0.catalog):
@@ -252,7 +258,9 @@ def validate_draft(task: Task) -> list[str]:
         issues.extend(_validate_condition(task, query))
     if task.family == "constrain" and "conflict_windows" in task.situations:
         issues.extend(_validate_conflict(task))
-    if task.family == "evaluate":
+    if task.oracle.sub_oracles:
+        issues.extend(_validate_composite(task))
+    elif task.family == "evaluate":
         issues.extend(_validate_evaluate(task, query))
     if task.oracle.last_verdict == "reject":
         if task.oracle.plan_must_fit_windows:
@@ -718,6 +726,28 @@ def _validate_conflict(task: Task) -> list[str]:
     return issues
 
 
+def _validate_composite(task: Task) -> list[str]:
+    issues: list[str] = []
+    children = task.oracle.sub_oracles or ()
+    has_unfit = any(child.last_verdict == "reject" for child in children)
+    has_substitute = any(
+        child.last_plan == [] and child.last_verdict is None for child in children
+    )
+    if has_unfit and has_substitute:
+        issues.append("composite Evaluate-unfit paired with Recommend-substitute")
+    return issues
+
+
+def _evaluate_food_names(food_id: str, catalog) -> list[str]:
+    entry = catalog.get(food_id) or {}
+    names = [food_id.replace("_", " "), str(entry.get("name") or "")]
+    name = str(entry.get("name") or "")
+    if "," in name:
+        names.append(name.split(",", 1)[0])
+    names.extend(str(alias) for alias in (entry.get("aliases") or []))
+    return names
+
+
 def _validate_evaluate(task: Task, query: str) -> list[str]:
     issues: list[str] = []
     if task.oracle.profile is None:
@@ -726,6 +756,10 @@ def _validate_evaluate(task: Task, query: str) -> list[str]:
         issues.append("evaluate oracle ledger is missing")
     if _INSTEAD.search(query):
         issues.append("evaluate query asks what instead")
+    named = task.oracle.evaluated_plan
+    if task.oracle.last_verdict in {"accept", "reject"} or named:
+        issues.extend(_validate_evaluate_verdict(task, query, named))
+        return issues
     plan = task.oracle.last_plan
     if not plan:
         if task.oracle.last_verdict == "reject":
@@ -744,12 +778,7 @@ def _validate_evaluate(task: Task, query: str) -> list[str]:
         )
     for item in plan:
         food_id = str(item["food_id"])
-        entry = task.s0.catalog.get(food_id) or {}
-        names = [food_id.replace("_", " "), str(entry.get("name") or "")]
-        name = str(entry.get("name") or "")
-        if "," in name:
-            names.append(name.split(",", 1)[0])
-        names.extend(str(alias) for alias in (entry.get("aliases") or []))
+        names = _evaluate_food_names(food_id, task.s0.catalog)
         if not any(_token_in_query(name, query) for name in names if name):
             issues.append(f"evaluate food {food_id} is not mentioned in the query")
     totals = ledger_totals(
@@ -769,6 +798,41 @@ def _validate_evaluate(task: Task, query: str) -> list[str]:
             issues.append(
                 f"evaluate last_plan is unpassable: {item['food_id']} carries {sorted(hit)}"
             )
+    return issues
+
+
+def _validate_evaluate_verdict(task: Task, query: str, named) -> list[str]:
+    issues: list[str] = []
+    if not named:
+        issues.append("evaluate evaluated_plan is missing")
+        return issues
+    verdict = task.oracle.last_verdict
+    if verdict == "reject":
+        if task.oracle.last_plan:
+            issues.append("evaluate last_plan must be empty when reject")
+    elif verdict == "accept":
+        if not task.oracle.last_plan:
+            issues.append("evaluate last_plan is empty")
+        elif task.oracle.last_plan != named:
+            issues.append("evaluate last_plan != evaluated_plan")
+    windows = task.oracle.plan_windows
+    if not windows:
+        issues.append("evaluate plan_windows is missing")
+    else:
+        if any(lo > hi for lo, hi in windows.values()):
+            issues.append("evaluate plan_windows intersection is empty")
+        expected = bind_evaluate_reasons(
+            named, windows, task.s0.catalog, task.s0.profile.allergies
+        )
+        if verdict == "reject" and set(task.oracle.last_reasons) != set(expected):
+            issues.append("evaluate last_reasons != bind of evaluated_plan")
+        if verdict == "accept" and expected:
+            issues.append("evaluate accept gold still binds unfit reasons")
+    for item in named:
+        food_id = str(item["food_id"])
+        names = _evaluate_food_names(food_id, task.s0.catalog)
+        if not any(_token_in_query(name, query) for name in names if name):
+            issues.append(f"evaluate food {food_id} is not mentioned in the query")
     return issues
 
 

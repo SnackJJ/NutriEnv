@@ -306,6 +306,12 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
     if last_plan is not None:
         last_plan = [_plan_item(item, catalog) for item in last_plan]
 
+    evaluated_plan = value.get("evaluated_plan")
+    if evaluated_plan is not None:
+        if not isinstance(evaluated_plan, list):
+            raise ValueError("oracle.evaluated_plan must be a list or omitted")
+        evaluated_plan = [_plan_item(item, catalog) for item in evaluated_plan]
+
     plan_windows = None
     raw_windows = value.get("plan_windows")
     if raw_windows is not None:
@@ -355,5 +361,19 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
         last_verdict=last_verdict,
         last_reasons=last_reasons,
         update_band=update_band,
+        evaluated_plan=evaluated_plan,
+        bound_labels=_bound_labels(value),
         sub_oracles=sub_oracles,
     )
+
+
+def _bound_labels(value: dict) -> tuple[str, ...]:
+    raw = value.get("bound_labels")
+    if raw is None:
+        return ()
+    if not isinstance(raw, list) or not all(isinstance(name, str) for name in raw):
+        raise ValueError("oracle.bound_labels must be a list of strings")
+    unknown = [name for name in raw if name not in {"leftover_over", "leftover_under"}]
+    if unknown:
+        raise ValueError(f"unknown bound_labels: {unknown}")
+    return tuple(raw)
