@@ -182,6 +182,35 @@ def test_fitting_plan_uses_oracle_plan_windows() -> None:
     assert check_achievable([task]).unreachable == ()
 
 
+@pytest.mark.parametrize(
+    "flags",
+    [
+        {"plan_must_be_safe": True},
+        {"plan_must_fit_windows": True},
+    ],
+    ids=["safe", "fit-windows"],
+)
+def test_plan_flags_without_last_plan_still_need_a_fitting_plan(flags: dict) -> None:
+    s0 = demo_state()
+    s0.profile = replace(
+        s0.profile,
+        windows={"kcal": (200.0, 500.0), "protein_g": (20.0, 50.0)},
+    )
+    task = Task(
+        "cond-none-plan",
+        "constrain",
+        "Is peanut butter a good idea?",
+        s0,
+        Oracle(
+            profile=s0.profile,
+            last_plan=None,
+            ledger=tuple(s0.ledger),
+            **flags,
+        ),
+    )
+    assert check_achievable([task]).unreachable == ()
+
+
 def test_exact_profile_update_is_reachable() -> None:
     s0 = demo_state()
     oracle_profile = replace(

@@ -96,7 +96,11 @@ def _replay_oracle(env: NutriEnv, task: Task, oracle: Oracle) -> bool:
         stepped = env.step({"op": "submit_plan", "items": []})
         if not stepped.get("ok"):
             return False
-    elif oracle.last_plan == []:
+    elif (
+        oracle.last_plan == []
+        or oracle.plan_must_be_safe
+        or oracle.plan_must_fit_windows
+    ):
         windows = oracle.plan_windows or env.state().profile.windows
         plan = fitting_plan(
             task.s0.catalog, windows, env.state().profile.allergies
