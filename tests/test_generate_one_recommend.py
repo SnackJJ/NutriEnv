@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from nutrienv.bench.pipeline.generate_one import generate_one
+from nutrienv.bench.pipeline.generate_one import (
+    drop_orphan_leftovers,
+    generate_one,
+    leftover_parent_ids,
+)
 from nutrienv.bench.pipeline.roster import ROSTER
 from nutrienv.bench.scorer import Scorer
 from nutrienv.bench.validator import fitting_plan
@@ -99,11 +103,16 @@ def test_recommend_occasion_shell_fills_the_slot() -> None:
 
 @pytest.mark.parametrize("occasion", ["breakfast", "lunch", "dinner"])
 def test_recommend_query_never_recaps_leftover_or_allergy(occasion) -> None:
-    prior = [LedgerRow("white_rice", 158.0, "today-lunch")]
+    parent = _parent_log(
+        4,
+        "lunch",
+        "Please log a cup of rice for lunch.",
+        {"white_rice"},
+    )
     result = _run(
         occasion=occasion,
         scene="leftover",
-        prior_ledger=prior,
+        prior_logs=[parent],
         person=ROSTER[0],
     )
     assert result.rejected is None
@@ -139,94 +148,113 @@ def test_empty_ledger_breakfast_recommend_is_generable_and_passable() -> None:
     assert validate_draft(task) == []
 
 
-def test_leftover_ledger_copies_prior_log_tails_without_shadow_meals() -> None:
-    breakfast_log = generate_one(
+def _parent_log(seed, occasion, query, foods, person=ROSTER[0]):
+    result = generate_one(
         catalog=_catalog(),
         family="log",
-        seed=1,
-        person=ROSTER[0],
+        seed=seed,
+        person=person,
         amount_path="named_measure",
         expander=lambda pool, **_: {
-            "query": "Please log a cup of oats and a cup of milk for breakfast.",
+            "query": query,
             "foods": [
-                food.food_id
-                for food in pool.foods
-                if food.food_id in {"oats", "milk_whole"}
+                food.food_id for food in pool.foods if food.food_id in foods
             ],
         },
-        occasion="breakfast",
+        occasion=occasion,
     )
-    assert breakfast_log.accepted is not None
-    lunch_log = generate_one(
-        catalog=_catalog(),
-        family="log",
-        seed=2,
-        person=ROSTER[0],
-        amount_path="named_measure",
-        expander=lambda pool, **_: {
-            "query": "Please log a cup of rice and a cup of chicken for lunch.",
-            "foods": [
-                food.food_id
-                for food in pool.foods
-                if food.food_id in {"white_rice", "chicken_breast"}
-            ],
-        },
-        occasion="lunch",
-    )
-    assert lunch_log.accepted is not None
+    assert result.accepted is not None
+    return result.accepted
 
-    tails = [
-        breakfast_log.accepted.oracle.ledger_tail,
-        lunch_log.accepted.oracle.ledger_tail,
-    ]
-    rec = _run(scene="leftover", prior_ledger=[row for tail in tails for row in tail])
+
+def test_leftover_ledger_copies_prior_log_tails_without_shadow_meals() -> None:
+    breakfast_log = _parent_log(
+        1,
+        "breakfast",
+        "Please log a cup of oats and a cup of milk for breakfast.",
+        {"oats", "milk_whole"},
+    )
+    lunch_log = _parent_log(
+        2,
+        "lunch",
+        "Please log a cup of rice and a cup of chicken for lunch.",
+        {"white_rice", "chicken_breast"},
+    )
+
+    rec = _run(scene="leftover", prior_logs=[breakfast_log, lunch_log])
     assert rec.rejected is None
     assert rec.accepted is not None
-    assert tuple(rec.accepted.s0.ledger) == tuple(
-        row for tail in tails for row in tail
+    expected = tuple(breakfast_log.oracle.ledger_tail) + tuple(
+        lunch_log.oracle.ledger_tail
     )
+    assert tuple(rec.accepted.s0.ledger) == expected
+    assert leftover_parent_ids(rec.accepted) == (breakfast_log.id, lunch_log.id)
+
+
+def test_foreign_parent_log_is_rejected() -> None:
+    ada_log = _parent_log(
+        1,
+        "lunch",
+        "Please log a cup of rice for lunch.",
+        {"white_rice"},
+    )
+    foreign = _run(
+        scene="leftover",
+        prior_logs=[ada_log],
+        person=ROSTER[1],
+        shell="rec-occasion",
+    )
+    assert foreign.accepted is None
+    assert foreign.rejected is not None
+    assert foreign.rejected.reason == "foreign_log"
+
+    not_a_log_source = _run(occasion="dinner")
+    assert not_a_log_source.accepted is not None
+    not_a_log = _run(
+        scene="leftover", prior_logs=[not_a_log_source.accepted]
+    )
+    assert not_a_log.accepted is None
+    assert not_a_log.rejected is not None
+    assert not_a_log.rejected.reason == "foreign_log"
 
 
 def test_dropping_parent_log_drops_dependent_leftover_draft() -> None:
-    dropped = generate_one(
-        catalog=_catalog(),
-        family="log",
-        seed=3,
-        person=ROSTER[0],
-        amount_path="named_measure",
-        expander=lambda pool, **_: {
-            "query": "Please log a slice of milk for lunch.",
-            "foods": ["milk_whole"],
-        },
-        occasion="lunch",
+    survivor = _parent_log(
+        1,
+        "breakfast",
+        "Please log a cup of oats for breakfast.",
+        {"oats"},
     )
-    assert dropped.accepted is None
-    assert dropped.rejected is not None
-
-    accepted = generate_one(
-        catalog=_catalog(),
-        family="log",
-        seed=1,
-        person=ROSTER[0],
-        amount_path="named_measure",
-        expander=lambda pool, **_: {
-            "query": "Please log a cup of oats for breakfast.",
-            "foods": ["oats"],
-        },
-        occasion="breakfast",
-    )
-    assert accepted.accepted is not None
-
-    only_survivors = _run(
-        scene="leftover",
-        prior_ledger=list(accepted.accepted.oracle.ledger_tail),
-    )
-    assert only_survivors.accepted is not None
-    assert tuple(only_survivors.accepted.s0.ledger) == tuple(
-        accepted.accepted.oracle.ledger_tail
+    dropped_parent = _parent_log(
+        2,
+        "lunch",
+        "Please log a cup of rice and a cup of chicken for lunch.",
+        {"white_rice", "chicken_breast"},
     )
 
-    all_parents_dropped = _run(scene="leftover", prior_ledger=None)
+    draft = _run(
+        scene="leftover", prior_logs=[survivor, dropped_parent], seed=7
+    )
+    assert draft.accepted is not None
+
+    kept = drop_orphan_leftovers(
+        [draft.accepted], live_log_ids={survivor.id, dropped_parent.id}
+    )
+    assert [task.id for task in kept] == [draft.accepted.id]
+
+    after_drop = drop_orphan_leftovers(
+        [draft.accepted], live_log_ids={survivor.id}
+    )
+    assert after_drop == ()
+
+    plain_rec = _run(occasion="dinner")
+    assert plain_rec.accepted is not None
+    untouched = drop_orphan_leftovers(
+        [plain_rec.accepted], live_log_ids=frozenset()
+    )
+    assert [task.id for task in untouched] == [plain_rec.accepted.id]
+
+    all_parents_dropped = _run(scene="leftover", prior_logs=[])
     assert all_parents_dropped.accepted is None
     assert all_parents_dropped.rejected is not None
     assert all_parents_dropped.rejected.reason == "no_ledger"

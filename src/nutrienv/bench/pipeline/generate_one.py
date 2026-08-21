@@ -40,7 +40,9 @@ __all__ = [
     "build_log_user_prompt",
     "build_stage_a_prompt",
     "build_unfit_rewrite_prompt",
+    "drop_orphan_leftovers",
     "generate_one",
+    "leftover_parent_ids",
     "make_log_expander",
     "make_unfit_rewriter",
     "parse_query_foods_payload",
@@ -126,6 +128,7 @@ def generate_one(
     rewriter: Callable[..., object] | None = None,
     scene: str = "empty",
     prior_ledger: Sequence[LedgerRow] | None = None,
+    prior_logs: Sequence[Task] | None = None,
     last_meal: bool = False,
     shell: str | None = None,
     slots: Mapping[str, str] | None = None,
@@ -159,7 +162,7 @@ def generate_one(
             seed=seed,
             occasion=occasion,
             scene=scene,
-            prior_ledger=prior_ledger,
+            prior_logs=prior_logs,
             shell=shell,
             slots=dict(slots or {}),
         )
@@ -261,7 +264,7 @@ def _recommend_from_template(
     seed: int,
     occasion: str,
     scene: str,
-    prior_ledger: Sequence[LedgerRow] | None,
+    prior_logs: Sequence[Task] | None,
     shell: str | None,
     slots: dict[str, str],
 ) -> GenerateOneResult:
@@ -297,16 +300,25 @@ def _recommend_from_template(
         return GenerateOneResult(
             accepted=None, rejected=Rejected("", "template", "recommend")
         )
+    parents = tuple(prior_logs or ())
     ledger: list[LedgerRow] = []
     if scene == "leftover":
-        # Leftover copies earlier Log tails verbatim; a dropped parent Log
-        # means there is nothing to copy and the draft is dropped with it.
-        if not prior_ledger:
+        # Leftover copies earlier Log tails for THIS roster person only;
+        # a dropped parent Log means there is nothing to copy and the
+        # draft is dropped with it. No shadow meals.
+        if not parents:
             return GenerateOneResult(
                 accepted=None,
                 rejected=Rejected(query, "no_ledger", "recommend"),
             )
-        ledger = list(prior_ledger)
+        for parent in parents:
+            tail = _provenanced_tail(parent, chosen)
+            if tail is None:
+                return GenerateOneResult(
+                    accepted=None,
+                    rejected=Rejected(query, "foreign_log", "recommend"),
+                )
+            ledger.extend(tail)
     s0 = WorldState(profile=profile, ledger=ledger, catalog=catalog)
     eaten = ledger_totals(ledger, catalog)
     plan_windows = plan_windows_for_meal(profile.windows, eaten, occasion)
@@ -322,8 +334,11 @@ def _recommend_from_template(
         plan_windows=plan_windows,
         ledger=tuple(ledger),
     )
+    task_id = f"one-rec-{seed:04d}"
+    if scene == "leftover":
+        task_id += "-dep+" + "+".join(parent.id for parent in parents)
     task = Task(
-        f"one-rec-{seed:04d}",
+        task_id,
         "recommend",
         query,
         s0,
@@ -332,6 +347,43 @@ def _recommend_from_template(
         chosen.persona,
     )
     return GenerateOneResult(accepted=task, rejected=None)
+
+
+_DEP_MARKER = "-dep+"
+
+
+def _provenanced_tail(parent: Task, chosen: RosterPerson) -> list[LedgerRow] | None:
+    """The parent's new rows when it is a Log Task for this roster person."""
+    if not isinstance(parent, Task) or parent.family != "log":
+        return None
+    if parent.s0.profile.user_id != chosen.user_id:
+        return None
+    tail = parent.oracle.ledger_tail
+    if not tail:
+        return None
+    return list(tail)
+
+
+def leftover_parent_ids(task: Task) -> tuple[str, ...]:
+    """Parent Log ids a leftover Recommend draft depends on; else ()."""
+    _head, marker, deps = task.id.partition(_DEP_MARKER)
+    if not marker:
+        return ()
+    return tuple(part for part in deps.split("+") if part)
+
+
+def drop_orphan_leftovers(
+    tasks: Sequence[Task], *, live_log_ids: frozenset[str] | set[str]
+) -> tuple[Task, ...]:
+    """Drop leftover drafts whose parent Logs are no longer live."""
+    live = set(live_log_ids)
+    kept: list[Task] = []
+    for task in tasks:
+        parents = leftover_parent_ids(task)
+        if parents and not set(parents) <= live:
+            continue
+        kept.append(task)
+    return tuple(kept)
 
 
 def _update_from_template(
