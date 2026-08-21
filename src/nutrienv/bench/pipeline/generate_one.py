@@ -9,7 +9,7 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
-from nutrienv.bench.realize import Oracle, Task
+from nutrienv.bench.realize import Oracle, Task, realize_evaluate
 from nutrienv.world.portions import GRAM_UNITS, OUNCE_UNITS, UNIT_SYNONYMS, resolve_portion
 from nutrienv.world.types import MAX_ITEM_GRAMS, LedgerRow, WorldState
 
@@ -103,9 +103,9 @@ def generate_one(
     occasion: str = "lunch",
     pool_size: int = DEFAULT_GENERATE_POOL_SIZE,
 ) -> GenerateOneResult:
-    """One Log item: roster person → world windows → pool → expander → speech bind."""
-    if family != "log":
-        raise ValueError("generate_one implements log in this ticket")
+    """One mill item: roster person → world windows → pool → expander → speech bind."""
+    if family not in {"log", "evaluate"}:
+        raise ValueError(f"generate_one does not implement {family!r}")
     if amount_path is not None and amount_path not in AMOUNT_PATHS:
         raise ValueError(f"unknown amount_path {amount_path!r}")
     if occasion not in _OCCASIONS:
@@ -118,26 +118,26 @@ def generate_one(
     pools = sample_pools(
         catalog,
         seed=seed,
-        family="log",
+        family=family,
         n_pools=1,
         pool_size=pool_size,
     )
     if not pools:
         return GenerateOneResult(
-            accepted=None, rejected=Rejected("", "empty_pool", "log")
+            accepted=None, rejected=Rejected("", "empty_pool", family)
         )
     pool = _without_small_gram_foods(pools[0])
     if not pool.foods:
         return GenerateOneResult(
-            accepted=None, rejected=Rejected("", "empty_pool", "log")
+            accepted=None, rejected=Rejected("", "empty_pool", family)
         )
     raw = expander(
-        pool, persona=chosen.persona, family="log", amount_path=path
+        pool, persona=chosen.persona, family=family, amount_path=path
     )
     payload = parse_query_foods_payload(raw)
     if payload is None:
         return GenerateOneResult(
-            accepted=None, rejected=Rejected("", "schema", "log")
+            accepted=None, rejected=Rejected("", "schema", family)
         )
     query = str(payload["query"])
     foods = list(payload["foods"])
@@ -146,9 +146,13 @@ def generate_one(
     )
     if reason is not None:
         return GenerateOneResult(
-            accepted=None, rejected=Rejected(query, reason, "log")
+            accepted=None, rejected=Rejected(query, reason, family)
         )
     s0 = WorldState(profile=profile, ledger=[], catalog=catalog)
+    if family == "evaluate":
+        return _evaluate_from_bound(
+            query, bound, s0, seed=seed, occasion=occasion, persona=chosen.persona
+        )
     oracle = Oracle(
         profile=copy.deepcopy(profile),
         ledger_tail=bound,
@@ -163,6 +167,44 @@ def generate_one(
         ("multi_item_log",),
         chosen.persona,
     )
+    return GenerateOneResult(accepted=task, rejected=None)
+
+
+def _evaluate_from_bound(
+    query: str,
+    bound: Sequence,
+    s0: WorldState,
+    *,
+    seed: int,
+    occasion: str,
+    persona: str,
+) -> GenerateOneResult:
+    items = [{"food_id": row.food_id, "grams": float(row.grams)} for row in bound]
+    try:
+        task = realize_evaluate(
+            task_id=f"one-eval-{seed:04d}",
+            query=query,
+            items=items,
+            s0=s0,
+            occasion=occasion,
+        )
+    except ValueError:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "empty_windows", "evaluate")
+        )
+    task = Task(
+        task.id,
+        task.family,
+        task.query,
+        task.s0,
+        task.oracle,
+        ("evaluate_fit",),
+        persona,
+    )
+    if task.oracle.last_verdict != "accept":
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "not_fit", "evaluate")
+        )
     return GenerateOneResult(accepted=task, rejected=None)
 
 
