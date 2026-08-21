@@ -12,7 +12,8 @@ from dataclasses import replace
 from nutrienv.bench import check_achievable
 from nutrienv.bench.realize import Oracle, Task
 from nutrienv.world.catalog_fixture import demo_state
-from nutrienv.world.types import LedgerRow
+from nutrienv.world.daily_windows import derive_daily_windows
+from nutrienv.world.types import LedgerRow, Profile, normalize_tags
 
 
 def _log_task(*, task_id: str = "log-001", food_id: str = "oats") -> Task:
@@ -138,5 +139,128 @@ def test_fitting_plan_uses_oracle_plan_windows() -> None:
             plan_must_fit_windows=True,
             plan_windows={"kcal": (200.0, 500.0), "protein_g": (20.0, 50.0)},
         ),
+    )
+    assert check_achievable([task]).unreachable == ()
+
+
+def test_exact_profile_update_is_reachable() -> None:
+    s0 = demo_state()
+    oracle_profile = replace(
+        s0.profile,
+        allergies=normalize_tags(["peanut", "milk"]),
+        windows={"kcal": (1600.0, 2000.0), "protein_g": (90.0, 140.0)},
+    )
+    task = Task(
+        "upd-001",
+        "update",
+        "Add a milk allergy and drop calories by 200.",
+        s0,
+        Oracle(profile=oracle_profile, ledger=tuple(s0.ledger)),
+    )
+    assert check_achievable([task]).unreachable == ()
+
+
+def _ada_state():
+    s0 = demo_state()
+    windows = derive_daily_windows(
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=62.0,
+        activity="light",
+        phase="maintain",
+    )
+    s0.profile = Profile(
+        user_id="roster-ada",
+        allergies=("peanut",),
+        windows=windows,
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=62.0,
+        activity="light",
+        phase="maintain",
+    )
+    return s0
+
+
+def test_update_band_cut_is_reachable() -> None:
+    s0 = _ada_state()
+    task = Task(
+        "upd-cut",
+        "update",
+        "I'm cutting now.",
+        s0,
+        Oracle(
+            profile=s0.profile,
+            ledger=tuple(s0.ledger),
+            update_band="cut",
+        ),
+    )
+    assert check_achievable([task]).unreachable == ()
+
+
+def test_update_band_fatigue_is_reachable() -> None:
+    s0 = _ada_state()
+    cut_windows = derive_daily_windows(
+        sex="female",
+        age_y=34,
+        height_cm=165.0,
+        weight_kg=62.0,
+        activity="light",
+        phase="cut",
+    )
+    s0.profile = replace(s0.profile, phase="cut", windows=cut_windows)
+    task = Task(
+        "upd-fatigue",
+        "update",
+        "This deficit is leaving me exhausted.",
+        s0,
+        Oracle(
+            profile=s0.profile,
+            ledger=tuple(s0.ledger),
+            update_band="fatigue",
+        ),
+    )
+    assert check_achievable([task]).unreachable == ()
+
+
+def test_update_band_muscle_is_reachable() -> None:
+    s0 = _ada_state()
+    task = Task(
+        "upd-muscle",
+        "update",
+        "I want to build muscle.",
+        s0,
+        Oracle(
+            profile=s0.profile,
+            ledger=tuple(s0.ledger),
+            update_band="muscle",
+        ),
+    )
+    assert check_achievable([task]).unreachable == ()
+
+
+def test_body_fact_weight_update_is_reachable() -> None:
+    s0 = _ada_state()
+    s0.profile = replace(s0.profile, phase="cut")
+    oracle_profile = replace(
+        s0.profile,
+        weight_kg=80.0,
+        windows=derive_daily_windows(
+            sex="female",
+            age_y=34,
+            height_cm=165.0,
+            weight_kg=80.0,
+            activity="light",
+            phase="cut",
+        ),
+    )
+    task = Task(
+        "upd-weight",
+        "update",
+        "I now weigh 80 kilograms.",
+        s0,
+        Oracle(profile=oracle_profile, ledger=tuple(s0.ledger)),
     )
     assert check_achievable([task]).unreachable == ()

@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from nutrienv.env import NutriEnv
+from nutrienv.world.daily_windows import estimated_energy_requirement
 
 from .realize import Oracle, Task, scored_oracles
 from .scorer import Scorer
@@ -58,6 +59,8 @@ def _replay_oracle(env: NutriEnv, task: Task, oracle: Oracle) -> bool:
             )
             if not stepped.get("ok"):
                 return False
+    if not _replay_profile(env, oracle):
+        return False
     if oracle.last_plan:
         stepped = env.step({"op": "submit_plan", "items": oracle.last_plan})
         if not stepped.get("ok"):
@@ -77,3 +80,87 @@ def _replay_oracle(env: NutriEnv, task: Task, oracle: Oracle) -> bool:
         if not stepped.get("ok"):
             return False
     return True
+
+
+_BODY_KEYS = frozenset({"sex", "age_y", "height_cm", "weight_kg", "activity", "phase"})
+
+
+def _replay_profile(env: NutriEnv, oracle: Oracle) -> bool:
+    expected = oracle.profile
+    if expected is None:
+        return True
+    current = env.state().profile
+    if oracle.update_band:
+        return _replay_band(env, current, expected, oracle.update_band)
+    if current == expected:
+        return True
+    patch = _profile_patch(current, expected)
+    if not patch:
+        return True
+    if _BODY_KEYS & patch.keys():
+        patch.pop("windows", None)
+    stepped = env.step({"op": "update_profile", "patch": patch})
+    return bool(stepped.get("ok"))
+
+
+def _replay_band(env: NutriEnv, current, expected, band: str) -> bool:
+    patch = _profile_patch(current, expected)
+    patch.pop("windows", None)
+    if band == "cut" and "phase" not in patch:
+        patch["phase"] = "cut"
+    elif band == "muscle" and "phase" not in patch:
+        patch["phase"] = "muscle"
+    elif band == "fatigue" and "phase" not in patch:
+        if current.phase == "cut":
+            patch["phase"] = "maintain"
+        else:
+            eased = _fatigue_kcal(current)
+            if eased is not None:
+                patch["windows"] = {"kcal": list(eased)}
+    if not patch:
+        return True
+    stepped = env.step({"op": "update_profile", "patch": patch})
+    return bool(stepped.get("ok"))
+
+
+def _fatigue_kcal(profile) -> tuple[float, float] | None:
+    if (
+        profile.sex is None
+        or profile.age_y is None
+        or profile.height_cm is None
+        or profile.weight_kg is None
+        or profile.activity is None
+        or "kcal" not in profile.windows
+    ):
+        return None
+    eer = estimated_energy_requirement(
+        sex=profile.sex,
+        age_y=profile.age_y,
+        height_cm=profile.height_cm,
+        weight_kg=profile.weight_kg,
+        activity=profile.activity,
+    )
+    s0_hi = profile.windows["kcal"][1]
+    eased = (s0_hi + eer) / 2.0
+    return (eased, eased)
+
+
+def _profile_patch(current, expected) -> dict:
+    patch: dict = {}
+    if expected.allergies != current.allergies:
+        patch["allergies"] = list(expected.allergies)
+    if expected.medications != current.medications:
+        patch["medications"] = list(expected.medications)
+    if expected.windows != current.windows:
+        patch["windows"] = {
+            key: list(bounds) for key, bounds in expected.windows.items()
+        }
+    if expected.plan_preset != current.plan_preset:
+        patch["plan_preset"] = dict(expected.plan_preset)
+    if expected.version != current.version:
+        patch["version"] = expected.version
+    for key in _BODY_KEYS:
+        want = getattr(expected, key)
+        if want != getattr(current, key):
+            patch[key] = want
+    return patch
