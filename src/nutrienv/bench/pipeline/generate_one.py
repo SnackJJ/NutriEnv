@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from nutrienv.bench.realize import Oracle, Task
 from nutrienv.world.portions import GRAM_UNITS, OUNCE_UNITS, UNIT_SYNONYMS, resolve_portion
-from nutrienv.world.types import LedgerRow, WorldState
+from nutrienv.world.types import MAX_ITEM_GRAMS, LedgerRow, WorldState
 
 from .resolver import spoken_grams_from_query
 from .roster import RosterPerson, profile_for, sample_roster_person
@@ -280,6 +280,8 @@ def _bind_log_foods(
             return None, "amount_path"
         if float(grams) <= GRAM_TOLERANCE:
             return None, "small_grams"
+        if float(grams) > MAX_ITEM_GRAMS:
+            return None, "over_cap"
         rows.append(LedgerRow(food_id, float(grams), eaten_at))
     if not rows:
         return None, "unresolvable"

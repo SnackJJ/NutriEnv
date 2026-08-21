@@ -207,6 +207,19 @@ def test_generate_one_rejects_unresolvable_speech() -> None:
     assert result.rejected.reason == "unresolvable"
 
 
+def test_generate_one_rejects_grams_over_world_cap() -> None:
+    def expand(_pool, *, persona, family, amount_path=None):
+        return {
+            "query": "Please log 99999 g of chicken for lunch.",
+            "foods": ["chicken_breast"],
+        }
+
+    result = _run(expand, amount_path="explicit_grams", pool_size=12)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason == "over_cap"
+
+
 def test_generate_one_explicit_grams_path_may_contain_150_g() -> None:
     def expand(_pool, *, persona, family, amount_path=None):
         return {
