@@ -79,6 +79,25 @@ def test_catalog_entry_rejects_nested_list_mutation() -> None:
     assert list(catalog["shrimp"]["aliases"]) == ["prawn", "prawns"]
 
 
+def test_catalog_entry_rejects_ior_and_reinit() -> None:
+    """``|=`` and ``__init__`` are public mutators too (ship-11 review finding)."""
+    catalog = FoodCatalog.from_mapping(demo_catalog())
+    entry = catalog["shrimp"]
+    with pytest.raises(TypeError):
+        entry |= {"name": "after"}
+    with pytest.raises(TypeError):
+        entry.__init__({"name": "after"})
+    assert catalog["shrimp"]["name"] == "Shrimp, cooked"
+    assert dict(catalog["shrimp"]) == dict(entry)
+
+
+def test_catalog_entry_deepcopy_shares_the_frozen_entry() -> None:
+    """An immutable entry needs no copy; deepcopy must not raise."""
+    catalog = FoodCatalog.from_mapping(demo_catalog())
+    entry = catalog["shrimp"]
+    assert copy.deepcopy(entry) is entry
+
+
 def test_food_view_returns_a_mutable_observation_copy() -> None:
     catalog = FoodCatalog.from_mapping(
         {"mystery": {"name": "Mystery", "nutrients": {}, "allergen_tags": [], "aliases": []}}

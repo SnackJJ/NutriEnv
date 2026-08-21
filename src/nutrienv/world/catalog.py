@@ -22,6 +22,12 @@ _TOKEN = re.compile(r"[a-z0-9]+")
 class FrozenDict(dict):
     """A dict that rejects in-place writes. Nested values freeze separately."""
 
+    def __init__(self, *args, **kwargs):
+        if getattr(self, "_sealed", False):
+            raise TypeError("catalog entry is immutable")
+        super().__init__(*args, **kwargs)
+        self._sealed = True
+
     def __setitem__(self, key, value):
         raise TypeError("catalog entry is immutable")
 
@@ -42,6 +48,12 @@ class FrozenDict(dict):
 
     def update(self, *args, **kwargs):
         raise TypeError("catalog entry is immutable")
+
+    def __ior__(self, other):
+        raise TypeError("catalog entry is immutable")
+
+    def __deepcopy__(self, memo):
+        return self
 
 
 def _freeze_mapping(entry: Mapping) -> FrozenDict:
