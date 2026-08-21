@@ -553,9 +553,12 @@ def ingest_sources(
     *,
     fndds_only: bool = False,
     include_branded: bool = False,
+    survey_zip: Path | None = None,
 ) -> list[tuple[Path, str, bool]]:
     """Zip packs the builder will ingest: ``(path, default_type, branded)``."""
-    survey = _RAW / "fndds.zip" if (_RAW / "fndds.zip").is_file() else _RAW / "survey.zip"
+    survey = survey_zip or (
+        _RAW / "fndds.zip" if (_RAW / "fndds.zip").is_file() else _RAW / "survey.zip"
+    )
     packs: list[tuple[Path, str, bool]] = [
         (survey, "survey_fndds_food", False),
     ]
@@ -877,7 +880,7 @@ def plan_fndds_only_rebuild(
     for fdc_id in set(builder_portions) | set(independent_portions):
         if builder_portions.get(fdc_id) != independent_portions.get(fdc_id):
             portion_map_diffs += 1
-    json_cells = _json_cells_from_sqlite_pair(sqlite_pair)
+    json_cells = _json_cells_from_sqlite_pair(sqlite_pair, survey_zip=survey_zip)
 
     live_foods, live_aliases, live_counts = _read_catalog(live_catalog)
     sr_ids = {
@@ -1276,6 +1279,8 @@ def diff_foods_json_cells(left: Path, right: Path) -> dict:
 
 def _json_cells_from_sqlite_pair(
     sqlite_pair: tuple[Path, Path] | None,
+    *,
+    survey_zip: Path,
 ) -> dict:
     """Diff two catalog sqlite files; build a temp pair when none is given."""
     if sqlite_pair is not None:
@@ -1283,8 +1288,18 @@ def _json_cells_from_sqlite_pair(
     with tempfile.TemporaryDirectory() as tmp:
         first = Path(tmp) / "a.sqlite"
         second = Path(tmp) / "b.sqlite"
-        build(include_branded=False, dest=first, fndds_only=True)
-        build(include_branded=False, dest=second, fndds_only=True)
+        build(
+            include_branded=False,
+            dest=first,
+            fndds_only=True,
+            survey_zip=survey_zip,
+        )
+        build(
+            include_branded=False,
+            dest=second,
+            fndds_only=True,
+            survey_zip=survey_zip,
+        )
         return diff_foods_json_cells(first, second)
 
 
@@ -1297,6 +1312,7 @@ def build(
     dest: Path | None = None,
     full: bool = False,
     fndds_only: bool = False,
+    survey_zip: Path | None = None,
 ) -> Path:
     if fndds_only:
         full = True
@@ -1311,7 +1327,11 @@ def build(
             "refusing to overwrite data/fdc/archive/catalog.sqlite"
         )
     foods: dict[str, dict] = {}
-    packs = ingest_sources(fndds_only=fndds_only, include_branded=include_branded)
+    packs = ingest_sources(
+        fndds_only=fndds_only,
+        include_branded=include_branded,
+        survey_zip=survey_zip,
+    )
     for path, default_type, branded in packs:
         if not path.is_file():
             if branded:

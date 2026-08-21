@@ -252,6 +252,20 @@ def test_foods_json_cell_byte_check_is_zero_when_text_matches(tmp_path: Path) ->
     assert result["byte_diff_columns"] == []
 
 
+def test_plan_byte_check_build_uses_explicit_survey_zip(tmp_path: Path) -> None:
+    before = _snapshot_catalog_shas()
+    survey = _write_survey_zip(tmp_path / "survey.zip")
+    plan = builder.plan_fndds_only_rebuild(
+        live_catalog=_LIVE,
+        survey_zip=survey,
+    )
+    cells = plan["raw_scan"]["json_cells"]
+    assert cells["foods_compared"] == 1
+    assert cells["key_order_only_diffs"] == 0
+    for path, digest in before.items():
+        assert _sha256(path) == digest
+
+
 def test_plan_byte_check_detects_sqlite_key_order_drift(
     tmp_path: Path,
 ) -> None:
