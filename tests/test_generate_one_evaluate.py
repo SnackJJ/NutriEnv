@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from nutrienv.bench.pipeline.generate_one import generate_one
+import json
+
+from nutrienv.bench.pipeline.generate_one import (
+    build_stage_a_prompt,
+    build_unfit_rewrite_prompt,
+    generate_one,
+    make_unfit_rewriter,
+)
 from nutrienv.bench.pipeline.roster import ROSTER
 from nutrienv.bench.realize import bind_evaluate_reasons
 from nutrienv.bench.scorer import Scorer
@@ -388,3 +395,99 @@ def test_generate_one_evaluate_leftover_under_only_on_last_meal() -> None:
         task.s0.profile.allergies,
     )
     assert validate_draft(task) == []
+
+
+def test_generate_one_evaluate_drops_cartoon_portion_step() -> None:
+    catalog = {
+        "lettuce": _food(
+            "Lettuce, raw",
+            {"cup": 1800.0},
+            ("lettuce",),
+            nutrients={
+                "kcal": 35.0,
+                "protein_g": 1.0,
+                "carb_g": 5.0,
+                "fat_g": 1.0,
+                "fiber_g": 1.0,
+                "sodium_mg": 10.0,
+            },
+        ),
+    }
+
+    def expand(_pool, *, persona, family, amount_path=None):
+        return {
+            "query": "Evaluate this as dinner: 1800 g of lettuce.",
+            "foods": ["lettuce"],
+        }
+
+    result = _run_eval(
+        expander=expand,
+        catalog=catalog,
+        pool_size=1,
+        knife="over_slot",
+        rewriter=_rewrite_named,
+    )
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason in {"knife", "cartoon"}
+
+
+def test_unfit_rewrite_prompt_names_foods_without_window_numbers() -> None:
+    prompt = build_unfit_rewrite_prompt(
+        (
+            {"food_id": "white_rice", "grams": 237.0},
+            {"food_id": "chicken_breast", "grams": 130.0},
+        ),
+        intent="bigger",
+        occasion="dinner",
+        catalog=_FIT_CATALOG,
+    )
+    lowered = prompt.lower()
+    assert "rice" in lowered
+    assert "chicken" in lowered
+    assert "237" in prompt or "1.5" in prompt
+    assert "bigger" in lowered
+    assert "kcal" not in lowered
+    assert "protein_g" not in lowered
+    assert "544" not in prompt
+    assert "726" not in prompt
+
+
+def test_stage_a_prompt_asks_eatable_plate_not_wisdom() -> None:
+    prompt = build_stage_a_prompt(_FIT_MEAL, _FIT_CATALOG)
+    lowered = prompt.lower()
+    assert "130" in prompt
+    assert "chicken" in lowered
+    assert "evaluate this as dinner" not in lowered
+    assert "kcal" not in lowered
+    assert "wise" in lowered or "healthy" in lowered
+    assert "eat" in lowered
+
+
+def test_unfit_rewriter_does_not_send_window_numbers() -> None:
+    seen: list[str] = []
+
+    def complete(_model_id, messages):
+        seen.append(messages[0]["content"])
+        return json.dumps(
+            {
+                "query": "Evaluate this as dinner: 237 g of rice.",
+                "foods": ["white_rice"],
+            }
+        )
+
+    rewriter = make_unfit_rewriter(complete=complete, catalog=_FIT_CATALOG)
+    payload = rewriter(
+        [{"food_id": "white_rice", "grams": 237.0}],
+        intent="bigger",
+        occasion="dinner",
+    )
+    assert seen
+    assert seen[0] == build_unfit_rewrite_prompt(
+        [{"food_id": "white_rice", "grams": 237.0}],
+        intent="bigger",
+        occasion="dinner",
+        catalog=_FIT_CATALOG,
+    )
+    assert "kcal" not in seen[0].lower()
+    assert payload["foods"] == ["white_rice"]

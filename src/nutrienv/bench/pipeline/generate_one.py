@@ -33,8 +33,11 @@ __all__ = [
     "LogExpander",
     "build_log_system_prompt",
     "build_log_user_prompt",
+    "build_stage_a_prompt",
+    "build_unfit_rewrite_prompt",
     "generate_one",
     "make_log_expander",
+    "make_unfit_rewriter",
     "parse_query_foods_payload",
 ]
 
@@ -121,8 +124,8 @@ def generate_one(
         raise ValueError(f"unknown occasion {occasion!r}")
     if knife is not None and knife not in KNIVES:
         raise ValueError(f"unknown knife {knife!r}")
-    if family == "log" and knife is not None:
-        raise ValueError("knives apply only to evaluate")
+    if family == "log" and (knife is not None or scene != "empty"):
+        raise ValueError("knives and leftover scenes apply only to evaluate")
     if scene not in _SCENES:
         raise ValueError(f"unknown scene {scene!r}")
 
@@ -378,6 +381,57 @@ def _rewrite_unfit(
     return str(payload["query"])
 
 
+def build_unfit_rewrite_prompt(
+    items: Sequence[Mapping[str, object]],
+    *,
+    intent: str,
+    occasion: str,
+    catalog: Mapping | None = None,
+) -> str:
+    """Second-pass speech only: code-chosen foods and amounts, no window numbers."""
+    foods = catalog or {}
+    lines = [
+        "Rewrite one user query that names this exact plate as a meal to evaluate.",
+        f"Intent: {intent}. Occasion: {occasion}.",
+        "Speak the code-chosen foods and amounts. JSON foods must match this id list.",
+        "Do not mention remaining budget, nutrient targets, or allergy codes.",
+        "Return exactly {\"query\":\"...\",\"foods\":[\"<id>\", ...]} and nothing else.",
+        "Plate:",
+    ]
+    ids: list[str] = []
+    for item in items:
+        food_id = str(item["food_id"])
+        grams = float(item["grams"])
+        ids.append(food_id)
+        spoken = _spoken_names(food_id, foods)
+        name = spoken[1] if len(spoken) > 1 else spoken[0]
+        lines.append(f"- id={food_id} spoken={name} amount={grams:g} g")
+    lines.append("foods: " + ", ".join(ids))
+    return "\n".join(lines)
+
+
+def build_stage_a_prompt(
+    items: Sequence[Mapping[str, object]], catalog: Mapping | None = None
+) -> str:
+    """Stage A voter: food+grams only. Eatable plate, not wisdom."""
+    foods = catalog or {}
+    lines = [
+        "Here is a plate listed as food and grams.",
+        "Could one person eat this at one meal? Large plates are allowed.",
+        "Vote whether the plate is eatable, not whether it is wise or healthy.",
+        "Do not judge whether the gram amounts are the table-correct portion fact.",
+        "Do not see a user query. Do not see nutrient windows.",
+        "Plate:",
+    ]
+    for item in items:
+        food_id = str(item["food_id"])
+        grams = float(item["grams"])
+        spoken = _spoken_names(food_id, foods)
+        name = spoken[1] if len(spoken) > 1 else spoken[0]
+        lines.append(f"- {name}: {grams:g} g")
+    return "\n".join(lines)
+
+
 def parse_query_foods_payload(payload: object) -> dict[str, object] | None:
     """Accept {query, foods: [pool id, …]}. Grams and items/expression are not a schema."""
     if isinstance(payload, str):
@@ -496,6 +550,62 @@ def make_log_expander(
 ) -> LogExpander:
     """Build the Log mill expander. complete is injected; no live API required."""
     return LogExpander(complete=complete, parse_retries=parse_retries)
+
+
+class UnfitRewriter:
+    """Second Evaluate speech pass. Prompt has foods and amounts, not windows."""
+
+    def __init__(
+        self,
+        *,
+        complete: Callable[[str, Sequence[Mapping[str, str]]], str],
+        catalog: Mapping,
+        parse_retries: int = 1,
+    ) -> None:
+        self._complete = complete
+        self._catalog = catalog
+        self._parse_retries = max(0, int(parse_retries))
+
+    def __call__(
+        self,
+        items: Sequence[Mapping[str, object]],
+        *,
+        intent: str,
+        occasion: str,
+        amount_path: str | None = None,
+    ) -> dict[str, object]:
+        messages = (
+            {
+                "role": "system",
+                "content": build_unfit_rewrite_prompt(
+                    items, intent=intent, occasion=occasion, catalog=self._catalog
+                ),
+            },
+            {
+                "role": "user",
+                "content": "Write the evaluate query for this plate. JSON only.",
+            },
+        )
+        last: dict[str, object] = {"query": "", "foods": []}
+        for _attempt in range(1 + self._parse_retries):
+            parsed = parse_query_foods_payload(
+                self._complete("evaluate-rewrite", messages)
+            )
+            if parsed is not None:
+                return parsed
+        return last
+
+
+def make_unfit_rewriter(
+    *,
+    complete: Callable[[str, Sequence[Mapping[str, str]]], str],
+    catalog: Mapping,
+    parse_retries: int = 1,
+) -> UnfitRewriter:
+    """Build the unfit speech rewriter. complete is injected; no live API required."""
+    return UnfitRewriter(
+        complete=complete, catalog=catalog, parse_retries=parse_retries
+    )
 
 
 def _bind_log_foods(
