@@ -14,7 +14,7 @@ from nutrienv.bench.scorer import Scorer
 from nutrienv.bench.validator import fitting_plan
 from nutrienv.bench.validator import validate_draft
 from nutrienv.env import NutriEnv
-from nutrienv.world.types import LedgerRow
+from nutrienv.world.types import ledger_totals
 
 
 def _food(name, portions, aliases=(), allergen_tags=(), nutrients=None):
@@ -305,3 +305,59 @@ def test_generic_shells_inherit_the_sampled_occasion() -> None:
     eat = _run(shell="rec-occasion-eat", occasion="lunch", scene="empty")
     assert eat.rejected is None
     assert eat.accepted.query == "What should I eat?"
+
+
+def test_caller_slot_contradicting_sampled_occasion_is_rejected() -> None:
+    """Reviewer reproduction: lunch sample + dinner slot override must not mix."""
+    result = _run(
+        occasion="lunch",
+        shell="rec-occasion",
+        slots={"occasion": "dinner"},
+    )
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason == "slot_conflict"
+
+
+def test_default_shell_rejects_contradictory_occasion_slot_too() -> None:
+    result = _run(occasion="lunch", slots={"occasion": "dinner"})
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason == "slot_conflict"
+
+
+def test_caller_slot_agreeing_with_sampled_occasion_is_accepted() -> None:
+    result = _run(
+        occasion="lunch",
+        shell="rec-occasion",
+        slots={"occasion": "lunch"},
+    )
+    assert result.rejected is None
+    assert result.accepted is not None
+    assert result.accepted.query == "What's for lunch?"
+
+
+def test_named_dish_says_tonight_so_it_requires_dinner_windows() -> None:
+    breakfast_trap = _run(
+        shell="rec-named-dish",
+        slots={"dish": "peanut_butter"},
+        occasion="breakfast",
+    )
+    assert breakfast_trap.accepted is None
+    assert breakfast_trap.rejected is not None
+    assert breakfast_trap.rejected.reason == "template_occasion"
+
+    dinner_trap = _run(
+        shell="rec-named-dish",
+        slots={"dish": "peanut_butter"},
+        occasion="dinner",
+    )
+    assert dinner_trap.rejected is None
+    assert dinner_trap.accepted is not None
+    from nutrienv.world.daily_windows import plan_windows_for_meal
+
+    assert dinner_trap.accepted.oracle.plan_windows == plan_windows_for_meal(
+        dinner_trap.accepted.s0.profile.windows,
+        ledger_totals(dinner_trap.accepted.s0.ledger, _catalog()),
+        "dinner",
+    )

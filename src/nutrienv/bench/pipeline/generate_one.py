@@ -282,7 +282,23 @@ def _recommend_from_template(
             rejected=Rejected("", "template_occasion", "recommend"),
         )
     fill = dict(slots)
+    # The sampled occasion is the single source of truth: shell selection,
+    # spoken wording, and windows all derive from it. A caller slot dict
+    # may agree, but never contradict.
+    supplied_occasion = fill.get("occasion")
+    if supplied_occasion is not None and supplied_occasion != occasion:
+        return GenerateOneResult(
+            accepted=None,
+            rejected=Rejected("", "slot_conflict", "recommend"),
+        )
+    fill["occasion"] = occasion
     if shell_id == "rec-named-dish":
+        # The shell says "tonight": dinner wording, so dinner windows only.
+        if occasion != "dinner":
+            return GenerateOneResult(
+                accepted=None,
+                rejected=Rejected("", "template_occasion", "recommend"),
+            )
         dish = _allergen_dish(catalog, chosen, fill.get("dish"))
         if dish is None:
             return GenerateOneResult(
@@ -293,8 +309,6 @@ def _recommend_from_template(
         return GenerateOneResult(
             accepted=None, rejected=Rejected("", "not_gym_persona", "recommend")
         )
-    elif shell_id in {"rec-occasion"}:
-        fill.setdefault("occasion", occasion)
     query = recommend_query(shell_id, fill)
     if query is None:
         return GenerateOneResult(
