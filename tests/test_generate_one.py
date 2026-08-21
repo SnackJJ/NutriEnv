@@ -227,3 +227,22 @@ def test_generate_one_does_not_hide_solid_cup() -> None:
     assert result.rejected is None
     assert result.accepted is not None
     assert result.accepted.oracle.ledger_tail[0].grams == 81.0
+
+
+def test_generate_one_excludes_or_rejects_small_gram_so_band_cannot_pass_double() -> None:
+    """±10 g is absolute; a 10 g piece would treat 0–20 g as a pass (2×)."""
+    catalog = {
+        "milk_whole": _food("Milk, whole", {"cup": 244.0}, ("milk",)),
+        "shrimp": _food("Shrimp, cooked", {"piece": 10.0}, ("shrimp",)),
+    }
+
+    def expand(_pool, *, persona, family):
+        return {
+            "query": "Please log a piece of shrimp for lunch.",
+            "foods": ["shrimp"],
+        }
+
+    result = _run(expand, catalog=catalog, pool_size=2)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason in {"small_grams", "not_in_pool"}

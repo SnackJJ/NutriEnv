@@ -15,10 +15,12 @@ from nutrienv.world.types import LedgerRow, WorldState
 from .resolver import spoken_grams_from_query
 from .roster import RosterPerson, profile_for, sample_roster_person
 from .sampler import sample_pools
+from .semantic_vote import GRAM_TOLERANCE
 from .types import (
     DEFAULT_GENERATE_POOL_SIZE,
     Expander,
     FoodPool,
+    PoolFood,
     Rejected,
 )
 
@@ -75,7 +77,11 @@ def generate_one(
         return GenerateOneResult(
             accepted=None, rejected=Rejected("", "empty_pool", "log")
         )
-    pool = pools[0]
+    pool = _without_small_gram_foods(pools[0])
+    if not pool.foods:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "empty_pool", "log")
+        )
     raw = expander(pool, persona=chosen.persona, family="log")
     payload = parse_query_foods_payload(raw)
     if payload is None:
@@ -185,7 +191,21 @@ def _bind_log_foods(
             grams = resolve_portion(food_id, query, catalog)
         if grams is None:
             return None, "unresolvable"
+        if float(grams) <= GRAM_TOLERANCE:
+            return None, "small_grams"
         rows.append(LedgerRow(food_id, float(grams), eaten_at))
     if not rows:
         return None, "unresolvable"
     return rows, None
+
+
+def _without_small_gram_foods(pool: FoodPool) -> FoodPool:
+    """Drop foods whose 1.0 portions all sit inside the ±10 g phrasing band."""
+    foods = tuple(food for food in pool.foods if _has_portion_outside_band(food))
+    return FoodPool(pool_id=pool.pool_id, family=pool.family, foods=foods)
+
+
+def _has_portion_outside_band(food: PoolFood) -> bool:
+    return any(
+        alt.quantity == 1.0 and alt.grams > GRAM_TOLERANCE for alt in food.alternatives
+    )
