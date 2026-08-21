@@ -236,7 +236,7 @@ def _features(task: Task) -> set[str]:
     if task.oracle.sub_oracles:
         names.add("sub_oracles")
     for oracle in scored_oracles(task.oracle):
-        if oracle.ledger_tail:
+        if oracle.ledger_tail is not None:
             names.add("ledger_tail")
         if oracle.ledger is not None:
             names.add("ledger")
@@ -248,7 +248,7 @@ def _features(task: Task) -> set[str]:
             names.add("plan_must_fit_windows")
         if oracle.allow_empty_plan:
             names.add("allow_empty_plan")
-        if oracle.plan_windows:
+        if oracle.plan_windows is not None:
             names.add("plan_windows")
         if oracle.last_verdict is not None:
             names.add("last_verdict")

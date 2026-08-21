@@ -469,6 +469,20 @@ def test_coverage_counts_families_and_keeps_zero_features_visible() -> None:
     assert "bound_labels" not in report.by_feature
 
 
+def test_coverage_counts_empty_ledger_tail_and_plan_windows() -> None:
+    s0 = demo_state()
+    task = Task(
+        "empty-scored-fields",
+        "log",
+        "Log nothing extra.",
+        s0,
+        Oracle(ledger_tail=[], plan_windows={}),
+    )
+    report = check_achievable([task])
+    assert report.by_feature["ledger_tail"] == 1
+    assert report.by_feature["plan_windows"] == 1
+
+
 def test_coverage_counts_update_band_and_body_facts() -> None:
     cut = Task(
         "upd-cut",
@@ -638,4 +652,3 @@ def test_bench_readme_documents_check_achievable() -> None:
     assert "check_achievable" in text
     assert "unreachable" in text
     assert "load_split" in text
-
