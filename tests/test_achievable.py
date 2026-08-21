@@ -232,6 +232,32 @@ def test_safe_only_oracle_is_reachable_when_windows_are_impossible() -> None:
     assert check_achievable([task]).unreachable == ()
 
 
+def test_safe_only_replay_skips_safe_foods_scorer_cannot_score() -> None:
+    s0 = demo_state()
+    oats = dict(s0.catalog["oats"])
+    s0.catalog = {
+        "ghost": {"name": "Ghost", "allergen_tags": [], "nutrients": None},
+        "oats": oats,
+    }
+    s0.profile = replace(
+        s0.profile,
+        windows={"kcal": (1.0, 2.0), "protein_g": (1000.0, 2000.0)},
+    )
+    task = Task(
+        "cond-skip-ghost",
+        "constrain",
+        "Is peanut butter a good idea?",
+        s0,
+        Oracle(
+            profile=s0.profile,
+            last_plan=None,
+            ledger=tuple(s0.ledger),
+            plan_must_be_safe=True,
+        ),
+    )
+    assert check_achievable([task]).unreachable == ()
+
+
 def test_exact_profile_update_is_reachable() -> None:
     s0 = demo_state()
     oracle_profile = replace(

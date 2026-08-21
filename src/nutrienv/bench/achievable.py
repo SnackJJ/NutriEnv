@@ -7,6 +7,7 @@ to assert, print, or drop ids.
 
 from __future__ import annotations
 
+import math
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
@@ -155,22 +156,38 @@ def _log_row(env: NutriEnv, row: LedgerRow) -> bool:
 
 
 def _any_safe_plan(catalog, allergies) -> list[dict] | None:
-    """Any 1 g allergen-safe item. Scorer does not judge windows unless asked."""
+    """Any 1 g allergen-safe item Scorer can score. Windows are not judged."""
     try:
         banned = set(normalize_tags(list(allergies)))
     except ValueError:
         return None
     for food_id, entry in catalog.items():
-        if not isinstance(entry, dict):
-            continue
-        try:
-            tags = set(normalize_tags(entry.get("allergen_tags") or []))
-        except ValueError:
-            continue
-        if tags & banned:
+        if not _scorer_legal_food(entry, banned):
             continue
         return [{"food_id": food_id, "grams": 1.0}]
     return None
+
+
+def _scorer_legal_food(entry: object, banned: set[str]) -> bool:
+    if not isinstance(entry, dict):
+        return False
+    try:
+        tags = set(normalize_tags(entry.get("allergen_tags") or []))
+    except ValueError:
+        return False
+    if tags & banned:
+        return False
+    nutrients = entry.get("nutrients")
+    if not isinstance(nutrients, dict):
+        return False
+    for amount in nutrients.values():
+        if (
+            not isinstance(amount, (int, float))
+            or isinstance(amount, bool)
+            or not math.isfinite(amount)
+        ):
+            return False
+    return True
 
 
 def _replay_profile(env: NutriEnv, oracle: Oracle) -> bool:
