@@ -271,13 +271,17 @@ def _bind_log_foods(
         clause = _local_clause(query, food_id, catalog)
         if clause is None:
             return None, "unresolvable"
-        grams = spoken_grams_from_query(clause, food_id, catalog)
-        if grams is None:
-            grams = resolve_portion(food_id, clause, catalog)
+        spoken = _speech_amount_path(clause)
+        if spoken != amount_path:
+            return None, "unresolvable" if spoken is None else "amount_path"
+        if amount_path == AMOUNT_UNSPECIFIED:
+            grams = _qns_grams(food_id, clause, catalog)
+        else:
+            grams = spoken_grams_from_query(clause, food_id, catalog)
+            if grams is None:
+                grams = resolve_portion(food_id, clause, catalog)
         if grams is None:
             return None, "unresolvable"
-        if _speech_amount_path(clause) != amount_path:
-            return None, "amount_path"
         if float(grams) <= GRAM_TOLERANCE:
             return None, "small_grams"
         if float(grams) > MAX_ITEM_GRAMS:
@@ -317,6 +321,26 @@ def _spoken_names(food_id: str, catalog: Mapping) -> list[str]:
             names.append(name.split(",", 1)[0])
     names.extend(str(alias) for alias in (entry.get("aliases") or []))
     return names
+
+
+def _qns_grams(food_id: str, clause: str, catalog: Mapping) -> float | None:
+    """Unspecified bowl/plate/order binds FNDDS QNS only, never cup fallback."""
+    entry = catalog.get(food_id) or {}
+    portions = entry.get("portions") or {}
+    qns = portions.get("qns")
+    if isinstance(qns, bool) or not isinstance(qns, (int, float)) or qns <= 0:
+        return None
+    probe = {
+        food_id: {
+            "name": entry.get("name") or food_id,
+            "aliases": list(entry.get("aliases") or []),
+            "portions": {"qns": float(qns)},
+        }
+    }
+    grams = spoken_grams_from_query(clause, food_id, probe)
+    if grams is None:
+        grams = resolve_portion(food_id, clause, probe)
+    return grams
 
 
 def _speech_amount_path(text: str) -> str | None:

@@ -304,6 +304,24 @@ def test_generate_one_unspecified_two_bowls_bind_qns_not_cup() -> None:
     assert rows["white_rice"] == 118.0
 
 
+def test_generate_one_unspecified_bowl_on_cup_only_food_does_not_bind_cup() -> None:
+    catalog = {
+        "oats": _food("Oats, rolled", {"cup": 81.0}, ("oats", "oatmeal")),
+        "milk_whole": _food("Milk, whole", {"cup": 244.0}, ("milk",)),
+    }
+
+    def expand(_pool, *, persona, family, amount_path=None):
+        return {
+            "query": "Please log a bowl of oats for lunch.",
+            "foods": ["oats"],
+        }
+
+    result = _run(expand, catalog=catalog, amount_path="unspecified", pool_size=2)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason in {"unresolvable", "amount_path"}
+
+
 def test_generate_one_unspecified_bowl_of_rice_binds_qns_not_cup() -> None:
     def expand(_pool, *, persona, family, amount_path=None):
         return {
