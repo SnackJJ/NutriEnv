@@ -207,6 +207,32 @@ def test_generate_one_explicit_grams_path_may_contain_150_g() -> None:
     assert result.accepted.oracle.ledger_tail[0].grams == 150.0
 
 
+def test_generate_one_unspecified_rejects_named_cup() -> None:
+    def expand(_pool, *, persona, family):
+        return {
+            "query": "Please log a cup of rice for lunch.",
+            "foods": ["white_rice"],
+        }
+
+    result = _run(expand, amount_path="unspecified")
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason in {"amount_path", "unresolvable"}
+
+
+def test_generate_one_named_measure_rejects_explicit_grams() -> None:
+    def expand(_pool, *, persona, family):
+        return {
+            "query": "Please log 150 g of chicken for lunch.",
+            "foods": ["chicken_breast"],
+        }
+
+    result = _run(expand, amount_path="named_measure", pool_size=12)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason in {"amount_path", "unresolvable"}
+
+
 def test_generate_one_unspecified_bowl_of_rice_binds_qns_not_cup() -> None:
     def expand(_pool, *, persona, family):
         return {
@@ -311,11 +337,11 @@ def test_generate_one_passes_amount_path_when_expander_accepts_it() -> None:
     def expand(_pool, *, persona, family, amount_path):
         seen["amount_path"] = amount_path
         return {
-            "query": "Please log a cup of milk for lunch.",
-            "foods": ["milk_whole"],
+            "query": "Please log 150 g of chicken for lunch.",
+            "foods": ["chicken_breast"],
         }
 
-    result = _run(expand, amount_path="explicit_grams")
+    result = _run(expand, amount_path="explicit_grams", pool_size=12)
     assert result.accepted is not None
     assert seen["amount_path"] == "explicit_grams"
 

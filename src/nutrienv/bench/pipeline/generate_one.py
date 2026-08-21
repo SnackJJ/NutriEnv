@@ -6,11 +6,12 @@ import copy
 import inspect
 import json
 import random
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from nutrienv.bench.realize import Oracle, Task
-from nutrienv.world.portions import resolve_portion
+from nutrienv.world.portions import GRAM_UNITS, OUNCE_UNITS, UNIT_SYNONYMS, resolve_portion
 from nutrienv.world.types import LedgerRow, WorldState
 
 from .resolver import spoken_grams_from_query
@@ -33,9 +34,20 @@ __all__ = [
     "parse_query_foods_payload",
 ]
 
-AMOUNT_PATHS: tuple[str, ...] = ("explicit_grams", "named_measure", "unspecified")
+AMOUNT_EXPLICIT_GRAMS = "explicit_grams"
+AMOUNT_NAMED_MEASURE = "named_measure"
+AMOUNT_UNSPECIFIED = "unspecified"
+AMOUNT_PATHS: tuple[str, ...] = (
+    AMOUNT_EXPLICIT_GRAMS,
+    AMOUNT_NAMED_MEASURE,
+    AMOUNT_UNSPECIFIED,
+)
 
 _OCCASIONS: tuple[str, ...] = ("breakfast", "lunch", "dinner")
+_NAMED_PORTION_KEYS = frozenset(
+    {"cup", "tbsp", "tsp", "slice", "piece", "can", "fl_oz"}
+)
+_WORD = re.compile(r"[a-z0-9.]+")
 
 
 @dataclass(frozen=True)
@@ -93,7 +105,9 @@ def generate_one(
         )
     query = str(payload["query"])
     foods = list(payload["foods"])
-    bound, reason = _bind_log_foods(query, foods, pool, catalog, occasion)
+    bound, reason = _bind_log_foods(
+        query, foods, pool, catalog, occasion, amount_path=path
+    )
     if reason is not None:
         return GenerateOneResult(
             accepted=None, rejected=Rejected(query, reason, "log")
@@ -157,11 +171,11 @@ def build_log_system_prompt(*, amount_path: str, persona: str = "everyday") -> s
         "The query names each chosen food in natural speech.",
         "Do not leak window numbers or food_id slugs in the query.",
     ]
-    if amount_path == "explicit_grams":
+    if amount_path == AMOUNT_EXPLICIT_GRAMS:
         lines.append(
             'Amount path is explicit grams: you may write household grams such as "150 g".'
         )
-    elif amount_path == "named_measure":
+    elif amount_path == AMOUNT_NAMED_MEASURE:
         lines.append(
             "Amount path is named measures: cup, tbsp, tsp, slice, piece, can, fl_oz."
         )
@@ -182,6 +196,8 @@ def _bind_log_foods(
     pool: FoodPool,
     catalog: Mapping,
     occasion: str,
+    *,
+    amount_path: str,
 ) -> tuple[list[LedgerRow] | None, str | None]:
     pool_ids = {food.food_id for food in pool.foods}
     eaten_at = f"today-{occasion}"
@@ -194,12 +210,34 @@ def _bind_log_foods(
             grams = resolve_portion(food_id, query, catalog)
         if grams is None:
             return None, "unresolvable"
+        if _speech_amount_path(query) != amount_path:
+            return None, "amount_path"
         if float(grams) <= GRAM_TOLERANCE:
             return None, "small_grams"
         rows.append(LedgerRow(food_id, float(grams), eaten_at))
     if not rows:
         return None, "unresolvable"
     return rows, None
+
+
+def _speech_amount_path(text: str) -> str | None:
+    """Which amount path the spoken units belong to, or None if mixed/absent."""
+    classes: set[str] = set()
+    for token in _WORD.findall(text.lower()):
+        if token in GRAM_UNITS:
+            classes.add(AMOUNT_EXPLICIT_GRAMS)
+            continue
+        if token in OUNCE_UNITS:
+            classes.add(AMOUNT_NAMED_MEASURE)
+            continue
+        key = UNIT_SYNONYMS.get(token)
+        if key in _NAMED_PORTION_KEYS:
+            classes.add(AMOUNT_NAMED_MEASURE)
+        elif key == "serving":
+            classes.add(AMOUNT_UNSPECIFIED)
+    if len(classes) != 1:
+        return None
+    return next(iter(classes))
 
 
 def _call_expander(
