@@ -48,6 +48,7 @@ AMOUNT_PATHS: tuple[str, ...] = (
 )
 
 _OCCASIONS: tuple[str, ...] = ("breakfast", "lunch", "dinner")
+_SCENES: tuple[str, ...] = ("empty", "leftover")
 _NAMED_PORTION_KEYS = frozenset(
     {"cup", "tbsp", "tsp", "slice", "piece", "can", "fl_oz"}
 )
@@ -107,6 +108,8 @@ def generate_one(
     pool_size: int = DEFAULT_GENERATE_POOL_SIZE,
     knife: str | None = None,
     rewriter: Callable[..., object] | None = None,
+    scene: str = "empty",
+    prior_ledger: Sequence[LedgerRow] | None = None,
 ) -> GenerateOneResult:
     """One mill item: roster person → world windows → pool → expander → speech bind."""
     if family not in {"log", "evaluate"}:
@@ -119,6 +122,8 @@ def generate_one(
         raise ValueError(f"unknown knife {knife!r}")
     if family == "log" and knife is not None:
         raise ValueError("knives apply only to evaluate")
+    if scene not in _SCENES:
+        raise ValueError(f"unknown scene {scene!r}")
 
     rng = random.Random(seed)
     chosen = person if person is not None else sample_roster_person(seed)
@@ -157,7 +162,14 @@ def generate_one(
         return GenerateOneResult(
             accepted=None, rejected=Rejected(query, reason, family)
         )
-    s0 = WorldState(profile=profile, ledger=[], catalog=catalog)
+    ledger: list[LedgerRow] = []
+    if scene == "leftover":
+        if not prior_ledger:
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected(query, "no_ledger", family)
+            )
+        ledger = list(prior_ledger)
+    s0 = WorldState(profile=profile, ledger=ledger, catalog=catalog)
     if family == "evaluate":
         return _evaluate_from_bound(
             query,

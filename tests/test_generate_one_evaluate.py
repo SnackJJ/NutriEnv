@@ -8,6 +8,7 @@ from nutrienv.bench.realize import bind_evaluate_reasons
 from nutrienv.bench.scorer import Scorer
 from nutrienv.bench.validator import validate_draft
 from nutrienv.env import NutriEnv
+from nutrienv.world.types import LedgerRow
 
 
 def _food(name, portions, aliases=(), allergen_tags=(), nutrients=None):
@@ -302,4 +303,20 @@ def test_generate_one_evaluate_swap_gold_has_no_kcal_code() -> None:
     assert "kcal_hi" not in task.oracle.last_reasons
     assert "kcal_lo" not in task.oracle.last_reasons
     assert "fat_g_hi" in task.oracle.last_reasons or "fiber_g_lo" in task.oracle.last_reasons
+    assert validate_draft(task) == []
+
+
+def test_generate_one_evaluate_fit_with_leftover_ledger_still_accepts() -> None:
+    result = _run_eval(
+        scene="leftover",
+        prior_ledger=[LedgerRow("broccoli", 50.0, "today-lunch")],
+    )
+    assert result.rejected is None
+    assert result.accepted is not None
+    task = result.accepted
+    assert task.s0.ledger
+    assert task.oracle.last_verdict == "accept"
+    assert task.oracle.last_plan == _FIT_MEAL
+    assert "leftover_over" not in task.oracle.bound_labels
+    assert "leftover_under" not in task.oracle.bound_labels
     assert validate_draft(task) == []
