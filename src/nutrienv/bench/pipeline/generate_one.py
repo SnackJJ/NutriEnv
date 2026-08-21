@@ -125,7 +125,7 @@ def parse_query_foods_payload(payload: object) -> dict[str, object] | None:
             return None
     if not isinstance(payload, Mapping):
         return None
-    if "grams" in payload:
+    if set(payload) != {"query", "foods"}:
         return None
     query = payload.get("query")
     foods_raw = payload.get("foods")

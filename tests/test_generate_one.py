@@ -139,6 +139,20 @@ def test_generate_one_rejects_old_items_expression_schema() -> None:
     assert result.rejected.reason == "schema"
 
 
+def test_generate_one_rejects_extra_keys_beside_query_and_foods() -> None:
+    def expand(_pool, *, persona, family):
+        return {
+            "query": "Please log a cup of milk for lunch.",
+            "foods": ["milk_whole"],
+            "items": [{"food": "milk_whole", "expression": "a cup"}],
+        }
+
+    result = _run(expand)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason == "schema"
+
+
 def test_generate_one_foods_must_be_pool_ids_not_spoken_names() -> None:
     def expand(_pool, *, persona, family):
         return {
