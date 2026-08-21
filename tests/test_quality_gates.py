@@ -1,7 +1,13 @@
 """Ticket 14: split-agnostic exam quality gates pinned on synthetic splits."""
 
 from nutrienv.bench.realize import Oracle, Task
-from nutrienv.bench.quality_gates import CoverageReport, recommend_coverage, window_leaks
+from nutrienv.bench.quality_gates import (
+    CoverageReport,
+    classify_evaluate_tier,
+    evaluate_tier_coverage,
+    recommend_coverage,
+    window_leaks,
+)
 from nutrienv.world.catalog_fixture import demo_catalog
 from nutrienv.world.types import LedgerRow, Profile, WorldState
 
@@ -85,3 +91,47 @@ def test_recommend_coverage_defaults_to_every_catalog_tag():
     assert covered.missing_allergens == ()
     thin = recommend_coverage([_task("rec-thin")])
     assert thin.missing_allergens == tuple(sorted(CATALOG_TAGS))
+
+
+_FOOD = {"food_id": "chicken_breast", "grams": 130.0}
+_RICE = {"food_id": "white_rice", "grams": 158.0}
+_BROCCOLI = {"food_id": "broccoli", "grams": 91.0}
+
+
+def _eval_task(task_id="ev-1", query="Is this dinner okay?", meal=None):
+    plan = list(meal or [])
+    return _task(
+        task_id,
+        family="evaluate",
+        query=query,
+        oracle=Oracle(last_plan=plan, evaluated_plan=plan),
+    )
+
+
+def test_evaluate_tier_reads_meal_size_and_spoken_grams():
+    assert classify_evaluate_tier(_eval_task("ev-a", meal=[_FOOD])) == "single"
+    assert classify_evaluate_tier(_eval_task("ev-b", meal=[_FOOD, _RICE])) == "pair"
+    assert classify_evaluate_tier(_eval_task("ev-c", meal=[_FOOD, _RICE, _BROCCOLI])) == "triple"
+    grams = _eval_task("ev-d", query="I had 130 g chicken with rice.", meal=[_FOOD, _RICE])
+    assert classify_evaluate_tier(grams) == "explicit_grams"
+
+
+def test_evaluate_slice_must_cover_every_structural_tier():
+    tasks = [
+        _eval_task("ev-single", meal=[_FOOD]),
+        _eval_task("ev-pair", meal=[_FOOD, _RICE]),
+        _eval_task("ev-triple", meal=[_FOOD, _RICE, _BROCCOLI]),
+        _eval_task("ev-grams", query="Was 130 g of chicken okay?", meal=[_FOOD]),
+    ]
+    report = evaluate_tier_coverage(tasks)
+    assert report.missing == ()
+    assert report.counts == {"single": 1, "pair": 1, "triple": 1, "explicit_grams": 1}
+
+    holed = [task for task in tasks if task.id != "ev-pair"]
+    assert evaluate_tier_coverage(holed).missing == ("pair",)
+
+
+def test_evaluate_tier_floors_are_declared_by_the_caller():
+    tasks = [_eval_task(f"ev-{index}", meal=[_FOOD]) for index in range(5)]
+    assert evaluate_tier_coverage(tasks, floors={"single": 4}).missing == ()
+    assert evaluate_tier_coverage(tasks, floors={"single": 6, "pair": 0}).missing == ("single",)

@@ -10,6 +10,7 @@ split backs it.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -17,7 +18,19 @@ from nutrienv.world.catalog import iter_catalog_entries
 
 from .realize import Task
 
-__all__ = ["CoverageReport", "window_leaks", "recommend_coverage"]
+__all__ = [
+    "DEFAULT_EVALUATE_TIER_FLOORS",
+    "EVALUATE_TIERS",
+    "CoverageReport",
+    "TierCoverageReport",
+    "classify_evaluate_tier",
+    "evaluate_tier_coverage",
+    "recommend_coverage",
+    "window_leaks",
+]
+
+# Spoken raw gram phrase ("200 g chicken"), as in validator's parse rules.
+_SPOKEN_GRAMS = re.compile(r"(?<!\d)(\d+(?:\.\d+)?)\s*g(?:rams?)?\b")
 
 
 def _leaks_windows(task: Task) -> bool:
@@ -81,3 +94,49 @@ def recommend_coverage(
         missing_personas=tuple(sorted(set(personas) - seen)),
         missing_allergens=tuple(sorted(wanted - covered)),
     )
+
+
+# Structural difficulty tiers any frozen split exposes without its authoring
+# tables: the size of the named meal, and whether the query speaks raw grams.
+EVALUATE_TIERS = ("single", "pair", "triple", "explicit_grams")
+DEFAULT_EVALUATE_TIER_FLOORS = {tier: 1 for tier in EVALUATE_TIERS}
+
+
+def classify_evaluate_tier(task: Task) -> str:
+    """Structural tier of one evaluate item, readable off the frozen Task."""
+    if _SPOKEN_GRAMS.search(task.query):
+        return "explicit_grams"
+    named = task.oracle.evaluated_plan or task.oracle.last_plan or ()
+    if len(named) >= 3:
+        return "triple"
+    if len(named) == 2:
+        return "pair"
+    return "single"
+
+
+@dataclass(frozen=True)
+class TierCoverageReport:
+    counts: dict[str, int]
+    missing: tuple[str, ...]
+
+
+def evaluate_tier_coverage(
+    tasks: Sequence[Task],
+    *,
+    floors: dict[str, int] | None = None,
+) -> TierCoverageReport:
+    """Difficulty-tier coverage of the evaluate slice.
+
+    The slots are only worth having if they differ on a declared axis. The
+    structural axis is the named-meal size plus spoken-gram phrases; floors
+    default to at least one item per known tier.
+    """
+    declared = DEFAULT_EVALUATE_TIER_FLOORS if floors is None else floors
+    counts = {tier: 0 for tier in EVALUATE_TIERS}
+    for task in tasks:
+        if task.family == "evaluate":
+            counts[classify_evaluate_tier(task)] += 1
+    missing = tuple(sorted(
+        tier for tier, least in declared.items() if counts.get(tier, 0) < least
+    ))
+    return TierCoverageReport(counts=counts, missing=missing)
