@@ -867,9 +867,14 @@ def plan_fndds_only_rebuild(
         _survey_scan(survey_zip)
     )
     portion_map_diffs = 0
+    portion_json_diffs = 0
     for fdc_id in set(builder_portions) | set(independent_portions):
-        if builder_portions.get(fdc_id) != independent_portions.get(fdc_id):
+        left = builder_portions.get(fdc_id) or {}
+        right = independent_portions.get(fdc_id) or {}
+        if left != right:
             portion_map_diffs += 1
+        if dump_catalog_json(left) != dump_catalog_json(right):
+            portion_json_diffs += 1
 
     live_foods, live_aliases, live_counts = _read_catalog(live_catalog)
     sr_ids = {
@@ -984,6 +989,7 @@ def plan_fndds_only_rebuild(
             "builder_foods_with_portions": len(builder_portions),
             "independent_foods_with_portions": len(independent_portions),
             "portion_map_diffs": portion_map_diffs,
+            "portion_json_diffs": portion_json_diffs,
         },
         "staple_swaps": swaps,
         "nutrition_deltas": nutrition_deltas,
@@ -1064,8 +1070,10 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
         f"- 独立 `fndds_dry_run.collect_full_fndds`："
         f"**{raw_scan.get('independent_foods_with_portions', 0)}**",
         f"- 两图不一致的食物数：**{raw_scan.get('portion_map_diffs', 0)}**",
+        f"- 两图 JSON 字节不一致的食物数：**{raw_scan.get('portion_json_diffs', 0)}**"
+        "（落地 sqlite `portions` cell 的 canonical JSON，不只是 dict 取值）",
         "",
-        "零漂移指这两次 **survey.zip** 扫描一致，不是拿 catalog-v1.sqlite 自己比自己。",
+        "零漂移指这两次 **survey.zip** 扫描取值与 JSON 字节都一致，不是拿 catalog-v1.sqlite 自己比自己。",
         "",
         "## 哪些 staple 换条目",
         "",
@@ -1175,6 +1183,11 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
     dest.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def dump_catalog_json(value: object) -> str:
+    """Serialize a foods-table JSON cell. Key order is pinned, not scan order."""
+    return json.dumps(value, sort_keys=True)
+
+
 def _protected_catalogs() -> tuple[Path, ...]:
     return (_DB.resolve(), (_DB.parent / "catalog-v1.sqlite").resolve())
 
@@ -1246,10 +1259,10 @@ def build(
                     entry["name"],
                     entry["data_type"],
                     entry["category"],
-                    json.dumps(entry["nutrients"], sort_keys=True),
-                    json.dumps(entry["portions"], sort_keys=True),
-                    json.dumps(entry["allergen_tags"], sort_keys=True),
-                    json.dumps(entry["aliases"], sort_keys=True),
+                    dump_catalog_json(entry["nutrients"]),
+                    dump_catalog_json(entry["portions"]),
+                    dump_catalog_json(entry["allergen_tags"]),
+                    dump_catalog_json(entry["aliases"]),
                 )
             )
             fts_rows.append((fdc_id, entry["name"], f"{alias_text} {entry['name']}"))

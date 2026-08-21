@@ -176,3 +176,22 @@ def test_two_builds_from_the_same_zip_write_identical_foods_rows(
     assert first.read_bytes() == second.read_bytes()
     for path, digest in before.items():
         assert _sha256(path) == digest
+
+
+def test_plan_zero_drift_includes_byte_level_portion_json(
+    tmp_path: Path,
+) -> None:
+    before = _snapshot_catalog_shas()
+    plan = builder.plan_fndds_only_rebuild(
+        live_catalog=_LIVE, split_path=_SPLIT
+    )
+    raw = plan["raw_scan"]
+    assert raw["portion_map_diffs"] == 0
+    assert raw["portion_json_diffs"] == 0
+    dest = tmp_path / "catalog-v2-dryrun.md"
+    builder.write_catalog_v2_dryrun(plan, dest)
+    text = dest.read_text(encoding="utf-8")
+    assert "portion_json_diffs" in text or "JSON 字节" in text
+    assert str(raw["portion_json_diffs"]) in text
+    for path, digest in before.items():
+        assert _sha256(path) == digest
