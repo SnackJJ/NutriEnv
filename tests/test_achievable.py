@@ -412,8 +412,12 @@ def test_coverage_counts_families_and_keeps_zero_features_visible() -> None:
     report = check_achievable([_log_task()])
     assert report.by_family == {"log": 1}
     assert report.by_feature["ledger_tail"] == 1
+    assert report.by_feature["ledger"] == 1
     assert report.by_feature["update_band"] == 0
     assert report.by_feature["body_facts"] == 0
+    assert report.by_feature["plan_must_be_safe"] == 0
+    assert "evaluated_plan" not in report.by_feature
+    assert "bound_labels" not in report.by_feature
 
 
 def test_coverage_counts_update_band_and_body_facts() -> None:
@@ -434,6 +438,32 @@ def test_coverage_counts_update_band_and_body_facts() -> None:
     assert report.by_feature["body_facts"] == 1
     assert report.by_feature["ledger_tail"] == 1
     assert report.unreachable == ()
+
+
+def test_coverage_ignores_unscored_s0_body_facts() -> None:
+    s0 = _ada_state()
+    s0.profile = replace(
+        s0.profile,
+        windows={"kcal": (200.0, 500.0), "protein_g": (20.0, 50.0)},
+    )
+    task = Task(
+        "rec-s0-body",
+        "recommend",
+        "What's for dinner?",
+        s0,
+        Oracle(
+            last_plan=[],
+            plan_must_be_safe=True,
+            plan_must_fit_windows=True,
+        ),
+    )
+    report = check_achievable([task])
+    assert report.unreachable == ()
+    assert report.by_feature["body_facts"] == 0
+    assert report.by_feature["plan_must_be_safe"] == 1
+    assert report.by_feature["plan_must_fit_windows"] == 1
+    assert report.by_feature["last_plan"] == 1
+    assert report.by_feature["profile"] == 0
 
 
 def _cli():

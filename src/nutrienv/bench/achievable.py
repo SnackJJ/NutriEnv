@@ -21,17 +21,21 @@ from .validator import fitting_plan
 
 __all__ = ["AchievabilityReport", "SCORED_FEATURES", "check_achievable"]
 
+# Oracle fields Scorer actually judges, plus body_facts on a scored profile
+# (the 04 freeze hole). evaluated_plan and bound_labels are not scored.
 SCORED_FEATURES = (
     "ledger_tail",
-    "exact_plan",
-    "any_plan",
+    "ledger",
+    "last_plan",
+    "plan_must_be_safe",
+    "plan_must_fit_windows",
     "allow_empty_plan",
     "plan_windows",
     "last_verdict",
+    "last_reasons",
     "update_band",
+    "profile",
     "body_facts",
-    "evaluated_plan",
-    "bound_labels",
     "sub_oracles",
 )
 
@@ -194,29 +198,31 @@ def _features(task: Task) -> set[str]:
     names: set[str] = set()
     if task.oracle.sub_oracles:
         names.add("sub_oracles")
-    if _has_body_facts(task.s0.profile):
-        names.add("body_facts")
     for oracle in scored_oracles(task.oracle):
         if oracle.ledger_tail:
             names.add("ledger_tail")
-        if oracle.last_plan:
-            names.add("exact_plan")
-        elif oracle.last_plan == []:
-            names.add("any_plan")
+        if oracle.ledger is not None:
+            names.add("ledger")
+        if oracle.last_plan is not None:
+            names.add("last_plan")
+        if oracle.plan_must_be_safe:
+            names.add("plan_must_be_safe")
+        if oracle.plan_must_fit_windows:
+            names.add("plan_must_fit_windows")
         if oracle.allow_empty_plan:
             names.add("allow_empty_plan")
         if oracle.plan_windows:
             names.add("plan_windows")
         if oracle.last_verdict is not None:
             names.add("last_verdict")
+        if oracle.last_verdict == "reject" or oracle.last_reasons:
+            names.add("last_reasons")
         if oracle.update_band:
             names.add("update_band")
-        if oracle.evaluated_plan:
-            names.add("evaluated_plan")
-        if oracle.bound_labels:
-            names.add("bound_labels")
-        if oracle.profile is not None and _has_body_facts(oracle.profile):
-            names.add("body_facts")
+        if oracle.profile is not None:
+            names.add("profile")
+            if _has_body_facts(oracle.profile):
+                names.add("body_facts")
     return names
 
 
