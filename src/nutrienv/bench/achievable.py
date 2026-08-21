@@ -108,7 +108,11 @@ def _replay_oracle(env: NutriEnv, task: Task, oracle: Oracle) -> bool:
     ):
         allergies = env.state().profile.allergies
         if oracle.plan_must_fit_windows or oracle.plan_windows is not None:
-            windows = oracle.plan_windows or env.state().profile.windows
+            windows = (
+                oracle.plan_windows
+                if oracle.plan_windows is not None
+                else env.state().profile.windows
+            )
             plan = fitting_plan(task.s0.catalog, windows, allergies)
         else:
             plan = _any_safe_plan(task.s0.catalog, allergies)

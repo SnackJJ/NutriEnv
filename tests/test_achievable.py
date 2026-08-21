@@ -258,6 +258,27 @@ def test_safe_only_replay_skips_safe_foods_scorer_cannot_score() -> None:
     assert check_achievable([task]).unreachable == ()
 
 
+def test_empty_plan_windows_is_reachable_despite_impossible_profile_windows() -> None:
+    s0 = demo_state()
+    s0.profile = replace(
+        s0.profile,
+        windows={"kcal": (1.0, 2.0), "protein_g": (1000.0, 2000.0)},
+    )
+    task = Task(
+        "rec-empty-pw",
+        "recommend",
+        "What's for dinner?",
+        s0,
+        Oracle(
+            profile=s0.profile,
+            last_plan=[],
+            ledger=tuple(s0.ledger),
+            plan_windows={},
+        ),
+    )
+    assert check_achievable([task]).unreachable == ()
+
+
 def test_exact_profile_update_is_reachable() -> None:
     s0 = demo_state()
     oracle_profile = replace(
