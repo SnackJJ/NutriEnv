@@ -335,6 +335,28 @@ def test_update_then_recommend_is_constructible() -> None:
     assert validate_draft(task) == []
 
 
+def test_validator_checks_composite_recommend_remainder_on_the_child() -> None:
+    result = _run()
+    assert result.rejected is None
+    leftover = replace(result.accepted, persona="leftover")
+    issues = validate_draft(leftover)
+    assert any("remainder" in item for item in issues)
+
+
+def test_validator_checks_composite_recommend_is_passable_on_the_child() -> None:
+    result = _run()
+    assert result.rejected is None
+    task = result.accepted
+    log_oracle, rec_oracle = task.oracle.sub_oracles
+    impossible = replace(
+        rec_oracle,
+        plan_windows={"kcal": (10_000.0, 10_000.0), "protein_g": (500.0, 500.0)},
+    )
+    broken = replace(task, oracle=compose_oracles(log_oracle, impossible))
+    issues = validate_draft(broken)
+    assert any("unpassable" in item for item in issues)
+
+
 def test_validator_rejects_composite_update_that_shifts_unmentioned_window() -> None:
     result = _run(
         steps=("update", "recommend"),
