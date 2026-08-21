@@ -262,6 +262,8 @@ def _bind_log_foods(
 ) -> tuple[list[LedgerRow] | None, str | None]:
     pool_ids = {food.food_id for food in pool.foods}
     eaten_at = f"today-{occasion}"
+    if len(foods) != len(set(foods)):
+        return None, "duplicate"
     rows: list[LedgerRow] = []
     for food_id in foods:
         if food_id not in pool_ids or food_id not in catalog:
