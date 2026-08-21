@@ -54,6 +54,10 @@ _QUANTITY_AND = re.compile(
     r"(?i)\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
     r"\d+(?:\.\d+)?)\s+and\s+(?:a\s+)?(?:half|quarter|third|halves|quarters|thirds)\b"
 )
+_HYPHEN_QUANTITY_AND = re.compile(
+    r"(?i)\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+    r"\d+(?:\.\d+)?)-and-(?:a-)?(half|quarter|third|halves|quarters|thirds)\b"
+)
 _FOOD_SPLIT = re.compile(r",|\band\b|\bwith\b|\bplus\b|&", re.I)
 _PROTECT_SLOT = re.compile(r"\x00(\d+)\x00")
 _MENTION_STOP = frozenset(
@@ -293,7 +297,7 @@ def _bind_log_foods(
 ) -> tuple[list[LedgerRow] | None, str | None]:
     pool_ids = {food.food_id for food in pool.foods}
     eaten_at = f"today-{occasion}"
-    query = _THOUSANDS_COMMA.sub("", query)
+    query = _normalize_quantity_english(query)
     if len(foods) != len(set(foods)):
         return None, "duplicate"
     for food_id in foods:
@@ -330,6 +334,19 @@ def _bind_log_foods(
     if not rows:
         return None, "unresolvable"
     return rows, None
+
+
+def _normalize_quantity_english(query: str) -> str:
+    """Keep 1,500 and one-and-a-half as one quantity before clause splitting."""
+    query = _THOUSANDS_COMMA.sub("", query)
+
+    def _spaced(match: re.Match[str]) -> str:
+        number, frac = match.group(1), match.group(2)
+        if frac in {"half", "quarter", "third"}:
+            return f"{number} and a {frac}"
+        return f"{number} and {frac}"
+
+    return _HYPHEN_QUANTITY_AND.sub(_spaced, query)
 
 
 def _food_clauses(query: str) -> list[str]:

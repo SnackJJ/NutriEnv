@@ -389,6 +389,19 @@ def test_generate_one_keeps_one_and_a_half_as_one_quantity() -> None:
     assert result.accepted.oracle.ledger_tail[0].grams == 237.0
 
 
+def test_generate_one_keeps_hyphenated_one_and_a_half_as_one_quantity() -> None:
+    def expand(_pool, *, persona, family, amount_path=None):
+        return {
+            "query": "Please log one-and-a-half cups of rice for lunch.",
+            "foods": ["white_rice"],
+        }
+
+    result = _run(expand, amount_path="named_measure", pool_size=12)
+    assert result.rejected is None
+    assert result.accepted is not None
+    assert result.accepted.oracle.ledger_tail[0].grams == 237.0
+
+
 def test_generate_one_keeps_thousands_comma_in_spoken_grams() -> None:
     def expand(_pool, *, persona, family, amount_path=None):
         return {
