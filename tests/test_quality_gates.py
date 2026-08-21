@@ -250,3 +250,20 @@ def test_tier_gate_results_do_not_leak_through_the_default_floors():
     except TypeError:
         pass
     assert evaluate_tier_coverage(tasks) == before
+
+
+def test_plan_window_numbers_are_secrets_too():
+    tasks = [
+        _task("rec-clean"),
+        _task(
+            "rec-slot-leak",
+            query="What is for dinner? I have about 600 kcal to work with.",
+            oracle=Oracle(plan_windows={"kcal": (400.0, 600.0)}),
+        ),
+        _task(
+            "rec-plan-clean",
+            query="Any dinner ideas?",
+            oracle=Oracle(plan_windows={"kcal": (400.0, 600.0)}),
+        ),
+    ]
+    assert window_leaks(tasks) == ("rec-slot-leak",)

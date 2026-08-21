@@ -56,16 +56,22 @@ _SPOKEN_GRAMS = re.compile(r"(?<!\d)(\d+(?:\.\d+)?)\s*g(?:rams?)?\b")
 
 def _leaks_windows(task: Task) -> bool:
     """A recommend query that names its own numbers is answerable without
-    reading the profile, which is the whole point of the family."""
-    for bounds in task.s0.profile.windows.values():
-        for value in bounds:
-            if (
-                value
-                and float(value).is_integer()
-                and abs(value) >= 10
-                and str(int(value)) in task.query
-            ):
-                return True
+    reading the profile, which is the whole point of the family. New exams
+    judge meal-slot/remainder windows via ``oracle.plan_windows``, so those
+    numbers are secrets too."""
+    window_sets = [task.s0.profile.windows]
+    if task.oracle.plan_windows is not None:
+        window_sets.append(task.oracle.plan_windows)
+    for windows in window_sets:
+        for bounds in windows.values():
+            for value in bounds:
+                if (
+                    value
+                    and float(value).is_integer()
+                    and abs(value) >= 10
+                    and str(int(value)) in task.query
+                ):
+                    return True
     return False
 
 
