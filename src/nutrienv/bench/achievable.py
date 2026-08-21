@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from nutrienv.env import NutriEnv
 from nutrienv.world.daily_windows import estimated_energy_requirement
-from nutrienv.world.types import Profile
+from nutrienv.world.types import LedgerRow, Profile
 
 from .realize import Oracle, Task, scored_oracles
 from .scorer import Scorer
@@ -72,20 +72,8 @@ def _reachable(task: Task, scorer: Scorer) -> bool:
 
 
 def _replay_oracle(env: NutriEnv, task: Task, oracle: Oracle) -> bool:
-    if oracle.ledger_tail:
-        for row in oracle.ledger_tail:
-            if row in env.state().ledger:
-                continue
-            stepped = env.step(
-                {
-                    "op": "log_meal",
-                    "food_id": row.food_id,
-                    "grams": row.grams,
-                    "eaten_at": row.eaten_at,
-                }
-            )
-            if not stepped.get("ok"):
-                return False
+    if not _replay_ledger(env, oracle):
+        return False
     if not _replay_profile(env, oracle):
         return False
     if oracle.last_verdict == "reject":
@@ -122,6 +110,39 @@ def _replay_oracle(env: NutriEnv, task: Task, oracle: Oracle) -> bool:
 
 
 _BODY_KEYS = frozenset({"sex", "age_y", "height_cm", "weight_kg", "activity", "phase"})
+
+
+def _replay_ledger(env: NutriEnv, oracle: Oracle) -> bool:
+    """Append the Oracle's new rows. Membership is not identity; duplicates count."""
+    if oracle.ledger is not None:
+        current = list(env.state().ledger)
+        expected = list(oracle.ledger)
+        if current == expected:
+            return True
+        if expected[: len(current)] != current:
+            return False
+        to_log = expected[len(current) :]
+    elif oracle.ledger_tail:
+        to_log = list(oracle.ledger_tail)
+    else:
+        return True
+    for row in to_log:
+        if not _log_row(env, row):
+            return False
+    return True
+
+
+def _log_row(env: NutriEnv, row: LedgerRow) -> bool:
+    stepped = env.step(
+        {
+            "op": "log_meal",
+            "food_id": row.food_id,
+            "grams": row.grams,
+            "eaten_at": row.eaten_at,
+        }
+    )
+    return bool(stepped.get("ok"))
+
 
 
 def _replay_profile(env: NutriEnv, oracle: Oracle) -> bool:

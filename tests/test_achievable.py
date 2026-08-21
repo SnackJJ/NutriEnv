@@ -48,6 +48,25 @@ def test_unminted_log_food_is_listed_not_raised() -> None:
     assert report.unreachable == ("log-bad",)
 
 
+def test_duplicate_appended_ledger_row_is_reachable() -> None:
+    """Ledger is append-only. An identical S0 row is still a legal new row."""
+    s0 = demo_state()
+    row = LedgerRow("oats", 60.0, "today-breakfast")
+    s0.ledger = [row]
+    task = Task(
+        "log-dup",
+        "log",
+        "I had the same oats again.",
+        s0,
+        Oracle(
+            profile=s0.profile,
+            ledger_tail=[row],
+            ledger=(row, row),
+        ),
+    )
+    assert check_achievable([task]).unreachable == ()
+
+
 def test_exact_last_plan_evaluate_is_reachable() -> None:
     s0 = demo_state()
     plan = [{"food_id": "chicken_breast", "grams": 150.0}]
