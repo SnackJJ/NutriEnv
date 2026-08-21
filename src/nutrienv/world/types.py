@@ -19,7 +19,6 @@ Bench must mirror these rules when it builds an Oracle, because Pass is
 
 from __future__ import annotations
 
-import copy
 import math
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
@@ -233,12 +232,21 @@ def ledger_totals(rows: list[LedgerRow], catalog: dict) -> dict[str, float]:
     return totals
 
 
+def _mutable_copy(value: object) -> object:
+    """Deep copy a catalog entry into plain dicts and lists."""
+    if isinstance(value, Mapping):
+        return {key: _mutable_copy(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_mutable_copy(item) for item in value]
+    return value
+
+
 def food_view(catalog: dict, food_id: str) -> dict:
     """Observation-shaped copy of one catalog entry, id included.
 
     ``portions`` is always present, empty for a food that declares none, so the
     observation has one shape whatever the Generator's catalog carries.
     """
-    entry = copy.deepcopy(catalog[food_id])
+    entry = _mutable_copy(catalog[food_id])
     entry.setdefault("portions", {})
     return {"food_id": food_id, **entry}

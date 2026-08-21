@@ -8,6 +8,7 @@ from nutrienv.world.catalog import (
 )
 from nutrienv.world.catalog_fixture import demo_catalog
 from nutrienv.world.catalog_store import GOLD_CATALOG_PATH, load_catalog
+from nutrienv.world.types import food_view
 
 
 def test_fixture_catalog_search_is_token_and_not_a_dump():
@@ -74,6 +75,24 @@ def test_catalog_entry_rejects_nested_list_mutation() -> None:
         entry["aliases"].append("scampi")
     assert list(catalog["shrimp"]["allergen_tags"]) == ["shellfish"]
     assert list(catalog["shrimp"]["aliases"]) == ["prawn", "prawns"]
+
+
+def test_food_view_returns_a_mutable_observation_copy() -> None:
+    catalog = FoodCatalog.from_mapping(
+        {"mystery": {"name": "Mystery", "nutrients": {}, "allergen_tags": [], "aliases": []}}
+    )
+    view = food_view(catalog, "mystery")
+    assert view["food_id"] == "mystery"
+    assert view["name"] == "Mystery"
+    assert view["portions"] == {}
+    view["name"] = "hack"
+    view["portions"]["cup"] = 10.0
+    view["allergen_tags"].append("milk")
+    view.setdefault("extra", 1)
+    assert catalog["mystery"]["name"] == "Mystery"
+    assert "portions" not in catalog["mystery"]
+    assert list(catalog["mystery"]["allergen_tags"]) == []
+    assert "extra" not in catalog["mystery"]
 
 
 def test_iter_entries_and_getitem_share_the_same_entry() -> None:
