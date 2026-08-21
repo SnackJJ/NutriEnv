@@ -133,12 +133,20 @@ def test_evaluate_slice_must_cover_every_structural_tier():
         _eval_task("ev-triple", meal=[_FOOD, _RICE, _BROCCOLI]),
         _eval_task("ev-grams", query="Was 130 g of chicken okay?", meal=[_FOOD]),
     ]
-    report = evaluate_tier_coverage(tasks)
+    floors = {"single": 1, "pair": 1, "triple": 1, "long": 0, "explicit_grams": 1}
+    report = evaluate_tier_coverage(tasks, floors=floors)
     assert report.missing == ()
-    assert report.counts == {"single": 1, "pair": 1, "triple": 1, "explicit_grams": 1}
+    assert report.counts == {
+        "single": 1,
+        "pair": 1,
+        "triple": 1,
+        "long": 0,
+        "explicit_grams": 1,
+        "synonym": 0,
+    }
 
     holed = [task for task in tasks if task.id != "ev-pair"]
-    assert evaluate_tier_coverage(holed).missing == ("pair",)
+    assert evaluate_tier_coverage(holed, floors=floors).missing == ("pair",)
 
 
 def test_evaluate_tier_floors_are_declared_by_the_caller():
@@ -267,3 +275,121 @@ def test_plan_window_numbers_are_secrets_too():
         ),
     ]
     assert window_leaks(tasks) == ("rec-slot-leak",)
+
+
+def _meal(food_ids):
+    return [
+        {"food_id": food_id, "grams": 90.0 + 30 * index}
+        for index, food_id in enumerate(food_ids)
+    ]
+
+
+def _eval_of_size(task_id, food_ids):
+    menu = ", ".join(food_id.replace("_", " ") for food_id in food_ids)
+    return _eval_task(task_id, query=f"Evaluate this as dinner: {menu}.", meal=_meal(food_ids))
+
+
+def test_evaluate_tier_defaults_are_the_migrated_floors():
+    assert dict(DEFAULT_EVALUATE_TIER_FLOORS) == {
+        "single": 7,
+        "pair": 11,
+        "triple": 11,
+        "long": 5,
+        "explicit_grams": 4,
+        "synonym": 3,
+    }
+
+
+def test_long_and_synonym_tiers_are_classified():
+    four = _eval_of_size("ev-long", ["chicken_breast", "white_rice", "broccoli", "olive_oil"])
+    five = _eval_of_size(
+        "ev-longer",
+        ["chicken_breast", "white_rice", "broccoli", "olive_oil", "spinach"],
+    )
+    assert classify_evaluate_tier(four) == "long"
+    assert classify_evaluate_tier(five) == "long"
+
+    prawns = _eval_task(
+        "ev-syn",
+        query="Does this work as dinner: prawns?",
+        meal=[{"food_id": "shrimp", "grams": 150.0}],
+    )
+    assert classify_evaluate_tier(prawns) == "synonym"
+    spoken = _eval_task(
+        "ev-syn-grams",
+        query="I had 150 g of prawns.",
+        meal=[{"food_id": "shrimp", "grams": 150.0}],
+    )
+    assert classify_evaluate_tier(spoken) == "synonym"
+
+    canonical_alias = _eval_task(
+        "ev-pair-alias",
+        query="Would a chicken and rice dinner work?",
+        meal=_meal(["chicken_breast", "white_rice"]),
+    )
+    assert classify_evaluate_tier(canonical_alias) == "pair"
+
+
+def _six_tier_split():
+    tasks = []
+    for index, food in enumerate(
+        ["oats", "banana", "egg", "cheddar", "tuna", "potato", "tofu"]
+    ):
+        tasks.append(_eval_of_size(f"ev-single-{index}", [food]))
+    pool = [
+        "chicken_breast", "white_rice", "broccoli", "olive_oil", "spinach",
+        "salmon", "milk_whole", "apple", "greek_yogurt", "whole_wheat_bread",
+        "almond",
+    ]
+    cursor = 0
+
+    def _take(count):
+        nonlocal cursor
+        foods = [pool[(cursor + offset) % len(pool)] for offset in range(count)]
+        cursor += count
+        return foods
+
+    for index in range(11):
+        tasks.append(_eval_of_size(f"ev-pair-{index}", _take(2)))
+    for index in range(11):
+        tasks.append(_eval_of_size(f"ev-triple-{index}", _take(3)))
+    for index in range(5):
+        tasks.append(_eval_of_size(f"ev-long-{index}", _take(4)))
+    gram_rows = (
+        ("ev-g-0", ["salmon"], "Evaluate this as my plan: 120 g of salmon."),
+        ("ev-g-1", ["chicken_breast"], "Submit this as dinner: 180 g chicken breast?"),
+        ("ev-g-2", ["salmon", "white_rice"], "Was 100 g salmon with rice okay?"),
+        ("ev-g-3", ["tofu"], "160 g of tofu as a light lunch?"),
+    )
+    for task_id, food_ids, query in gram_rows:
+        tasks.append(_eval_task(task_id, query=query, meal=_meal(food_ids)))
+    for index in range(3):
+        tasks.append(_eval_task(
+            f"ev-syn-{index}",
+            query="Does this work as dinner: prawns?",
+            meal=[{"food_id": "shrimp", "grams": 150.0}],
+        ))
+    return tasks
+
+
+def test_a_split_missing_a_tier_or_below_floor_fails_the_gate():
+    full = _six_tier_split()
+    report = evaluate_tier_coverage(full)
+    assert report.missing == ()
+    assert report.counts == {
+        "single": 7,
+        "pair": 11,
+        "triple": 11,
+        "long": 5,
+        "explicit_grams": 4,
+        "synonym": 3,
+    }
+
+    short_pair = [task for task in full if task.id != "ev-pair-0"]
+    assert evaluate_tier_coverage(short_pair).missing == ("pair",)
+
+    no_synonym = [task for task in full if not task.id.startswith("ev-syn-")]
+    assert evaluate_tier_coverage(no_synonym).missing == ("synonym",)
+
+    no_long = [task for task in full if not task.id.startswith("ev-long-")]
+    assert evaluate_tier_coverage(no_long).missing == ("long",)
