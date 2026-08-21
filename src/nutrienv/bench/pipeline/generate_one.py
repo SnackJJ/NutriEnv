@@ -162,7 +162,7 @@ def build_log_system_prompt(*, amount_path: str, persona: str = "everyday") -> s
             "Amount path is unspecified quantity: bind will use FNDDS QNS "
             "(bowl / plate / order), never cup."
         )
-        lines.append('Do not write "a serving of".')
+        lines.append("Do not use serving-of wording.")
     lines.append(f"Persona flavor: {persona}.")
     return "\n".join(lines)
 

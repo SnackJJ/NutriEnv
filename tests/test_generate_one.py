@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from nutrienv.bench.pipeline.generate_one import generate_one
+from nutrienv.bench.pipeline.generate_one import (
+    build_log_system_prompt,
+    generate_one,
+)
 from nutrienv.bench.pipeline.roster import ROSTER
 from nutrienv.bench.realize import GOLD_WINDOWS
 from nutrienv.world.daily_windows import derive_profile_windows
@@ -33,6 +36,11 @@ def _catalog() -> dict:
         "orange": _food("Orange, raw", {"piece": 131.0}, ("orange",)),
         "oats": _food("Oats, rolled", {"cup": 81.0}, ("oats", "oatmeal")),
         "broccoli": _food("Broccoli, cooked", {"cup": 156.0}, ("broccoli",)),
+        "chicken_breast": _food(
+            "Chicken, NS as to part, cooked",
+            {"cup": 140.0, "qns": 105.0},
+            ("chicken",),
+        ),
     }
 
 
@@ -166,3 +174,56 @@ def test_generate_one_rejects_unresolvable_speech() -> None:
     assert result.accepted is None
     assert result.rejected is not None
     assert result.rejected.reason == "unresolvable"
+
+
+def test_generate_one_explicit_grams_path_may_contain_150_g() -> None:
+    def expand(_pool, *, persona, family):
+        return {
+            "query": "Please log 150 g of chicken for lunch.",
+            "foods": ["chicken_breast"],
+        }
+
+    result = _run(expand, amount_path="explicit_grams", pool_size=12)
+    assert result.rejected is None
+    assert result.accepted is not None
+    assert "150 g" in result.accepted.query
+    assert result.accepted.oracle.ledger_tail[0].food_id == "chicken_breast"
+    assert result.accepted.oracle.ledger_tail[0].grams == 150.0
+
+
+def test_generate_one_unspecified_bowl_of_rice_binds_qns_not_cup() -> None:
+    def expand(_pool, *, persona, family):
+        return {
+            "query": "Please log a bowl of rice for lunch.",
+            "foods": ["white_rice"],
+        }
+
+    result = _run(expand, amount_path="unspecified")
+    assert result.rejected is None
+    assert result.accepted is not None
+    assert result.accepted.oracle.ledger_tail[0].grams == 118.0
+
+
+def test_unspecified_amount_path_does_not_teach_a_serving_of() -> None:
+    prompt = build_log_system_prompt(amount_path="unspecified")
+    assert "a serving of" not in prompt.lower()
+    explicit = build_log_system_prompt(amount_path="explicit_grams")
+    assert "150 g" in explicit
+
+
+def test_generate_one_does_not_hide_solid_cup() -> None:
+    catalog = {
+        "oats": _food("Oats, rolled", {"cup": 81.0}, ("oats", "oatmeal")),
+        "milk_whole": _food("Milk, whole", {"cup": 244.0}, ("milk",)),
+    }
+
+    def expand(_pool, *, persona, family):
+        return {
+            "query": "Please log a cup of oats for lunch.",
+            "foods": ["oats"],
+        }
+
+    result = _run(expand, catalog=catalog, pool_size=2)
+    assert result.rejected is None
+    assert result.accepted is not None
+    assert result.accepted.oracle.ledger_tail[0].grams == 81.0
