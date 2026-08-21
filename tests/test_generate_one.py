@@ -276,6 +276,21 @@ def test_generate_one_binds_each_food_from_its_local_phrase() -> None:
     assert rows["white_rice"] == 316.0
 
 
+def test_generate_one_splits_speech_clauses_on_with() -> None:
+    def expand(_pool, *, persona, family, amount_path=None):
+        return {
+            "query": "Please log a cup of chicken with two cups of rice for lunch.",
+            "foods": ["chicken_breast", "white_rice"],
+        }
+
+    result = _run(expand, amount_path="named_measure", pool_size=12)
+    assert result.rejected is None
+    assert result.accepted is not None
+    rows = {row.food_id: row.grams for row in result.accepted.oracle.ledger_tail}
+    assert rows["chicken_breast"] == 140.0
+    assert rows["white_rice"] == 316.0
+
+
 def test_generate_one_mixed_cup_and_bowl_does_not_freeze_rice_as_cup() -> None:
     def expand(_pool, *, persona, family, amount_path=None):
         return {

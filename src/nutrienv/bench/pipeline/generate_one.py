@@ -49,6 +49,7 @@ _NAMED_PORTION_KEYS = frozenset(
     {"cup", "tbsp", "tsp", "slice", "piece", "can", "fl_oz"}
 )
 _WORD = re.compile(r"[a-z0-9.]+")
+_CLAUSE_SPLIT = re.compile(r",|\band\b|\bwith\b", re.I)
 
 
 @dataclass(frozen=True)
@@ -293,7 +294,7 @@ def _bind_log_foods(
 
 
 def _local_clause(query: str, food_id: str, catalog: Mapping) -> str | None:
-    """Speech span for one food: stop at and/comma so a neighbor's unit cannot leak."""
+    """Speech span for one food: stop at and/comma/with so a neighbor's unit cannot leak."""
     lowered = query.lower()
     best: tuple[int, str] | None = None
     for name in _spoken_names(food_id, catalog):
@@ -303,8 +304,8 @@ def _local_clause(query: str, food_id: str, catalog: Mapping) -> str | None:
         for match in re.finditer(rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered):
             prefix = query[: match.start()]
             suffix = query[match.end() :]
-            head = re.split(r",|\band\b", prefix, flags=re.I)[-1]
-            tail = re.split(r",|\band\b", suffix, flags=re.I)[0]
+            head = _CLAUSE_SPLIT.split(prefix)[-1]
+            tail = _CLAUSE_SPLIT.split(suffix)[0]
             clause = f"{head}{match.group(0)}{tail}".strip()
             if clause and (best is None or len(needle) > best[0]):
                 best = (len(needle), clause)
