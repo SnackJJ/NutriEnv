@@ -320,3 +320,31 @@ def test_composite_log_then_recommend_is_reachable() -> None:
         compose_oracles(log_oracle, rec_oracle),
     )
     assert check_achievable([task]).unreachable == ()
+
+
+def test_coverage_counts_families_and_keeps_zero_features_visible() -> None:
+    report = check_achievable([_log_task()])
+    assert report.by_family == {"log": 1}
+    assert report.by_feature["ledger_tail"] == 1
+    assert report.by_feature["update_band"] == 0
+    assert report.by_feature["body_facts"] == 0
+
+
+def test_coverage_counts_update_band_and_body_facts() -> None:
+    cut = Task(
+        "upd-cut",
+        "update",
+        "I'm cutting now.",
+        _ada_state(),
+        Oracle(
+            profile=_ada_state().profile,
+            ledger=(),
+            update_band="cut",
+        ),
+    )
+    report = check_achievable([cut, _log_task()])
+    assert report.by_family == {"update": 1, "log": 1}
+    assert report.by_feature["update_band"] == 1
+    assert report.by_feature["body_facts"] == 1
+    assert report.by_feature["ledger_tail"] == 1
+    assert report.unreachable == ()
