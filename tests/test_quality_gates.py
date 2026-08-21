@@ -4,11 +4,15 @@ from nutrienv.bench.realize import Oracle, Task
 from nutrienv.bench.quality_gates import (
     CoverageReport,
     LeftoverFloorReport,
+    SituationFloorReport,
     classify_evaluate_tier,
+    constrained_recommends,
     evaluate_tier_coverage,
+    evaluate_unfits,
     leftover_floor,
     leftover_recommends,
     recommend_coverage,
+    situation_floors,
     window_leaks,
 )
 from nutrienv.world.catalog_fixture import demo_catalog
@@ -166,3 +170,62 @@ def test_leftover_floor_defaults_to_the_adr_number():
     ]
     assert leftover_floor(tasks) == LeftoverFloorReport(count=24, minimum=24)
     assert leftover_floor(tasks[:-1]) == LeftoverFloorReport(count=23, minimum=24)
+
+
+def _unfit_eval_task(task_id="ev-unfit"):
+    return _task(
+        task_id,
+        family="evaluate",
+        oracle=Oracle(
+            last_plan=[],
+            evaluated_plan=[_FOOD],
+            last_verdict="reject",
+            last_reasons=("kcal_hi",),
+        ),
+    )
+
+
+def test_evaluate_unfit_reads_the_reject_verdict():
+    tasks = [
+        _unfit_eval_task("ev-unfit"),
+        _task(
+            "ev-fit",
+            family="evaluate",
+            oracle=Oracle(last_plan=[_FOOD], evaluated_plan=[_FOOD], last_verdict="accept"),
+        ),
+    ]
+    assert evaluate_unfits(tasks) == ("ev-unfit",)
+
+
+def test_constrained_recommends_are_hard_s0_items():
+    tasks = [
+        _task("rec-plain"),
+        _task("rec-conflict", windows={"kcal": (0.0, 10.0), "protein_g": (90.0, 140.0)}),
+        _task("rec-trap", query="Shrimp tonight?", allergies=("shellfish",)),
+        _task("rec-trap-alias", query="Any prawn ideas?", allergies=("shellfish",)),
+        _task("rec-declared", query="Dinner?", situations=("condition_suitability",)),
+        _task("rec-safe-named", query="Rice and chicken tonight?", allergies=("soy",)),
+        _task("ev-x", family="evaluate", query="Is shrimp okay?", allergies=("shellfish",)),
+    ]
+    assert constrained_recommends(tasks) == (
+        "rec-conflict",
+        "rec-trap",
+        "rec-trap-alias",
+        "rec-declared",
+    )
+
+
+def test_situation_floors_default_to_the_adr_numbers():
+    tasks = [_unfit_eval_task(f"ev-unfit-{i}") for i in range(8)] + [
+        _task(f"rec-trap-{i}", query="Shrimp tonight?", allergies=("shellfish",))
+        for i in range(8)
+    ]
+    assert situation_floors(tasks) == SituationFloorReport(
+        unfit_count=8,
+        unfit_minimum=8,
+        constrained_count=8,
+        constrained_minimum=8,
+    )
+
+    short = [task for task in tasks if task.id != "ev-unfit-7"]
+    assert situation_floors(short).unfit_count == 7
