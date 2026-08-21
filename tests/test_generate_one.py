@@ -71,3 +71,98 @@ def test_generate_one_roster_s0_uses_world_derived_windows() -> None:
     assert profile.activity == person.activity
     assert profile.phase == person.phase
     assert profile.user_id == person.user_id
+
+
+def _run(expander, **overrides):
+    kwargs = dict(
+        catalog=_catalog(),
+        family="log",
+        seed=0,
+        person=ROSTER[0],
+        amount_path="named_measure",
+        expander=expander,
+        pool_size=8,
+    )
+    kwargs.update(overrides)
+    return generate_one(**kwargs)
+
+
+def test_generate_one_binds_grams_from_speech_not_expander_json() -> None:
+    def expand(_pool, *, persona, family):
+        return {
+            "query": "Please log a cup of milk for lunch.",
+            "foods": ["milk_whole"],
+        }
+
+    result = _run(expand)
+    assert result.rejected is None
+    assert result.accepted is not None
+    row = result.accepted.oracle.ledger_tail[0]
+    assert row.food_id == "milk_whole"
+    assert row.grams == 244.0
+
+
+def test_generate_one_rejects_grams_field_in_expander_json() -> None:
+    def expand(_pool, *, persona, family):
+        return {
+            "query": "Please log a cup of milk for lunch.",
+            "foods": ["milk_whole"],
+            "grams": 999.0,
+        }
+
+    result = _run(expand)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason == "schema"
+
+
+def test_generate_one_rejects_old_items_expression_schema() -> None:
+    def expand(_pool, *, persona, family):
+        return {
+            "items": [{"food": "milk_whole", "expression": "a cup"}],
+            "query": "Please log a cup of milk for lunch.",
+        }
+
+    result = _run(expand)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason == "schema"
+
+
+def test_generate_one_foods_must_be_pool_ids_not_spoken_names() -> None:
+    def expand(_pool, *, persona, family):
+        return {
+            "query": "Please log a cup of milk for lunch.",
+            "foods": ["milk"],
+        }
+
+    result = _run(expand)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason == "not_in_pool"
+
+
+def test_generate_one_rejects_food_id_absent_from_pool() -> None:
+    def expand(_pool, *, persona, family):
+        return {
+            "query": "Please log a cup of milk for lunch.",
+            "foods": ["tofu"],
+        }
+
+    result = _run(expand)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason == "not_in_pool"
+
+
+def test_generate_one_rejects_unresolvable_speech() -> None:
+    def expand(_pool, *, persona, family):
+        return {
+            "query": "Please log a slice of milk for lunch.",
+            "foods": ["milk_whole"],
+        }
+
+    result = _run(expand)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason == "unresolvable"
