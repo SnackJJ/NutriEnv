@@ -86,6 +86,11 @@ _HYPHEN_QUANTITY_AND = re.compile(
     r"\d+(?:\.\d+)?)-and-(?:a-)?(half|quarter|third|halves|quarters|thirds)\b"
 )
 _FOOD_SPLIT = re.compile(r",|\band\b|\bwith\b|\bplus\b|&", re.I)
+_LOG_SAY = re.compile(r"\b(?:log|ate|eaten|had)\b", re.I)
+_REC_ASK = re.compile(
+    r"what(?:'s| is) for|what should i (?:eat|have)|should i have|recommend",
+    re.I,
+)
 _PROTECT_SLOT = re.compile(r"\x00(\d+)\x00")
 _MENTION_STOP = frozenset(
     {
@@ -216,8 +221,20 @@ def generate_one(
         )
     query = str(payload["query"])
     foods = list(payload["foods"])
+    bind_query = query
+    if family == "composite":
+        log_span, rec_span, speech_reason = _composite_speech_spans(query)
+        if speech_reason is not None:
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected(query, speech_reason, family)
+            )
+        if _mentioned_pool_ids(rec_span, pool, catalog):
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected(query, "rec_foods", family)
+            )
+        bind_query = log_span
     bound, reason = _bind_log_foods(
-        query, foods, pool, catalog, occasion, amount_path=path
+        bind_query, foods, pool, catalog, occasion, amount_path=path
     )
     if reason is not None:
         return GenerateOneResult(
@@ -314,6 +331,16 @@ def _log_then_recommend(
         persona,
     )
     return GenerateOneResult(accepted=task, rejected=None)
+
+
+def _composite_speech_spans(query: str) -> tuple[str, str, str | None]:
+    """Split a composite query into the log span and the recommend ask."""
+    if not _LOG_SAY.search(query):
+        return "", "", "steps"
+    rec = _REC_ASK.search(query)
+    if rec is None:
+        return "", "", "steps"
+    return query[: rec.start()], query[rec.start() :], None
 
 
 def _recommend_from_template(
@@ -898,18 +925,31 @@ def parse_query_foods_payload(payload: object) -> dict[str, object] | None:
     return {"query": query.strip(), "foods": foods}
 
 
-def build_log_system_prompt(*, amount_path: str, persona: str = "everyday") -> str:
+def build_log_system_prompt(
+    *, amount_path: str, persona: str = "everyday", family: str = "log"
+) -> str:
     """Amount-path instructions for the Log expander. Unspecified does not teach serving-of."""
     if amount_path not in AMOUNT_PATHS:
         raise ValueError(f"unknown amount_path {amount_path!r}")
-    lines = [
-        "Compose one plausible meal from the food pool and write one user query.",
-        "Return exactly one JSON object and nothing else:",
-        '{"query":"<one sentence>","foods":["<pool food_id>", ...]}',
-        "foods are pool ids. Do not put grams in the JSON.",
-        "The query names each chosen food in natural speech.",
-        "Do not leak window numbers or food_id slugs in the query.",
-    ]
+    if family == "composite":
+        lines = [
+            "Compose one plausible meal the user already ate, then ask what to eat next.",
+            "Return exactly one JSON object and nothing else:",
+            '{"query":"<log the meal, then ask for the next meal>","foods":["<pool food_id>", ...]}',
+            "foods are pool ids for the logged meal only. Do not put grams in the JSON.",
+            "The query names each logged food in natural speech, then asks what to eat next.",
+            "Do not name foods for the next meal. The recommend step is a free request.",
+            "Do not leak window numbers or food_id slugs in the query.",
+        ]
+    else:
+        lines = [
+            "Compose one plausible meal from the food pool and write one user query.",
+            "Return exactly one JSON object and nothing else:",
+            '{"query":"<one sentence>","foods":["<pool food_id>", ...]}',
+            "foods are pool ids. Do not put grams in the JSON.",
+            "The query names each chosen food in natural speech.",
+            "Do not leak window numbers or food_id slugs in the query.",
+        ]
     if amount_path == AMOUNT_EXPLICIT_GRAMS:
         lines.append(
             'Amount path is explicit grams: you may write household grams such as "150 g".'
@@ -929,7 +969,7 @@ def build_log_system_prompt(*, amount_path: str, persona: str = "everyday") -> s
     return "\n".join(lines)
 
 
-def build_log_user_prompt(pool: FoodPool) -> str:
+def build_log_user_prompt(pool: FoodPool, *, family: str = "log") -> str:
     """Pool table for the Log expander. foods in JSON must be these ids."""
     lines = [
         f"Food pool {pool.pool_id} (pick 1-3 foods; JSON foods must be pool ids):",
@@ -938,8 +978,12 @@ def build_log_user_prompt(pool: FoodPool) -> str:
         spoken = food.aliases[0] if food.aliases else food.name.split(",", 1)[0]
         lines.append(f"- id={food.food_id} spoken={spoken} — {food.name}")
     lines.append("")
-    lines.append("The user already ate this meal. Write a log request.")
-    lines.append("Compose one meal. Output the JSON object only.")
+    if family == "composite":
+        lines.append("The user already ate this meal and now asks what to eat next.")
+        lines.append("foods JSON covers the logged meal only. Output the JSON object only.")
+    else:
+        lines.append("The user already ate this meal. Write a log request.")
+        lines.append("Compose one meal. Output the JSON object only.")
     return "\n".join(lines)
 
 
@@ -967,10 +1011,10 @@ class LogExpander:
             {
                 "role": "system",
                 "content": build_log_system_prompt(
-                    amount_path=amount_path, persona=persona
+                    amount_path=amount_path, persona=persona, family=family
                 ),
             },
-            {"role": "user", "content": build_log_user_prompt(pool)},
+            {"role": "user", "content": build_log_user_prompt(pool, family=family)},
         )
         last: dict[str, object] = {"query": "", "foods": []}
         for _attempt in range(1 + self._parse_retries):

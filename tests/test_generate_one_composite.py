@@ -158,3 +158,47 @@ def test_log_then_recommend_plan_windows_are_remainder_after_the_log_tail() -> N
     assert scored["tag"] == "pass"
     assert scored["sub_tags"] == ("pass", "pass")
     assert validate_draft(task) == []
+
+
+def test_composite_rejects_query_that_only_logs() -> None:
+    def expand(pool, *, persona, family, amount_path=None):
+        foods = [food.food_id for food in pool.foods if food.food_id == "white_rice"]
+        return {
+            "query": "Please log a cup of rice for lunch.",
+            "foods": foods,
+        }
+
+    result = _run(expander=expand)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason == "steps"
+
+
+def test_composite_foods_json_covers_the_logged_meal_only() -> None:
+    result = _run()
+    assert result.rejected is None
+    task = result.accepted
+    log_oracle, rec_oracle = task.oracle.sub_oracles
+    assert [row.food_id for row in log_oracle.ledger_tail] == ["white_rice"]
+    assert rec_oracle.last_plan == []
+    lowered = task.query.lower()
+    assert "log" in lowered or "ate" in lowered or "had" in lowered
+    assert "what's for dinner" in lowered
+    assert "chicken" not in lowered
+    assert "broccoli" not in lowered
+
+
+def test_composite_rejects_named_dinner_foods_in_the_recommend_step() -> None:
+    def expand(pool, *, persona, family, amount_path=None):
+        return {
+            "query": (
+                "Please log a cup of rice for lunch. "
+                "Should I have chicken for dinner?"
+            ),
+            "foods": ["white_rice"],
+        }
+
+    result = _run(expander=expand)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason == "rec_foods"
