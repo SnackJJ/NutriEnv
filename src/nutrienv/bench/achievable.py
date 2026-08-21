@@ -14,6 +14,7 @@ from nutrienv.env import NutriEnv
 
 from .realize import Oracle, Task, scored_oracles
 from .scorer import Scorer
+from .validator import fitting_plan
 
 __all__ = ["AchievabilityReport", "check_achievable"]
 
@@ -37,12 +38,12 @@ def _reachable(task: Task, scorer: Scorer) -> bool:
     env = NutriEnv()
     env.reset(task.s0)
     for oracle in scored_oracles(task.oracle):
-        if not _replay_oracle(env, oracle):
+        if not _replay_oracle(env, task, oracle):
             return False
     return scorer.score(env.state(), task.oracle)["passed"] is True
 
 
-def _replay_oracle(env: NutriEnv, oracle: Oracle) -> bool:
+def _replay_oracle(env: NutriEnv, task: Task, oracle: Oracle) -> bool:
     if oracle.ledger_tail:
         for row in oracle.ledger_tail:
             if row in env.state().ledger:
@@ -57,4 +58,22 @@ def _replay_oracle(env: NutriEnv, oracle: Oracle) -> bool:
             )
             if not stepped.get("ok"):
                 return False
+    if oracle.last_plan:
+        stepped = env.step({"op": "submit_plan", "items": oracle.last_plan})
+        if not stepped.get("ok"):
+            return False
+    elif oracle.allow_empty_plan:
+        stepped = env.step({"op": "submit_plan", "items": []})
+        if not stepped.get("ok"):
+            return False
+    elif oracle.last_plan == []:
+        windows = oracle.plan_windows or env.state().profile.windows
+        plan = fitting_plan(
+            task.s0.catalog, windows, env.state().profile.allergies
+        )
+        if plan is None:
+            return False
+        stepped = env.step({"op": "submit_plan", "items": plan})
+        if not stepped.get("ok"):
+            return False
     return True
