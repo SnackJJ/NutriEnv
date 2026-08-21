@@ -15,7 +15,7 @@ from nutrienv.env import NutriEnv
 from nutrienv.world.daily_windows import derive_profile_windows, estimated_energy_requirement
 from nutrienv.world.types import LedgerRow, Profile, normalize_tags
 
-from .realize import Oracle, Task, scored_oracles
+from .realize import FAMILIES, Oracle, Task, scored_oracles
 from .scorer import Scorer
 from .validator import fitting_plan
 
@@ -61,7 +61,7 @@ def check_achievable(tasks: Sequence[Task]) -> AchievabilityReport:
             unreachable.append(task.id)
     return AchievabilityReport(
         unreachable=tuple(unreachable),
-        by_family=dict(families),
+        by_family={name: families[name] for name in FAMILIES},
         by_feature={name: features[name] for name in SCORED_FEATURES},
     )
 

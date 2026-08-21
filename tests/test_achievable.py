@@ -16,7 +16,7 @@ import pytest
 
 from nutrienv.bench import check_achievable
 from nutrienv.bench.split import load_exam, load_split
-from nutrienv.bench.realize import Oracle, Task, compose_oracles
+from nutrienv.bench.realize import FAMILIES, Oracle, Task, compose_oracles
 from nutrienv.world.catalog_fixture import demo_state
 from nutrienv.world.daily_windows import derive_daily_windows
 from nutrienv.world.types import LedgerRow, Profile, ledger_totals, normalize_tags
@@ -431,7 +431,9 @@ def test_composite_log_then_recommend_is_reachable() -> None:
 
 def test_coverage_counts_families_and_keeps_zero_features_visible() -> None:
     report = check_achievable([_log_task()])
-    assert report.by_family == {"log": 1}
+    assert report.by_family["log"] == 1
+    assert report.by_family["lookup"] == 0
+    assert set(report.by_family) == set(FAMILIES)
     assert report.by_feature["ledger_tail"] == 1
     assert report.by_feature["ledger"] == 1
     assert report.by_feature["update_band"] == 0
@@ -454,7 +456,9 @@ def test_coverage_counts_update_band_and_body_facts() -> None:
         ),
     )
     report = check_achievable([cut, _log_task()])
-    assert report.by_family == {"update": 1, "log": 1}
+    assert report.by_family["update"] == 1
+    assert report.by_family["log"] == 1
+    assert report.by_family["lookup"] == 0
     assert report.by_feature["update_band"] == 1
     assert report.by_feature["body_facts"] == 1
     assert report.by_feature["ledger_tail"] == 1
@@ -543,6 +547,7 @@ def test_cli_checks_a_frozen_split_without_a_test_file(tmp_path: Path, capsys) -
     assert "unreachable: 0" in out
     assert "update_band: 0" in out
     assert "family log: 1" in out
+    assert "family lookup: 0" in out
 
 
 def test_cli_exits_nonzero_when_an_item_is_unreachable(tmp_path: Path, capsys) -> None:
@@ -592,6 +597,7 @@ def test_archived_v05_load_split_reports_240_reachable() -> None:
     report = check_achievable(tasks)
     assert report.unreachable == ()
     assert sum(report.by_family.values()) == 240
+    assert report.by_family["lookup"] == 0
     assert report.by_feature["update_band"] == 0
     assert report.by_feature["body_facts"] == 0
 
