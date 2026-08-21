@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from nutrienv.bench.pipeline.generate_one import generate_one
 from nutrienv.bench.pipeline.roster import ROSTER
+from nutrienv.bench.realize import Oracle, Task, compose_oracles
 from nutrienv.bench.scorer import Scorer
 from nutrienv.bench.validator import fitting_plan, validate_draft
 from nutrienv.env import NutriEnv
@@ -202,3 +203,46 @@ def test_composite_rejects_named_dinner_foods_in_the_recommend_step() -> None:
     assert result.accepted is None
     assert result.rejected is not None
     assert result.rejected.reason == "rec_foods"
+
+
+def test_generate_one_rejects_evaluate_unfit_paired_with_recommend_substitute() -> None:
+    result = _run(steps=("evaluate", "recommend"), knife="allergy")
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason == "unfit_substitute"
+
+
+def test_validator_rejects_evaluate_unfit_paired_with_recommend_substitute() -> None:
+    s0_task = generate_one(
+        catalog=_catalog(),
+        family="recommend",
+        seed=0,
+        person=ROSTER[0],
+        occasion="dinner",
+    ).accepted
+    assert s0_task is not None
+    s0 = s0_task.s0
+    unfit = Oracle(
+        profile=s0.profile,
+        last_plan=[],
+        last_verdict="reject",
+        last_reasons=("allergy",),
+        ledger=tuple(s0.ledger),
+        evaluated_plan=[{"food_id": "peanut_butter", "grams": 32.0}],
+    )
+    substitute = Oracle(
+        profile=s0.profile,
+        last_plan=[],
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        ledger=tuple(s0.ledger),
+    )
+    task = Task(
+        "comp-unfit-sub",
+        "evaluate",
+        "I was going to eat peanut butter; what instead?",
+        s0,
+        compose_oracles(unfit, substitute),
+    )
+    issues = validate_draft(task)
+    assert any("unfit" in item and "substitute" in item for item in issues)

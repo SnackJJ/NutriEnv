@@ -142,6 +142,7 @@ def generate_one(
     last_meal: bool = False,
     shell: str | None = None,
     slots: Mapping[str, str] | None = None,
+    steps: Sequence[str] | None = None,
 ) -> GenerateOneResult:
     """One mill item: roster person → world windows → pool → expander → speech bind.
 
@@ -160,6 +161,12 @@ def generate_one(
         raise ValueError(f"unknown knife {knife!r}")
     if scene not in _SCENES:
         raise ValueError(f"unknown scene {scene!r}")
+
+    pair = tuple(steps) if steps is not None else ("log", "recommend")
+    if family == "composite" and pair == ("evaluate", "recommend"):
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "unfit_substitute", "composite")
+        )
 
     rng = random.Random(seed)
     chosen = person if person is not None else sample_roster_person(seed)
