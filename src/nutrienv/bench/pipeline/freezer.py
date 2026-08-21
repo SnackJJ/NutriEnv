@@ -98,7 +98,7 @@ def task_to_item(task: Task) -> dict:
             for item in task.s0.last_plan
         ]
 
-    return {
+    item = {
         "id": task.id,
         "family": task.family,
         "persona": task.persona,
@@ -107,6 +107,11 @@ def task_to_item(task: Task) -> dict:
         "s0": s0,
         "oracle": _oracle_payload(task.oracle, family=task.family, s0=task.s0),
     }
+    # Declared tiers round-trip; omitting the empty default keeps rebuilds
+    # of tierless archives byte-identical.
+    if task.tier:
+        item["tier"] = task.tier
+    return item
 
 
 def _oracle_gram_issues(task: Task) -> list[str]:

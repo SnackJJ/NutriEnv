@@ -158,6 +158,10 @@ class Task:
     oracle: Oracle
     situations: tuple[str, ...] = ()
     persona: str = "everyday"
+    # Declared difficulty tier of the item (authoring data, not inferred
+    # from content). Empty when the split declares none; coverage gates
+    # group evaluate items by this field.
+    tier: str = ""
 
 
 @dataclass(frozen=True)

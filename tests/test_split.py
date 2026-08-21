@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from nutrienv.bench.realize import Task
 from nutrienv.bench.split import GOLD_SPLIT_PATH, load_split
 from nutrienv.world.daily_windows import derive_daily_windows
 from nutrienv.world.types import LedgerRow
@@ -867,3 +868,59 @@ def test_fatigue_band_survives_a_freeze_load_round_trip(tmp_path: Path) -> None:
     env.reset(reloaded.s0)
     env.step({"op": "update_profile", "patch": {"phase": "maintain"}})
     assert Scorer().score(env.state(), reloaded.oracle) == {"passed": True, "tag": "pass"}
+
+
+def test_load_split_keeps_declared_tiers(tmp_path: Path) -> None:
+    payload = {
+        "items": [
+            {
+                "id": "ev-tiered",
+                "family": "evaluate",
+                "query": "Is this dinner okay?",
+                "tier": "pair",
+                "s0": {"profile": {"windows": {"kcal": [400, 700]}}},
+                "oracle": {
+                    "last_plan": [{"food_id": "egg", "grams": 50.0}],
+                    "evaluated_plan": [{"food_id": "egg", "grams": 50.0}],
+                    "last_verdict": "accept",
+                },
+            },
+            {
+                "id": "log-untiered",
+                "family": "log",
+                "query": "I ate an egg.",
+                "s0": {},
+                "oracle": {"ledger_tail": [{"food_id": "egg", "grams": 50.0, "eaten_at": "lunch"}]},
+            },
+        ]
+    }
+    path = tmp_path / "tiers.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    tasks = load_split(path)
+    assert [task.tier for task in tasks] == ["pair", ""]
+
+    payload["items"][0]["tier"] = 7
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="tier"):
+        load_split(path)
+
+
+def test_task_tier_round_trips_through_the_freezer(tmp_path: Path) -> None:
+    from nutrienv.bench.pipeline.freezer import task_to_item
+    from nutrienv.bench.realize import Oracle
+    from nutrienv.world.catalog_fixture import demo_catalog
+    from nutrienv.world.types import Profile, WorldState
+
+    def _state():
+        return WorldState(profile=Profile(user_id="u"), catalog=demo_catalog())
+
+    tiered = Task("ev-pair", "evaluate", "Okay?", _state(), Oracle(), (), "everyday", "pair")
+    plain = Task("log-x", "log", "I ate.", _state(), Oracle())
+    assert task_to_item(tiered)["tier"] == "pair"
+    assert "tier" not in task_to_item(plain)
+
+    item = task_to_item(tiered)
+    path = tmp_path / "rt.json"
+    path.write_text(json.dumps({"items": [item]}), encoding="utf-8")
+    assert load_split(path)[0].tier == "pair"

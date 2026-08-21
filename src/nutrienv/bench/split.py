@@ -130,9 +130,12 @@ def _item(entry: object, catalog: dict) -> Task:
     persona = entry.get("persona") or ""
     if not isinstance(persona, str):
         raise ValueError(f"{task_id}: persona must be a string")
+    tier = entry.get("tier") or ""
+    if not isinstance(tier, str):
+        raise ValueError(f"{task_id}: tier must be a string")
     s0 = _s0(entry.get("s0"), catalog)
     oracle = _oracle(entry.get("oracle"), s0, catalog)
-    return Task(task_id, family, query.strip(), s0, oracle, situations, persona)
+    return Task(task_id, family, query.strip(), s0, oracle, situations, persona, tier)
 
 
 def _situations(value: object) -> tuple[str, ...]:
