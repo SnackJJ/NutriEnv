@@ -7,6 +7,7 @@ import pytest
 from nutrienv.bench.pipeline.generate_one import generate_one
 from nutrienv.bench.pipeline.roster import ROSTER
 from nutrienv.bench.scorer import Scorer
+from nutrienv.bench.validator import fitting_plan
 from nutrienv.bench.validator import validate_draft
 from nutrienv.env import NutriEnv
 from nutrienv.world.types import LedgerRow
@@ -130,8 +131,6 @@ def test_empty_ledger_breakfast_recommend_is_generable_and_passable() -> None:
 
     env = NutriEnv()
     env.reset(task.s0)
-    from nutrienv.bench.validator import fitting_plan
-
     plan = fitting_plan(task.s0.catalog, oracle.plan_windows, task.s0.profile.allergies)
     assert plan is not None
     out = env.step({"op": "submit_plan", "items": plan})
@@ -253,3 +252,28 @@ def test_named_dish_requires_an_allergic_person() -> None:
     result = _run(person=clean, shell="rec-named-dish", slots={"dish": "shrimp"})
     assert result.accepted is None
     assert result.rejected is not None
+
+
+def test_snack_occasion_selects_the_rec_snack_shell_and_passable_windows() -> None:
+    result = _run(occasion="snack")
+    assert result.rejected is None
+    task = result.accepted
+    assert task.query == "I need a snack."
+    assert task.oracle.plan_windows is not None
+    kcal = task.oracle.plan_windows["kcal"]
+    assert kcal[0] == 0.0
+    assert kcal[1] > 0.0
+    plan = fitting_plan(task.s0.catalog, task.oracle.plan_windows, ())
+    assert plan is not None
+
+
+def test_occasion_pinned_shell_conflicting_with_occasion_is_rejected() -> None:
+    result = _run(shell="rec-breakfast", occasion="dinner")
+    assert result.accepted is None
+    assert result.rejected is not None
+
+
+def test_generic_shells_inherit_the_sampled_occasion() -> None:
+    eat = _run(shell="rec-occasion-eat", occasion="lunch", scene="empty")
+    assert eat.rejected is None
+    assert eat.accepted.query == "What should I eat?"

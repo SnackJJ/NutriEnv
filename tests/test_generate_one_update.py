@@ -26,6 +26,7 @@ def _catalog() -> dict:
     return {
         "shrimp": _food("Shrimp, cooked", {"piece": 25.0}, ("shrimp",), ("shellfish",)),
         "milk_whole": _food("Milk, whole", {"cup": 244.0}, ("milk",), ("milk",)),
+        "peanut": _food("Peanuts, raw", {"piece": 5.0}, ("peanut", "peanuts"), ("peanut",)),
     }
 
 
@@ -234,11 +235,11 @@ def test_stop_the_cut_is_an_exact_maintain_update() -> None:
 def test_short_allergy_and_gym_person_slots_fill_verbatim() -> None:
     hao = ROSTER[7]
     short = _run(
-        person=hao, shell="upd-add-allergy-short", slots={"allergen": "egg"}
+        person=hao, shell="upd-add-allergy-short", slots={"allergen": "milk"}
     )
     assert short.accepted is not None
-    assert short.accepted.query == "Add egg to my allergies."
-    assert set(short.accepted.oracle.profile.allergies) == {"peanut", "shellfish", "egg"}
+    assert short.accepted.query == "Add milk to my allergies."
+    assert set(short.accepted.oracle.profile.allergies) == {"peanut", "shellfish", "milk"}
 
 
 @pytest.mark.parametrize(
@@ -264,3 +265,29 @@ def test_react_manual_covers_new_update_speech() -> None:
     manual = react_manual("v1").lower()
     assert "weigh" in manual
     assert "maintain" in manual
+
+
+def test_short_allergy_resolves_spoken_food_to_catalog_tag() -> None:
+    drew = ROSTER[3]
+    result = _run(
+        person=drew, shell="upd-add-allergy-short", slots={"allergen": "shrimp"}
+    )
+    assert result.rejected is None
+    task = result.accepted
+    assert task.query == "Add shrimp to my allergies."
+    assert "shellfish" in task.oracle.profile.allergies
+    assert "shrimp" not in task.oracle.profile.allergies
+
+
+def test_rm_allergy_resolves_spoken_food_before_removal() -> None:
+    hao = ROSTER[7]
+    result = _run(person=hao, shell="upd-rm-allergy", slots={"allergen": "shrimp"})
+    assert result.rejected is None
+    assert "shellfish" not in result.accepted.oracle.profile.allergies
+    assert "peanut" in result.accepted.oracle.profile.allergies
+
+
+def test_unknown_spoken_allergen_is_rejected() -> None:
+    result = _run(shell="upd-add-allergy-short", slots={"allergen": "kiwi"})
+    assert result.accepted is None
+    assert result.rejected is not None

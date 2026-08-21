@@ -61,7 +61,10 @@ _RECOMMEND_SHELLS_BY_OCCASION: dict[str, str] = {
     "breakfast": "rec-breakfast",
     "lunch": "rec-lunch",
     "dinner": "rec-dinner",
+    "snack": "rec-snack",
 }
+# Recommend additionally accepts the thin snack occasion (no energy share).
+_RECOMMEND_OCCASIONS: frozenset[str] = frozenset(_OCCASIONS) | {"snack"}
 _NAMED_PORTION_KEYS = frozenset(
     {"cup", "tbsp", "tsp", "slice", "piece", "can", "fl_oz"}
 )
@@ -135,7 +138,9 @@ def generate_one(
         raise ValueError(f"generate_one does not implement {family!r}")
     if amount_path is not None and amount_path not in AMOUNT_PATHS:
         raise ValueError(f"unknown amount_path {amount_path!r}")
-    if occasion not in _OCCASIONS:
+    if occasion not in _OCCASIONS and not (
+        family == "recommend" and occasion in _RECOMMEND_OCCASIONS
+    ):
         raise ValueError(f"unknown occasion {occasion!r}")
     if knife is not None and knife not in KNIVES:
         raise ValueError(f"unknown knife {knife!r}")
@@ -261,7 +266,18 @@ def _recommend_from_template(
     slots: dict[str, str],
 ) -> GenerateOneResult:
     """Template-filled Recommend: query from the agreed shells, work in S0."""
-    shell_id = shell if shell is not None else _RECOMMEND_SHELLS_BY_OCCASION[occasion]
+    default_shell = _RECOMMEND_SHELLS_BY_OCCASION[occasion]
+    shell_id = shell if shell is not None else default_shell
+    if (
+        shell_id in _RECOMMEND_SHELLS_BY_OCCASION.values()
+        and shell_id != default_shell
+    ):
+        # Shell text names an occasion; it must be the sampled one so the
+        # query and the judged windows agree.
+        return GenerateOneResult(
+            accepted=None,
+            rejected=Rejected("", "template_occasion", "recommend"),
+        )
     fill = dict(slots)
     if shell_id == "rec-named-dish":
         dish = _allergen_dish(catalog, chosen, fill.get("dish"))
@@ -346,26 +362,23 @@ def _update_from_template(
     band: str | None = None
     expected = profile
     if shell in {"upd-add-allergy", "upd-add-allergy-short"}:
-        if shell == "upd-add-allergy":
-            food_id = slots.get("food") or ""
-            entry = catalog.get(food_id)
-            tags = tuple(sorted(set((entry or {}).get("allergen_tags") or [])))
-            if not isinstance(entry, dict) or not tags:
-                return reject("no_allergen_food")
-        else:
-            tag = (slots.get("allergen") or "").strip().lower()
-            if not tag:
-                return reject("bad_slot")
-            tags = (tag,)
+        spoken = slots.get("food") if shell == "upd-add-allergy" else slots.get("allergen")
+        tags = _resolve_allergen_tags(catalog, spoken or "")
+        if not tags:
+            return reject("no_allergen_food")
         merged = normalize_tags(list(profile.allergies) + list(tags))
         if merged == tuple(profile.allergies):
             return reject("no_op_update")
         expected = replace(profile, allergies=merged)
     elif shell == "upd-rm-allergy":
-        tag = (slots.get("allergen") or "").strip().lower()
-        if tag not in profile.allergies:
+        tags = _resolve_allergen_tags(catalog, slots.get("allergen") or "")
+        if not tags:
+            return reject("no_allergen_food")
+        if not set(tags) & set(profile.allergies):
             return reject("not_allergic")
-        remaining = tuple(item for item in profile.allergies if item != tag)
+        remaining = tuple(
+            item for item in profile.allergies if item not in tags
+        )
         expected = replace(profile, allergies=remaining)
     elif shell == "upd-weight":
         n = _slot_number(slots)
@@ -441,6 +454,33 @@ def _slot_number(slots: dict[str, str]) -> float | None:
     except (KeyError, TypeError, ValueError):
         return None
     return value
+
+
+def _resolve_allergen_tags(catalog: Mapping, spoken: str) -> tuple[str, ...]:
+    """Spoken name → catalog allergen tags (Oracle stores tags, never speech)."""
+    token = spoken.strip().lower()
+    if not token:
+        return ()
+    for food_id in sorted(catalog):
+        entry = catalog[food_id]
+        if not isinstance(entry, dict):
+            continue
+        name = str(entry.get("name") or "")
+        names = {food_id.replace("_", " ").lower(), name.lower()}
+        if "," in name:
+            names.add(name.split(",", 1)[0].lower())
+        names.update(str(alias).lower() for alias in entry.get("aliases") or [])
+        if token in names:
+            tags = tuple(sorted(set(entry.get("allergen_tags") or [])))
+            if tags:
+                return tags
+    for food_id in sorted(catalog):
+        entry = catalog[food_id]
+        if not isinstance(entry, dict):
+            continue
+        if token in {str(tag).lower() for tag in entry.get("allergen_tags") or []}:
+            return (token,)
+    return ()
 
 
 def _allergen_dish(

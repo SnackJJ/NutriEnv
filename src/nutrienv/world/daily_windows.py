@@ -47,11 +47,13 @@ _PROTEIN_G_PER_KG = 0.8
 
 _FDA_KCAL = DRI_REFERENCE["kcal"]["reference"]
 
-# ADR 0014 meal energy share (中国居民膳食指南 2022). Snack is not a slot.
+# ADR 0014 meal energy share (中国居民膳食指南 2022). Snack carries no
+# prescribed share: the slot imposes no floor and caps at the day.
 MEAL_ENERGY_SHARE: dict[str, tuple[float, float]] = {
     "breakfast": (0.25, 0.30),
     "lunch": (0.30, 0.40),
     "dinner": (0.30, 0.40),
+    "snack": (0.0, 1.0),
 }
 SIX_WINDOW_KEYS: tuple[str, ...] = (
     "kcal",
