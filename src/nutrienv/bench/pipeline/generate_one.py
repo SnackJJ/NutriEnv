@@ -13,6 +13,7 @@ from nutrienv.bench.realize import Oracle, Task, realize_evaluate
 from nutrienv.world.portions import GRAM_UNITS, OUNCE_UNITS, UNIT_SYNONYMS, resolve_portion
 from nutrienv.world.types import MAX_ITEM_GRAMS, LedgerRow, WorldState
 
+from .knives import KNIVES, apply_knife
 from .resolver import spoken_grams_from_query
 from .roster import RosterPerson, profile_for, sample_roster_person
 from .sampler import sample_pools
@@ -26,6 +27,7 @@ from .types import (
 
 __all__ = [
     "AMOUNT_PATHS",
+    "KNIVES",
     "GenerateOneResult",
     "LogExpander",
     "build_log_system_prompt",
@@ -102,6 +104,8 @@ def generate_one(
     amount_path: str | None = None,
     occasion: str = "lunch",
     pool_size: int = DEFAULT_GENERATE_POOL_SIZE,
+    knife: str | None = None,
+    rewriter: Callable[..., object] | None = None,
 ) -> GenerateOneResult:
     """One mill item: roster person → world windows → pool → expander → speech bind."""
     if family not in {"log", "evaluate"}:
@@ -110,6 +114,10 @@ def generate_one(
         raise ValueError(f"unknown amount_path {amount_path!r}")
     if occasion not in _OCCASIONS:
         raise ValueError(f"unknown occasion {occasion!r}")
+    if knife is not None and knife not in KNIVES:
+        raise ValueError(f"unknown knife {knife!r}")
+    if family == "log" and knife is not None:
+        raise ValueError("knives apply only to evaluate")
 
     rng = random.Random(seed)
     chosen = person if person is not None else sample_roster_person(seed)
@@ -151,7 +159,16 @@ def generate_one(
     s0 = WorldState(profile=profile, ledger=[], catalog=catalog)
     if family == "evaluate":
         return _evaluate_from_bound(
-            query, bound, s0, seed=seed, occasion=occasion, persona=chosen.persona
+            query,
+            bound,
+            s0,
+            seed=seed,
+            occasion=occasion,
+            persona=chosen.persona,
+            knife=knife,
+            rewriter=rewriter,
+            pool=pool,
+            amount_path=path,
         )
     oracle = Oracle(
         profile=copy.deepcopy(profile),
@@ -178,34 +195,120 @@ def _evaluate_from_bound(
     seed: int,
     occasion: str,
     persona: str,
+    knife: str | None,
+    rewriter: Callable[..., object] | None,
+    pool: FoodPool,
+    amount_path: str,
 ) -> GenerateOneResult:
     items = [{"food_id": row.food_id, "grams": float(row.grams)} for row in bound]
+    fit = _realize_eval(
+        f"one-eval-{seed:04d}", query, items, s0, occasion, ("evaluate_fit",), persona
+    )
+    if isinstance(fit, GenerateOneResult):
+        return fit
+    if fit.oracle.last_verdict != "accept":
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "not_fit", "evaluate")
+        )
+    if knife is None:
+        return GenerateOneResult(accepted=fit, rejected=None)
+    knifed = apply_knife(
+        knife, items, profile=s0.profile, catalog=s0.catalog, pool=pool
+    )
+    if knifed is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "knife", "evaluate")
+        )
+    spoken = _rewrite_unfit(
+        knifed,
+        rewriter,
+        intent=_knife_intent(knife),
+        occasion=occasion,
+        amount_path=amount_path,
+    )
+    if spoken is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "rewrite", "evaluate")
+        )
+    unfit = _realize_eval(
+        f"one-eval-{seed:04d}",
+        spoken,
+        knifed,
+        s0,
+        occasion,
+        ("evaluate_unfit", knife),
+        persona,
+    )
+    if isinstance(unfit, GenerateOneResult):
+        return unfit
+    if unfit.oracle.last_verdict != "reject":
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(spoken, "knife", "evaluate")
+        )
+    return GenerateOneResult(accepted=unfit, rejected=None)
+
+
+def _realize_eval(
+    task_id: str,
+    query: str,
+    items: Sequence[Mapping[str, object]],
+    s0: WorldState,
+    occasion: str,
+    situations: tuple[str, ...],
+    persona: str,
+) -> Task | GenerateOneResult:
+    meal = [
+        {"food_id": str(item["food_id"]), "grams": float(item["grams"])}
+        for item in items
+    ]
     try:
         task = realize_evaluate(
-            task_id=f"one-eval-{seed:04d}",
-            query=query,
-            items=items,
-            s0=s0,
-            occasion=occasion,
+            task_id=task_id, query=query, items=meal, s0=s0, occasion=occasion
         )
     except ValueError:
         return GenerateOneResult(
             accepted=None, rejected=Rejected(query, "empty_windows", "evaluate")
         )
-    task = Task(
+    return Task(
         task.id,
         task.family,
         task.query,
         task.s0,
         task.oracle,
-        ("evaluate_fit",),
+        situations,
         persona,
     )
-    if task.oracle.last_verdict != "accept":
-        return GenerateOneResult(
-            accepted=None, rejected=Rejected(query, "not_fit", "evaluate")
-        )
-    return GenerateOneResult(accepted=task, rejected=None)
+
+
+def _knife_intent(knife: str) -> str:
+    return {
+        "allergy": "include the allergen",
+        "over_slot": "bigger",
+        "under_slot": "smaller",
+        "swap": "swap",
+    }.get(knife, knife)
+
+
+def _rewrite_unfit(
+    items: Sequence[Mapping[str, object]],
+    rewriter: Callable[..., object] | None,
+    *,
+    intent: str,
+    occasion: str,
+    amount_path: str,
+) -> str | None:
+    if rewriter is None:
+        return None
+    raw = rewriter(
+        items, intent=intent, occasion=occasion, amount_path=amount_path
+    )
+    payload = parse_query_foods_payload(raw)
+    if payload is None:
+        return None
+    expected = [str(item["food_id"]) for item in items]
+    if list(payload["foods"]) != expected:
+        return None
+    return str(payload["query"])
 
 
 def parse_query_foods_payload(payload: object) -> dict[str, object] | None:

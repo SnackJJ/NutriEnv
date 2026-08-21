@@ -130,3 +130,71 @@ def test_generate_one_evaluate_fit_accepts_bind_confirmed_plan() -> None:
     out = env.step({"op": "submit_plan", "items": _FIT_MEAL})
     assert out["ok"] is True
     assert Scorer().score(env.state(), task.oracle) == {"passed": True, "tag": "pass"}
+
+
+_PEANUT_BUTTER = _food(
+    "Peanut butter, smooth",
+    {"tbsp": 16.0, "cup": 258.0},
+    ("peanut butter", "pb"),
+    ("peanut",),
+    nutrients={
+        "kcal": 588.0,
+        "protein_g": 25.1,
+        "carb_g": 20.0,
+        "fat_g": 50.4,
+        "fiber_g": 6.0,
+        "sodium_mg": 430.0,
+    },
+)
+
+
+def _allergy_catalog() -> dict:
+    return {**_FIT_CATALOG, "peanut_butter": _PEANUT_BUTTER}
+
+
+def _rewrite_named(foods, *, intent, occasion, amount_path=None):
+    parts = [f"{item['grams']:g} g of {item['food_id'].replace('_', ' ')}" for item in foods]
+    return {
+        "query": f"Evaluate this as {occasion}: {', '.join(parts)}.",
+        "foods": [item["food_id"] for item in foods],
+    }
+
+
+def test_generate_one_evaluate_allergy_knife_matches_bind_reasons() -> None:
+    result = _run_eval(
+        catalog=_allergy_catalog(),
+        pool_size=5,
+        knife="allergy",
+        rewriter=_rewrite_named,
+    )
+    assert result.rejected is None
+    assert result.accepted is not None
+    task = result.accepted
+    named = task.oracle.evaluated_plan
+    assert named is not None
+    assert any(item["food_id"] == "peanut_butter" for item in named)
+    assert "peanut butter" in task.query.lower()
+    assert task.oracle.last_verdict == "reject"
+    assert task.oracle.last_plan == []
+    expected = bind_evaluate_reasons(
+        named,
+        task.oracle.plan_windows,
+        task.s0.catalog,
+        task.s0.profile.allergies,
+    )
+    assert task.oracle.last_reasons == expected
+    assert "allergy" in task.oracle.last_reasons
+    assert validate_draft(task) == []
+
+    env = NutriEnv()
+    env.reset(task.s0)
+    out = env.step(
+        {
+            "op": "submit_plan",
+            "items": [],
+            "verdict": "reject",
+            "reasons": list(task.oracle.last_reasons),
+        }
+    )
+    assert out["ok"] is True
+    assert Scorer().score(env.state(), task.oracle) == {"passed": True, "tag": "pass"}
