@@ -182,6 +182,65 @@ def test_two_builds_from_the_same_zip_write_identical_foods_rows(
         assert _sha256(path) == digest
 
 
+def _write_foods_sqlite(path: Path, cells: dict[str, str]) -> Path:
+    conn = sqlite3.connect(path)
+    try:
+        conn.execute(
+            "CREATE TABLE foods ("
+            "food_id TEXT PRIMARY KEY, name TEXT, data_type TEXT, category TEXT, "
+            "nutrients TEXT, portions TEXT, allergen_tags TEXT, aliases TEXT)"
+        )
+        conn.execute(
+            "INSERT INTO foods VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "1",
+                "Synthetic beverage",
+                "survey_fndds_food",
+                "9",
+                cells["nutrients"],
+                cells["portions"],
+                cells["allergen_tags"],
+                cells["aliases"],
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return path
+
+
+# Ticket 13 example plus the other three foods JSON cells. Parsed values
+# match; TEXT bytes do not (key order / JSON spacing).
+_CANON_CELLS = {
+    "nutrients": '{"kcal": 10.0, "protein_g": 1.0, "sodium_mg": 5.0}',
+    "portions": '{"cup": 248.0, "fl_oz": 31.0, "qns": 248.0}',
+    "allergen_tags": '["peanut", "shellfish"]',
+    "aliases": '["milk", "whole milk"]',
+}
+_DRIFT_CELLS = {
+    "nutrients": '{"sodium_mg": 5.0, "kcal": 10.0, "protein_g": 1.0}',
+    "portions": '{"fl_oz": 31.0, "cup": 248.0, "qns": 248.0}',
+    "allergen_tags": '["peanut","shellfish"]',
+    "aliases": '["milk","whole milk"]',
+}
+
+
+def test_foods_json_cell_byte_check_detects_key_order_drift(tmp_path: Path) -> None:
+    left = _write_foods_sqlite(tmp_path / "left.sqlite", _CANON_CELLS)
+    right = _write_foods_sqlite(tmp_path / "right.sqlite", _DRIFT_CELLS)
+    result = builder.diff_foods_json_cells(left, right)
+    assert result["foods_compared"] == 1
+    assert result["value_diffs"] == 0
+    assert result["byte_diffs"] == 1
+    assert result["key_order_only_diffs"] == 1
+    assert result["byte_diff_columns"] == [
+        "aliases",
+        "allergen_tags",
+        "nutrients",
+        "portions",
+    ]
+
+
 def test_plan_zero_drift_includes_byte_level_portion_json(
     tmp_path: Path,
 ) -> None:

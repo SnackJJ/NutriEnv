@@ -1188,6 +1188,79 @@ def dump_catalog_json(value: object) -> str:
     return json.dumps(value, sort_keys=True)
 
 
+FOODS_JSON_COLUMNS = ("nutrients", "portions", "allergen_tags", "aliases")
+
+
+def _parse_json_cell(blob: str | None) -> object:
+    try:
+        return json.loads(blob or "")
+    except json.JSONDecodeError:
+        return blob
+
+
+def _read_foods_json_cells(path: Path) -> dict[str, dict[str, str]]:
+    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    try:
+        rows = conn.execute(
+            "SELECT food_id, nutrients, portions, allergen_tags, aliases FROM foods"
+        )
+        return {
+            str(food_id): {
+                "nutrients": nutrients or "",
+                "portions": portions or "",
+                "allergen_tags": allergen_tags or "",
+                "aliases": aliases or "",
+            }
+            for food_id, nutrients, portions, allergen_tags, aliases in rows
+        }
+    finally:
+        conn.close()
+
+
+def diff_foods_json_cells(left: Path, right: Path) -> dict:
+    """Compare foods JSON cells as sqlite TEXT bytes, not parsed values.
+
+    Covers ``nutrients``, ``portions``, ``allergen_tags``, and ``aliases``.
+    """
+    left_rows = _read_foods_json_cells(left)
+    right_rows = _read_foods_json_cells(right)
+    ids = sorted(set(left_rows) | set(right_rows))
+    value_diffs = 0
+    byte_diffs = 0
+    key_order_only = 0
+    columns_hit: set[str] = set()
+    for food_id in ids:
+        left_cells = left_rows.get(food_id)
+        right_cells = right_rows.get(food_id)
+        if left_cells is None or right_cells is None:
+            value_diffs += 1
+            byte_diffs += 1
+            continue
+        food_value_diff = False
+        food_byte_diff = False
+        for column in FOODS_JSON_COLUMNS:
+            left_blob = left_cells[column]
+            right_blob = right_cells[column]
+            if left_blob != right_blob:
+                food_byte_diff = True
+                columns_hit.add(column)
+            if _parse_json_cell(left_blob) != _parse_json_cell(right_blob):
+                food_value_diff = True
+        if food_byte_diff:
+            byte_diffs += 1
+        if food_value_diff:
+            value_diffs += 1
+        elif food_byte_diff:
+            key_order_only += 1
+    return {
+        "foods_compared": len(ids),
+        "value_diffs": value_diffs,
+        "byte_diffs": byte_diffs,
+        "key_order_only_diffs": key_order_only,
+        "byte_diff_columns": sorted(columns_hit),
+    }
+
+
 def _protected_catalogs() -> tuple[Path, ...]:
     return (_DB.resolve(), (_DB.parent / "catalog-v1.sqlite").resolve())
 
