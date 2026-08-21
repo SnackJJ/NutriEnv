@@ -55,6 +55,8 @@ def _freeze_value(value: object) -> object:
         return value
     if isinstance(value, dict):
         return _freeze_mapping(value)
+    if isinstance(value, list):
+        return tuple(_freeze_value(item) for item in value)
     return value
 
 

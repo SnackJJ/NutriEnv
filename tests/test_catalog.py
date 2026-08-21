@@ -65,6 +65,17 @@ def test_catalog_entry_rejects_nested_dict_assignment() -> None:
     assert catalog["shrimp"]["portions"]["piece"] == 7.0
 
 
+def test_catalog_entry_rejects_nested_list_mutation() -> None:
+    catalog = FoodCatalog.from_mapping(demo_catalog())
+    entry = catalog["shrimp"]
+    with pytest.raises((TypeError, AttributeError)):
+        entry["allergen_tags"].append("milk")
+    with pytest.raises((TypeError, AttributeError)):
+        entry["aliases"].append("scampi")
+    assert list(catalog["shrimp"]["allergen_tags"]) == ["shellfish"]
+    assert list(catalog["shrimp"]["aliases"]) == ["prawn", "prawns"]
+
+
 def test_iter_entries_and_getitem_share_the_same_entry() -> None:
     catalog = load_catalog()
     scanned = dict(catalog.iter_entries())
