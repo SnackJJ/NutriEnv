@@ -56,6 +56,30 @@ _QUANTITY_AND = re.compile(
 )
 _FOOD_SPLIT = re.compile(r",|\band\b|\bwith\b|\bplus\b|&", re.I)
 _PROTECT_SLOT = re.compile(r"\x00(\d+)\x00")
+_MENTION_STOP = frozenset(
+    {
+        "and",
+        "the",
+        "for",
+        "with",
+        "plus",
+        "please",
+        "log",
+        "lunch",
+        "dinner",
+        "breakfast",
+        "today",
+        "another",
+        "cup",
+        "cups",
+        "bowl",
+        "bowls",
+        "piece",
+        "pieces",
+        "slice",
+        "slices",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -277,7 +301,7 @@ def _bind_log_foods(
             return None, "not_in_pool"
     if _ambiguous_mention(query, pool, catalog):
         return None, "ambiguous"
-    mentioned = _mentioned_pool_ids(query, pool, catalog)
+    mentioned = _mentioned_food_ids(query, catalog)
     if mentioned - set(foods):
         return None, "omitted_food"
     rows: list[LedgerRow] = []
@@ -354,16 +378,16 @@ def _ambiguous_mention(query: str, pool: FoodPool, catalog: Mapping) -> bool:
     return any(len(ids) > 1 for ids in owners.values())
 
 
-def _mentioned_pool_ids(query: str, pool: FoodPool, catalog: Mapping) -> set[str]:
+def _mentioned_food_ids(query: str, catalog: Mapping) -> set[str]:
     mentioned: set[str] = set()
     lowered = query.lower()
-    for food in pool.foods:
-        for name in _spoken_names(food.food_id, catalog):
+    for food_id in catalog:
+        for name in _spoken_names(str(food_id), catalog):
             needle = name.strip().lower()
-            if len(needle) < 3:
+            if len(needle) < 3 or needle in _MENTION_STOP:
                 continue
             if re.search(rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered):
-                mentioned.add(food.food_id)
+                mentioned.add(str(food_id))
                 break
     return mentioned
 
