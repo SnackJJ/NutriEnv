@@ -305,8 +305,7 @@ def _bind_log_foods(
             return None, "not_in_pool"
     if _ambiguous_mention(query, pool, catalog):
         return None, "ambiguous"
-    mentioned = _mentioned_food_ids(query, catalog)
-    if mentioned - set(foods):
+    if _uncovered_food_clause(query, foods, catalog):
         return None, "omitted_food"
     if _repeated_speech(query, foods, catalog):
         return None, "repeat"
@@ -435,18 +434,14 @@ def _mention_spans(
     return spans
 
 
-def _mentioned_food_ids(query: str, catalog: Mapping) -> set[str]:
-    mentioned: set[str] = set()
-    lowered = query.lower()
-    for food_id in catalog:
-        for name in _spoken_names(str(food_id), catalog):
-            needle = name.strip().lower()
-            if len(needle) < 3 or needle in _MENTION_STOP:
-                continue
-            if re.search(rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered):
-                mentioned.add(str(food_id))
-                break
-    return mentioned
+def _uncovered_food_clause(
+    query: str, food_ids: Sequence[str], catalog: Mapping
+) -> bool:
+    """True when a speech clause names a food that is not in expander foods JSON."""
+    for clause in _food_clauses(query):
+        if not any(_clause_mentions(clause, food_id, catalog) for food_id in food_ids):
+            return True
+    return False
 
 
 def _spoken_names(food_id: str, catalog: Mapping) -> list[str]:

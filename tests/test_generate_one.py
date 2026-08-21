@@ -266,6 +266,24 @@ def test_generate_one_rejects_out_of_pool_food_named_in_query() -> None:
     assert result.rejected.reason in {"omitted_food", "unresolvable", "not_in_pool"}
 
 
+def test_generate_one_accepts_milk_when_catalog_has_many_milk_names() -> None:
+    catalog = _catalog()
+    for index in range(67):
+        catalog[f"milk_other_{index}"] = _food("Milk, NFS", {}, ("milk",))
+
+    def expand(_pool, *, persona, family, amount_path=None):
+        return {
+            "query": "Please log a cup of milk for lunch.",
+            "foods": ["milk_whole"],
+        }
+
+    result = _run(expand, catalog=catalog, pool_size=12)
+    assert result.rejected is None
+    assert result.accepted is not None
+    assert result.accepted.oracle.ledger_tail[0].food_id == "milk_whole"
+    assert result.accepted.oracle.ledger_tail[0].grams == 244.0
+
+
 def test_generate_one_rejects_query_food_omitted_from_foods_json() -> None:
     def expand(_pool, *, persona, family, amount_path=None):
         return {
