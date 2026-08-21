@@ -323,6 +323,60 @@ def test_generate_one_splits_speech_clauses_on_with() -> None:
     assert rows["white_rice"] == 316.0
 
 
+def test_generate_one_keeps_one_and_a_half_as_one_quantity() -> None:
+    def expand(_pool, *, persona, family, amount_path=None):
+        return {
+            "query": "Please log one and a half cups of rice for lunch.",
+            "foods": ["white_rice"],
+        }
+
+    result = _run(expand, amount_path="named_measure", pool_size=12)
+    assert result.rejected is None
+    assert result.accepted is not None
+    assert result.accepted.oracle.ledger_tail[0].grams == 237.0
+
+
+def test_generate_one_keeps_thousands_comma_in_spoken_grams() -> None:
+    def expand(_pool, *, persona, family, amount_path=None):
+        return {
+            "query": "Please log 1,500 g of chicken for lunch.",
+            "foods": ["chicken_breast"],
+        }
+
+    result = _run(expand, amount_path="explicit_grams", pool_size=12)
+    assert result.rejected is None
+    assert result.accepted is not None
+    assert result.accepted.oracle.ledger_tail[0].grams == 1500.0
+
+
+def test_generate_one_splits_speech_clauses_on_plus_and_ampersand() -> None:
+    def expand_plus(_pool, *, persona, family, amount_path=None):
+        return {
+            "query": "Please log a cup of chicken plus two cups of rice for lunch.",
+            "foods": ["chicken_breast", "white_rice"],
+        }
+
+    plus = _run(expand_plus, amount_path="named_measure", pool_size=12)
+    assert plus.rejected is None
+    assert plus.accepted is not None
+    rows = {row.food_id: row.grams for row in plus.accepted.oracle.ledger_tail}
+    assert rows["chicken_breast"] == 140.0
+    assert rows["white_rice"] == 316.0
+
+    def expand_amp(_pool, *, persona, family, amount_path=None):
+        return {
+            "query": "Please log a cup of chicken & two cups of rice for lunch.",
+            "foods": ["chicken_breast", "white_rice"],
+        }
+
+    amp = _run(expand_amp, amount_path="named_measure", pool_size=12)
+    assert amp.rejected is None
+    assert amp.accepted is not None
+    rows = {row.food_id: row.grams for row in amp.accepted.oracle.ledger_tail}
+    assert rows["chicken_breast"] == 140.0
+    assert rows["white_rice"] == 316.0
+
+
 def test_generate_one_mixed_cup_and_bowl_does_not_freeze_rice_as_cup() -> None:
     def expand(_pool, *, persona, family, amount_path=None):
         return {

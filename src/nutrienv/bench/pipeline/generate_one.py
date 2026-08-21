@@ -49,7 +49,13 @@ _NAMED_PORTION_KEYS = frozenset(
     {"cup", "tbsp", "tsp", "slice", "piece", "can", "fl_oz"}
 )
 _WORD = re.compile(r"[a-z0-9.]+")
-_CLAUSE_SPLIT = re.compile(r",|\band\b|\bwith\b", re.I)
+_THOUSANDS_COMMA = re.compile(r"(?<=\d),(?=\d)")
+_QUANTITY_AND = re.compile(
+    r"(?i)\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+    r"\d+(?:\.\d+)?)\s+and\s+(?:a\s+)?(?:half|quarter|third|halves|quarters|thirds)\b"
+)
+_FOOD_SPLIT = re.compile(r",|\band\b|\bwith\b|\bplus\b|&", re.I)
+_PROTECT_SLOT = re.compile(r"\x00(\d+)\x00")
 
 
 @dataclass(frozen=True)
@@ -263,6 +269,7 @@ def _bind_log_foods(
 ) -> tuple[list[LedgerRow] | None, str | None]:
     pool_ids = {food.food_id for food in pool.foods}
     eaten_at = f"today-{occasion}"
+    query = _THOUSANDS_COMMA.sub("", query)
     if len(foods) != len(set(foods)):
         return None, "duplicate"
     for food_id in foods:
@@ -299,22 +306,37 @@ def _bind_log_foods(
     return rows, None
 
 
+def _food_clauses(query: str) -> list[str]:
+    """Split a meal into per-food spans, keeping quantity English intact."""
+    held: list[str] = []
+
+    def _hold(match: re.Match[str]) -> str:
+        held.append(match.group(0))
+        return f"\x00{len(held) - 1}\x00"
+
+    protected = _QUANTITY_AND.sub(_hold, query)
+    parts = _FOOD_SPLIT.split(protected)
+    clauses: list[str] = []
+    for part in parts:
+        restored = _PROTECT_SLOT.sub(lambda match: held[int(match.group(1))], part)
+        text = restored.strip()
+        if text:
+            clauses.append(text)
+    return clauses
+
+
 def _local_clause(query: str, food_id: str, catalog: Mapping) -> str | None:
-    """Speech span for one food: stop at and/comma/with so a neighbor's unit cannot leak."""
-    lowered = query.lower()
+    """Speech span for one food: a neighbor's unit cannot leak across coordinators."""
     best: tuple[int, str] | None = None
-    for name in _spoken_names(food_id, catalog):
-        needle = name.strip().lower()
-        if len(needle) < 3:
-            continue
-        for match in re.finditer(rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered):
-            prefix = query[: match.start()]
-            suffix = query[match.end() :]
-            head = _CLAUSE_SPLIT.split(prefix)[-1]
-            tail = _CLAUSE_SPLIT.split(suffix)[0]
-            clause = f"{head}{match.group(0)}{tail}".strip()
-            if clause and (best is None or len(needle) > best[0]):
-                best = (len(needle), clause)
+    for clause in _food_clauses(query):
+        lowered = clause.lower()
+        for name in _spoken_names(food_id, catalog):
+            needle = name.strip().lower()
+            if len(needle) < 3:
+                continue
+            if re.search(rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered):
+                if best is None or len(needle) > best[0]:
+                    best = (len(needle), clause)
     return None if best is None else best[1]
 
 
