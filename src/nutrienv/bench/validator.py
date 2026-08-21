@@ -10,6 +10,7 @@ import itertools
 import re
 
 from nutrienv.world.catalog import canonical_food_id, iter_catalog_entries
+from nutrienv.world.daily_windows import derive_profile_windows
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals, normalize_tags
 
@@ -554,9 +555,12 @@ def _validate_update(task: Task, query: str) -> list[str]:
         issues.append("update oracle ledger is missing")
     if oracle is None:
         return issues
-    if oracle == s0:
+    if oracle == s0 and not task.oracle.update_band:
         issues.append("update oracle profile is unchanged from S0")
         return issues
+    # Body-fact/phase oracles re-derive windows through the world table
+    # (ADR 0014); the deltas are derivation output, not query shifts.
+    body_derived = derive_profile_windows(oracle) == oracle.windows
     tags = _catalog_tags(task.s0.catalog)
     for allergy in oracle.allergies:
         if allergy not in tags or allergy == "shrimp":
@@ -581,7 +585,7 @@ def _validate_update(task: Task, query: str) -> list[str]:
     bindings = _update_clause_bindings(query)
     for key, bounds in oracle.windows.items():
         s0_bounds = s0.windows.get(key)
-        if s0_bounds == bounds:
+        if s0_bounds == bounds or body_derived:
             continue
         mentioned = (key == "kcal" and mentions_kcal) or (
             key == "protein_g" and mentions_protein

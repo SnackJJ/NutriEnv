@@ -7,19 +7,23 @@ import json
 import random
 import re
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from nutrienv.bench.realize import Oracle, Task, realize_evaluate
-from nutrienv.world.daily_windows import plan_windows_for_meal
+from nutrienv.world.daily_windows import (
+    derive_profile_windows,
+    estimated_energy_requirement,
+    plan_windows_for_meal,
+)
 from nutrienv.world.portions import GRAM_UNITS, OUNCE_UNITS, UNIT_SYNONYMS, resolve_portion
-from nutrienv.world.types import MAX_ITEM_GRAMS, LedgerRow, WorldState, ledger_totals
+from nutrienv.world.types import MAX_ITEM_GRAMS, LedgerRow, WorldState, ledger_totals, normalize_tags
 
 from .knives import KNIVES, apply_knife
 from .resolver import spoken_grams_from_query
 from .roster import RosterPerson, profile_for, sample_roster_person
 from .sampler import sample_pools
 from .semantic_vote import GRAM_TOLERANCE
-from .templates import recommend_query
+from .templates import recommend_query, update_query
 from .types import (
     DEFAULT_GENERATE_POOL_SIZE,
     FoodPool,
@@ -127,7 +131,7 @@ def generate_one(
 
     Recommend items are template-filled (``shell``/``slots``) with no expander.
     """
-    if family not in {"log", "evaluate", "recommend"}:
+    if family not in {"log", "evaluate", "recommend", "update"}:
         raise ValueError(f"generate_one does not implement {family!r}")
     if amount_path is not None and amount_path not in AMOUNT_PATHS:
         raise ValueError(f"unknown amount_path {amount_path!r}")
@@ -151,6 +155,18 @@ def generate_one(
             occasion=occasion,
             scene=scene,
             prior_ledger=prior_ledger,
+            shell=shell,
+            slots=dict(slots or {}),
+        )
+
+    if family == "update":
+        if knife is not None or scene != "empty" or prior_ledger:
+            raise ValueError("knives, scenes, and prior ledgers apply only to evaluate")
+        return _update_from_template(
+            catalog,
+            chosen=chosen,
+            profile=profile,
+            seed=seed,
             shell=shell,
             slots=dict(slots or {}),
         )
@@ -300,6 +316,131 @@ def _recommend_from_template(
         chosen.persona,
     )
     return GenerateOneResult(accepted=task, rejected=None)
+
+
+def _update_from_template(
+    catalog: Mapping,
+    *,
+    chosen: RosterPerson,
+    profile: object,
+    seed: int,
+    shell: str | None,
+    slots: dict[str, str],
+) -> GenerateOneResult:
+    """Template-filled Update: the query states the profile change."""
+    if shell is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "template", "update")
+        )
+    query = update_query(shell, slots)
+    if query is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "template", "update")
+        )
+
+    def reject(reason: str) -> GenerateOneResult:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, reason, "update")
+        )
+
+    band: str | None = None
+    expected = profile
+    if shell in {"upd-add-allergy", "upd-add-allergy-short"}:
+        if shell == "upd-add-allergy":
+            food_id = slots.get("food") or ""
+            entry = catalog.get(food_id)
+            tags = tuple(sorted(set((entry or {}).get("allergen_tags") or [])))
+            if not isinstance(entry, dict) or not tags:
+                return reject("no_allergen_food")
+        else:
+            tag = (slots.get("allergen") or "").strip().lower()
+            if not tag:
+                return reject("bad_slot")
+            tags = (tag,)
+        merged = normalize_tags(list(profile.allergies) + list(tags))
+        if merged == tuple(profile.allergies):
+            return reject("no_op_update")
+        expected = replace(profile, allergies=merged)
+    elif shell == "upd-rm-allergy":
+        tag = (slots.get("allergen") or "").strip().lower()
+        if tag not in profile.allergies:
+            return reject("not_allergic")
+        remaining = tuple(item for item in profile.allergies if item != tag)
+        expected = replace(profile, allergies=remaining)
+    elif shell == "upd-weight":
+        n = _slot_number(slots)
+        if n is None or n <= 0:
+            return reject("bad_slot")
+        candidate = replace(profile, weight_kg=n)
+        derived = derive_profile_windows(candidate)
+        if derived is None:
+            return reject("bad_slot")
+        expected = replace(candidate, windows=derived)
+    elif shell == "upd-kcal-explicit":
+        n = _slot_number(slots)
+        if n is None or n == 0.0:
+            return reject("bad_slot")
+        lo, hi = profile.windows["kcal"]
+        windows = {**profile.windows, "kcal": (lo + n, hi + n)}
+        expected = replace(profile, windows=windows)
+    elif shell == "upd-phase-cut":
+        if profile.phase == "cut":
+            return reject("already_cut")
+        band = "cut"
+        expected = replace(profile, phase="cut")
+    elif shell == "upd-phase-muscle":
+        if profile.phase == "muscle":
+            return reject("already_muscle")
+        band = "muscle"
+        expected = replace(profile, phase="muscle")
+    elif shell == "upd-fatigue":
+        # Easing a deficit needs a deficit: S0 kcal-hi must sit below EER.
+        eer = estimated_energy_requirement(
+            sex=profile.sex,
+            age_y=profile.age_y,
+            height_cm=profile.height_cm,
+            weight_kg=profile.weight_kg,
+            activity=profile.activity,
+        )
+        if profile.phase != "cut" or profile.windows["kcal"][1] >= eer:
+            return reject("no_deficit")
+        band = "fatigue"
+        expected = profile
+    elif shell == "upd-phase-maintain":
+        if profile.phase != "cut":
+            return reject("not_cutting")
+        candidate = replace(profile, phase="maintain")
+        derived = derive_profile_windows(candidate)
+        if derived is None:
+            return reject("bad_slot")
+        expected = replace(candidate, windows=derived)
+    else:
+        return reject("template")
+
+    oracle = Oracle(
+        profile=copy.deepcopy(expected),
+        ledger=(),
+        update_band=band,
+    )
+    s0 = WorldState(profile=profile, ledger=[], catalog=catalog)
+    task = Task(
+        f"one-upd-{seed:04d}",
+        "update",
+        query,
+        s0,
+        oracle,
+        (),
+        chosen.persona,
+    )
+    return GenerateOneResult(accepted=task, rejected=None)
+
+
+def _slot_number(slots: dict[str, str]) -> float | None:
+    try:
+        value = float(slots["n"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return value
 
 
 def _allergen_dish(
