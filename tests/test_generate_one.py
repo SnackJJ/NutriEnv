@@ -194,6 +194,19 @@ def test_generate_one_rejects_food_id_absent_from_pool() -> None:
     assert result.rejected.reason == "not_in_pool"
 
 
+def test_generate_one_rejects_query_food_omitted_from_foods_json() -> None:
+    def expand(_pool, *, persona, family, amount_path=None):
+        return {
+            "query": "Please log a cup of milk and a cup of rice for lunch.",
+            "foods": ["milk_whole"],
+        }
+
+    result = _run(expand, pool_size=12)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason in {"omitted_food", "unresolvable"}
+
+
 def test_generate_one_rejects_unresolvable_speech() -> None:
     def expand(_pool, *, persona, family, amount_path=None):
         return {

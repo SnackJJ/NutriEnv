@@ -265,10 +265,14 @@ def _bind_log_foods(
     eaten_at = f"today-{occasion}"
     if len(foods) != len(set(foods)):
         return None, "duplicate"
-    rows: list[LedgerRow] = []
     for food_id in foods:
         if food_id not in pool_ids or food_id not in catalog:
             return None, "not_in_pool"
+    mentioned = _mentioned_pool_ids(query, pool, catalog)
+    if mentioned - set(foods):
+        return None, "omitted_food"
+    rows: list[LedgerRow] = []
+    for food_id in foods:
         clause = _local_clause(query, food_id, catalog)
         if clause is None:
             return None, "unresolvable"
@@ -310,6 +314,20 @@ def _local_clause(query: str, food_id: str, catalog: Mapping) -> str | None:
             if clause and (best is None or len(needle) > best[0]):
                 best = (len(needle), clause)
     return None if best is None else best[1]
+
+
+def _mentioned_pool_ids(query: str, pool: FoodPool, catalog: Mapping) -> set[str]:
+    mentioned: set[str] = set()
+    lowered = query.lower()
+    for food in pool.foods:
+        for name in _spoken_names(food.food_id, catalog):
+            needle = name.strip().lower()
+            if len(needle) < 3:
+                continue
+            if re.search(rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered):
+                mentioned.add(food.food_id)
+                break
+    return mentioned
 
 
 def _spoken_names(food_id: str, catalog: Mapping) -> list[str]:
