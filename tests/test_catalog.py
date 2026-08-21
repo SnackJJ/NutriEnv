@@ -54,6 +54,17 @@ def test_catalog_entry_rejects_in_place_assignment() -> None:
     assert catalog["shrimp"]["name"] == "Shrimp, cooked"
 
 
+def test_catalog_entry_rejects_nested_dict_assignment() -> None:
+    catalog = FoodCatalog.from_mapping(demo_catalog())
+    entry = catalog["shrimp"]
+    with pytest.raises(TypeError):
+        entry["nutrients"]["kcal"] = 0
+    with pytest.raises(TypeError):
+        entry["portions"]["piece"] = 1
+    assert catalog["shrimp"]["nutrients"]["kcal"] == 99.0
+    assert catalog["shrimp"]["portions"]["piece"] == 7.0
+
+
 def test_iter_entries_and_getitem_share_the_same_entry() -> None:
     catalog = load_catalog()
     scanned = dict(catalog.iter_entries())

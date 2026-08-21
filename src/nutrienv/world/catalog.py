@@ -46,8 +46,16 @@ class FrozenDict(dict):
 
 def _freeze_mapping(entry: Mapping) -> FrozenDict:
     frozen = FrozenDict()
-    dict.update(frozen, entry)
+    dict.update(frozen, {key: _freeze_value(value) for key, value in entry.items()})
     return frozen
+
+
+def _freeze_value(value: object) -> object:
+    if isinstance(value, FrozenDict):
+        return value
+    if isinstance(value, dict):
+        return _freeze_mapping(value)
+    return value
 
 
 def _tokens(text: str) -> list[str]:
