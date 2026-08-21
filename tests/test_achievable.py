@@ -10,10 +10,10 @@ from __future__ import annotations
 from dataclasses import replace
 
 from nutrienv.bench import check_achievable
-from nutrienv.bench.realize import Oracle, Task
+from nutrienv.bench.realize import Oracle, Task, compose_oracles
 from nutrienv.world.catalog_fixture import demo_state
 from nutrienv.world.daily_windows import derive_daily_windows
-from nutrienv.world.types import LedgerRow, Profile, normalize_tags
+from nutrienv.world.types import LedgerRow, Profile, ledger_totals, normalize_tags
 
 
 def _log_task(*, task_id: str = "log-001", food_id: str = "oats") -> Task:
@@ -262,5 +262,61 @@ def test_body_fact_weight_update_is_reachable() -> None:
         "I now weigh 80 kilograms.",
         s0,
         Oracle(profile=oracle_profile, ledger=tuple(s0.ledger)),
+    )
+    assert check_achievable([task]).unreachable == ()
+
+
+def test_reject_evaluate_is_reachable() -> None:
+    s0 = demo_state()
+    named = [{"food_id": "peanut_butter", "grams": 20.0}]
+    task = Task(
+        "eval-unfit",
+        "evaluate",
+        "Evaluate peanut butter as dinner.",
+        s0,
+        Oracle(
+            profile=s0.profile,
+            last_plan=[],
+            ledger=tuple(s0.ledger),
+            last_verdict="reject",
+            last_reasons=("allergy",),
+            evaluated_plan=named,
+        ),
+    )
+    assert check_achievable([task]).unreachable == ()
+
+
+def test_composite_log_then_recommend_is_reachable() -> None:
+    s0 = demo_state()
+    s0.profile = replace(
+        s0.profile,
+        windows={"kcal": (200.0, 400.0), "protein_g": (20.0, 80.0)},
+    )
+    lunch = LedgerRow("oats", 60.0, "today-lunch")
+    eaten = ledger_totals([*s0.ledger, lunch], s0.catalog)
+    remain = {
+        key: (round(max(0.0, lo - eaten.get(key, 0.0)), 2), round(max(0.0, hi - eaten.get(key, 0.0)), 2))
+        for key, (lo, hi) in s0.profile.windows.items()
+    }
+    log_oracle = Oracle(
+        profile=s0.profile,
+        ledger_tail=[lunch],
+        ledger=(*s0.ledger, lunch),
+    )
+    rec_oracle = Oracle(
+        profile=s0.profile,
+        last_plan=[],
+        ledger_tail=[lunch],
+        ledger=(*s0.ledger, lunch),
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=remain,
+    )
+    task = Task(
+        "comp-001",
+        "log",
+        "Log oats for lunch, then recommend dinner.",
+        s0,
+        compose_oracles(log_oracle, rec_oracle),
     )
     assert check_achievable([task]).unreachable == ()

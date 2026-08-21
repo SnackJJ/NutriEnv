@@ -61,6 +61,18 @@ def _replay_oracle(env: NutriEnv, task: Task, oracle: Oracle) -> bool:
                 return False
     if not _replay_profile(env, oracle):
         return False
+    if oracle.last_verdict == "reject":
+        action: dict = {
+            "op": "submit_plan",
+            "items": [],
+            "verdict": "reject",
+        }
+        if oracle.last_reasons:
+            action["reasons"] = list(oracle.last_reasons)
+        stepped = env.step(action)
+        if not stepped.get("ok"):
+            return False
+        return True
     if oracle.last_plan:
         stepped = env.step({"op": "submit_plan", "items": oracle.last_plan})
         if not stepped.get("ok"):
