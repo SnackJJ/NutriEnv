@@ -1,7 +1,10 @@
 """Ticket 14: split-agnostic exam quality gates pinned on synthetic splits."""
 
+import pytest
+
 from nutrienv.bench.realize import Oracle, Task
 from nutrienv.bench.quality_gates import (
+    DEFAULT_EVALUATE_TIER_FLOORS,
     CoverageReport,
     LeftoverFloorReport,
     SituationFloorReport,
@@ -229,3 +232,22 @@ def test_situation_floors_default_to_the_adr_numbers():
 
     short = [task for task in tasks if task.id != "ev-unfit-7"]
     assert situation_floors(short).unfit_count == 7
+
+
+def test_default_tier_floors_are_immutable_policy():
+    with pytest.raises(TypeError):
+        DEFAULT_EVALUATE_TIER_FLOORS["single"] = 99
+    with pytest.raises(AttributeError):
+        DEFAULT_EVALUATE_TIER_FLOORS.update({"pair": 0})
+    with pytest.raises(TypeError):
+        DEFAULT_EVALUATE_TIER_FLOORS.pop("pair")
+
+
+def test_tier_gate_results_do_not_leak_through_the_default_floors():
+    tasks = [_eval_task("ev-single", meal=[_FOOD])]
+    before = evaluate_tier_coverage(tasks)
+    try:
+        DEFAULT_EVALUATE_TIER_FLOORS["single"] = 99
+    except TypeError:
+        pass
+    assert evaluate_tier_coverage(tasks) == before

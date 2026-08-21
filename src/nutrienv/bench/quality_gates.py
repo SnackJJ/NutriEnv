@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
+from types import MappingProxyType
 
 from nutrienv.world.catalog import iter_catalog_entries
 
@@ -119,7 +120,8 @@ def recommend_coverage(
 # Structural difficulty tiers any frozen split exposes without its authoring
 # tables: the size of the named meal, and whether the query speaks raw grams.
 EVALUATE_TIERS = ("single", "pair", "triple", "explicit_grams")
-DEFAULT_EVALUATE_TIER_FLOORS = {tier: 1 for tier in EVALUATE_TIERS}
+# Exported policy is read-only: a caller must not be able to bend the gate.
+DEFAULT_EVALUATE_TIER_FLOORS = MappingProxyType({tier: 1 for tier in EVALUATE_TIERS})
 
 
 def classify_evaluate_tier(task: Task) -> str:
