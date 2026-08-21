@@ -198,3 +198,51 @@ def test_generate_one_evaluate_allergy_knife_matches_bind_reasons() -> None:
     )
     assert out["ok"] is True
     assert Scorer().score(env.state(), task.oracle) == {"passed": True, "tag": "pass"}
+
+
+# 130 g chicken + cup rice + cup broccoli + 2 tbsp oil ≈ 690 kcal, protein still in.
+# Next catalog bump of rice (1.0 cup → 1.5 cup = 237 g) crosses dinner kcal hi.
+_OVER_MEAL = [
+    {"food_id": "chicken_breast", "grams": 130.0},
+    {"food_id": "white_rice", "grams": 158.0},
+    {"food_id": "broccoli", "grams": 91.0},
+    {"food_id": "olive_oil", "grams": 27.0},
+]
+_OVER_QUERY = (
+    "Evaluate this as dinner: 130 g of chicken, 158 g of rice, "
+    "91 g of broccoli, and 27 g of olive oil."
+)
+
+
+def _over_expander(_pool, *, persona, family, amount_path=None):
+    return {"query": _OVER_QUERY, "foods": [item["food_id"] for item in _OVER_MEAL]}
+
+
+def test_generate_one_evaluate_over_slot_bump_fires_hi_reason() -> None:
+    result = _run_eval(
+        expander=_over_expander,
+        knife="over_slot",
+        rewriter=_rewrite_named,
+    )
+    assert result.rejected is None
+    assert result.accepted is not None
+    task = result.accepted
+    named = task.oracle.evaluated_plan
+    assert named is not None
+    assert named != _OVER_MEAL
+    assert task.oracle.last_verdict == "reject"
+    assert task.oracle.last_plan == []
+    expected = bind_evaluate_reasons(
+        named,
+        task.oracle.plan_windows,
+        task.s0.catalog,
+        task.s0.profile.allergies,
+    )
+    assert task.oracle.last_reasons == expected
+    assert any(code.endswith("_hi") for code in task.oracle.last_reasons)
+    before = {item["food_id"]: item["grams"] for item in _OVER_MEAL}
+    after = {item["food_id"]: item["grams"] for item in named}
+    changed = [food_id for food_id, grams in after.items() if before.get(food_id) != grams]
+    assert len(changed) == 1
+    assert any(name.replace("_", " ") in task.query.lower() for name in after)
+    assert validate_draft(task) == []

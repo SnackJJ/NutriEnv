@@ -10,8 +10,9 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 from nutrienv.bench.realize import Oracle, Task, realize_evaluate
+from nutrienv.world.daily_windows import plan_windows_for_meal
 from nutrienv.world.portions import GRAM_UNITS, OUNCE_UNITS, UNIT_SYNONYMS, resolve_portion
-from nutrienv.world.types import MAX_ITEM_GRAMS, LedgerRow, WorldState
+from nutrienv.world.types import MAX_ITEM_GRAMS, LedgerRow, WorldState, ledger_totals
 
 from .knives import KNIVES, apply_knife
 from .resolver import spoken_grams_from_query
@@ -212,8 +213,21 @@ def _evaluate_from_bound(
         )
     if knife is None:
         return GenerateOneResult(accepted=fit, rejected=None)
+    eaten = ledger_totals(list(s0.ledger), s0.catalog)
+    windows = plan_windows_for_meal(
+        s0.profile.windows, eaten, occasion, last_meal=False
+    )
+    if windows is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "empty_windows", "evaluate")
+        )
     knifed = apply_knife(
-        knife, items, profile=s0.profile, catalog=s0.catalog, pool=pool
+        knife,
+        items,
+        profile=s0.profile,
+        catalog=s0.catalog,
+        pool=pool,
+        windows=windows,
     )
     if knifed is None:
         return GenerateOneResult(
