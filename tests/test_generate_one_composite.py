@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from nutrienv.bench.pipeline.generate_one import generate_one
+from nutrienv.bench.pipeline.generate_one import (
+    COMPOSITE_ADMISSION_SLOTS,
+    generate_one,
+)
 from nutrienv.bench.pipeline.roster import ROSTER
 from nutrienv.bench.realize import Oracle, Task, compose_oracles
 from nutrienv.bench.scorer import Scorer
@@ -328,3 +331,11 @@ def test_update_then_recommend_is_constructible() -> None:
     assert scored["passed"] is True
     assert scored["sub_tags"] == ("pass", "pass")
     assert validate_draft(task) == []
+
+
+def test_composite_uses_roster_people_and_counts_toward_36_admission_slots() -> None:
+    assert COMPOSITE_ADMISSION_SLOTS == 36
+    assert len(ROSTER) == 20
+    result = _run()
+    assert result.rejected is None
+    assert result.accepted.s0.profile.user_id in {person.user_id for person in ROSTER}

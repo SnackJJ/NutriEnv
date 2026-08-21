@@ -33,6 +33,7 @@ from .types import (
 
 __all__ = [
     "AMOUNT_PATHS",
+    "COMPOSITE_ADMISSION_SLOTS",
     "KNIVES",
     "GenerateOneResult",
     "LogExpander",
@@ -51,6 +52,8 @@ __all__ = [
 AMOUNT_EXPLICIT_GRAMS = "explicit_grams"
 AMOUNT_NAMED_MEASURE = "named_measure"
 AMOUNT_UNSPECIFIED = "unspecified"
+# ADR 0016: 36 composite slots sit inside the 240, using the same roster.
+COMPOSITE_ADMISSION_SLOTS = 36
 AMOUNT_PATHS: tuple[str, ...] = (
     AMOUNT_EXPLICIT_GRAMS,
     AMOUNT_NAMED_MEASURE,

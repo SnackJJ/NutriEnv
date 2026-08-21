@@ -125,6 +125,15 @@ def test_react_manual_teaches_implicit_update_direction_without_step_sizes() -> 
     assert len(react_manual("v0").split()) <= 400
 
 
+def test_react_manual_teaches_log_then_recommend_needs_both_writes() -> None:
+    for version in REACT_VERSIONS:
+        text = react_manual(version).lower()
+        assert "what to eat next" in text
+        assert "log_meal" in text
+        assert "submit_plan" in text
+    assert len(react_manual("v0").split()) <= 400
+
+
 def test_react_version_rejects_unknown_and_clone_keeps_it() -> None:
     import pytest
 
