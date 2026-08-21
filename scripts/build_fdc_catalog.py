@@ -24,6 +24,7 @@ import importlib.util
 import json
 import re
 import sqlite3
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -552,9 +553,12 @@ def ingest_sources(
     *,
     fndds_only: bool = False,
     include_branded: bool = False,
+    survey_zip: Path | None = None,
 ) -> list[tuple[Path, str, bool]]:
     """Zip packs the builder will ingest: ``(path, default_type, branded)``."""
-    survey = _RAW / "fndds.zip" if (_RAW / "fndds.zip").is_file() else _RAW / "survey.zip"
+    survey = survey_zip or (
+        _RAW / "fndds.zip" if (_RAW / "fndds.zip").is_file() else _RAW / "survey.zip"
+    )
     packs: list[tuple[Path, str, bool]] = [
         (survey, "survey_fndds_food", False),
     ]
@@ -856,8 +860,15 @@ def plan_fndds_only_rebuild(
     sr_legacy_zip: Path | None = None,
     split_path: Path | None = None,
     reference_catalog: Path | None = None,
+    sqlite_pair: tuple[Path, Path] | None = None,
 ) -> dict:
-    """Read-only catalog-v2 plan. Count and FNDDS portions come from survey.zip."""
+    """Read-only catalog-v2 plan. Count and FNDDS portions come from survey.zip.
+
+    Does not write ``catalog-v2.sqlite``. ``sqlite_pair`` is two catalog
+    sqlite files whose ``foods`` JSON cells are compared as TEXT. When
+    omitted, the planner builds ``survey_zip`` once into a temp file and
+    checks those cells against independently sorted JSON.
+    """
     del reference_catalog  # no longer used; kept so old callers do not crash
     survey_zip = survey_zip or (
         _RAW / "fndds.zip" if (_RAW / "fndds.zip").is_file() else _RAW / "survey.zip"
@@ -870,6 +881,7 @@ def plan_fndds_only_rebuild(
     for fdc_id in set(builder_portions) | set(independent_portions):
         if builder_portions.get(fdc_id) != independent_portions.get(fdc_id):
             portion_map_diffs += 1
+    json_cells = _json_cells_from_sqlite_pair(sqlite_pair, survey_zip=survey_zip)
 
     live_foods, live_aliases, live_counts = _read_catalog(live_catalog)
     sr_ids = {
@@ -984,6 +996,7 @@ def plan_fndds_only_rebuild(
             "builder_foods_with_portions": len(builder_portions),
             "independent_foods_with_portions": len(independent_portions),
             "portion_map_diffs": portion_map_diffs,
+            "json_cells": json_cells,
         },
         "staple_swaps": swaps,
         "nutrition_deltas": nutrition_deltas,
@@ -1025,6 +1038,7 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
     swaps = plan["staple_swaps"]
     gold_rows = plan.get("gold_rows") or []
     raw_scan = plan.get("raw_scan") or {}
+    cells = raw_scan.get("json_cells") or {}
     excluded = ", ".join(f"`{fid}`" for fid in (counts.get("no_kcal_ids") or []))
     lines: list[str] = [
         "# catalog-v2 dry-run：FNDDS-only + staple 重钉",
@@ -1065,7 +1079,18 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
         f"**{raw_scan.get('independent_foods_with_portions', 0)}**",
         f"- 两图不一致的食物数：**{raw_scan.get('portion_map_diffs', 0)}**",
         "",
-        "零漂移指这两次 **survey.zip** 扫描一致，不是拿 catalog-v1.sqlite 自己比自己。",
+        "上项是 survey.zip 扫描的取值对照。sqlite `foods` JSON cell 字节对照见下节。",
+        "",
+        "## sqlite foods JSON cell 字节对照",
+        "",
+        f"- 对比食物数：**{cells.get('foods_compared', 0)}**",
+        f"- 解析后取值不一致：**{cells.get('value_diffs', 0)}**",
+        f"- sqlite TEXT 字节不一致：**{cells.get('byte_diffs', 0)}**",
+        f"- 取值相同、仅序列化不同：**{cells.get('key_order_only_diffs', 0)}**",
+        "- 列：`nutrients` / `portions` / `allergen_tags` / `aliases`",
+        "",
+        "零漂移要求取值与 sqlite TEXT 都一致。仅键序或 JSON 空白不同也会记入 "
+        "`key_order_only`。不写 `catalog-v2.sqlite`；对照用临时库或调用方传入的一对 sqlite。",
         "",
         "## 哪些 staple 换条目",
         "",
@@ -1175,6 +1200,147 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
     dest.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def dump_catalog_json(value: object) -> str:
+    """Serialize a foods-table JSON cell. Key order is pinned, not scan order."""
+    return json.dumps(value, sort_keys=True)
+
+
+FOODS_JSON_COLUMNS = ("nutrients", "portions", "allergen_tags", "aliases")
+
+
+def _parse_json_cell(blob: str | None) -> object:
+    try:
+        return json.loads(blob or "")
+    except json.JSONDecodeError:
+        return blob
+
+
+def _read_foods_json_cells(path: Path) -> dict[str, dict[str, str]]:
+    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    try:
+        rows = conn.execute(
+            "SELECT food_id, nutrients, portions, allergen_tags, aliases FROM foods"
+        )
+        return {
+            str(food_id): {
+                "nutrients": nutrients or "",
+                "portions": portions or "",
+                "allergen_tags": allergen_tags or "",
+                "aliases": aliases or "",
+            }
+            for food_id, nutrients, portions, allergen_tags, aliases in rows
+        }
+    finally:
+        conn.close()
+
+
+def diff_foods_json_cells(left: Path, right: Path) -> dict:
+    """Compare foods JSON cells as sqlite TEXT bytes, not parsed values.
+
+    Covers ``nutrients``, ``portions``, ``allergen_tags``, and ``aliases``.
+    """
+    left_rows = _read_foods_json_cells(left)
+    right_rows = _read_foods_json_cells(right)
+    ids = sorted(set(left_rows) | set(right_rows))
+    value_diffs = 0
+    byte_diffs = 0
+    key_order_only = 0
+    columns_hit: set[str] = set()
+    for food_id in ids:
+        left_cells = left_rows.get(food_id)
+        right_cells = right_rows.get(food_id)
+        if left_cells is None or right_cells is None:
+            value_diffs += 1
+            byte_diffs += 1
+            continue
+        food_value_diff = False
+        food_byte_diff = False
+        for column in FOODS_JSON_COLUMNS:
+            left_blob = left_cells[column]
+            right_blob = right_cells[column]
+            if left_blob != right_blob:
+                food_byte_diff = True
+                columns_hit.add(column)
+            if _parse_json_cell(left_blob) != _parse_json_cell(right_blob):
+                food_value_diff = True
+        if food_byte_diff:
+            byte_diffs += 1
+        if food_value_diff:
+            value_diffs += 1
+        elif food_byte_diff:
+            key_order_only += 1
+    return {
+        "foods_compared": len(ids),
+        "value_diffs": value_diffs,
+        "byte_diffs": byte_diffs,
+        "key_order_only_diffs": key_order_only,
+        "byte_diff_columns": sorted(columns_hit),
+    }
+
+
+def _canonical_cell_text(blob: str) -> str:
+    parsed = _parse_json_cell(blob)
+    if isinstance(parsed, (dict, list)):
+        return json.dumps(parsed, sort_keys=True)
+    return blob
+
+
+def check_foods_json_cells_canonical(catalog: Path) -> dict:
+    """Compare stored foods JSON TEXT to independently sorted JSON.
+
+    This is not a two-rebuild self-compare: unsorted ``json.dumps`` keeps
+    insertion order across consecutive builds, so those would still match.
+    """
+    rows = _read_foods_json_cells(catalog)
+    value_diffs = 0
+    byte_diffs = 0
+    key_order_only = 0
+    columns_hit: set[str] = set()
+    for cells in rows.values():
+        food_value_diff = False
+        food_byte_diff = False
+        for column in FOODS_JSON_COLUMNS:
+            blob = cells[column]
+            canonical = _canonical_cell_text(blob)
+            if blob != canonical:
+                food_byte_diff = True
+                columns_hit.add(column)
+            if _parse_json_cell(blob) != _parse_json_cell(canonical):
+                food_value_diff = True
+        if food_byte_diff:
+            byte_diffs += 1
+        if food_value_diff:
+            value_diffs += 1
+        elif food_byte_diff:
+            key_order_only += 1
+    return {
+        "foods_compared": len(rows),
+        "value_diffs": value_diffs,
+        "byte_diffs": byte_diffs,
+        "key_order_only_diffs": key_order_only,
+        "byte_diff_columns": sorted(columns_hit),
+    }
+
+
+def _json_cells_from_sqlite_pair(
+    sqlite_pair: tuple[Path, Path] | None,
+    *,
+    survey_zip: Path,
+) -> dict:
+    """Diff two catalogs, or check one temp build of ``survey_zip``."""
+    if sqlite_pair is not None:
+        return diff_foods_json_cells(sqlite_pair[0], sqlite_pair[1])
+    with tempfile.TemporaryDirectory() as tmp:
+        dest = Path(tmp) / "catalog.sqlite"
+        build(
+            include_branded=False,
+            dest=dest,
+            fndds_only=True,
+            survey_zip=survey_zip,
+        )
+        return check_foods_json_cells_canonical(dest)
+
+
 def _protected_catalogs() -> tuple[Path, ...]:
     return (_DB.resolve(), (_DB.parent / "catalog-v1.sqlite").resolve())
 
@@ -1184,6 +1350,7 @@ def build(
     dest: Path | None = None,
     full: bool = False,
     fndds_only: bool = False,
+    survey_zip: Path | None = None,
 ) -> Path:
     if fndds_only:
         full = True
@@ -1198,7 +1365,11 @@ def build(
             "refusing to overwrite data/fdc/archive/catalog.sqlite"
         )
     foods: dict[str, dict] = {}
-    packs = ingest_sources(fndds_only=fndds_only, include_branded=include_branded)
+    packs = ingest_sources(
+        fndds_only=fndds_only,
+        include_branded=include_branded,
+        survey_zip=survey_zip,
+    )
     for path, default_type, branded in packs:
         if not path.is_file():
             if branded:
@@ -1246,10 +1417,10 @@ def build(
                     entry["name"],
                     entry["data_type"],
                     entry["category"],
-                    json.dumps(entry["nutrients"]),
-                    json.dumps(entry["portions"]),
-                    json.dumps(entry["allergen_tags"]),
-                    json.dumps(entry["aliases"]),
+                    dump_catalog_json(entry["nutrients"]),
+                    dump_catalog_json(entry["portions"]),
+                    dump_catalog_json(entry["allergen_tags"]),
+                    dump_catalog_json(entry["aliases"]),
                 )
             )
             fts_rows.append((fdc_id, entry["name"], f"{alias_text} {entry['name']}"))
