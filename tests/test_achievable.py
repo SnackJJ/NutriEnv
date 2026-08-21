@@ -67,6 +67,20 @@ def test_duplicate_appended_ledger_row_is_reachable() -> None:
     assert check_achievable([task]).unreachable == ()
 
 
+def test_ledger_only_oracle_without_tail_is_reachable() -> None:
+    s0 = demo_state()
+    extra = LedgerRow("oats", 60.0, "today-breakfast")
+    task = Task(
+        "log-ledger-only",
+        "log",
+        "I had oats for breakfast.",
+        s0,
+        Oracle(profile=s0.profile, ledger=(*s0.ledger, extra)),
+    )
+    assert task.oracle.ledger_tail is None
+    assert check_achievable([task]).unreachable == ()
+
+
 def test_exact_last_plan_evaluate_is_reachable() -> None:
     s0 = demo_state()
     plan = [{"food_id": "chicken_breast", "grams": 150.0}]
