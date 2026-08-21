@@ -5,10 +5,8 @@ import json
 from pathlib import Path
 
 from nutrienv.bench.realizations import CONSTRAIN_ROWS, RECOMMEND_ROWS
-from nutrienv.bench.scorer import Scorer
 from nutrienv.bench.split import load_split
-from nutrienv.bench.validator import fitting_plan, validate_draft
-from nutrienv.env import NutriEnv
+from nutrienv.bench.validator import validate_draft
 
 V03 = Path("data/splits/v0.3-gold.json")
 V04 = Path("data/splits/v0.4-gold.json")
@@ -88,21 +86,10 @@ def test_v04_conflict_rows_differ_in_mechanism():
 def test_v04_new_oracles_are_achievable():
     """Every new item can be passed. An unpassable frozen item is a silent
     hole: the agent reasons correctly and the Scorer still rejects it."""
-    scorer = Scorer()
-    for task in load_split(V04)[156:]:
-        env = NutriEnv()
-        env.reset(task.s0)
-        if task.oracle.allow_empty_plan:
-            env.step({"op": "submit_plan", "items": []})
-        else:
-            windows = task.oracle.plan_windows or task.s0.profile.windows
-            plan = fitting_plan(
-                task.s0.catalog, windows, task.s0.profile.allergies
-            )
-            assert plan is not None, (task.id, windows)
-            env.step({"op": "submit_plan", "items": plan})
-        score = scorer.score(env.state(), task.oracle)
-        assert score["passed"], (task.id, score)
+    from nutrienv.bench import check_achievable
+
+    tasks = load_split(Path("data/splits/archive/v0.4-gold.json"))[156:]
+    assert check_achievable(tasks).unreachable == ()
 
 
 def test_v04_recommend_queries_do_not_leak_their_windows():

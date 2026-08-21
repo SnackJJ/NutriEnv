@@ -499,48 +499,10 @@ def test_gold_oracles_are_query_scoped() -> None:
 
 
 def test_gold_oracles_are_achievable() -> None:
-    from nutrienv.bench.scorer import Scorer
-    from nutrienv.env import NutriEnv
+    from nutrienv.bench import check_achievable
 
-    scorer = Scorer()
-    for task in load_split(GOLD_SPLIT_PATH):
-        env = NutriEnv()
-        env.reset(task.s0)
-        if task.oracle.ledger_tail:
-            for row in task.oracle.ledger_tail:
-                stepped = env.step(
-                    {
-                        "op": "log_meal",
-                        "food_id": row.food_id,
-                        "grams": row.grams,
-                        "eaten_at": row.eaten_at,
-                    }
-                )
-                assert stepped["ok"], (task.id, stepped)
-        elif task.oracle.last_plan:
-            stepped = env.step({"op": "submit_plan", "items": task.oracle.last_plan})
-            assert stepped["ok"], (task.id, stepped)
-        elif task.oracle.last_plan == []:
-            plan = _fitting_plan(task)
-            assert plan, task.id
-            stepped = env.step({"op": "submit_plan", "items": plan})
-            assert stepped["ok"], (task.id, stepped)
-        elif task.oracle.allow_empty_plan:
-            stepped = env.step({"op": "submit_plan", "items": []})
-            assert stepped["ok"], (task.id, stepped)
-        elif task.family == "update":
-            patch: dict = {}
-            assert task.oracle.profile is not None
-            if task.oracle.profile.allergies != task.s0.profile.allergies:
-                patch["allergies"] = list(task.oracle.profile.allergies)
-            if task.oracle.profile.windows != task.s0.profile.windows:
-                patch["windows"] = {
-                    key: list(bounds) for key, bounds in task.oracle.profile.windows.items()
-                }
-            stepped = env.step({"op": "update_profile", "patch": patch})
-            assert stepped["ok"], (task.id, stepped)
-        score = scorer.score(env.state(), task.oracle)
-        assert score["passed"], (task.id, score)
+    report = check_achievable(load_split(GOLD_SPLIT_PATH))
+    assert report.unreachable == ()
 
 
 _CANDIDATE_PLANS = (

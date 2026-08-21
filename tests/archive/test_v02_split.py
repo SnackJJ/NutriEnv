@@ -3,11 +3,8 @@
 import json
 from pathlib import Path
 
-from nutrienv.bench.scorer import Scorer
 from nutrienv.bench.split import load_split
-from nutrienv.bench.validator import fitting_plan as _fitting_plan
 from nutrienv.bench.validator import validate_draft
-from nutrienv.env import NutriEnv
 
 V01 = Path("data/splits/v0.1-gold.json")
 V02 = Path("data/splits/v0.2-gold.json")
@@ -60,29 +57,7 @@ def test_v02_constrain_keeps_two_distinct_oracle_contracts():
 def test_v02_new_oracles_are_achievable():
     """Every new item can actually be passed. An unpassable frozen item is a
     silent hole: the agent does everything right and still fails."""
-    scorer = Scorer()
-    for task in load_split(V02)[64:]:
-        env = NutriEnv()
-        env.reset(task.s0)
-        if task.family == "update":
-            profile = task.oracle.profile
-            env.step({
-                "op": "update_profile",
-                "patch": {
-                    "allergies": list(profile.allergies),
-                    "windows": {k: list(v) for k, v in profile.windows.items()},
-                },
-            })
-        elif task.family == "evaluate":
-            env.step({"op": "submit_plan", "items": task.oracle.last_plan})
-        elif task.oracle.allow_empty_plan:
-            env.step({"op": "submit_plan", "items": []})
-        else:
-            windows = task.oracle.plan_windows or task.s0.profile.windows
-            plan = _fitting_plan(
-                task.s0.catalog, windows, set(task.s0.profile.allergies)
-            )
-            assert plan is not None, (task.id, windows)
-            env.step({"op": "submit_plan", "items": plan})
-        score = scorer.score(env.state(), task.oracle)
-        assert score["passed"], (task.id, score)
+    from nutrienv.bench import check_achievable
+
+    tasks = load_split(Path("data/splits/archive/v0.2-gold.json"))[64:]
+    assert check_achievable(tasks).unreachable == ()
