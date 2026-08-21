@@ -578,3 +578,11 @@ def test_archived_v05_load_split_reports_240_reachable() -> None:
 def test_load_exam_stays_fail_closed_on_archived_v05() -> None:
     with pytest.raises(ValueError, match="version"):
         load_exam(V05)
+
+
+def test_bench_readme_documents_check_achievable() -> None:
+    text = Path("src/nutrienv/bench/README.md").read_text(encoding="utf-8")
+    assert "check_achievable" in text
+    assert "unreachable" in text
+    assert "load_split" in text
+

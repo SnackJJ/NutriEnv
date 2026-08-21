@@ -1,9 +1,12 @@
 # Bench public API
 
-`nutrienv.bench` exports `realize`, `Material`, `Task`, `Oracle`, and `Scorer`.
+`nutrienv.bench` exports `realize`, `Material`, `Task`, `Oracle`, `Scorer`,
+and `check_achievable`.
 
 ```python
-from nutrienv.bench import realize, material_from_row, spoken_query, Scorer
+from nutrienv.bench import (
+    realize, material_from_row, spoken_query, Scorer, check_achievable, load_split,
+)
 from nutrienv.bench.realizations import FUZZY_ROWS
 from nutrienv.env import NutriEnv
 
@@ -47,6 +50,15 @@ Catalog nutrients are summed as `amount_per_100g * grams / 100`.
 
 Scoring returns exactly `{"passed": bool, "tag": str}`. The tags are `pass`,
 `allergy`, `window`, `log_miss`, `update_miss`, and `wrong_goal`.
+
+`check_achievable(tasks)` is the dynamic gate after freeze: it takes a loaded
+split (not a path), replays each Oracle through Env's legal actions, and
+returns unreachable ids plus coverage per family and per Scorer-judged Oracle
+field. It does not assert. `validate_draft` remains the static draft-time
+gate. Ledger replay is append-only (duplicate S0/tail rows still log). A mill
+draft is checked with `load_split` then this function, or
+`python scripts/check_achievable.py --split data/splits/pipeline-draft.json`.
+`load_exam` stays fail-closed until the next exam is frozen.
 
 ## Situations
 
