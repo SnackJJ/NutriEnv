@@ -1,3 +1,5 @@
+import pytest
+
 from nutrienv.world.catalog import (
     FoodCatalog,
     SEARCH_LIMIT,
@@ -44,20 +46,20 @@ def test_canonical_food_id_plain_dict() -> None:
     assert canonical_food_id(catalog, "missing") == "missing"
 
 
-def test_iter_entries_scans_without_copying_but_getitem_still_does() -> None:
-    """A read-only scan shares entries; ``[]`` keeps its copy-on-write guard.
+def test_catalog_entry_rejects_in_place_assignment() -> None:
+    catalog = FoodCatalog.from_mapping(demo_catalog())
+    entry = catalog["shrimp"]
+    with pytest.raises(TypeError):
+        entry["name"] = "hack"
+    assert catalog["shrimp"]["name"] == "Shrimp, cooked"
 
-    A clone shares ``_base`` with its parent, so ``__getitem__`` deep-copies
-    what it hands out. Scanning the whole catalog that way costs one deepcopy
-    per food per task, which is why validators read through ``iter_entries``.
-    """
+
+def test_iter_entries_and_getitem_share_the_same_entry() -> None:
     catalog = load_catalog()
     scanned = dict(catalog.iter_entries())
     assert len(scanned) == len(catalog)
     food_id = next(iter(scanned))
-    assert scanned[food_id] is catalog._base[food_id]
-    assert catalog[food_id] is not catalog._base[food_id]
-    assert catalog[food_id] == scanned[food_id]
+    assert catalog[food_id] is scanned[food_id]
 
 
 def test_iter_catalog_entries_accepts_a_plain_mapping() -> None:

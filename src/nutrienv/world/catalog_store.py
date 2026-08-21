@@ -40,7 +40,7 @@ def _stamp(target: Path) -> tuple[int, int]:
 
 @lru_cache(maxsize=4)
 def _snapshot(target: Path, stamp: tuple[int, int]) -> FoodCatalog:
-    """Parse the snapshot once. Callers get a copy-on-write clone of it."""
+    """Parse the snapshot once. Callers get a clone that shares frozen entries."""
     if target.is_file() and target.suffix == ".sqlite":
         return FoodCatalog.from_sqlite(target)
     return FoodCatalog.from_mapping(demo_catalog())
