@@ -205,12 +205,15 @@ def _bind_log_foods(
     for food_id in foods:
         if food_id not in pool_ids or food_id not in catalog:
             return None, "not_in_pool"
-        grams = spoken_grams_from_query(query, food_id, catalog)
+        clause = _local_clause(query, food_id, catalog)
+        if clause is None:
+            return None, "unresolvable"
+        grams = spoken_grams_from_query(clause, food_id, catalog)
         if grams is None:
-            grams = resolve_portion(food_id, query, catalog)
+            grams = resolve_portion(food_id, clause, catalog)
         if grams is None:
             return None, "unresolvable"
-        if _speech_amount_path(query) != amount_path:
+        if _speech_amount_path(clause) != amount_path:
             return None, "amount_path"
         if float(grams) <= GRAM_TOLERANCE:
             return None, "small_grams"
@@ -218,6 +221,37 @@ def _bind_log_foods(
     if not rows:
         return None, "unresolvable"
     return rows, None
+
+
+def _local_clause(query: str, food_id: str, catalog: Mapping) -> str | None:
+    """Speech span for one food: stop at and/comma so a neighbor's unit cannot leak."""
+    lowered = query.lower()
+    best: tuple[int, str] | None = None
+    for name in _spoken_names(food_id, catalog):
+        needle = name.strip().lower()
+        if len(needle) < 3:
+            continue
+        for match in re.finditer(rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered):
+            prefix = query[: match.start()]
+            suffix = query[match.end() :]
+            head = re.split(r",|\band\b", prefix, flags=re.I)[-1]
+            tail = re.split(r",|\band\b", suffix, flags=re.I)[0]
+            clause = f"{head}{match.group(0)}{tail}".strip()
+            if clause and (best is None or len(needle) > best[0]):
+                best = (len(needle), clause)
+    return None if best is None else best[1]
+
+
+def _spoken_names(food_id: str, catalog: Mapping) -> list[str]:
+    entry = catalog.get(food_id) or {}
+    names = [food_id.replace("_", " ")]
+    name = str(entry.get("name") or "")
+    if name.strip():
+        names.append(name)
+        if "," in name:
+            names.append(name.split(",", 1)[0])
+    names.extend(str(alias) for alias in (entry.get("aliases") or []))
+    return names
 
 
 def _speech_amount_path(text: str) -> str | None:
