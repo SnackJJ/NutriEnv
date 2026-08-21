@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from nutrienv.env import NutriEnv
-from nutrienv.world.daily_windows import estimated_energy_requirement
+from nutrienv.world.daily_windows import derive_profile_windows, estimated_energy_requirement
 from nutrienv.world.types import LedgerRow, Profile
 
 from .realize import Oracle, Task, scored_oracles
@@ -161,7 +161,8 @@ def _replay_profile(env: NutriEnv, oracle: Oracle) -> bool:
     patch = _profile_patch(current, expected)
     if not patch:
         return True
-    if _BODY_KEYS & patch.keys():
+    body_patch = {key: patch[key] for key in _BODY_KEYS if key in patch}
+    if body_patch and derive_profile_windows(replace(current, **body_patch)) is not None:
         patch.pop("windows", None)
     stepped = env.step({"op": "update_profile", "patch": patch})
     return bool(stepped.get("ok"))

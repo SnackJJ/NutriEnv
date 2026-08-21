@@ -228,6 +228,24 @@ def test_exact_profile_update_is_reachable() -> None:
     assert check_achievable([task]).unreachable == ()
 
 
+def test_incomplete_body_update_keeps_explicit_windows() -> None:
+    s0 = demo_state()
+    assert s0.profile.sex is None
+    oracle_profile = replace(
+        s0.profile,
+        weight_kg=80.0,
+        windows={"kcal": (1600.0, 2000.0), "protein_g": (90.0, 140.0)},
+    )
+    task = Task(
+        "upd-weight-incomplete",
+        "update",
+        "I now weigh 80 kilograms and want 1600 to 2000 kcal.",
+        s0,
+        Oracle(profile=oracle_profile, ledger=tuple(s0.ledger)),
+    )
+    assert check_achievable([task]).unreachable == ()
+
+
 def _ada_state():
     s0 = demo_state()
     windows = derive_daily_windows(
