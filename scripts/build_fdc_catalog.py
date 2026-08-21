@@ -866,7 +866,8 @@ def plan_fndds_only_rebuild(
 
     Does not write ``catalog-v2.sqlite``. ``sqlite_pair`` is two catalog
     sqlite files whose ``foods`` JSON cells are compared as TEXT. When
-    omitted, the planner builds twice into a temp dir from the same zips.
+    omitted, the planner builds ``survey_zip`` once into a temp file and
+    checks those cells against independently sorted JSON.
     """
     del reference_catalog  # no longer used; kept so old callers do not crash
     survey_zip = survey_zip or (
@@ -1277,30 +1278,67 @@ def diff_foods_json_cells(left: Path, right: Path) -> dict:
     }
 
 
+def _canonical_cell_text(blob: str) -> str:
+    parsed = _parse_json_cell(blob)
+    if isinstance(parsed, (dict, list)):
+        return json.dumps(parsed, sort_keys=True)
+    return blob
+
+
+def check_foods_json_cells_canonical(catalog: Path) -> dict:
+    """Compare stored foods JSON TEXT to independently sorted JSON.
+
+    This is not a two-rebuild self-compare: unsorted ``json.dumps`` keeps
+    insertion order across consecutive builds, so those would still match.
+    """
+    rows = _read_foods_json_cells(catalog)
+    value_diffs = 0
+    byte_diffs = 0
+    key_order_only = 0
+    columns_hit: set[str] = set()
+    for cells in rows.values():
+        food_value_diff = False
+        food_byte_diff = False
+        for column in FOODS_JSON_COLUMNS:
+            blob = cells[column]
+            canonical = _canonical_cell_text(blob)
+            if blob != canonical:
+                food_byte_diff = True
+                columns_hit.add(column)
+            if _parse_json_cell(blob) != _parse_json_cell(canonical):
+                food_value_diff = True
+        if food_byte_diff:
+            byte_diffs += 1
+        if food_value_diff:
+            value_diffs += 1
+        elif food_byte_diff:
+            key_order_only += 1
+    return {
+        "foods_compared": len(rows),
+        "value_diffs": value_diffs,
+        "byte_diffs": byte_diffs,
+        "key_order_only_diffs": key_order_only,
+        "byte_diff_columns": sorted(columns_hit),
+    }
+
+
 def _json_cells_from_sqlite_pair(
     sqlite_pair: tuple[Path, Path] | None,
     *,
     survey_zip: Path,
 ) -> dict:
-    """Diff two catalog sqlite files; build a temp pair when none is given."""
+    """Diff two catalogs, or check one temp build of ``survey_zip``."""
     if sqlite_pair is not None:
         return diff_foods_json_cells(sqlite_pair[0], sqlite_pair[1])
     with tempfile.TemporaryDirectory() as tmp:
-        first = Path(tmp) / "a.sqlite"
-        second = Path(tmp) / "b.sqlite"
+        dest = Path(tmp) / "catalog.sqlite"
         build(
             include_branded=False,
-            dest=first,
+            dest=dest,
             fndds_only=True,
             survey_zip=survey_zip,
         )
-        build(
-            include_branded=False,
-            dest=second,
-            fndds_only=True,
-            survey_zip=survey_zip,
-        )
-        return diff_foods_json_cells(first, second)
+        return check_foods_json_cells_canonical(dest)
 
 
 def _protected_catalogs() -> tuple[Path, ...]:

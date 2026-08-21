@@ -266,6 +266,32 @@ def test_plan_byte_check_build_uses_explicit_survey_zip(tmp_path: Path) -> None:
         assert _sha256(path) == digest
 
 
+def test_plan_default_byte_check_flags_unsorted_dumps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Old json.dumps (no sort_keys) must not report zero sqlite-cell drift.
+
+    Two consecutive same-code rebuilds keep insertion order, so they are not
+    this check. The dry-run builds the explicit survey_zip and compares
+    stored TEXT to independently sorted JSON.
+    """
+    before = _snapshot_catalog_shas()
+    survey = _write_survey_zip(tmp_path / "survey.zip")
+    monkeypatch.setattr(builder, "dump_catalog_json", lambda value: json.dumps(value))
+    plan = builder.plan_fndds_only_rebuild(
+        live_catalog=_LIVE,
+        survey_zip=survey,
+    )
+    cells = plan["raw_scan"]["json_cells"]
+    assert cells["foods_compared"] == 1
+    assert cells["value_diffs"] == 0
+    assert cells["key_order_only_diffs"] == 1
+    assert "nutrients" in cells["byte_diff_columns"]
+    assert "portions" in cells["byte_diff_columns"]
+    for path, digest in before.items():
+        assert _sha256(path) == digest
+
+
 def test_plan_byte_check_detects_sqlite_key_order_drift(
     tmp_path: Path,
 ) -> None:
