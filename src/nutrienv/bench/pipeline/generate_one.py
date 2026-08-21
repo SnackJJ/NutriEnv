@@ -19,6 +19,7 @@ from .resolver import spoken_grams_from_query
 from .roster import RosterPerson, profile_for, sample_roster_person
 from .sampler import sample_pools
 from .semantic_vote import GRAM_TOLERANCE
+from .templates import recommend_query
 from .types import (
     DEFAULT_GENERATE_POOL_SIZE,
     FoodPool,
@@ -52,6 +53,11 @@ AMOUNT_PATHS: tuple[str, ...] = (
 
 _OCCASIONS: tuple[str, ...] = ("breakfast", "lunch", "dinner")
 _SCENES: tuple[str, ...] = ("empty", "leftover")
+_RECOMMEND_SHELLS_BY_OCCASION: dict[str, str] = {
+    "breakfast": "rec-breakfast",
+    "lunch": "rec-lunch",
+    "dinner": "rec-dinner",
+}
 _NAMED_PORTION_KEYS = frozenset(
     {"cup", "tbsp", "tsp", "slice", "piece", "can", "fl_oz"}
 )
@@ -102,7 +108,7 @@ class GenerateOneResult:
 def generate_one(
     *,
     catalog: Mapping,
-    expander: Callable[..., object],
+    expander: Callable[..., object] | None = None,
     family: str = "log",
     seed: int = 0,
     person: RosterPerson | None = None,
@@ -114,9 +120,14 @@ def generate_one(
     scene: str = "empty",
     prior_ledger: Sequence[LedgerRow] | None = None,
     last_meal: bool = False,
+    shell: str | None = None,
+    slots: Mapping[str, str] | None = None,
 ) -> GenerateOneResult:
-    """One mill item: roster person → world windows → pool → expander → speech bind."""
-    if family not in {"log", "evaluate"}:
+    """One mill item: roster person → world windows → pool → expander → speech bind.
+
+    Recommend items are template-filled (``shell``/``slots``) with no expander.
+    """
+    if family not in {"log", "evaluate", "recommend"}:
         raise ValueError(f"generate_one does not implement {family!r}")
     if amount_path is not None and amount_path not in AMOUNT_PATHS:
         raise ValueError(f"unknown amount_path {amount_path!r}")
@@ -124,15 +135,29 @@ def generate_one(
         raise ValueError(f"unknown occasion {occasion!r}")
     if knife is not None and knife not in KNIVES:
         raise ValueError(f"unknown knife {knife!r}")
-    if family == "log" and (knife is not None or scene != "empty"):
-        raise ValueError("knives and leftover scenes apply only to evaluate")
     if scene not in _SCENES:
         raise ValueError(f"unknown scene {scene!r}")
 
     rng = random.Random(seed)
     chosen = person if person is not None else sample_roster_person(seed)
-    path = amount_path if amount_path is not None else rng.choice(AMOUNT_PATHS)
     profile = profile_for(chosen)
+
+    if family == "recommend":
+        return _recommend_from_template(
+            catalog,
+            chosen=chosen,
+            profile=profile,
+            seed=seed,
+            occasion=occasion,
+            scene=scene,
+            prior_ledger=prior_ledger,
+            shell=shell,
+            slots=dict(slots or {}),
+        )
+
+    if family == "log" and (knife is not None or scene != "empty"):
+        raise ValueError("knives and leftover scenes apply only to evaluate")
+    path = amount_path if amount_path is not None else rng.choice(AMOUNT_PATHS)
     pools = sample_pools(
         catalog,
         seed=seed,
@@ -149,6 +174,8 @@ def generate_one(
         return GenerateOneResult(
             accepted=None, rejected=Rejected("", "empty_pool", family)
         )
+    if expander is None:
+        raise ValueError(f"family {family!r} requires an injected expander")
     raw = expander(
         pool, persona=chosen.persona, family=family, amount_path=path
     )
@@ -203,6 +230,109 @@ def generate_one(
         chosen.persona,
     )
     return GenerateOneResult(accepted=task, rejected=None)
+
+
+def _recommend_from_template(
+    catalog: Mapping,
+    *,
+    chosen: RosterPerson,
+    profile: object,
+    seed: int,
+    occasion: str,
+    scene: str,
+    prior_ledger: Sequence[LedgerRow] | None,
+    shell: str | None,
+    slots: dict[str, str],
+) -> GenerateOneResult:
+    """Template-filled Recommend: query from the agreed shells, work in S0."""
+    shell_id = shell if shell is not None else _RECOMMEND_SHELLS_BY_OCCASION[occasion]
+    fill = dict(slots)
+    if shell_id == "rec-named-dish":
+        dish = _allergen_dish(catalog, chosen, fill.get("dish"))
+        if dish is None:
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected("", "no_allergen_dish", "recommend")
+            )
+        fill["dish"] = dish
+    elif shell_id == "rec-post-gym" and chosen.persona != "gym":
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "not_gym_persona", "recommend")
+        )
+    elif shell_id in {"rec-occasion"}:
+        fill.setdefault("occasion", occasion)
+    query = recommend_query(shell_id, fill)
+    if query is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "template", "recommend")
+        )
+    ledger: list[LedgerRow] = []
+    if scene == "leftover":
+        # Leftover copies earlier Log tails verbatim; a dropped parent Log
+        # means there is nothing to copy and the draft is dropped with it.
+        if not prior_ledger:
+            return GenerateOneResult(
+                accepted=None,
+                rejected=Rejected(query, "no_ledger", "recommend"),
+            )
+        ledger = list(prior_ledger)
+    s0 = WorldState(profile=profile, ledger=ledger, catalog=catalog)
+    eaten = ledger_totals(ledger, catalog)
+    plan_windows = plan_windows_for_meal(profile.windows, eaten, occasion)
+    if plan_windows is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "empty_windows", "recommend")
+        )
+    oracle = Oracle(
+        profile=copy.deepcopy(profile),
+        last_plan=[],
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=plan_windows,
+        ledger=tuple(ledger),
+    )
+    task = Task(
+        f"one-rec-{seed:04d}",
+        "recommend",
+        query,
+        s0,
+        oracle,
+        (),
+        chosen.persona,
+    )
+    return GenerateOneResult(accepted=task, rejected=None)
+
+
+def _allergen_dish(
+    catalog: Mapping, chosen: RosterPerson, requested: str | None
+) -> str | None:
+    """A catalog food carrying one of the person's allergen tags.
+
+    The spoken name fills {dish}; the query never says allergic.
+    """
+    banned = set(chosen.allergies)
+    if not banned:
+        return None
+    if requested is not None:
+        entry = catalog.get(requested)
+        tags = set((entry or {}).get("allergen_tags") or [])
+        if entry is None or not tags & banned:
+            return None
+        return _spoken_name(requested, entry)
+    for food_id in sorted(catalog):
+        entry = catalog[food_id]
+        if not isinstance(entry, dict):
+            continue
+        if set(entry.get("allergen_tags") or []) & banned:
+            return _spoken_name(food_id, entry)
+    return None
+
+
+def _spoken_name(food_id: str, entry: Mapping) -> str:
+    aliases = entry.get("aliases") or []
+    if aliases:
+        return str(aliases[0])
+    name = str(entry.get("name") or "")
+    return name.split(",", 1)[0] if "," in name else name or food_id
 
 
 def _evaluate_from_bound(
