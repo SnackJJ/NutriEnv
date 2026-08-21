@@ -246,3 +246,85 @@ def test_validator_rejects_evaluate_unfit_paired_with_recommend_substitute() -> 
     )
     issues = validate_draft(task)
     assert any("unfit" in item and "substitute" in item for item in issues)
+
+
+def test_log_then_evaluate_fit_is_constructible() -> None:
+    def expand(pool, *, persona, family, amount_path=None):
+        foods = [food.food_id for food in pool.foods if food.food_id == "white_rice"]
+        return {
+            "query": "Please log three cups of rice for lunch. Is this lunch okay?",
+            "foods": foods,
+        }
+
+    result = _run(steps=("log", "evaluate"), expander=expand)
+    assert result.rejected is None
+    task = result.accepted
+    assert task.family == "log"
+    log_oracle, eval_oracle = task.oracle.sub_oracles
+    assert [row.food_id for row in log_oracle.ledger_tail] == ["white_rice"]
+    assert eval_oracle.last_verdict == "accept"
+    assert eval_oracle.last_plan == [
+        {"food_id": "white_rice", "grams": 474.0}
+    ]
+    assert tuple(eval_oracle.ledger) == tuple(log_oracle.ledger)
+
+    env = NutriEnv()
+    env.reset(task.s0)
+    row = log_oracle.ledger_tail[0]
+    assert env.step(
+        {
+            "op": "log_meal",
+            "food_id": row.food_id,
+            "grams": row.grams,
+            "eaten_at": row.eaten_at,
+        }
+    )["ok"] is True
+    assert env.step(
+        {"op": "submit_plan", "items": eval_oracle.last_plan, "verdict": "accept"}
+    )["ok"] is True
+    scored = Scorer().score(env.state(), task.oracle)
+    assert scored["passed"] is True
+    assert scored["sub_tags"] == ("pass", "pass")
+    assert validate_draft(task) == []
+
+
+def test_update_then_recommend_is_constructible() -> None:
+    result = _run(
+        steps=("update", "recommend"),
+        shell="upd-add-allergy",
+        slots={"food": "shrimp"},
+        occasion="dinner",
+        expander=None,
+        person=ROSTER[3],
+    )
+    assert result.rejected is None
+    task = result.accepted
+    assert task.family == "update"
+    assert task.s0.profile.user_id == ROSTER[3].user_id
+    upd_oracle, rec_oracle = task.oracle.sub_oracles
+    assert "shellfish" in upd_oracle.profile.allergies
+    assert rec_oracle.last_plan == []
+    assert rec_oracle.profile.allergies == upd_oracle.profile.allergies
+    expected = plan_windows_for_meal(
+        upd_oracle.profile.windows,
+        ledger_totals(task.s0.ledger, task.s0.catalog),
+        "dinner",
+    )
+    assert rec_oracle.plan_windows == expected
+    assert "allergic to shrimp" in task.query.lower()
+    assert "what's for dinner?" in task.query.lower()
+
+    env = NutriEnv()
+    env.reset(task.s0)
+    assert env.step(
+        {"op": "update_profile", "patch": {"allergies": ["shrimp"]}}
+    )["ok"] is True
+    plan = fitting_plan(
+        task.s0.catalog, rec_oracle.plan_windows, rec_oracle.profile.allergies
+    )
+    assert plan is not None
+    assert env.step({"op": "submit_plan", "items": plan})["ok"] is True
+    scored = Scorer().score(env.state(), task.oracle)
+    assert scored["passed"] is True
+    assert scored["sub_tags"] == ("pass", "pass")
+    assert validate_draft(task) == []

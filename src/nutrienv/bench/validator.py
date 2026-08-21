@@ -253,7 +253,7 @@ def validate_draft(task: Task) -> list[str]:
         if kcal is not None and kcal[1] <= 0:
             issues.append("leftover kcal ceiling is not positive")
 
-    if task.family == "update":
+    if task.family == "update" and not task.oracle.sub_oracles:
         issues.extend(_validate_update(task, query))
     if task.family == "constrain" and "condition_suitability" in task.situations:
         issues.extend(_validate_condition(task, query))
