@@ -277,3 +277,29 @@ def test_generate_one_evaluate_under_slot_step_or_drop_fires_lo_reason() -> None
     ]
     assert len(dropped) + len(stepped) == 1
     assert validate_draft(task) == []
+
+
+def test_generate_one_evaluate_swap_gold_has_no_kcal_code() -> None:
+    result = _run_eval(
+        expander=_over_expander,
+        knife="swap",
+        rewriter=_rewrite_named,
+    )
+    assert result.rejected is None
+    assert result.accepted is not None
+    task = result.accepted
+    named = task.oracle.evaluated_plan
+    assert named is not None
+    assert task.oracle.last_verdict == "reject"
+    assert task.oracle.last_plan == []
+    expected = bind_evaluate_reasons(
+        named,
+        task.oracle.plan_windows,
+        task.s0.catalog,
+        task.s0.profile.allergies,
+    )
+    assert task.oracle.last_reasons == expected
+    assert "kcal_hi" not in task.oracle.last_reasons
+    assert "kcal_lo" not in task.oracle.last_reasons
+    assert "fat_g_hi" in task.oracle.last_reasons or "fiber_g_lo" in task.oracle.last_reasons
+    assert validate_draft(task) == []
