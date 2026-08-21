@@ -268,6 +268,8 @@ def _bind_log_foods(
     for food_id in foods:
         if food_id not in pool_ids or food_id not in catalog:
             return None, "not_in_pool"
+    if _ambiguous_mention(query, pool, catalog):
+        return None, "ambiguous"
     mentioned = _mentioned_pool_ids(query, pool, catalog)
     if mentioned - set(foods):
         return None, "omitted_food"
@@ -314,6 +316,20 @@ def _local_clause(query: str, food_id: str, catalog: Mapping) -> str | None:
             if clause and (best is None or len(needle) > best[0]):
                 best = (len(needle), clause)
     return None if best is None else best[1]
+
+
+def _ambiguous_mention(query: str, pool: FoodPool, catalog: Mapping) -> bool:
+    """True when one spoken name in the query maps to two pool ids."""
+    lowered = query.lower()
+    owners: dict[str, set[str]] = {}
+    for food in pool.foods:
+        for name in _spoken_names(food.food_id, catalog):
+            needle = name.strip().lower()
+            if len(needle) < 3:
+                continue
+            if re.search(rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered):
+                owners.setdefault(needle, set()).add(food.food_id)
+    return any(len(ids) > 1 for ids in owners.values())
 
 
 def _mentioned_pool_ids(query: str, pool: FoodPool, catalog: Mapping) -> set[str]:

@@ -194,6 +194,25 @@ def test_generate_one_rejects_food_id_absent_from_pool() -> None:
     assert result.rejected.reason == "not_in_pool"
 
 
+def test_generate_one_rejects_ambiguous_shared_mention() -> None:
+    catalog = {
+        "coffee_ns": _food("Coffee, NS as to type", {"cup": 240.0}, ("coffee",)),
+        "coffee_brewed": _food("Coffee, brewed", {"cup": 248.0}, ("coffee",)),
+        "milk_whole": _food("Milk, whole", {"cup": 244.0}, ("milk",)),
+    }
+
+    def expand(_pool, *, persona, family, amount_path=None):
+        return {
+            "query": "Please log a cup of coffee for lunch.",
+            "foods": ["coffee_ns", "coffee_brewed"],
+        }
+
+    result = _run(expand, catalog=catalog, pool_size=3)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason == "ambiguous"
+
+
 def test_generate_one_rejects_query_food_omitted_from_foods_json() -> None:
     def expand(_pool, *, persona, family, amount_path=None):
         return {
