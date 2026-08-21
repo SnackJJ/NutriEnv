@@ -71,16 +71,20 @@ def _reachable(task: Task, scorer: Scorer) -> bool:
     env = NutriEnv()
     env.reset(task.s0)
     for oracle in scored_oracles(task.oracle):
-        if not _replay_oracle(env, task, oracle):
+        if not _replay_oracle(env, task, oracle, scorer):
             return False
     return scorer.score(env.state(), task.oracle)["passed"] is True
 
 
-def _replay_oracle(env: NutriEnv, task: Task, oracle: Oracle) -> bool:
+def _replay_oracle(
+    env: NutriEnv, task: Task, oracle: Oracle, scorer: Scorer
+) -> bool:
     if not _replay_ledger(env, oracle):
         return False
     if not _replay_profile(env, oracle):
         return False
+    if scorer.score(env.state(), oracle)["passed"] is True:
+        return True
     if oracle.last_verdict == "reject":
         action: dict = {
             "op": "submit_plan",

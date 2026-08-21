@@ -476,6 +476,30 @@ def test_composite_log_then_recommend_is_reachable() -> None:
     assert check_achievable([task]).unreachable == ()
 
 
+def test_composite_exact_plan_then_any_safe_plan_is_reachable() -> None:
+    s0 = demo_state()
+    chicken = [{"food_id": "chicken_breast", "grams": 150.0}]
+    exact = Oracle(
+        profile=s0.profile,
+        last_plan=chicken,
+        ledger=tuple(s0.ledger),
+    )
+    any_safe = Oracle(
+        profile=s0.profile,
+        last_plan=[],
+        ledger=tuple(s0.ledger),
+        plan_must_be_safe=True,
+    )
+    task = Task(
+        "comp-exact-then-any",
+        "evaluate",
+        "Evaluate 150 g chicken, then recommend something safe.",
+        s0,
+        compose_oracles(exact, any_safe),
+    )
+    assert check_achievable([task]).unreachable == ()
+
+
 def test_coverage_counts_families_and_keeps_zero_features_visible() -> None:
     report = check_achievable([_log_task()])
     assert report.by_family["log"] == 1
