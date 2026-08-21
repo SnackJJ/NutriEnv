@@ -168,6 +168,19 @@ def test_generate_one_foods_must_be_pool_ids_not_spoken_names() -> None:
     assert result.rejected.reason == "not_in_pool"
 
 
+def test_generate_one_rejects_repeated_speech_of_the_same_food() -> None:
+    def expand(_pool, *, persona, family, amount_path=None):
+        return {
+            "query": "Please log a cup of milk and another cup of milk for lunch.",
+            "foods": ["milk_whole"],
+        }
+
+    result = _run(expand)
+    assert result.accepted is None
+    assert result.rejected is not None
+    assert result.rejected.reason == "repeat"
+
+
 def test_generate_one_rejects_duplicate_food_ids() -> None:
     def expand(_pool, *, persona, family, amount_path=None):
         return {

@@ -304,6 +304,8 @@ def _bind_log_foods(
     mentioned = _mentioned_food_ids(query, catalog)
     if mentioned - set(foods):
         return None, "omitted_food"
+    if _repeated_speech(query, foods, catalog):
+        return None, "repeat"
     rows: list[LedgerRow] = []
     for food_id in foods:
         clause = _local_clause(query, food_id, catalog)
@@ -347,6 +349,31 @@ def _food_clauses(query: str) -> list[str]:
         if text:
             clauses.append(text)
     return clauses
+
+
+def _repeated_speech(
+    query: str, food_ids: Sequence[str], catalog: Mapping
+) -> bool:
+    """True when the query reports the same food in more than one clause."""
+    clauses = _food_clauses(query)
+    for food_id in food_ids:
+        hits = sum(
+            1 for clause in clauses if _clause_mentions(clause, food_id, catalog)
+        )
+        if hits > 1:
+            return True
+    return False
+
+
+def _clause_mentions(clause: str, food_id: str, catalog: Mapping) -> bool:
+    lowered = clause.lower()
+    for name in _spoken_names(food_id, catalog):
+        needle = name.strip().lower()
+        if len(needle) < 3 or needle in _MENTION_STOP:
+            continue
+        if re.search(rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered):
+            return True
+    return False
 
 
 def _local_clause(query: str, food_id: str, catalog: Mapping) -> str | None:
