@@ -63,7 +63,7 @@ How an episode is graded:
 """
 
 _SYSTEM_V1_TAIL = """
-- Spoken household measures appear on get_food as portions: each key is one measure, the value is grams for one of that measure of that food. Convert the spoken quantity from that table. Do not invent grams from prior knowledge.
+- Spoken household measures appear on get_food as portions: each key is one measure, the value is grams for one of that measure of that food. Convert the spoken quantity from that table ("one-and-a-half" is 1.5, same as "one and a half"). Do not invent grams from prior knowledge.
 - Keys you may be asked for by name: cup, tbsp (tablespoon), tsp (teaspoon), slice, piece (also "each"), can, fl_oz (fluid ounce).
 - "a serving / a portion / a bowl / a plate / an order of X", and a dish named as its own unit ("a sandwich", "two burritos"), all mean one default serving: read portions.qns; if the food has no qns, fall back to piece, then slice, then cup.
 - A bare food noun with no unit ("one apple", "a banana", "two eggs") means that many pieces of the food: read portions.piece. A cut with no portion key ("a chicken breast") has no default: do not log it, finish without logging that food.

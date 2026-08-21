@@ -22,6 +22,7 @@ CATALOG = demo_catalog()
         ("milk_whole", "cup", 244.0),
         ("milk_whole", "two cups", 488.0),
         ("milk_whole", "one and a half cups", 366.0),
+        ("milk_whole", "one-and-a-half cups", 366.0),
         ("milk_whole", "three quarters of a cup", 183.0),   # multiply, not 3 + 0.25
         ("milk_whole", "1 1/2 cups", 366.0),
         ("olive_oil", "2 tbsp", 27.0),
@@ -343,3 +344,10 @@ def test_bare_noun_handbook_covers_new_expressions(catalog_v1):
     assert resolve_portion("banana", "a banana", catalog_v1) == 126.0
     assert resolve_portion("egg", "two eggs", catalog_v1) == 100.0
     assert resolve_portion("chicken_breast", "a chicken breast", catalog_v1) is None
+
+
+def test_hyphenated_compound_quantity_is_in_the_react_manual() -> None:
+    """AGENTS.md handbook symmetry: mill gold-path speech must appear in v1."""
+    manual = react_manual("v1")
+    assert "one-and-a-half" in manual
+    assert resolve_portion("milk_whole", "one-and-a-half cups", CATALOG) == 366.0
