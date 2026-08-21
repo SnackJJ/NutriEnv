@@ -246,3 +246,34 @@ def test_generate_one_evaluate_over_slot_bump_fires_hi_reason() -> None:
     assert len(changed) == 1
     assert any(name.replace("_", " ") in task.query.lower() for name in after)
     assert validate_draft(task) == []
+
+
+def test_generate_one_evaluate_under_slot_step_or_drop_fires_lo_reason() -> None:
+    result = _run_eval(knife="under_slot", rewriter=_rewrite_named)
+    assert result.rejected is None
+    assert result.accepted is not None
+    task = result.accepted
+    named = task.oracle.evaluated_plan
+    assert named is not None
+    assert named != _FIT_MEAL
+    assert task.oracle.last_verdict == "reject"
+    assert task.oracle.last_plan == []
+    expected = bind_evaluate_reasons(
+        named,
+        task.oracle.plan_windows,
+        task.s0.catalog,
+        task.s0.profile.allergies,
+    )
+    assert task.oracle.last_reasons == expected
+    assert any(code.endswith("_lo") for code in task.oracle.last_reasons)
+    assert named, "under_slot must not empty the plate"
+    before = {item["food_id"]: item["grams"] for item in _FIT_MEAL}
+    after = {item["food_id"]: item["grams"] for item in named}
+    dropped = [food_id for food_id in before if food_id not in after]
+    stepped = [
+        food_id
+        for food_id, grams in after.items()
+        if food_id in before and grams < before[food_id]
+    ]
+    assert len(dropped) + len(stepped) == 1
+    assert validate_draft(task) == []

@@ -44,6 +44,10 @@ def apply_knife(
         return _over_slot(
             plate, profile=profile, catalog=catalog, pool=pool, windows=windows
         )
+    if knife == KNIFE_UNDER_SLOT:
+        return _under_slot(
+            plate, profile=profile, catalog=catalog, pool=pool, windows=windows
+        )
     return None
 
 
@@ -77,6 +81,61 @@ def _over_slot(
         if _fires_hi(candidate, windows, catalog, profile.allergies):
             return candidate
     return None
+
+
+def _under_slot(
+    plate: list[dict[str, object]],
+    *,
+    profile: Profile,
+    catalog: Mapping,
+    pool: FoodPool,
+    windows: Mapping[str, tuple[float, float]],
+) -> list[dict[str, object]] | None:
+    """One step down, or drop one food. Empty and tiny plates are cartoon."""
+    for index, item in enumerate(plate):
+        stepped = _prev_portion(item, pool)
+        if stepped is None or _cartoon_item(stepped):
+            continue
+        candidate = plate[:index] + [stepped] + plate[index + 1 :]
+        if _fires_lo(candidate, windows, catalog, profile.allergies):
+            return candidate
+    if len(plate) < 2:
+        return None
+    for index in range(len(plate)):
+        candidate = plate[:index] + plate[index + 1 :]
+        if not candidate or any(_cartoon_item(item) for item in candidate):
+            continue
+        if _fires_lo(candidate, windows, catalog, profile.allergies):
+            return candidate
+    return None
+
+
+def _prev_portion(
+    item: Mapping[str, object], pool: FoodPool
+) -> dict[str, object] | None:
+    food = next((row for row in pool.foods if row.food_id == item["food_id"]), None)
+    if food is None:
+        return None
+    current = float(item["grams"])
+    lower = [
+        alt
+        for alt in food.alternatives
+        if alt.grams < current - 1e-9 and alt.grams > GRAM_TOLERANCE
+    ]
+    if not lower:
+        return None
+    alt = max(lower, key=lambda row: row.grams)
+    return {"food_id": food.food_id, "grams": float(alt.grams)}
+
+
+def _fires_lo(
+    plate: Sequence[Mapping[str, object]],
+    windows: Mapping[str, tuple[float, float]],
+    catalog: Mapping,
+    allergies: tuple[str, ...],
+) -> bool:
+    reasons = bind_evaluate_reasons(list(plate), dict(windows), catalog, allergies)
+    return any(code.endswith("_lo") for code in reasons)
 
 
 def _next_portion(
