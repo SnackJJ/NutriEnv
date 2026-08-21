@@ -284,11 +284,6 @@ class FoodCatalog(Mapping[str, dict]):
                 raise KeyError(food_id)
         return self._base[canonical]
 
-    def iter_entries(self) -> Iterator[tuple[str, dict]]:
-        """Canonical ``(food_id, entry)`` pairs, same objects as ``self[id]``."""
-        for food_id in self:
-            yield food_id, self[food_id]
-
     def __contains__(self, food_id: object) -> bool:
         if not isinstance(food_id, str):
             return False
@@ -325,10 +320,7 @@ class FoodCatalog(Mapping[str, dict]):
 
 
 def iter_catalog_entries(catalog) -> Iterator[tuple[str, dict]]:
-    """Read-only ``(food_id, entry)`` scan over a catalog or a plain mapping."""
-    scan = getattr(catalog, "iter_entries", None)
-    if scan is not None:
-        return scan()
+    """``(food_id, entry)`` pairs from a catalog or a plain mapping."""
     return ((str(food_id), catalog[food_id]) for food_id in catalog)
 
 

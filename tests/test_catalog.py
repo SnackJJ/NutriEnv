@@ -1,3 +1,5 @@
+import copy
+
 import pytest
 
 from nutrienv.world.catalog import (
@@ -95,9 +97,9 @@ def test_food_view_returns_a_mutable_observation_copy() -> None:
     assert "extra" not in catalog["mystery"]
 
 
-def test_iter_entries_and_getitem_share_the_same_entry() -> None:
+def test_iter_catalog_entries_reads_the_same_objects_as_getitem() -> None:
     catalog = load_catalog()
-    scanned = dict(catalog.iter_entries())
+    scanned = dict(iter_catalog_entries(catalog))
     assert len(scanned) == len(catalog)
     food_id = next(iter(scanned))
     assert catalog[food_id] is scanned[food_id]
@@ -106,3 +108,9 @@ def test_iter_entries_and_getitem_share_the_same_entry() -> None:
 def test_iter_catalog_entries_accepts_a_plain_mapping() -> None:
     plain = {"oats": {"name": "Rolled oats"}}
     assert list(iter_catalog_entries(plain)) == [("oats", plain["oats"])]
+
+
+def test_cloned_catalog_shares_frozen_entries() -> None:
+    catalog = FoodCatalog.from_mapping(demo_catalog())
+    clone = copy.deepcopy(catalog)
+    assert catalog["shrimp"] is clone["shrimp"]
