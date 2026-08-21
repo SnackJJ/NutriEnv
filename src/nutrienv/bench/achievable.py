@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from nutrienv.env import NutriEnv
 from nutrienv.world.daily_windows import estimated_energy_requirement
+from nutrienv.world.types import Profile
 
 from .realize import Oracle, Task, scored_oracles
 from .scorer import Scorer
@@ -141,7 +142,9 @@ def _replay_profile(env: NutriEnv, oracle: Oracle) -> bool:
     return bool(stepped.get("ok"))
 
 
-def _replay_band(env: NutriEnv, current, expected, band: str) -> bool:
+def _replay_band(
+    env: NutriEnv, current: Profile, expected: Profile, band: str
+) -> bool:
     patch = _profile_patch(current, expected)
     patch.pop("windows", None)
     if band == "cut" and "phase" not in patch:
@@ -191,14 +194,14 @@ def _features(task: Task) -> set[str]:
     return names
 
 
-def _has_body_facts(profile) -> bool:
+def _has_body_facts(profile: Profile) -> bool:
     return any(
         getattr(profile, key) is not None
         for key in ("sex", "age_y", "height_cm", "weight_kg", "activity")
     )
 
 
-def _fatigue_kcal(profile) -> tuple[float, float] | None:
+def _fatigue_kcal(profile: Profile) -> tuple[float, float] | None:
     if (
         profile.sex is None
         or profile.age_y is None
@@ -220,7 +223,7 @@ def _fatigue_kcal(profile) -> tuple[float, float] | None:
     return (eased, eased)
 
 
-def _profile_patch(current, expected) -> dict:
+def _profile_patch(current: Profile, expected: Profile) -> dict:
     patch: dict = {}
     if expected.allergies != current.allergies:
         patch["allergies"] = list(expected.allergies)

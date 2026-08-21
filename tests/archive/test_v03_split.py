@@ -5,11 +5,8 @@ import json
 from pathlib import Path
 
 from nutrienv.bench.realizations import EVALUATE_ROWS
-from nutrienv.bench.scorer import Scorer
 from nutrienv.bench.split import load_split
 from nutrienv.bench.validator import validate_draft
-from nutrienv.env import NutriEnv
-from tests.test_v02_split import _fitting_plan
 
 V02 = Path("data/splits/v0.2-gold.json")
 V03 = Path("data/splits/v0.3-gold.json")
@@ -67,37 +64,7 @@ def test_v03_evaluate_plans_are_passable_under_their_own_profile():
 
 
 def test_v03_new_oracles_are_achievable():
-    scorer = Scorer()
-    for task in load_split(V03)[100:]:
-        env = NutriEnv()
-        env.reset(task.s0)
-        if task.family == "log":
-            for row in task.oracle.ledger_tail:
-                env.step({
-                    "op": "log_meal",
-                    "food_id": row.food_id,
-                    "grams": row.grams,
-                    "eaten_at": row.eaten_at,
-                })
-        elif task.family == "update":
-            profile = task.oracle.profile
-            env.step({
-                "op": "update_profile",
-                "patch": {
-                    "allergies": list(profile.allergies),
-                    "windows": {k: list(v) for k, v in profile.windows.items()},
-                },
-            })
-        elif task.family == "evaluate":
-            env.step({"op": "submit_plan", "items": task.oracle.last_plan})
-        elif task.oracle.allow_empty_plan:
-            env.step({"op": "submit_plan", "items": []})
-        else:
-            windows = task.oracle.plan_windows or task.s0.profile.windows
-            plan = _fitting_plan(
-                task.s0.catalog, windows, set(task.s0.profile.allergies)
-            )
-            assert plan is not None, (task.id, windows)
-            env.step({"op": "submit_plan", "items": plan})
-        score = scorer.score(env.state(), task.oracle)
-        assert score["passed"], (task.id, score)
+    from nutrienv.bench import check_achievable
+
+    tasks = load_split(Path("data/splits/archive/v0.3-gold.json"))[100:]
+    assert check_achievable(tasks).unreachable == ()

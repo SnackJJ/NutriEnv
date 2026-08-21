@@ -12,7 +12,10 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from nutrienv.bench import check_achievable
+from nutrienv.bench.split import load_exam, load_split
 from nutrienv.bench.realize import Oracle, Task, compose_oracles
 from nutrienv.world.catalog_fixture import demo_state
 from nutrienv.world.daily_windows import derive_daily_windows
@@ -446,3 +449,22 @@ def test_cli_exits_nonzero_when_an_item_is_unreachable(tmp_path: Path, capsys) -
     out = capsys.readouterr().out
     assert code == 1
     assert "cli-bad" in out
+
+
+V05 = Path("data/splits/archive/v0.5-gold.json")
+
+
+def test_archived_v05_load_split_reports_240_reachable() -> None:
+    """Fixture check, not a published-exam zero-drift gate."""
+    tasks = load_split(V05)
+    assert len(tasks) == 240
+    report = check_achievable(tasks)
+    assert report.unreachable == ()
+    assert sum(report.by_family.values()) == 240
+    assert report.by_feature["update_band"] == 0
+    assert report.by_feature["body_facts"] == 0
+
+
+def test_load_exam_stays_fail_closed_on_archived_v05() -> None:
+    with pytest.raises(ValueError, match="version"):
+        load_exam(V05)

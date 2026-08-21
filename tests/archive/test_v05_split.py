@@ -7,7 +7,7 @@ from pathlib import Path
 
 from nutrienv.bench.scorer import Scorer
 from nutrienv.bench.split import load_split
-from nutrienv.bench.validator import fitting_plan, validate_draft
+from nutrienv.bench.validator import validate_draft
 from nutrienv.env import NutriEnv
 
 V04 = Path("data/splits/v0.4-gold.json")
@@ -94,70 +94,19 @@ def test_v05_ledger_gap_items_really_have_a_hole():
 
 
 def test_v05_new_oracles_are_achievable():
-    scorer = Scorer()
-    for task in load_split(V05)[207:]:
-        env = NutriEnv()
-        env.reset(task.s0)
-        if task.family == "log":
-            for row in task.oracle.ledger_tail:
-                stepped = env.step({
-                    "op": "log_meal",
-                    "food_id": row.food_id,
-                    "grams": row.grams,
-                    "eaten_at": row.eaten_at,
-                })
-                assert stepped.get("ok", True), (task.id, stepped)
-        elif task.family == "update":
-            s0, oracle = task.s0.profile, task.oracle.profile
-            patch: dict = {}
-            if oracle.allergies != s0.allergies:
-                patch["allergies"] = list(oracle.allergies)
-            if oracle.windows != s0.windows:
-                patch["windows"] = {k: list(v) for k, v in oracle.windows.items()}
-            if oracle.plan_preset != s0.plan_preset:
-                patch["plan_preset"] = oracle.plan_preset
-            env.step({"op": "update_profile", "patch": patch})
-        score = scorer.score(env.state(), task.oracle)
-        assert score["passed"], (task.id, score)
+    from nutrienv.bench import check_achievable
+
+    tasks = load_split(Path("data/splits/archive/v0.5-gold.json"))[207:]
+    assert check_achievable(tasks).unreachable == ()
 
 
 def test_v05_whole_exam_is_achievable():
     """The headline claim of the benchmark is that every one of the 240 can be
     passed. Prove it for all of them, not just the newest slice."""
-    scorer = Scorer()
-    for task in load_split(V05):
-        env = NutriEnv()
-        env.reset(task.s0)
-        if task.oracle.ledger_tail:
-            for row in task.oracle.ledger_tail:
-                env.step({
-                    "op": "log_meal",
-                    "food_id": row.food_id,
-                    "grams": row.grams,
-                    "eaten_at": row.eaten_at,
-                })
-        elif task.family == "update":
-            s0, oracle = task.s0.profile, task.oracle.profile
-            patch = {
-                "allergies": list(oracle.allergies),
-                "windows": {k: list(v) for k, v in oracle.windows.items()},
-            }
-            if oracle.plan_preset != s0.plan_preset:
-                patch["plan_preset"] = oracle.plan_preset
-            env.step({"op": "update_profile", "patch": patch})
-        elif task.oracle.last_plan:
-            env.step({"op": "submit_plan", "items": task.oracle.last_plan})
-        elif task.oracle.allow_empty_plan:
-            env.step({"op": "submit_plan", "items": []})
-        elif task.oracle.last_plan == []:
-            windows = task.oracle.plan_windows or task.s0.profile.windows
-            plan = fitting_plan(
-                task.s0.catalog, windows, task.s0.profile.allergies
-            )
-            assert plan is not None, (task.id, windows)
-            env.step({"op": "submit_plan", "items": plan})
-        score = scorer.score(env.state(), task.oracle)
-        assert score["passed"], (task.id, score)
+    from nutrienv.bench import check_achievable
+
+    tasks = load_split(Path("data/splits/archive/v0.5-gold.json"))
+    assert check_achievable(tasks).unreachable == ()
 
 
 def test_v05_evaluate_gold_passes_with_items_only_submit_plan():
