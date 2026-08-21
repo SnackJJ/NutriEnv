@@ -211,6 +211,27 @@ def test_plan_flags_without_last_plan_still_need_a_fitting_plan(flags: dict) -> 
     assert check_achievable([task]).unreachable == ()
 
 
+def test_safe_only_oracle_is_reachable_when_windows_are_impossible() -> None:
+    s0 = demo_state()
+    s0.profile = replace(
+        s0.profile,
+        windows={"kcal": (1.0, 2.0), "protein_g": (1000.0, 2000.0)},
+    )
+    task = Task(
+        "cond-safe-only",
+        "constrain",
+        "Is peanut butter a good idea?",
+        s0,
+        Oracle(
+            profile=s0.profile,
+            last_plan=None,
+            ledger=tuple(s0.ledger),
+            plan_must_be_safe=True,
+        ),
+    )
+    assert check_achievable([task]).unreachable == ()
+
+
 def test_exact_profile_update_is_reachable() -> None:
     s0 = demo_state()
     oracle_profile = replace(

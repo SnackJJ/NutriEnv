@@ -13,7 +13,7 @@ from dataclasses import dataclass, replace
 
 from nutrienv.env import NutriEnv
 from nutrienv.world.daily_windows import derive_profile_windows, estimated_energy_requirement
-from nutrienv.world.types import LedgerRow, Profile
+from nutrienv.world.types import LedgerRow, Profile, normalize_tags
 
 from .realize import Oracle, Task, scored_oracles
 from .scorer import Scorer
@@ -105,10 +105,12 @@ def _replay_oracle(env: NutriEnv, task: Task, oracle: Oracle) -> bool:
         or oracle.plan_must_be_safe
         or oracle.plan_must_fit_windows
     ):
-        windows = oracle.plan_windows or env.state().profile.windows
-        plan = fitting_plan(
-            task.s0.catalog, windows, env.state().profile.allergies
-        )
+        allergies = env.state().profile.allergies
+        if oracle.plan_must_fit_windows or oracle.plan_windows is not None:
+            windows = oracle.plan_windows or env.state().profile.windows
+            plan = fitting_plan(task.s0.catalog, windows, allergies)
+        else:
+            plan = _any_safe_plan(task.s0.catalog, allergies)
         if plan is None:
             return False
         stepped = env.step({"op": "submit_plan", "items": plan})
@@ -151,6 +153,24 @@ def _log_row(env: NutriEnv, row: LedgerRow) -> bool:
     )
     return bool(stepped.get("ok"))
 
+
+def _any_safe_plan(catalog, allergies) -> list[dict] | None:
+    """Any 1 g allergen-safe item. Scorer does not judge windows unless asked."""
+    try:
+        banned = set(normalize_tags(list(allergies)))
+    except ValueError:
+        return None
+    for food_id, entry in catalog.items():
+        if not isinstance(entry, dict):
+            continue
+        try:
+            tags = set(normalize_tags(entry.get("allergen_tags") or []))
+        except ValueError:
+            continue
+        if tags & banned:
+            continue
+        return [{"food_id": food_id, "grams": 1.0}]
+    return None
 
 
 def _replay_profile(env: NutriEnv, oracle: Oracle) -> bool:
