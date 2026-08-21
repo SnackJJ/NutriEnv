@@ -320,3 +320,71 @@ def test_generate_one_evaluate_fit_with_leftover_ledger_still_accepts() -> None:
     assert "leftover_over" not in task.oracle.bound_labels
     assert "leftover_under" not in task.oracle.bound_labels
     assert validate_draft(task) == []
+
+
+def test_generate_one_evaluate_leftover_over_keeps_ordinary_plate() -> None:
+    result = _run_eval(
+        scene="leftover",
+        prior_ledger=[LedgerRow("white_rice", 965.0, "today-lunch")],
+        knife="over_slot",
+        rewriter=_rewrite_named,
+    )
+    assert result.rejected is None
+    assert result.accepted is not None
+    task = result.accepted
+    assert task.oracle.last_verdict == "reject"
+    assert "leftover_over" in task.oracle.bound_labels
+    assert task.oracle.evaluated_plan == _FIT_MEAL
+    assert "kcal_hi" in task.oracle.last_reasons or any(
+        code.endswith("_hi") for code in task.oracle.last_reasons
+    )
+    expected = bind_evaluate_reasons(
+        task.oracle.evaluated_plan,
+        task.oracle.plan_windows,
+        task.s0.catalog,
+        task.s0.profile.allergies,
+    )
+    assert task.oracle.last_reasons == expected
+    assert validate_draft(task) == []
+
+
+def _rice_dinner_expander(_pool, *, persona, family, amount_path=None):
+    return {
+        "query": "Evaluate this as dinner: 430 g of rice.",
+        "foods": ["white_rice"],
+    }
+
+
+_LEFTOVER_LUNCH = [LedgerRow("white_rice", 965.0, "today-lunch")]
+
+
+def test_generate_one_evaluate_leftover_under_only_on_last_meal() -> None:
+    earlier = _run_eval(
+        expander=_rice_dinner_expander,
+        scene="leftover",
+        prior_ledger=_LEFTOVER_LUNCH,
+        last_meal=False,
+    )
+    if earlier.accepted is not None:
+        assert "leftover_under" not in earlier.accepted.oracle.bound_labels
+        assert "draft_only" not in earlier.accepted.situations
+
+    last = _run_eval(
+        expander=_rice_dinner_expander,
+        scene="leftover",
+        prior_ledger=_LEFTOVER_LUNCH,
+        last_meal=True,
+    )
+    assert last.rejected is None
+    assert last.accepted is not None
+    task = last.accepted
+    assert task.oracle.last_verdict == "reject"
+    assert "leftover_under" in task.oracle.bound_labels
+    assert "draft_only" in task.situations
+    assert task.oracle.last_reasons == bind_evaluate_reasons(
+        task.oracle.evaluated_plan,
+        task.oracle.plan_windows,
+        task.s0.catalog,
+        task.s0.profile.allergies,
+    )
+    assert validate_draft(task) == []

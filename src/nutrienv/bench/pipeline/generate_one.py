@@ -110,6 +110,7 @@ def generate_one(
     rewriter: Callable[..., object] | None = None,
     scene: str = "empty",
     prior_ledger: Sequence[LedgerRow] | None = None,
+    last_meal: bool = False,
 ) -> GenerateOneResult:
     """One mill item: roster person → world windows → pool → expander → speech bind."""
     if family not in {"log", "evaluate"}:
@@ -182,6 +183,7 @@ def generate_one(
             rewriter=rewriter,
             pool=pool,
             amount_path=path,
+            last_meal=last_meal,
         )
     oracle = Oracle(
         profile=copy.deepcopy(profile),
@@ -212,22 +214,47 @@ def _evaluate_from_bound(
     rewriter: Callable[..., object] | None,
     pool: FoodPool,
     amount_path: str,
+    last_meal: bool,
 ) -> GenerateOneResult:
     items = [{"food_id": row.food_id, "grams": float(row.grams)} for row in bound]
-    fit = _realize_eval(
-        f"one-eval-{seed:04d}", query, items, s0, occasion, ("evaluate_fit",), persona
+    draft = _realize_eval(
+        f"one-eval-{seed:04d}",
+        query,
+        items,
+        s0,
+        occasion,
+        ("evaluate_fit",),
+        persona,
+        last_meal=last_meal,
     )
-    if isinstance(fit, GenerateOneResult):
-        return fit
-    if fit.oracle.last_verdict != "accept":
+    if isinstance(draft, GenerateOneResult):
+        return draft
+    labels = draft.oracle.bound_labels
+    if "leftover_under" in labels:
+        if not last_meal:
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected(query, "leftover_under", "evaluate")
+            )
+        return GenerateOneResult(
+            accepted=_retag(
+                draft, ("evaluate_unfit", "leftover_under", "draft_only"), persona
+            ),
+            rejected=None,
+        )
+    if "leftover_over" in labels and knife in (None, "over_slot"):
+        return GenerateOneResult(
+            accepted=_retag(draft, ("evaluate_unfit", "leftover_over"), persona),
+            rejected=None,
+        )
+    if draft.oracle.last_verdict != "accept":
         return GenerateOneResult(
             accepted=None, rejected=Rejected(query, "not_fit", "evaluate")
         )
     if knife is None:
-        return GenerateOneResult(accepted=fit, rejected=None)
+        return GenerateOneResult(accepted=draft, rejected=None)
     eaten = ledger_totals(list(s0.ledger), s0.catalog)
     windows = plan_windows_for_meal(
-        s0.profile.windows, eaten, occasion, last_meal=False
+        s0.profile.windows, eaten, occasion, last_meal=last_meal
     )
     if windows is None:
         return GenerateOneResult(
@@ -264,6 +291,7 @@ def _evaluate_from_bound(
         occasion,
         ("evaluate_unfit", knife),
         persona,
+        last_meal=last_meal,
     )
     if isinstance(unfit, GenerateOneResult):
         return unfit
@@ -274,6 +302,12 @@ def _evaluate_from_bound(
     return GenerateOneResult(accepted=unfit, rejected=None)
 
 
+def _retag(task: Task, situations: tuple[str, ...], persona: str) -> Task:
+    return Task(
+        task.id, task.family, task.query, task.s0, task.oracle, situations, persona
+    )
+
+
 def _realize_eval(
     task_id: str,
     query: str,
@@ -282,6 +316,8 @@ def _realize_eval(
     occasion: str,
     situations: tuple[str, ...],
     persona: str,
+    *,
+    last_meal: bool,
 ) -> Task | GenerateOneResult:
     meal = [
         {"food_id": str(item["food_id"]), "grams": float(item["grams"])}
@@ -289,7 +325,12 @@ def _realize_eval(
     ]
     try:
         task = realize_evaluate(
-            task_id=task_id, query=query, items=meal, s0=s0, occasion=occasion
+            task_id=task_id,
+            query=query,
+            items=meal,
+            s0=s0,
+            occasion=occasion,
+            last_meal=last_meal,
         )
     except ValueError:
         return GenerateOneResult(
