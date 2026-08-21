@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import itertools
 import re
+from dataclasses import replace
 
 from nutrienv.world.catalog import canonical_food_id, iter_catalog_entries
 from nutrienv.world.daily_windows import derive_profile_windows
@@ -739,7 +740,19 @@ def _validate_composite(task: Task) -> list[str]:
     )
     if has_unfit and has_substitute:
         issues.append("composite Evaluate-unfit paired with Recommend-substitute")
+    query = task.query.lower()
+    for child in children:
+        if _child_is_update(child, task):
+            issues.extend(_validate_update(replace(task, oracle=child), query))
     return issues
+
+
+def _child_is_update(child, task: Task) -> bool:
+    if child.ledger_tail is not None or child.last_plan is not None:
+        return False
+    if child.profile is None:
+        return False
+    return child.profile != task.s0.profile or bool(child.update_band)
 
 
 def _evaluate_food_names(food_id: str, catalog) -> list[str]:

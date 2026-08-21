@@ -7,6 +7,8 @@ from nutrienv.bench.pipeline.generate_one import (
     generate_one,
 )
 from nutrienv.bench.pipeline.roster import ROSTER
+from dataclasses import replace
+
 from nutrienv.bench.realize import Oracle, Task, compose_oracles
 from nutrienv.bench.scorer import Scorer
 from nutrienv.bench.validator import fitting_plan, validate_draft
@@ -331,6 +333,29 @@ def test_update_then_recommend_is_constructible() -> None:
     assert scored["passed"] is True
     assert scored["sub_tags"] == ("pass", "pass")
     assert validate_draft(task) == []
+
+
+def test_validator_rejects_composite_update_that_shifts_unmentioned_window() -> None:
+    result = _run(
+        steps=("update", "recommend"),
+        shell="upd-add-allergy",
+        slots={"food": "shrimp"},
+        occasion="dinner",
+        expander=None,
+        person=ROSTER[3],
+    )
+    assert result.rejected is None
+    task = result.accepted
+    upd, rec = task.oracle.sub_oracles
+    lo, hi = upd.profile.windows["kcal"]
+    sneaky = replace(
+        upd,
+        profile=replace(upd.profile, windows={**upd.profile.windows, "kcal": (lo + 100.0, hi + 100.0)}),
+    )
+    sneaky_rec = replace(rec, profile=sneaky.profile)
+    broken = replace(task, oracle=compose_oracles(sneaky, sneaky_rec))
+    issues = validate_draft(broken)
+    assert any("unmentioned window" in item for item in issues)
 
 
 def test_composite_uses_roster_people_and_counts_toward_36_admission_slots() -> None:
