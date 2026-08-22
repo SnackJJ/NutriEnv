@@ -210,3 +210,43 @@ $ .venv/bin/python -m pytest -q
 ........................................................................ [100%]
 1290 passed in 44.63s
 ```
+
+## Re-review (codex)
+
+**Verdict: ACC.** Commit `6f79dd5` resolves every blocking and non-blocking
+finding from the first review. No new code finding was found.
+
+| Prior finding | Status | Re-review evidence |
+|---|---|---|
+| High — named-dish trap ignored lens profile | **Resolved** | `_query_names_allergen_food(task, allergies)` now keeps the parent query/catalog but evaluates caller-supplied lens allergies; `constrained_recommends` calls it per lens with `lens.profile.allergies`. Manual add/remove probes returned only the added-shellfish child, and a single-family shellfish trap still counted. |
+| Medium — verdict-bearing recommend child counted as Evaluate-unfit | **Resolved** | Composite evaluate lenses now require `evaluated_plan is not None` and no `plan_must_fit_windows`; `_is_evaluate_unfit` then applies reject + empty plan. The hybrid recommend/reject probe stayed out, while a genuine composite Evaluate reject counted. |
+| Low — duplicated/misleading evaluate predicate | **Resolved** | `_is_evaluate_unfit` is the single unfit predicate; `_evaluate_lenses` now only identifies evaluate carriers. |
+| Low — recommend discriminator/validator mismatch undocumented | **Resolved** | `_is_recommend_child` explicitly documents the deliberate pinned-window gate contract, and `test_recommend_child_without_pinned_windows_counts_toward_no_lens` freezes the exclusion. |
+| Low — required bookkeeping absent from commit | **Resolved / acceptable** | The spec, implementation report, and consistency-audit report are committed in `6f79dd5`. The `.scratch` issue note exists but remains outside Git; this is acceptable for the ignored scratch tracker. |
+
+### Standards
+
+No `AGENTS.md` violation or actionable code smell was found. The shared
+predicate removes the prior duplication, and the new parameters/helpers state
+their contracts clearly.
+
+### Spec
+
+The lens-profile threading preserves single-family behavior and fixes both
+post-update allergy directions. Evaluate carrier evidence now separates the
+previous validator-admitted hybrid from genuine Evaluate children. The
+stricter pinned-window recommend geometry remains intentional and tested.
+
+One non-blocking documentation observation: committed spec lines 26-28 still
+describe the pinned-window discriminator as “the same test” as the validator,
+while the corrected implementation accurately says it is deliberately
+stricter. Align that sentence in a future documentation cleanup; it does not
+affect this acceptance verdict.
+
+### Verification
+
+- `tests/test_quality_gates.py`: **41 passed**.
+- Full suite: **1290 passed**.
+- Commit scope contains no ADR, data, frozen split, SQLite, or `scorer.py`
+  change.
+- Review-only: no code was edited or merged.
