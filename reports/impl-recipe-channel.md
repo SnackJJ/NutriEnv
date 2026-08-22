@@ -109,3 +109,161 @@ $ .venv/bin/python -m pytest -q
 ```
 
 (Previously 1301; +5 tests, 0 failures.)
+
+## Review (codex)
+
+**Verdict: REV.** The transport reaches the resolver and the allergy fixture
+does produce an ADR-0017-shaped reject oracle, but the general knife path does
+not preserve the spoken meal and its frozen output cannot be loaded. The
+fail-closed contract also has holes at the library boundary.
+
+### Spec findings
+
+- **High — the knife input is not bind-confirmed against the windows used for
+  the unfit oracle** (`src/nutrienv/bench/pipeline/resolver.py:300`,
+  `src/nutrienv/bench/pipeline/resolver.py:504`). `_realize_evaluate` makes a
+  legacy fit oracle with plate-derived two-key windows, then
+  `_realize_evaluate_knife` ignores that `fit_task` and switches to Ada's
+  six-key dinner windows. The committed milk fixture is already `kcal_lo`
+  before the allergy knife (the result is `('allergy', 'kcal_lo')`), so this is
+  not ADR 0017's fit→knife construction. **Fix:** bind the original plate
+  against the same roster/occasion windows, reject unless it fits, and use that
+  state as the source for the knife oracle.
+- **High — non-allergy knife speech can contradict `evaluated_plan`**
+  (`src/nutrienv/bench/pipeline/resolver.py:530`,
+  `src/nutrienv/bench/pipeline/resolver.py:553`). `_name_knifed_foods` only
+  appends names for new food ids: a bumped/stepped item retains its old spoken
+  amount, a dropped or swapped item remains spoken, and an addition has no
+  recoverable amount. A batch probe accepted an over-slot task whose query says
+  `130 g of chicken` while `evaluated_plan` contains 140 g; `validate_draft`
+  still returns `[]` because it only checks that table grams and food names are
+  present. This also violates the agent-manual symmetry rule for the new bare
+  `plus FOOD` wording. **Fix:** rewrite the complete knifed plate with its
+  actual catalog-backed speakable amounts via the generate-one rewrite contract
+  (and synchronize `react.py` for any genuinely new speech convention).
+- **High — the frozen knife result is not reloadable**
+  (`src/nutrienv/bench/pipeline/resolver.py:547`). The batch freezes
+  `situations=["evaluate_unfit", "allergy"]`, neither of which belongs to
+  `SITUATIONS`; `load_split(result.path, catalog=...)` reproduces
+  `ValueError: unknown situations`. Calling this pre-existing does not make the
+  newly emitted batch artifact usable end to end. **Fix:** emit reload-valid
+  situation metadata (the quality gate already recognizes unfit oracle
+  geometry), or extend the approved vocabulary in a separately authorized
+  change, and add a freeze→load assertion.
+- **Medium — recipe parsing is not consistently fail-closed**
+  (`src/nutrienv/bench/pipeline/run_batch.py:409`,
+  `src/nutrienv/bench/pipeline/resolver.py:295`). The global key set admits
+  family/key combinations that their resolver branch silently ignores; for
+  example `recommend:knife=bogus` is accepted as a normal Recommend. It also
+  accepts null despite the report claiming non-string values are refused;
+  `evaluate:tier=null` reaches an accepted `Task(tier=None)`. Recipes for a
+  supported family absent from `family_quotas` are likewise unused at the
+  library API (the CLI alone rejects them). **Fix:** define allowed keys and
+  value types per family, require recipe families to be requested, and reject
+  unsupported/null assignments before jobs are built.
+- **Medium — Recommend `shell` transport does not meet the decided spec**
+  (`src/nutrienv/bench/pipeline/resolver.py:394`). The spec says Recommend
+  honors `candidate.shell`, but every non-empty shell becomes an unresolvable
+  rejection. **Fix:** implement the existing generate-one shell semantics, or
+  narrow the design authority before advertising `shell` as a batch recipe
+  channel.
+
+### Standards finding
+
+- **High — batch exposure includes the unanchored `swap` knife**
+  (`src/nutrienv/bench/pipeline/resolver.py:500`). Accepting every value in
+  `KNIVES` exposes `swap`, whose `_iso_item` grams are calculated from target
+  kcal rather than selected from an FNDDS/QNS portion. That conflicts with the
+  repository's hard gram-anchor rule and ADR 0017's Stage-A `grams = table`
+  gate. **Fix:** reject `swap` in this channel until it selects a catalog/QNS
+  gram value, or change the knife to use a catalog portion.
+
+### Test assessment and evidence
+
+- `test_tier_recipe_is_carried_into_the_frozen_output`, the allergy knife test,
+  the unknown-key control, and the leftover-scene rejection exercise real
+  behavior. The empty-recipe test does not compare the result with a no-recipe
+  run, so it does not establish the claimed byte identity. The knife test also
+  omits the `evaluate_unfits` assertion, no-carrier control, non-allergy speech
+  cases, CLI transport, and freeze→load.
+- The allergy probe produced `reject`, empty `last_plan`, a populated
+  `evaluated_plan`, reasons equal to the bind, `validate_draft == []`, and an id
+  in `evaluate_unfits`. Removing the peanut carrier produced a clean
+  `unresolvable` rejection. The lazy `apply_knife` import is justified by the
+  documented import cycle and worked in both unit and CLI paths.
+- `tests/test_run_batch.py`: **23 passed**. Full suite: **1306 passed**. The
+  valid synthetic CLI allergy recipe accepted one item; the bogus CLI key was
+  rejected by argparse. Commit scope contains no ADR, split, sqlite, scorer,
+  validator, review-harness, or quality-gates changes.
+
+## Fix round (codex findings)
+
+Review: "## Review (codex)" above (verdict REV). All six findings addressed;
+touched resolver.py, run_batch.py, generate_batch.py, react-adjacent tests.
+
+- **High 1 — knife input now bind-confirmed.** `_realize_evaluate_knife`
+  binds the ORIGINAL plate against the same roster/occasion windows the
+  unfit oracle pins (`bind_evaluate_reasons`); any pre-knife reason raises
+  ("knife input plate does not fit …") → clean rejection. The oracle then
+  reuses exactly those windows. Regression:
+  `test_knife_input_that_does_not_fit_is_rejected` (kcal_lo plate never
+  reaches the knife); `test_knife_recipe_produces_an_evaluate_unfit` asserts
+  the allergy reason comes from the knife (reasons == bind of evaluated_plan,
+  `validate_draft == []`). Fixture plate rebuilt to genuinely fit dinner:
+  two cups of rice + two tablespoons of olive oil (~654 kcal in [544.6,
+  726.14]).
+- **High 2 — complete gram-exact plate speech.** `_name_knifed_foods`
+  replaced by `_speak_knifed_plate`: the WHOLE knifed plate is re-spoken as
+  "Evaluate this as <occasion>: <N> g of <food>, and … ." from table-backed
+  grams, so bumped/stepped/dropped/swapped items can never contradict
+  `evaluated_plan`. Test asserts each evaluated item's "<N> g of" appears in
+  the query. **react.py symmetry:** no new agent-side convention was
+  introduced — gram-explicit queries are already covered by the v1 manual
+  line "Grams (\u2018150 g\u2019) are already grams", and evaluate actions
+  are unchanged (submit_plan the exact named meal); pinned implicitly by the
+  existing manual tests, so react.py itself needed no edit.
+- **High 3 — frozen knife output reloadable.** The unfit Task now carries
+  `situations=()` (reload-valid vocabulary; the unfit shape lives in the
+  oracle geometry that `evaluate_unfits` already reads) instead of the
+  unloadable `("evaluate_unfit", knife)` tags. Knife test now freezes →
+  `load_split`s → asserts tier/verdict/`validate_draft == []` on the reload.
+- **Medium 4 — per-family fail-closed parsing.** `_RECIPE_KEYS` is now a
+  per-family map (evaluate: knife/occasion/tier; recommend: occasion/tier;
+  update/log/composite: tier). Null and empty-string values are refused
+  (`must be a non-empty string`), unknown keys refused with the family's
+  allowed set, recipe families must appear in `family_quotas` (library-level,
+  not just CLI), and knives are restricted to allergy/over_slot/under_slot.
+  Tests: `test_recipe_null_value_is_refused`,
+  `test_recipe_for_unrequested_family_is_refused`,
+  `test_swap_knife_recipe_is_refused`,
+  `test_recommend_shell_and_scene_recipes_are_refused_at_parse`.
+- **Medium 5 — shell transport narrowed.** `shell` removed from the
+  advertised recipe keys (library `_RECIPE_KEYS` and CLI `RECIPE_KEYS`);
+  it stays a `Candidate` field for generate_one, which owns shell semantics.
+  Documented here and in the resolver docstring; pinned by
+  `test_recommend_shell_and_scene_recipes_are_refused_at_parse`.
+- **High 6 — swap excluded from the batch channel.** `_BATCH_KNIVES =
+  frozenset(KNIVES) - {"swap"}` at parse plus a defensive dispatch check;
+  swap's kcal-derived grams violate the gram-anchor rule until it selects a
+  catalog/QNS portion.
+- Empty-recipe identity strengthened: `test_empty_family_recipes_behave_like_today`
+  now runs the same spec with and without recipes and asserts task equality.
+
+CLI note: against catalog-v1 the knife recipe now rejects cleanly on random
+pools (the synthetic plate must first FIT dinner windows and the pool needs a
+peanut carrier) — the deterministic fixture test is the end-to-end unfit
+evidence.
+
+## Fix-round verification
+
+```
+$ .venv/bin/python -m pytest tests/test_run_batch.py -q
+...........................                                               [100%]
+26 passed
+
+$ .venv/bin/python -m pytest -q
+........................................................................ [100%]
+1309 passed in 47.86s
+```
+
+(Previously 1306; net +3 tests after restructuring, 0 failures.)

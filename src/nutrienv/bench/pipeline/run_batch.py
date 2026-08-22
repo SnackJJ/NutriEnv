@@ -15,6 +15,7 @@ from nutrienv.world.portions import resolve_portion
 
 from .expander import LlmExpander, coerce_candidates, make_llm_expander, synthetic_expander
 from .freezer import freeze_tasks
+from .knives import KNIVES
 from .models import assign_model
 from .resolver import build_food_index, match_spoken, resolve_candidate
 from .review_harness import stage_a_code_gate
@@ -379,7 +380,9 @@ def _parse_spec(batch_spec: Mapping) -> dict:
     skip_gram_backresolve = batch_spec.get("skip_gram_backresolve", False)
     if not isinstance(skip_gram_backresolve, bool):
         raise ValueError("batch_spec.skip_gram_backresolve must be a bool")
-    family_recipes = _parse_family_recipes(batch_spec.get("family_recipes"))
+    family_recipes = _parse_family_recipes(
+        batch_spec.get("family_recipes"), {family for family, _count in quotas}
+    )
     total_quota = sum(count for _family, count in quotas)
     model_quotas = _parse_model_quotas(batch_spec.get("model_quotas"), total_quota)
     return {
@@ -400,36 +403,59 @@ def _parse_spec(batch_spec: Mapping) -> dict:
     }
 
 
-# Candidate recipe knobs the resolver knows (issue 15 transport). A key
-# outside this set would be silently dropped by the dataclasses.replace
-# stamp, so the spec parser refuses it instead.
-_RECIPE_KEYS = frozenset({"knife", "occasion", "shell", "scene", "tier"})
+# Recipe knobs the resolver actually implements, per family (issue 15
+# transport). A key outside the family's set would be silently dropped or
+# ignored by the realize branch, so the parser refuses it. ``shell`` and
+# ``scene`` are generate_one-only until resolver semantics exist; ``swap`` is
+# excluded from knives because its grams derive from target kcal rather than
+# a catalog/QNS portion.
+_RECIPE_KEYS: dict[str, frozenset[str]] = {
+    "evaluate": frozenset({"knife", "occasion", "tier"}),
+    "recommend": frozenset({"occasion", "tier"}),
+    "update": frozenset({"tier"}),
+    "log": frozenset({"tier"}),
+    "composite": frozenset({"tier"}),
+}
+_BATCH_KNIVES = frozenset(KNIVES) - {"swap"}
 
 
-def _parse_family_recipes(raw: object) -> dict[str, dict[str, object]]:
+def _parse_family_recipes(
+    raw: object, requested_families: set[str]
+) -> dict[str, dict[str, str]]:
     if raw is None:
         return {}
     if not isinstance(raw, Mapping) or not raw:
         raise ValueError(
             "batch_spec.family_recipes must be a non-empty mapping"
         )
-    recipes: dict[str, dict[str, object]] = {}
+    recipes: dict[str, dict[str, str]] = {}
     for family, recipe in raw.items():
         if family not in SUPPORTED_FAMILIES:
             raise ValueError(f"unsupported family {family!r} in family_recipes")
+        if family not in requested_families:
+            raise ValueError(
+                f"family_recipes entry for {family!r} is not among the "
+                f"requested family_quotas {sorted(requested_families)}"
+            )
+        allowed = _RECIPE_KEYS[family]
         if not isinstance(recipe, Mapping):
             raise ValueError(f"family_recipes[{family!r}] must be a mapping")
-        parsed: dict[str, object] = {}
+        parsed: dict[str, str] = {}
         for key, value in recipe.items():
-            if key not in _RECIPE_KEYS:
+            if key not in allowed:
                 raise ValueError(
-                    f"unknown recipe key {key!r} for {family!r} "
-                    f"(known: {sorted(_RECIPE_KEYS)})"
+                    f"recipe key {key!r} is not supported for {family!r} "
+                    f"(allowed: {sorted(allowed)})"
                 )
-            if value is not None and not isinstance(value, str):
+            if not isinstance(value, str) or not value:
                 raise ValueError(
-                    f"recipe {family}.{key} must be a string or null, "
-                    f"got {type(value).__name__}"
+                    f"recipe {family}.{key} must be a non-empty string, "
+                    f"got {value!r}"
+                )
+            if key == "knife" and value not in _BATCH_KNIVES:
+                raise ValueError(
+                    f"unsupported evaluate knife {value!r} "
+                    f"(allowed: {sorted(_BATCH_KNIVES)})"
                 )
             parsed[str(key)] = value
         recipes[str(family)] = parsed

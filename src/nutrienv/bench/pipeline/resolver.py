@@ -385,11 +385,11 @@ def _realize_recommend(candidate: Candidate, catalog, task_id: str) -> Task:
     The named foods stay spoken context (the oracle judges any
     allergen-safe plan inside the windows); windows derive from a roster
     person's six-key daily table -- the same source the composite recommend
-    leg uses. The occasion comes from the recipe override, else the spoken
-    "for <meal>" word. ``shell``/``scene`` recipes have no resolver-side
-    semantics (scene="leftover" needs prior logs -- the batch's leftover
-    carrier is composite log+recommend) and fail loudly instead of being
-    silently ignored.
+    leg uses. ``occasion`` comes from the recipe override, else the spoken
+    "for <meal>" word. ``shell``/``scene`` are generate_one-only (no
+    resolver-side semantics; scene="leftover" needs prior logs -- the batch's
+    leftover carrier is composite log+recommend) and fail loudly if a caller
+    sets them directly on the Candidate.
     """
     if candidate.shell or candidate.scene != "empty":
         raise ValueError("resolver recommend supports no shell/scene recipe")
@@ -486,19 +486,23 @@ def _realize_evaluate_knife(
 ) -> Task:
     """Evaluate knife recipe → an Evaluate-unfit draft.
 
-    Mirrors the mill's fit→knife flow (generate_one ``_evaluate_from_bound``):
-    ``apply_knife`` perturbs the bind-confirmed plate, and the reject oracle
-    binds the knifed plate's reasons against meal-slot windows derived from
-    the same roster profile source. The speech rewrite the mill delegates to
-    its LLM rewriter is done deterministically here: every knifed food is
-    appended to the query so the evaluated plan stays fully named.
+    ADR 0017's fit→knife construction, mirroring generate_one
+    ``_evaluate_from_bound``: the input plate must first bind clean against
+    the SAME roster/occasion windows the unfit oracle pins, then
+    ``apply_knife`` perturbs it and the reject oracle binds the knifed
+    plate's reasons against those windows. The speech rewrite the mill
+    delegates to its LLM rewriter is done deterministically here: the whole
+    knifed plate is re-spoken gram-exactly from catalog-backed table values,
+    so no spoken amount can contradict ``evaluated_plan``.
     """
     # Lazy import: pipeline.knives -> semantic_vote -> resolver would be
     # circular at module load; by call time everything is initialized.
     from .knives import KNIVES, apply_knife
 
-    if candidate.knife not in KNIVES:
-        raise ValueError(f"unknown evaluate knife {candidate.knife!r}")
+    if candidate.knife not in KNIVES or candidate.knife == "swap":
+        # swap derives grams from target kcal, not a catalog/QNS portion --
+        # never exposed through this channel.
+        raise ValueError(f"unsupported evaluate knife {candidate.knife!r}")
     if pool is None:
         raise ValueError("evaluate knife recipe requires a pool")
     profile = profile_for(ROSTER[0])
@@ -512,6 +516,12 @@ def _realize_evaluate_knife(
         {"food_id": food_id, "grams": grams}
         for food_id, _expression, grams in resolved
     ]
+    fit_reasons = bind_evaluate_reasons(items, dict(windows), catalog, profile.allergies)
+    if fit_reasons:
+        raise ValueError(
+            f"knife input plate does not fit {occasion} windows: "
+            f"{sorted(fit_reasons)}"
+        )
     knifed = apply_knife(
         candidate.knife,
         items,
@@ -527,7 +537,7 @@ def _realize_evaluate_knife(
     reasons = bind_evaluate_reasons(knifed, dict(windows), catalog, profile.allergies)
     if not reasons:
         raise ValueError("knifed evaluate plate still fits its windows")
-    query = _name_knifed_foods(candidate.query, knifed, resolved, catalog)
+    query = _speak_knifed_plate(knifed, catalog, occasion)
     oracle = Oracle(
         profile=copy.deepcopy(profile),
         last_plan=[],
@@ -544,32 +554,30 @@ def _realize_evaluate_knife(
         query,
         s0,
         oracle,
-        ("evaluate_unfit", candidate.knife),
+        # Reloadable metadata: the unfit shape lives in the oracle geometry
+        # (reject + empty plan + evaluated meal), which the quality gates read.
+        (),
         candidate.persona,
         tier=candidate.tier,
     )
 
 
-def _name_knifed_foods(
-    query: str,
-    knifed: Sequence[Mapping[str, object]],
-    resolved: Sequence[tuple[str, str, float]],
-    catalog: Mapping,
+def _speak_knifed_plate(
+    knifed: Sequence[Mapping[str, object]], catalog: Mapping, occasion: str
 ) -> str:
-    """Append the spoken name of each knifed-only food to the query."""
-    original = {food_id for food_id, _expression, _grams in resolved}
-    additions = []
+    """Deterministic mirror of the mill's unfit rewrite contract: re-speak
+    the COMPLETE knifed plate gram-exactly from table-backed amounts, so no
+    spoken amount can contradict ``evaluated_plan``."""
+    parts = []
     for item in knifed:
         food_id = str(item["food_id"])
-        if food_id in original:
-            continue
+        grams = float(item["grams"])
         entry = catalog.get(food_id) or {}
         aliases = [str(a) for a in (entry.get("aliases") or []) if a]
         name = str(entry.get("name") or "")
         spoken = aliases[0] if aliases else (
             name.split(",", 1)[0] if "," in name else name or food_id
         )
-        additions.append(spoken)
-    if not additions:
-        return query
-    return f"{query.rstrip('.')}, plus {' and '.join(additions)}."
+        amount = int(grams) if grams.is_integer() else round(grams, 2)
+        parts.append(f"{amount} g of {spoken}")
+    return f"Evaluate this as {occasion}: {', and '.join(parts)}."

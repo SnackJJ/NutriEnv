@@ -47,8 +47,10 @@ from nutrienv.world.catalog_store import load_catalog  # noqa: E402
 DEFAULT_SEED = 20260817
 DEFAULT_WORKERS = 4
 DEFAULT_PREFIX = "v10"
-# Candidate recipe knobs the resolver knows (issue 15 transport).
-RECIPE_KEYS = ("knife", "occasion", "shell", "scene", "tier")
+# Recipe knobs advertised on the CLI. ``shell``/``scene`` are generate_one-
+# only until resolver semantics exist; knife "swap" is excluded because its
+# grams derive from target kcal, not a catalog/QNS portion.
+RECIPE_KEYS = ("knife", "occasion", "tier")
 
 
 def _parse_recipe(value: str) -> tuple[str, dict[str, str]]:
