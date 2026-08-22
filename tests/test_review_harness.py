@@ -1,312 +1,564 @@
-"""Table-driven review harness: synthetic candidates, injected models."""
+"""Two-stage review committee: Stage A code-gate then injected voters."""
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
+from nutrienv.io.chat import DASHSCOPE_CHAT_URL
+
+from nutrienv.bench.pipeline import catalog_digest, pass_through_reviewer, run_batch
 from nutrienv.bench.pipeline.review_harness import (
-    DISAGREEMENT_THRESHOLD,
-    LOW_CONSISTENCY,
-    LOW_ENTAILMENT,
-    REASON_DISAGREEMENT,
-    REASON_LOW_CONSISTENCY,
-    REASON_LOW_ENTAILMENT,
-    REASON_UNPARSEABLE,
     _route,
-    aggregate_reviews,
     call_reviewer,
-    format_review_prompt,
-    make_reviewer,
-    parse_review,
+    format_stage_a_prompt,
     resolved_items,
     review_candidates,
 )
-from nutrienv.io.chat import DASHSCOPE_CHAT_URL
-from nutrienv.bench.realize import Oracle, Task
-from nutrienv.world.types import LedgerRow, Profile, WorldState
+from nutrienv.bench.pipeline.review_harness import (
+    REASON_GRAMS_OFF_TABLE,
+    REASON_LEAK_ALLERGY,
+    REASON_LEAK_LEFTOVER,
+    REASON_LEAK_REMAINING_KCAL,
+    REASON_WINDOWS_EMPTY,
+    REASON_WINDOWS_OUT_OF_BOUNDS,
+    REASON_WINDOWS_UNPASSABLE,
+    STAGE_A_MODEL_IDS,
+    STAGE_B_MODEL_IDS,
+    format_stage_b_prompt,
+    make_reviewer,
+    stage_a_code_gate,
+    stage_b_leak_scan,
+)
+from nutrienv.bench.realize import Oracle, Task, compose_oracles
+from nutrienv.world.daily_windows import plan_windows_for_meal
+from nutrienv.world.types import LedgerRow, Profile, WorldState, ledger_totals
 
 _CATALOG = {
     "milk_whole": {
         "name": "Milk, whole",
         "portions": {"cup": 244.0},
         "aliases": ["milk", "whole milk"],
-    },
-    "chicken_breast": {
-        "name": "Chicken breast",
-        "portions": {"piece": 172.0},
-        "aliases": ["chicken"],
+        "allergen_tags": ["milk"],
+        "nutrients": {
+            "kcal": 61.0,
+            "protein_g": 3.2,
+            "carb_g": 4.8,
+            "fat_g": 3.3,
+            "fiber_g": 0.0,
+            "sodium_mg": 43.0,
+        },
     },
 }
 
 
-def _task(
+def _log_task(
     task_id: str,
     query: str,
     *,
     food_id: str = "milk_whole",
     grams: float = 244.0,
-    persona: str = "everyday",
-    family: str = "log",
-    last_plan: list | None = None,
 ) -> Task:
     s0 = WorldState(profile=Profile(user_id=task_id), catalog=_CATALOG)
-    if last_plan is not None:
-        oracle = Oracle(last_plan=last_plan)
-    else:
-        oracle = Oracle(ledger_tail=[LedgerRow(food_id, grams, "today-lunch")])
-    return Task(task_id, family, query, s0, oracle, ("multi_item_log",), persona)
+    oracle = Oracle(ledger_tail=[LedgerRow(food_id, grams, "today-lunch")])
+    return Task(task_id, "log", query, s0, oracle, ("multi_item_log",), "everyday")
 
 
-def _scores(consistency: float, naturalness: float, entailment: float, reason: str = "ok") -> str:
-    return json.dumps(
-        {
-            "consistency": consistency,
-            "naturalness": naturalness,
-            "entailment": entailment,
-            "reason": reason,
-        }
+def _boom(_prompt: str) -> str:
+    raise AssertionError("LLM voter must not be used")
+
+
+_DAILY = {
+    "kcal": (1800.0, 2200.0),
+    "protein_g": (50.0, 180.0),
+    "carb_g": (100.0, 400.0),
+    "fat_g": (40.0, 120.0),
+    "fiber_g": (20.0, 80.0),
+    "sodium_mg": (0.0, 2300.0),
+}
+_MEAL = {
+    "kcal": (540.0, 880.0),
+    "protein_g": (0.0, 180.0),
+    "carb_g": (0.0, 400.0),
+    "fat_g": (0.0, 120.0),
+    "fiber_g": (0.0, 80.0),
+    "sodium_mg": (0.0, 2300.0),
+}
+_PLAN_CATALOG = {
+    **_CATALOG,
+    "chicken_breast": {
+        "name": "Chicken breast",
+        "portions": {"piece": 172.0, "cup": 140.0},
+        "aliases": ["chicken"],
+        "allergen_tags": [],
+        "nutrients": {
+            "kcal": 165.0,
+            "protein_g": 31.0,
+            "carb_g": 0.0,
+            "fat_g": 3.6,
+            "fiber_g": 0.0,
+            "sodium_mg": 74.0,
+        },
+    },
+    "white_rice": {
+        "name": "Rice, white, cooked",
+        "portions": {"cup": 158.0},
+        "aliases": ["rice"],
+        "allergen_tags": [],
+        "nutrients": {
+            "kcal": 130.0,
+            "protein_g": 2.7,
+            "carb_g": 28.2,
+            "fat_g": 0.3,
+            "fiber_g": 0.4,
+            "sodium_mg": 1.0,
+        },
+    },
+    "broccoli": {
+        "name": "Broccoli, cooked",
+        "portions": {"cup": 156.0},
+        "aliases": ["broccoli"],
+        "allergen_tags": [],
+        "nutrients": {
+            "kcal": 34.0,
+            "protein_g": 2.8,
+            "carb_g": 6.6,
+            "fat_g": 0.4,
+            "fiber_g": 2.6,
+            "sodium_mg": 33.0,
+        },
+    },
+    "olive_oil": {
+        "name": "Oil, olive",
+        "portions": {"tbsp": 13.5},
+        "aliases": ["olive oil"],
+        "allergen_tags": [],
+        "nutrients": {
+            "kcal": 884.0,
+            "protein_g": 0.0,
+            "carb_g": 0.0,
+            "fat_g": 100.0,
+            "fiber_g": 0.0,
+            "sodium_mg": 2.0,
+        },
+    },
+}
+
+
+def _rec_task(
+    task_id: str,
+    *,
+    plan_windows: dict[str, tuple[float, float]] | None,
+    query: str = "What's for dinner?",
+) -> Task:
+    profile = Profile(user_id=task_id, windows=dict(_DAILY))
+    s0 = WorldState(profile=profile, catalog=_PLAN_CATALOG)
+    oracle = Oracle(
+        last_plan=[],
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=plan_windows,
     )
+    return Task(task_id, "recommend", query, s0, oracle, (), "everyday")
 
 
-def _const(text: str):
-    def fn(_prompt: str) -> str:
-        return text
-
-    return fn
+_TABLE = _log_task("log-table", "Please log a cup of milk for lunch.", grams=244.0)
+_OFF = _log_task("log-off", "Please log a cup of milk for lunch.", grams=300.0)
 
 
-HIGH = _scores(5, 5, 5, "query names the cup")
-LOW_CONTRA = _scores(1, 4, 1, "query says half but resolved is 2.0x")
-LOW_SHIFT = _scores(1, 4, 1, "query names a food not in the items")
+def test_code_gate_off_table_grams_rejects_without_llm_vote() -> None:
+    assert REASON_GRAMS_OFF_TABLE in stage_a_code_gate(_OFF)
+    assert stage_a_code_gate(_TABLE) == []
 
-_GOOD = _task("good-001", "Please log a cup of milk for lunch.", grams=244.0)
-_CONTRA = _task(
-    "contra-001",
-    "Please log half a cup of milk for lunch.",
-    grams=488.0,
-)
-_SHIFT = _task(
-    "shift-001",
-    "Please log a cup of chicken for lunch.",
-    food_id="milk_whole",
-    grams=244.0,
-)
-_JUNK = _task("junk-001", "Please log a cup of milk for lunch.", grams=244.0)
-
-
-@pytest.mark.parametrize(
-    "task, replies, expect_anomaly, expect_reasons",
-    [
-        (_GOOD, {"m1": HIGH, "m2": HIGH}, False, []),
-        (
-            _CONTRA,
-            {"m1": LOW_CONTRA, "m2": LOW_CONTRA},
-            True,
-            [REASON_LOW_CONSISTENCY, REASON_LOW_ENTAILMENT],
-        ),
-        (
-            _SHIFT,
-            {"m1": LOW_SHIFT, "m2": LOW_SHIFT},
-            True,
-            [REASON_LOW_CONSISTENCY, REASON_LOW_ENTAILMENT],
-        ),
-        (
-            _JUNK,
-            {"m1": "not-json", "m2": "???"},
-            True,
-            [REASON_UNPARSEABLE],
-        ),
-    ],
-    ids=["natural_good", "contradictory", "semantic_shift", "unparseable"],
-)
-def test_synthetic_candidates_mark_anomalies(task, replies, expect_anomaly, expect_reasons):
-    models = {name: _const(text) for name, text in replies.items()}
-    review = make_reviewer(models)([task])
-    assert set(review) >= {"anomalies", "per_candidate"}
-    entry = review["per_candidate"][task.id]
-    assert set(entry) >= {"models", "aggregate", "anomaly"}
-    assert set(entry["aggregate"]) >= {
-        "consistency",
-        "naturalness",
-        "entailment",
-        "disagreement",
-        "unparseable",
-        "reasons",
-    }
-    if expect_anomaly:
-        assert entry["anomaly"]
-        assert entry["aggregate"]["reasons"] == expect_reasons
-        assert review["anomalies"] == [{"id": task.id, "reasons": expect_reasons}]
-    else:
-        assert entry["anomaly"] is False
-        assert entry["aggregate"]["reasons"] == []
-        assert review["anomalies"] == []
-
-
-def test_prompt_carries_query_and_portion_facts() -> None:
-    prompt = format_review_prompt(_GOOD)
-    assert "Please log a cup of milk for lunch." in prompt
-    assert "Milk, whole" in prompt
-    assert "milk_whole" in prompt
-    assert "1 × cup" in prompt
-    assert "portion key=cup" in prompt
-    assert "244 g" in prompt
-    assert "everyday" in prompt
-    items = resolved_items(_GOOD)
-    assert items[0]["portion_key"] == "cup"
-    assert items[0]["quantity"] == 1.0
-    assert items[0]["grams"] == 244.0
-
-
-def test_contradictory_resolved_amount_is_2x_cup() -> None:
-    items = resolved_items(_CONTRA)
-    assert items[0]["portion_key"] == "cup"
-    assert items[0]["quantity"] == 2.0
-    assert items[0]["grams"] == 488.0
-    assert "half a cup" in _CONTRA.query
-
-
-def test_empty_reply_retries_once() -> None:
     calls: list[str] = []
 
-    def fake(prompt: str) -> str:
+    def track(prompt: str) -> str:
         calls.append(prompt)
-        return "" if len(calls) == 1 else HIGH
+        return '{"eatable": true, "reason": "ok"}'
 
-    review = make_reviewer({"m1": fake})([_GOOD])
-    assert len(calls) == 2
-    entry = review["per_candidate"][_GOOD.id]
-    assert entry["anomaly"] is False
-    assert entry["models"]["m1"]["consistency"] == 5
+    review = make_reviewer(
+        stage_a={"a1": track, "a2": track, "a3": track},
+        stage_b={"b1": track, "b2": track, "b3": track},
+    )([_OFF, _TABLE])
+
+    assert _OFF.id in {row["id"] for row in review["dropped"]}
+    assert _TABLE.id not in {row["id"] for row in review["dropped"]}
+    off = review["per_candidate"][_OFF.id]
+    assert off["dropped"] is True
+    assert REASON_GRAMS_OFF_TABLE in off["stage_a"]["code_gate"]
+    assert off["stage_a"]["votes"] == {}
+    table = review["per_candidate"][_TABLE.id]
+    assert table["dropped"] is False
+    assert table["stage_a"]["code_gate"] == []
+    # Only the table-gram candidate is voted: 3 Stage A plate votes then
+    # 3 Stage B speech votes.
+    assert len(calls) == 6
+    for prompt in calls[:3]:
+        assert _TABLE.query not in prompt
+        assert "300" not in prompt
+    for prompt in calls[3:]:
+        assert "Please log a cup of milk" in prompt
 
 
-def test_unparseable_after_retry_does_not_raise() -> None:
-    calls: list[int] = []
-
-    def fake(_prompt: str) -> str:
-        calls.append(1)
-        return "still not json"
-
-    review = make_reviewer({"m1": fake})([_JUNK])
-    assert len(calls) == 2
-    entry = review["per_candidate"][_JUNK.id]
-    assert entry["models"]["m1"]["unparseable"] is True
-    assert entry["anomaly"]
-    assert REASON_UNPARSEABLE in entry["aggregate"]["reasons"]
-    assert review["anomalies"][0]["id"] == _JUNK.id
+def test_log_without_pinned_windows_skips_window_checks() -> None:
+    assert _TABLE.oracle.plan_windows is None
+    assert stage_a_code_gate(_TABLE) == []
 
 
-def test_model_disagreement_is_anomalous() -> None:
-    models = {
-        "high": _const(_scores(5, 4, 5, "fine")),
-        "low": _const(_scores(1, 4, 5, "mismatch")),
+def test_pinned_empty_intersection_windows_fail_code_gate() -> None:
+    empty = dict(_MEAL)
+    empty["kcal"] = (900.0, 200.0)
+    task = _rec_task("rec-empty", plan_windows=empty)
+    assert REASON_WINDOWS_EMPTY in stage_a_code_gate(task)
+    review = make_reviewer(
+        stage_a={"a1": _boom, "a2": _boom, "a3": _boom},
+        stage_b={"b1": _boom, "b2": _boom, "b3": _boom},
+    )([task])
+    assert task.id in {row["id"] for row in review["dropped"]}
+
+
+def test_pinned_windows_outside_profile_bounds_fail_code_gate() -> None:
+    wide = dict(_MEAL)
+    wide["kcal"] = (540.0, 5000.0)
+    task = _rec_task("rec-wide", plan_windows=wide)
+    assert REASON_WINDOWS_OUT_OF_BOUNDS in stage_a_code_gate(task)
+
+
+def test_pinned_unpassable_windows_fail_code_gate() -> None:
+    tight = {key: (1.0, 2.0) for key in _MEAL}
+    task = _rec_task("rec-tight", plan_windows=tight)
+    assert REASON_WINDOWS_UNPASSABLE in stage_a_code_gate(task)
+
+
+def test_pinned_passable_windows_pass_code_gate() -> None:
+    task = _rec_task("rec-ok", plan_windows=dict(_MEAL))
+    assert stage_a_code_gate(task) == []
+
+
+def _leftover_rec(
+    task_id: str,
+    *,
+    plan_windows: dict[str, tuple[float, float]] | None,
+    allergies: tuple[str, ...] = (),
+    ledger: tuple[LedgerRow, ...] = (
+        LedgerRow("milk_whole", 244.0, "today-breakfast"),
+    ),
+) -> Task:
+    profile = Profile(user_id=task_id, windows=dict(_DAILY), allergies=allergies)
+    s0 = WorldState(profile=profile, ledger=list(ledger), catalog=_PLAN_CATALOG)
+    oracle = Oracle(
+        last_plan=[],
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=plan_windows,
+    )
+    return Task(task_id, "recommend", "What can I still eat today?", s0, oracle, (), "leftover")
+
+
+def _remainder_windows(ledger: list[LedgerRow]) -> dict[str, tuple[float, float]]:
+    eaten = ledger_totals(list(ledger), _PLAN_CATALOG)
+    return {
+        key: (
+            round(max(0.0, lo - eaten.get(key, 0.0)), 2),
+            round(max(0.0, hi - eaten.get(key, 0.0)), 2),
+        )
+        for key, (lo, hi) in _DAILY.items()
     }
-    review = make_reviewer(models)([_GOOD])
-    entry = review["per_candidate"][_GOOD.id]
-    assert entry["aggregate"]["disagreement"] == 4.0
-    assert entry["aggregate"]["disagreement"] > DISAGREEMENT_THRESHOLD
-    assert entry["aggregate"]["consistency"] == 3.0
-    assert entry["aggregate"]["consistency"] >= LOW_CONSISTENCY
-    assert entry["aggregate"]["reasons"] == [REASON_DISAGREEMENT]
-    assert entry["anomaly"] == REASON_DISAGREEMENT
 
 
-def test_low_naturalness_alone_is_not_anomalous() -> None:
-    models = {
-        "m1": _const(_scores(5, 1, 5, "stiff prose")),
-        "m2": _const(_scores(4, 1, 4, "stiff prose")),
-    }
-    review = make_reviewer(models)([_GOOD])
-    entry = review["per_candidate"][_GOOD.id]
-    assert entry["aggregate"]["naturalness"] == 1.0
+def test_stage_b_leak_scan_skips_non_recommend() -> None:
+    assert stage_b_leak_scan(_TABLE) == []
+
+
+def test_stage_b_leftover_unpinned_windows_leak() -> None:
+    task = _leftover_rec("leak-lo", plan_windows=None)
+    assert REASON_LEAK_LEFTOVER in stage_b_leak_scan(task)
+
+
+def test_stage_b_pinned_over_remainder_leaks_remaining_kcal() -> None:
+    over = dict(_remainder_windows(list(_leftover_rec("x", plan_windows=None).s0.ledger)))
+    over["kcal"] = (over["kcal"][0], over["kcal"][1] + 50.0)
+    assert REASON_LEAK_REMAINING_KCAL in stage_b_leak_scan(
+        _leftover_rec("leak-kcal", plan_windows=over)
+    )
+
+
+def test_stage_b_allergen_ledger_food_leaks() -> None:
+    remainder = _remainder_windows(
+        [_leftover_rec("x", plan_windows=None).s0.ledger[0]]
+    )
+    task = _leftover_rec(
+        "leak-allergy",
+        plan_windows=remainder,
+        allergies=("milk",),
+    )
+    assert REASON_LEAK_ALLERGY in stage_b_leak_scan(task)
+
+
+def test_stage_b_consistent_leftover_is_clean_and_reviewed() -> None:
+    ledger = [LedgerRow("milk_whole", 244.0, "today-breakfast")]
+    task = _leftover_rec(
+        "lo-clean",
+        plan_windows=_remainder_windows(ledger),
+        ledger=tuple(ledger),
+    )
+    assert stage_a_code_gate(task) == []
+    assert stage_b_leak_scan(task) == []
+
+    calls_b: list[str] = []
+
+    def track_b(prompt: str) -> str:
+        calls_b.append(prompt)
+        return '{"eatable": true, "reason": "fine"}'
+
+    def track_a(_prompt: str) -> str:
+        return '{"eatable": true, "reason": "fine"}'
+
+    review = make_reviewer(
+        stage_a={"a1": track_a, "a2": track_a, "a3": track_a},
+        stage_b={"b1": track_b, "b2": track_b, "b3": track_b},
+    )([task])
+    entry = review["per_candidate"]["lo-clean"]
+    assert entry["dropped"] is False
+    assert entry["alarm"] is False
     assert entry["anomaly"] is False
-    assert review["anomalies"] == []
+    assert entry["verdict"] == "pass"
+    assert entry["stage_a"]["majority"] == "pass"
+    assert entry["stage_b"]["majority"] == "pass"
+    assert calls_b and "What can I still eat today?" in calls_b[0]
 
 
-def test_make_reviewer_injection_never_calls_network() -> None:
-    def boom(_prompt: str) -> str:
-        raise AssertionError("live reviewer must not be used")
+def test_stage_b_majority_fail_alarms_without_dropping() -> None:
+    task = _rec_task("rec-vote-fail", plan_windows=dict(_MEAL))
 
-    reviewer = make_reviewer({"stub": _const(HIGH)})
-    # A live default factory is a different object; this bound one stays local.
-    review = reviewer([_GOOD])
-    assert review["anomalies"] == []
-    assert "stub" in review["per_candidate"][_GOOD.id]["models"]
-    with pytest.raises(AssertionError, match="live reviewer"):
-        make_reviewer({"stub": boom})([_GOOD])
+    def yes(_prompt: str) -> str:
+        return '{"eatable": true, "reason": "ok"}'
 
+    def no(_prompt: str) -> str:
+        return '```json\n{"eatable": false, "reason": "too much"}\n```'
 
-def test_parse_review_accepts_fenced_json_and_rejects_junk() -> None:
-    fenced = "```json\n" + HIGH + "\n```"
-    parsed = parse_review(fenced)
-    assert parsed is not None
-    assert parsed["consistency"] == 5
-    assert parse_review("") is None
-    assert parse_review("no object here") is None
-    assert parse_review(_scores(9, 1, 1)) is None
-    assert parse_review('{"consistency": 3, "naturalness": 3}') is None
+    review = make_reviewer(
+        stage_a={"a1": yes, "a2": yes, "a3": yes},
+        stage_b={"b1": no, "b2": no, "b3": yes},
+    )([task])
+    entry = review["per_candidate"]["rec-vote-fail"]
+    assert entry["dropped"] is False
+    assert entry["alarm"] is True
+    assert entry["verdict"] == "alarm_majority"
+    assert entry["stage_b"]["majority"] == "fail"
 
 
-def test_aggregate_means_ignore_unparseable_models() -> None:
-    summary = aggregate_reviews(
-        {
-            "ok": {
-                "consistency": 4.0,
-                "naturalness": 5.0,
-                "entailment": 4.0,
-                "reason": "ok",
-            },
-            "bad": {
-                "consistency": None,
-                "naturalness": None,
-                "entailment": None,
-                "reason": "unparseable",
-                "unparseable": True,
-            },
+def test_stage_b_unparsed_votes_are_anomaly_with_alarm() -> None:
+    task = _rec_task("rec-vote-junk", plan_windows=dict(_MEAL))
+
+    def junk(_prompt: str) -> str:
+        return "I cannot answer that."
+
+    review = make_reviewer(
+        stage_a={"a1": junk, "a2": junk, "a3": junk},
+        stage_b={"b1": junk, "b2": junk, "b3": junk},
+    )([task])
+    entry = review["per_candidate"]["rec-vote-junk"]
+    assert entry["dropped"] is False
+    assert entry["alarm"] is True
+    assert entry["anomaly"] is True
+    assert entry["stage_a"]["majority"] == "undecided"
+
+
+def test_stage_b_votes_see_query_but_not_grams() -> None:
+    task = _leftover_rec(
+        "lo-speech",
+        plan_windows=_remainder_windows([_leftover_rec("y", plan_windows=None).s0.ledger[0]]),
+    )
+    seen_a: list[str] = []
+    seen_b: list[str] = []
+
+    def track_a(prompt: str) -> str:
+        seen_a.append(prompt)
+        return '{"eatable": true, "reason": "ok"}'
+
+    def track_b(prompt: str) -> str:
+        seen_b.append(prompt)
+        return '{"eatable": true, "reason": "ok"}'
+
+    make_reviewer(
+        stage_a={"a1": track_a, "a2": track_a, "a3": track_a},
+        stage_b={"b1": track_b, "b2": track_b, "b3": track_b},
+    )([task])
+    assert seen_a and seen_b
+    for prompt in seen_a:
+        assert task.query not in prompt
+    for prompt in seen_b:
+        assert task.query in prompt
+        assert "244" not in prompt
+
+
+def test_stage_b_speech_votes_cover_log_candidates() -> None:
+    seen_a: list[str] = []
+    seen_b: list[str] = []
+
+    def track_a(prompt: str) -> str:
+        seen_a.append(prompt)
+        return '{"eatable": true, "reason": "ok"}'
+
+    def track_b(prompt: str) -> str:
+        seen_b.append(prompt)
+        return '{"eatable": true, "reason": "ok"}'
+
+    review = make_reviewer(
+        stage_a={"a1": track_a, "a2": track_a, "a3": track_a},
+        stage_b={"b1": track_b, "b2": track_b, "b3": track_b},
+    )([_TABLE])
+    entry = review["per_candidate"][_TABLE.id]
+    assert entry["dropped"] is False
+    assert entry["verdict"] == "pass"
+    assert len(seen_a) == 3 and len(seen_b) == 3
+    for prompt in seen_a:
+        assert _TABLE.query not in prompt
+    for prompt in seen_b:
+        assert _TABLE.query in prompt
+
+
+@pytest.mark.parametrize("skip_backresolve", [False, True])
+def test_run_batch_structural_code_gate_drops_off_table_grams(
+    tmp_path, skip_backresolve
+) -> None:
+    catalog = {
+        "milk_whole": {
+            "name": "Milk, whole",
+            "portions": {"cup": 244.0},
+            "aliases": ["milk"],
+            "allergen_tags": [],
+        },
+        "apple": {
+            "name": "Apple, raw",
+            "portions": {"piece": 182.0},
+            "aliases": ["apple"],
+            "allergen_tags": [],
+        },
+        "orange": {
+            "name": "Orange, raw",
+            "portions": {"piece": 131.0},
+            "aliases": ["orange"],
+            "allergen_tags": [],
+        },
+    }
+
+    def expand(_pool, *, persona, family):
+        return {
+            "items": [{"food": "milk_whole", "expression": "300 g"}],
+            "query": "Please log 300 grams of milk for lunch.",
         }
+
+    spec = {
+        "seed": 7,
+        "sampler_rule_version": "sampler-v1",
+        "catalog_sha": catalog_digest(catalog),
+        "persona": "everyday",
+        "family_quotas": {"log": 1},
+        "model_route": {},
+        "catalog": "fixture",
+        "output_path": tmp_path / "batch.json",
+        # Worst case: speech-only resolution AND the no-voter reviewer.
+        # Both guards empty must still hit the structural code gate (N09-2).
+        "skip_gram_backresolve": skip_backresolve,
+    }
+    result = run_batch(
+        spec,
+        expander=expand,
+        judge=lambda _food, _grams: "ok",
+        reviewer=pass_through_reviewer,
+        catalog=catalog,
     )
-    assert summary["consistency"] == 4.0
-    assert summary["disagreement"] == 0.0
-    assert summary["unparseable"] == ["bad"]
-    assert summary["reasons"] == [REASON_UNPARSEABLE]
+    assert result.accepted == []
+    assert [row.reason for row in result.rejected] == ["code_gate"]
 
 
-def test_empty_candidates_return_required_keys() -> None:
-    review = review_candidates([], models={"m1": _const(HIGH)})
-    assert review == {"anomalies": [], "per_candidate": {}}
+def test_stage_b_leak_drop_skips_stage_b_votes() -> None:
+    def ok(_prompt: str) -> str:
+        return '{"eatable": true, "reason": "ok"}'
+
+    task = _leftover_rec("lo-leak-drop", plan_windows=None)
+    review = make_reviewer(
+        stage_a={"a1": ok, "a2": ok, "a3": ok},
+        stage_b={"b1": _boom, "b2": _boom, "b3": _boom},
+    )([task])
+    entry = review["per_candidate"]["lo-leak-drop"]
+    assert entry["dropped"] is True
+    assert entry["stage_b"]["votes"] == {}
+    assert REASON_LEAK_LEFTOVER in entry["stage_b"]["leak_scan"]
+    assert task.id in {row["id"] for row in review["dropped"]}
+    assert {row["stage"] for row in review["dropped"]} == {"stage_b"}
 
 
-def test_evaluate_last_plan_items_are_resolved() -> None:
-    task = _task(
-        "eval-001",
-        "Evaluate this as my plan: a cup of milk.",
-        family="evaluate",
-        last_plan=[{"food_id": "milk_whole", "grams": 244.0}],
-    )
-    items = resolved_items(task)
-    assert items[0]["food_id"] == "milk_whole"
-    assert items[0]["portion_key"] == "cup"
-    prompt = format_review_prompt(task)
-    assert "Evaluate this as my plan" in prompt
+def test_format_stage_b_prompt_lists_names_without_grams() -> None:
+    prompt = format_stage_b_prompt(_TABLE)
+    assert "Milk, whole" in prompt
+    assert "244" not in prompt
+
+
+# --- restored coverage deleted with the c328bd0 rewrite (S09-3) -------------
 
 
 def test_review_candidates_requires_models() -> None:
-    with pytest.raises(ValueError, match="at least one model"):
-        review_candidates([_GOOD], models={})
+    with pytest.raises(ValueError, match="requires Stage A models"):
+        review_candidates([_TABLE], stage_a={}, stage_b={"b1": _boom})
+    with pytest.raises(ValueError, match="requires Stage B models"):
+        review_candidates([_TABLE], stage_a={"a1": _boom}, stage_b={})
 
 
-def test_low_consistency_threshold_constant() -> None:
-    assert LOW_CONSISTENCY == 2.0
-    assert LOW_ENTAILMENT == 2.0
-    assert DISAGREEMENT_THRESHOLD == 2.0
+def test_make_reviewer_rejects_empty_pools() -> None:
+    def ok(_prompt: str) -> str:
+        return '{"eatable": true, "reason": "ok"}'
+
+    with pytest.raises(ValueError, match="requires Stage A and Stage B models"):
+        make_reviewer(stage_a={}, stage_b={"b1": ok, "b2": ok, "b3": ok})
+    with pytest.raises(ValueError, match="requires Stage A and Stage B models"):
+        make_reviewer(stage_a={"a1": ok, "a2": ok, "a3": ok}, stage_b={})
+
+
+def test_empty_candidates_return_required_keys() -> None:
+    def ok(_prompt: str) -> str:
+        return '{"eatable": true, "reason": "ok"}'
+
+    review = review_candidates(
+        [], stage_a={"a1": ok, "a2": ok, "a3": ok}, stage_b={"b1": ok, "b2": ok, "b3": ok}
+    )
+    assert review == {"anomalies": [], "dropped": [], "per_candidate": {}}
+
+
+def test_resolved_items_and_stage_a_prompt_carry_portion_facts() -> None:
+    items = resolved_items(_TABLE)
+    assert items[0]["food_id"] == "milk_whole"
+    assert items[0]["portion_key"] == "cup"
+    assert items[0]["quantity"] == 1.0
+    assert items[0]["grams"] == 244.0
+    prompt = format_stage_a_prompt(_TABLE)
+    assert "Milk, whole" in prompt
+    assert "244 g" in prompt
+    assert _TABLE.query not in prompt
+
+
+def test_parse_failure_is_retried_then_parsed() -> None:
+    calls: list[str] = []
+
+    def flaky(prompt: str) -> str:
+        calls.append(prompt)
+        return "still not json" if len(calls) % 2 else '{"eatable": true, "reason": "ok"}'
+
+    entry = make_reviewer(
+        stage_a={"a1": flaky, "a2": flaky, "a3": flaky},
+        stage_b={"b1": flaky, "b2": flaky, "b3": flaky},
+        parse_retries=1,
+    )([_TABLE])["per_candidate"][_TABLE.id]
+    assert len(calls) == 12  # 6 voter slots × 2 calls: junk retried once, then parsed
+    assert entry["anomaly"] is False
+    assert entry["stage_a"]["majority"] == "pass"
 
 
 def test_route_always_uses_dashscope(monkeypatch) -> None:
     monkeypatch.setenv("DASHSCOPE_API_KEY", "dash-dummy")
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
-    for model_id in ("deepseek-v4-flash", "deepseek-v4-flash-0731", "qwen3.8-max"):
+    for model_id in (*STAGE_A_MODEL_IDS, *STAGE_B_MODEL_IDS):
         url, key = _route(model_id)
         assert url == DASHSCOPE_CHAT_URL
         assert key == "dash-dummy"
@@ -315,7 +567,7 @@ def test_route_always_uses_dashscope(monkeypatch) -> None:
 def test_route_requires_dashscope_key(monkeypatch) -> None:
     monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
     with pytest.raises(RuntimeError, match="DASHSCOPE_API_KEY is not set"):
-        _route("deepseek-v4-flash-0731")
+        _route("qwen3.8-max")
 
 
 def test_call_reviewer_posts_to_dashscope(monkeypatch) -> None:
@@ -325,14 +577,158 @@ def test_call_reviewer_posts_to_dashscope(monkeypatch) -> None:
         captured["url"] = url
         captured["model"] = payload["model"]
         captured["api_key"] = api_key
-        return '{"consistency": 5, "naturalness": 5, "entailment": 5, "reason": "ok"}'
+        captured["system"] = payload["messages"][0]["content"]
+        return '{"eatable": true, "reason": "ok"}'
 
     monkeypatch.setattr(
         "nutrienv.bench.pipeline.review_harness.post_chat_completion", fake_post
     )
     monkeypatch.setenv("DASHSCOPE_API_KEY", "dash-dummy")
-    text = call_reviewer("deepseek-v4-flash", "prompt")
-    assert "consistency" in text
+    text = call_reviewer("deepseek-v4-flash-0731", "prompt")
+    assert "eatable" in text
     assert captured["url"] == DASHSCOPE_CHAT_URL
-    assert captured["model"] == "deepseek-v4-flash"
+    assert captured["model"] == "deepseek-v4-flash-0731"
     assert captured["api_key"] == "dash-dummy"
+    assert captured["system"].startswith("You review a plate")
+
+
+# --- S09-5 / S09-6 / S09-8 regressions --------------------------------------
+
+
+def test_macro_free_window_is_not_unpassable() -> None:
+    task = _rec_task("rec-kcal-only", plan_windows={"kcal": (540.0, 880.0)})
+    assert stage_a_code_gate(task) == []
+
+
+def test_composite_child_windows_are_gated() -> None:
+    good = _rec_task("comp-good", plan_windows=dict(_MEAL))
+    bad = _rec_task("comp-bad", plan_windows={"kcal": (900.0, 200.0)})
+    oracle = compose_oracles(good.oracle, bad.oracle)
+    task = Task("comp-001", "composite", "Plan my day.", good.s0, oracle, (), "everyday")
+    assert task.oracle.plan_windows is None
+    assert stage_a_code_gate(task) == [REASON_WINDOWS_EMPTY]
+
+
+_FULL_PRECISION_DAILY = {
+    "kcal": (1911.2345, 2293.4814),
+    "protein_g": (72.6155, 144.12345),
+    "carb_g": (216.17385, 258.23456),
+    "fat_g": (53.42135, 74.98765),
+    "fiber_g": (25.28765, 38.24625),
+    "sodium_mg": (0.0, 2300.0),
+}
+
+
+def test_composite_child_rounded_slot_ceiling_passes_gate() -> None:
+    """Real plan_windows_for_meal output: round(daily_hi, 2) can round UP.
+
+    The dinner slot ceiling for fiber is 38.25 against a full-precision daily
+    hi of 38.24625 — a legitimately-constructed child window must pass the
+    gate (N09-3).
+    """
+    windows = plan_windows_for_meal(dict(_FULL_PRECISION_DAILY), {}, "dinner")
+    assert windows is not None
+    assert windows["fiber_g"][1] == 38.25
+    assert windows["fiber_g"][1] > _FULL_PRECISION_DAILY["fiber_g"][1]
+    child = Oracle(
+        last_plan=[],
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=windows,
+    )
+    benign = Oracle(ledger_tail=[LedgerRow("milk_whole", 244.0, "today-lunch")])
+    profile = Profile(user_id="ada", windows=dict(_FULL_PRECISION_DAILY))
+    s0 = WorldState(profile=profile, catalog=_PLAN_CATALOG)
+    task = Task(
+        "upd-rec-001",
+        "composite",
+        "Update my target, then recommend dinner.",
+        s0,
+        compose_oracles(benign, child),
+        (),
+        "everyday",
+    )
+    assert stage_a_code_gate(task) == []
+
+
+def test_composite_child_judged_against_its_own_profile() -> None:
+    raised = dict(_FULL_PRECISION_DAILY)
+    raised["fiber_g"] = (25.28765, 45.0)
+    child_profile = Profile(user_id="ada-post-update", windows=dict(raised))
+    windows = plan_windows_for_meal(dict(raised), {}, "dinner")
+    assert windows is not None
+    assert windows["fiber_g"][1] > _FULL_PRECISION_DAILY["fiber_g"][1]
+    child = Oracle(
+        profile=child_profile,
+        last_plan=[],
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=windows,
+    )
+    profile = Profile(user_id="ada", windows=dict(_FULL_PRECISION_DAILY))
+    s0 = WorldState(profile=profile, catalog=_PLAN_CATALOG)
+    task = Task(
+        "upd-rec-002",
+        "composite",
+        "Raise my fibre target, then recommend dinner.",
+        s0,
+        Oracle(sub_oracles=(child,)),
+        (),
+        "everyday",
+    )
+    assert stage_a_code_gate(task) == []
+
+
+def test_composite_child_genuinely_out_of_bounds_still_flags() -> None:
+    windows = {
+        "kcal": (500.0, 9000.0),
+        "protein_g": (0.0, 150.0),
+        "carb_g": (0.0, 300.0),
+        "fat_g": (0.0, 80.0),
+        "fiber_g": (0.0, 38.0),
+        "sodium_mg": (0.0, 2300.0),
+    }
+    child = Oracle(
+        last_plan=[],
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=windows,
+    )
+    profile = Profile(user_id="ada", windows=dict(_FULL_PRECISION_DAILY))
+    s0 = WorldState(profile=profile, catalog=_PLAN_CATALOG)
+    task = Task(
+        "upd-rec-003",
+        "composite",
+        "Update my target, then recommend dinner.",
+        s0,
+        Oracle(sub_oracles=(child,)),
+        (),
+        "everyday",
+    )
+    assert stage_a_code_gate(task) == [REASON_WINDOWS_OUT_OF_BOUNDS]
+
+
+def test_out_of_bounds_reason_appended_once() -> None:
+    wide = dict(_MEAL)
+    wide["kcal"] = (540.0, 5000.0)
+    wide["protein_g"] = (0.0, 9999.0)
+    task = _rec_task("rec-wide-two-keys", plan_windows=wide)
+    reasons = stage_a_code_gate(task)
+    assert reasons == [REASON_WINDOWS_OUT_OF_BOUNDS]
+
+
+def test_named_dish_allergen_leak_with_empty_ledger() -> None:
+    s0 = WorldState(
+        profile=Profile(user_id="dish", windows=dict(_DAILY), allergies=("milk",)),
+        catalog=_PLAN_CATALOG,
+    )
+    oracle = Oracle(
+        last_plan=[{"food_id": "milk_whole", "grams": 244.0}],
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=dict(_MEAL),
+    )
+    task = Task("rec-named-dish", "recommend", "Make me a creamy pasta tonight.",
+                s0, oracle, (), "everyday")
+    assert stage_a_code_gate(task) == []
+    assert REASON_LEAK_ALLERGY in stage_b_leak_scan(task)

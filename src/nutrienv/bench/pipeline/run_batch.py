@@ -18,6 +18,7 @@ from .expander import LlmExpander, coerce_candidates, make_llm_expander, synthet
 from .freezer import freeze_tasks
 from .models import assign_model
 from .resolver import build_food_index, match_spoken, resolve_candidate
+from .review_harness import stage_a_code_gate
 from .sampler import sample_pools
 from .semantic_vote import (
     DEFAULT_K,
@@ -68,11 +69,30 @@ class BatchResult:
 
 
 def pass_through_reviewer(candidates: Sequence[Task]) -> dict:
-    """06 placeholder: accept everything, return the required summary shape."""
+    """Vote-level placeholder: accept everything, return the required shape.
+
+    The Stage A code hard-gate is NOT skipped by this: ``run_batch`` applies
+    ``stage_a_code_gate`` structurally before any reviewer runs, so there is
+    no mill mode that reaches a freeze without passing the gate.
+    """
     return {
         "anomalies": [],
         "per_candidate": {task.id: {} for task in candidates},
     }
+
+
+def _code_gate(
+    accepted: list[Task], rejected: list[Rejected]
+) -> tuple[list[Task], list[Rejected]]:
+    """Structural Stage A hard-gate. No mill run can bypass it."""
+    gated: list[Task] = []
+    for task in accepted:
+        reasons = stage_a_code_gate(task)
+        if reasons:
+            rejected.append(Rejected(task.query, "code_gate", task.family))
+            continue
+        gated.append(task)
+    return gated, rejected
 
 
 def run_batch(
@@ -127,6 +147,7 @@ def run_batch(
         workers=workers,
     )
 
+    accepted, rejected = _code_gate(accepted, rejected)
     review = reviewer(accepted)
     if (
         not isinstance(review, Mapping)

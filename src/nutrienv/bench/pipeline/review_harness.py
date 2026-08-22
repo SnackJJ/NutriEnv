@@ -1,108 +1,32 @@
-"""Multi-model review harness for v1.0 candidate Tasks.
+"""Two-stage review committee for mill candidates.
 
-Reviews query/anchoring quality only. Grams and portion keys are PortionFact
-table values: the harness never second-guesses them (that is the judge /
-resolver). Anomalous candidates are marked for human review (issue 10).
+Stage A is a code hard-gate (table grams, pinned windows, reason-set) then
+k=3 blind votes on whether one person could eat the plate at one meal.
+Voters do not see the query and do not judge table-gram correctness.
+Code-gate failure drops the candidate without an LLM vote.
 
-Sampling
---------
-Every candidate is reviewed by every configured model. Pipeline pools keep
-≤3 candidates (``MAX_PER_POOL``), so full review is cheap enough. There is
-no subset sampling.
+Stage B is code plus speech: a leak scan for leftover/allergy/
+remaining-kcal inconsistencies on Recommend candidates (code fail drops),
+then k=3 votes on the spoken request (query + food names) for every
+candidate that survives the leak scan. LLM majority-fail alarms first;
+it does not silently pass and it does not drop.
 
-Injection
----------
-``make_reviewer(models={model_id: fn})`` is the grams_gate-style seam.
-``fn`` is ``ReviewFn``: ``(user_prompt: str) -> raw text``. Tests inject
-stubs; they never call the network. Omit ``models`` to bind live callers
-for ``model_ids`` (default ``DEFAULT_MODEL_IDS``, a cheap subset of the
-expander/judge pool).
+Each stage votes across three distinct model families (cross-stage family
+reuse exists; no single vendor carries a stage's majority alone).
 
-Input
------
-A sequence of realized ``Task`` objects (``Reviewer`` protocol). Resolved
-items are taken from ``oracle.ledger_tail`` (log) or ``oracle.last_plan``
-(evaluate), with names/keys recovered from ``task.s0.catalog``.
-
-Per-model output (JSON the model must return)
----------------------------------------------
-``{"consistency": 0-5, "naturalness": 0-5, "entailment": 0-5, "reason": str}``
-
-- consistency: does the query actually speak the resolved PortionFact
-  amounts? High if spoken measures match the key/quantity (query "a cup"
-  vs key ``cup``). Low if they do not ("a piece" vs ``cup``; "half" vs
-  2.0×).
-- naturalness: is the query natural user speech? Recorded, but a low
-  score alone does **not** mark an anomaly.
-- entailment: high = no hidden contradiction; low = the query implies
-  something incompatible with the stated amounts (or names a food that
-  is not in the resolved items).
-
-Unparseable model output is retried once (same as the io/judge layer),
-then recorded as ``unparseable`` on that model. The pipeline does not
-crash.
-
-Harness output (``Reviewer`` / ``run_batch`` shape)
----------------------------------------------------
-::
-
-    {
-      "anomalies": [{"id": task_id, "reasons": [str, ...]}, ...],
-      "per_candidate": {
-        task_id: {
-          "models": {
-            model_id: {
-              "consistency": float | None,
-              "naturalness": float | None,
-              "entailment": float | None,
-              "reason": str,
-              "unparseable": True,   # only when the reply would not parse
-            },
-            ...
-          },
-          "aggregate": {
-            "consistency": float | None,   # mean of parseable models
-            "naturalness": float | None,
-            "entailment": float | None,
-            "disagreement": float,         # max (max-min) across axes
-            "unparseable": [model_id, ...],
-            "reasons": [str, ...],         # anomaly codes, may be empty
-          },
-          "anomaly": False | str,          # False, or ",".join(reasons)
-        },
-        ...
-      },
-    }
-
-``anomalies`` lists only the flagged candidates (stable ``id`` order).
-Non-anomalous candidates still appear in ``per_candidate`` with
-``anomaly is False`` — they pass through for freeze.
-
-Anomaly rules (thresholds are module constants)
------------------------------------------------
-Flag if any of:
-
-- mean consistency < ``LOW_CONSISTENCY`` (2.0)
-- mean entailment < ``LOW_ENTAILMENT`` (2.0)
-- disagreement > ``DISAGREEMENT_THRESHOLD`` (2.0)
-- any model unparseable after retry
-
-Reason codes: ``low_consistency``, ``low_entailment``, ``disagreement``,
-``unparseable``.
-
-Smoke: ``python -m nutrienv.bench.pipeline.review_harness`` prints usage.
-Live calls belong in a one-off probe, not in tests.
+``make_reviewer(stage_a=..., stage_b=...)`` is the grams_gate-style seam.
+Tests inject callables; they never call the network.
 """
 
 from __future__ import annotations
 
 import json
-import math
 import os
 import re
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
+from nutrienv.bench.pipeline.generate_one import build_stage_a_prompt
 from nutrienv.bench.pipeline.types import QUANTITY_MULTIPLES, Reviewer
 from nutrienv.bench.realize import Task
 from nutrienv.io.chat import (
@@ -111,107 +35,195 @@ from nutrienv.io.chat import (
     post_chat_completion,
 )
 from nutrienv.io.dotenv import load_dotenv_keys
+from nutrienv.world.types import ledger_totals, normalize_tags
 
 __all__ = [
-    "AXES",
     "DEFAULT_MODEL_IDS",
-    "DISAGREEMENT_THRESHOLD",
-    "LOW_CONSISTENCY",
-    "LOW_ENTAILMENT",
     "MAX_TOKENS",
     "PARSE_RETRIES",
-    "REASON_DISAGREEMENT",
-    "REASON_LOW_CONSISTENCY",
-    "REASON_LOW_ENTAILMENT",
-    "REASON_UNPARSEABLE",
-    "REVIEW_SYSTEM",
-    "ReviewFn",
+    "REASON_GRAMS_OFF_TABLE",
+    "REASON_LEAK_ALLERGY",
+    "REASON_LEAK_LEFTOVER",
+    "REASON_LEAK_REMAINING_KCAL",
+    "REASON_WINDOWS_EMPTY",
+    "REASON_WINDOWS_OUT_OF_BOUNDS",
+    "REASON_WINDOWS_UNPASSABLE",
+    "STAGE_A_MODEL_IDS",
+    "STAGE_A_SYSTEM",
+    "STAGE_B_MODEL_IDS",
+    "STAGE_B_SYSTEM",
     "TEMPERATURE",
-    "aggregate_reviews",
+    "ReviewFn",
     "call_reviewer",
-    "format_review_prompt",
+    "format_stage_a_prompt",
+    "format_stage_b_prompt",
     "make_reviewer",
-    "parse_review",
     "resolved_items",
     "review_candidates",
-    "review_once",
+    "stage_a_code_gate",
+    "stage_b_leak_scan",
 ]
 
 _ROOT = Path(__file__).resolve().parents[4]
 
-#: Cheap 2-model subset of the expander/judge pool. Inject ``models`` or
-#: ``model_ids`` to use a different set.
-DEFAULT_MODEL_IDS: tuple[str, ...] = (
-    "deepseek-v4-flash",
-    "qwen3.7-flash-2026-07-15",
+# One id per family per stage: a >=2 majority must span at least two vendors.
+STAGE_A_MODEL_IDS: tuple[str, ...] = (
+    "qwen3.8-max",
+    "deepseek-v4-flash-0731",
+    "glm-5.2",
 )
+STAGE_B_MODEL_IDS: tuple[str, ...] = (
+    "kimi-k2.7-code",
+    "deepseek-v4-pro-0813",
+    "qwen3.8-2.4t-a95b",
+)
+DEFAULT_MODEL_IDS: tuple[str, ...] = STAGE_A_MODEL_IDS
 
-AXES: tuple[str, ...] = ("consistency", "naturalness", "entailment")
 TEMPERATURE = 0.2
 MAX_TOKENS = 256
 PARSE_RETRIES = 1
-LOW_CONSISTENCY = 2.0
-LOW_ENTAILMENT = 2.0
-DISAGREEMENT_THRESHOLD = 2.0
 
-REASON_LOW_CONSISTENCY = "low_consistency"
-REASON_LOW_ENTAILMENT = "low_entailment"
-REASON_DISAGREEMENT = "disagreement"
-REASON_UNPARSEABLE = "unparseable"
+REASON_GRAMS_OFF_TABLE = "grams_off_table"
+REASON_WINDOWS_EMPTY = "windows_empty"
+REASON_WINDOWS_OUT_OF_BOUNDS = "windows_out_of_bounds"
+REASON_WINDOWS_UNPASSABLE = "windows_unpassable"
+REASON_LEAK_LEFTOVER = "leak_leftover"
+REASON_LEAK_ALLERGY = "leak_allergy"
+REASON_LEAK_REMAINING_KCAL = "leak_remaining_kcal"
 
-REVIEW_SYSTEM = """You review a candidate nutrition-diary exam item.
+STAGE_A_SYSTEM = """You review a plate listed as food and grams.
 
-You do NOT judge whether the gram amounts are plausible or correct.
-Grams and portion keys are authoritative PortionFact table values. Never
-second-guess them.
-
-Score three axes as numbers from 0 to 5:
-
-- consistency: does the user's query actually name the resolved portion
-  amounts? High if spoken measures match the PortionFact keys/quantities
-  (e.g. query says "a cup" and the resolved key is cup). Low if the query
-  says a different measure or quantity than the resolved items
-  (e.g. "a piece" vs resolved key cup; "half" vs resolved 2.0×).
-- naturalness: is the query natural user speech for a food diary or meal
-  plan, not catalog jargon or exam-author prose.
-- entailment: does the query imply a hidden contradiction with the stated
-  amounts? High = no contradiction (the query is compatible with the
-  facts). Low = the query entails something incompatible with the
-  resolved items (e.g. "half a cup" while the resolved amount is 2.0×
-  cup; the query names a food that is not in the resolved items).
+Could one person eat this at one meal? Large plates are allowed.
+Vote whether the plate is eatable, not whether it is wise or healthy.
+Do not judge whether the gram amounts are the table-correct portion fact.
+You do not see a user query or nutrient windows.
 
 Answer with a single JSON object and nothing else:
-{"consistency": <0-5>, "naturalness": <0-5>, "entailment": <0-5>, "reason": "<one short sentence>"}"""
+{"eatable": true or false, "reason": "<one short sentence>"}"""
+
+STAGE_B_SYSTEM = """You review one user's spoken food request.
+
+Could one person eat this at one meal? Large plates are allowed.
+Vote whether the request is eatable, not whether it is wise or healthy.
+You see the spoken query and the food names. Do not judge gram amounts,
+table-correct portion facts, or nutrient windows.
+
+Answer with a single JSON object and nothing else:
+{"eatable": true or false, "reason": "<one short sentence>"}"""
 
 ReviewFn = Callable[[str], str]
 
 
-def parse_review(text: str) -> dict[str, object] | None:
-    """Return ``{consistency, naturalness, entailment, reason}`` or ``None``."""
-    if not text or not str(text).strip():
-        return None
-    blob = _json_blob(str(text))
-    if blob is None:
-        return None
-    try:
-        payload = json.loads(blob)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(payload, dict):
-        return None
-    scores: dict[str, object] = {}
-    for axis in AXES:
-        number = _score(payload.get(axis))
-        if number is None:
-            return None
-        scores[axis] = number
-    reason = payload.get("reason", "")
-    if reason is None:
-        reason = ""
-    if not isinstance(reason, str):
-        reason = str(reason)
-    scores["reason"] = reason.strip()
-    return scores
+def stage_a_code_gate(task: Task) -> list[str]:
+    """Re-verify the bound Task. Empty means the code-gate passes.
+
+    Window reasons apply only when the oracle pins ``plan_windows``; log
+    tasks and other unpinned oracles skip them.
+    """
+    reasons: list[str] = []
+    catalog = getattr(getattr(task, "s0", None), "catalog", None) or {}
+    for food_id, grams in _oracle_pairs(task):
+        if _match_portion(
+            (catalog.get(food_id) or {}).get("portions") if isinstance(catalog, Mapping) else {},
+            grams,
+        ) == (None, None):
+            reasons.append(REASON_GRAMS_OFF_TABLE)
+            break
+    reasons.extend(_window_reasons(task))
+    return reasons
+
+
+_ATWATER_KCAL_PER_G = {"protein_g": 4.0, "carb_g": 4.0, "fat_g": 9.0}
+
+
+def _window_reasons(task: Task) -> list[str]:
+    """Window reasons across the oracle and every composite child.
+
+    Mirrors ``_oracle_pairs``: a composite container itself pins nothing, so
+    each child oracle that pins ``plan_windows`` is gated on its own, against
+    its own profile when it carries one (e.g. a post-update child).
+    """
+    reasons: list[str] = []
+    for oracle in _window_oracles(task):
+        windows = getattr(oracle, "plan_windows", None)
+        if windows is None or not isinstance(windows, Mapping):
+            continue
+        for reason in _single_window_reasons(task, oracle, windows):
+            if reason not in reasons:
+                reasons.append(reason)
+    return reasons
+
+
+def _window_oracles(task: Task) -> list:
+    oracle = getattr(task, "oracle", None)
+    if oracle is None:
+        return []
+    children = getattr(oracle, "sub_oracles", None) or ()
+    return list(children) if children else [oracle]
+
+
+_WINDOW_TOL = 1e-6
+
+
+def _single_window_reasons(task: Task, oracle: object, windows: Mapping) -> list[str]:
+    """One pinned window set vs the daily ceilings of its own profile.
+
+    ``plan_windows_for_meal`` rounds slot ceilings to 2 decimals while
+    ``Profile.windows`` keeps full precision, so a legitimately-constructed
+    ceiling may sit up to half a cent above the daily value. The bound is
+    therefore the coarser of the exact and the 2-decimal-rendered daily hi;
+    comparisons carry the module tolerance (1e-6).
+    """
+    profile = getattr(oracle, "profile", None) or getattr(
+        getattr(task, "s0", None), "profile", None
+    )
+    daily = getattr(profile, "windows", None) or {}
+    for lo, hi in windows.values():
+        if float(lo) > float(hi):
+            return [REASON_WINDOWS_EMPTY]
+    for key, (lo, hi) in windows.items():
+        bounds = daily.get(key)
+        if bounds is None:
+            continue
+        daily_hi = max(float(bounds[1]), round(float(bounds[1]), 2))
+        if (
+            float(lo) < -_WINDOW_TOL
+            or float(hi) > daily_hi + _WINDOW_TOL
+            or float(lo) > daily_hi + _WINDOW_TOL
+        ):
+            return [REASON_WINDOWS_OUT_OF_BOUNDS]
+    if _kcal_infeasible(windows):
+        return [REASON_WINDOWS_UNPASSABLE]
+    return []
+
+
+def _kcal_infeasible(windows: Mapping) -> bool:
+    """No food combination can satisfy the kcal window given macro floors/ceilings.
+
+    Every kcal comes from protein/carb/fat at Atwater rates (4/4/9 kcal per g,
+    matching ``nutrienv.bench.windows.KCAL_RATIO_CAP``). Macro floors force a
+    minimum kcal; macro ceilings cap the reachable kcal. The check is physics,
+    so it needs no catalog. An absent macro span is unconstrained, not zero:
+    it adds nothing to the forced minimum but leaves the reachable kcal
+    unbounded.
+    """
+    kcal = windows.get("kcal")
+    if not isinstance(kcal, (tuple, list)) or len(kcal) != 2:
+        return False
+    kcal_lo, kcal_hi = float(kcal[0]), float(kcal[1])
+    forced = 0.0
+    reachable = 0.0
+    unbounded = False
+    for key, rate in _ATWATER_KCAL_PER_G.items():
+        span = windows.get(key)
+        if not isinstance(span, (tuple, list)) or len(span) != 2:
+            unbounded = True
+            continue
+        forced += rate * max(0.0, float(span[0]))
+        reachable += rate * max(0.0, float(span[1]))
+    if forced > kcal_hi + 1e-6:
+        return True
+    return not unbounded and reachable + 1e-6 < kcal_lo
 
 
 def resolved_items(task: Task) -> list[dict[str, object]]:
@@ -243,145 +255,242 @@ def resolved_items(task: Task) -> list[dict[str, object]]:
     return items
 
 
-def format_review_prompt(task: Task) -> str:
-    """User message: query + resolved PortionFacts + persona. Grams are facts."""
-    lines: list[str] = []
-    for item in resolved_items(task):
-        key = item["portion_key"]
-        key_text = "none" if key is None else str(key)
-        lines.append(
-            f"- {item['name']} ({item['food_id']}): {item['expression']}, "
-            f"portion key={key_text}, {item['grams']:g} g"
-        )
-    block = "\n".join(lines) if lines else "- (no resolved items)"
-    return (
-        f"Task id: {task.id}\n"
-        f"Family: {task.family}\n"
-        f"Persona: {task.persona}\n"
-        f"Query: {task.query}\n"
-        f"Resolved PortionFacts (authoritative; do not second-guess grams):\n"
-        f"{block}\n"
-    )
-
-
-def review_once(
-    prompt: str,
-    model_fn: ReviewFn,
-    *,
-    parse_retries: int = PARSE_RETRIES,
-) -> tuple[dict[str, object] | None, str]:
-    """Call ``model_fn`` until a review parses. Empty replies retry once."""
-    text = ""
-    for _attempt in range(1 + parse_retries):
-        text = model_fn(prompt) or ""
-        parsed = parse_review(text)
-        if parsed is not None:
-            return parsed, text
-    return None, text
-
-
-def aggregate_reviews(model_scores: Mapping[str, Mapping[str, object]]) -> dict[str, object]:
-    """Mean per axis, disagreement = max axis spread, plus anomaly reasons."""
-    per_axis: dict[str, list[float]] = {axis: [] for axis in AXES}
-    unparseable: list[str] = []
-    for model_id in sorted(model_scores):
-        scores = model_scores[model_id]
-        if scores.get("unparseable") or scores.get("consistency") is None:
-            unparseable.append(model_id)
-            continue
-        for axis in AXES:
-            per_axis[axis].append(float(scores[axis]))
-    means = {
-        axis: (sum(vals) / len(vals) if vals else None) for axis, vals in per_axis.items()
-    }
-    spreads = [
-        (max(vals) - min(vals) if len(vals) >= 2 else 0.0) for vals in per_axis.values()
+def format_stage_a_prompt(task: Task) -> str:
+    """Food+grams only. No query, no windows, no table-gram question."""
+    catalog = getattr(getattr(task, "s0", None), "catalog", None)
+    plate = [
+        {"food_id": item["food_id"], "grams": item["grams"]} for item in resolved_items(task)
     ]
-    disagreement = max(spreads) if spreads else 0.0
+    return build_stage_a_prompt(plate, catalog if isinstance(catalog, Mapping) else None)
+
+
+def stage_b_leak_scan(task: Task) -> list[str]:
+    """Code leak scan for Recommend candidates. Empty means clean.
+
+    Mapped to the landed 07/08 realizations:
+    - leftover (``realize._leftover_from_row``): a non-empty S0 ledger must be
+      bound into scoring through pinned ``plan_windows``; an eaten timeline
+      with unpinned windows leaks the leftover context.
+    - remaining-kcal (``nutrienv.world.daily_windows.meal_slot_and_remainder``
+      as applied by ``generate_one._recommend_from_template``): pinned windows
+      may never budget more of a nutrient than the day still has left after
+      the ledger.
+    - allergy: S0 ledger foods and oracle/s0 plan items carrying a
+      profile-banned allergen tag make the world or the named dish unsafe.
+      The tag-vs-profile comparison mirrors ``realize.bind_evaluate_reasons``
+      (which applies it to the evaluated plate); here it covers the ledger
+      and both plan sides so a Recommend whose named-dish plan item carries a
+      banned allergen is flagged even with an empty ledger.
+    Naturalness alone never drops; that is what the Stage B votes are for.
+    """
+    if task.family != "recommend":
+        return []
+    s0 = task.s0
+    oracle = task.oracle
+    catalog = s0.catalog if isinstance(s0.catalog, Mapping) else {}
+    profile = getattr(s0, "profile", None)
+    daily = dict(getattr(profile, "windows", None) or {})
+    allergies = set(normalize_tags(list(getattr(profile, "allergies", None) or [])))
+    ledger = list(getattr(s0, "ledger", None) or [])
+    pinned = getattr(oracle, "plan_windows", None)
     reasons: list[str] = []
-    if unparseable:
-        reasons.append(REASON_UNPARSEABLE)
-    consistency = means["consistency"]
-    if consistency is not None and consistency < LOW_CONSISTENCY:
-        reasons.append(REASON_LOW_CONSISTENCY)
-    entailment = means["entailment"]
-    if entailment is not None and entailment < LOW_ENTAILMENT:
-        reasons.append(REASON_LOW_ENTAILMENT)
-    if disagreement > DISAGREEMENT_THRESHOLD:
-        reasons.append(REASON_DISAGREEMENT)
-    return {
-        "consistency": means["consistency"],
-        "naturalness": means["naturalness"],
-        "entailment": means["entailment"],
-        "disagreement": disagreement,
-        "unparseable": unparseable,
-        "reasons": reasons,
-    }
+    if ledger:
+        if pinned is None:
+            reasons.append(REASON_LEAK_LEFTOVER)
+        else:
+            eaten = ledger_totals(ledger, catalog)
+            for key, (lo, hi) in daily.items():
+                used = eaten.get(key, 0.0)
+                remaining_hi = round(max(0.0, float(hi) - used), 2)
+                span = pinned.get(key)
+                if not isinstance(span, (tuple, list)) or len(span) != 2:
+                    continue
+                if float(span[1]) > remaining_hi + 1e-6:
+                    reasons.append(REASON_LEAK_REMAINING_KCAL)
+                    break
+    food_ids = [row.food_id for row in ledger]
+    for plan in (
+        getattr(oracle, "last_plan", None) or [],
+        getattr(oracle, "evaluated_plan", None) or [],
+        getattr(s0, "last_plan", None) or [],
+    ):
+        for item in plan:
+            if isinstance(item, Mapping) and item.get("food_id") is not None:
+                food_ids.append(str(item["food_id"]))
+    for food_id in food_ids:
+        entry = catalog.get(food_id) or {}
+        tags = set(normalize_tags(list(entry.get("allergen_tags") or [])))
+        if tags & allergies:
+            reasons.append(REASON_LEAK_ALLERGY)
+            break
+    return reasons
+
+
+def format_stage_b_prompt(task: Task) -> str:
+    """Speech view: query + food names. No grams, no windows."""
+    names = [str(item["name"]) for item in resolved_items(task)]
+    lines = ["Here is one user's spoken request.", f"Query: {task.query}"]
+    if names:
+        lines.append("Foods involved: " + ", ".join(names))
+    return "\n".join(lines)
 
 
 def review_candidates(
     candidates: Sequence[Task],
     *,
-    models: Mapping[str, ReviewFn],
+    stage_a: Mapping[str, ReviewFn],
+    stage_b: Mapping[str, ReviewFn],
     parse_retries: int = PARSE_RETRIES,
 ) -> dict[str, object]:
-    """Review every candidate with every model. ``models`` must be injected."""
-    if not models:
-        raise ValueError("review_candidates requires at least one model")
+    """Stage A code-gate, then Stage A votes, then Stage B.
+
+    Code fail (Stage A gate or Stage B leak scan) drops without an LLM vote.
+    LLM majority-fail raises an alarm; it never silently passes and never
+    drops. The leak scan is recommend-only; the speech vote runs for every
+    candidate that survives the leak scan, because Stage A deliberately
+    hides the query.
+    """
+    if not stage_a:
+        raise ValueError("review_candidates requires Stage A models")
+    if not stage_b:
+        raise ValueError("review_candidates requires Stage B models")
     per_candidate: dict[str, dict[str, object]] = {}
+    dropped: list[dict[str, object]] = []
     anomalies: list[dict[str, object]] = []
     for task in candidates:
-        model_scores: dict[str, dict[str, object]] = {}
-        prompt = format_review_prompt(task)
-        for model_id in sorted(models):
-            parsed, _raw = review_once(
-                prompt, models[model_id], parse_retries=parse_retries
-            )
-            model_scores[model_id] = _model_record(parsed)
-        summary = aggregate_reviews(model_scores)
-        reasons = list(summary["reasons"])
-        flagged = bool(reasons)
-        per_candidate[task.id] = {
-            "models": model_scores,
-            "aggregate": summary,
-            "anomaly": ",".join(reasons) if flagged else False,
+        gate = stage_a_code_gate(task)
+        entry: dict[str, object] = {
+            "stage_a": {"code_gate": list(gate), "votes": {}, "majority": "none"},
+            "stage_b": {"leak_scan": [], "votes": {}, "majority": "none"},
+            "dropped": bool(gate),
+            "alarm": False,
+            "anomaly": False,
         }
-        if flagged:
-            anomalies.append({"id": task.id, "reasons": reasons})
-    return {"anomalies": anomalies, "per_candidate": per_candidate}
+        if gate:
+            dropped.append({"id": task.id, "reasons": list(gate), "stage": "stage_a"})
+            entry["verdict"] = "drop_code_gate"
+            per_candidate[task.id] = entry
+            continue
+        result_a, anomalies_a = _run_stage_vote(stage_a, format_stage_a_prompt(task), parse_retries)
+        entry["stage_a"].update(result_a)
+        if anomalies_a:
+            entry["anomaly"] = True
+            anomalies.append({"id": task.id, "stage": "stage_a"})
+        if result_a["majority"] != "pass":
+            entry["alarm"] = True
+        leaks = stage_b_leak_scan(task)
+        entry["stage_b"]["leak_scan"] = list(leaks)
+        if leaks:
+            entry["dropped"] = True
+            entry["verdict"] = "drop_leak_scan"
+            dropped.append({"id": task.id, "reasons": list(leaks), "stage": "stage_b"})
+            per_candidate[task.id] = entry
+            continue
+        result_b, anomalies_b = _run_stage_vote(
+            stage_b, format_stage_b_prompt(task), parse_retries
+        )
+        entry["stage_b"].update(result_b)
+        if anomalies_b:
+            entry["anomaly"] = True
+            anomalies.append({"id": task.id, "stage": "stage_b"})
+        if result_b["majority"] != "pass":
+            entry["alarm"] = True
+        if entry["alarm"]:
+            entry["verdict"] = "alarm_majority"
+        else:
+            entry["verdict"] = "pass"
+        per_candidate[task.id] = entry
+    return {
+        "anomalies": anomalies,
+        "dropped": dropped,
+        "per_candidate": per_candidate,
+    }
+
+
+def _run_stage_vote(
+    voters: Mapping[str, ReviewFn], prompt: str, parse_retries: int
+) -> tuple[dict[str, object], int]:
+    """k=3 vote collection + JSON parsing + majority. Returns (result, unparsed count)."""
+    votes: dict[str, dict[str, object]] = {}
+    unparsed = 0
+    for model_id in sorted(voters):
+        text = ""
+        vote: tuple[bool, str] | None = None
+        for _attempt in range(1 + parse_retries):
+            text = voters[model_id](prompt) or ""
+            vote = _parse_vote(text)
+            if vote is not None:
+                break
+        if vote is None:
+            unparsed += 1
+            votes[model_id] = {"raw": text, "eatable": None, "reason": ""}
+        else:
+            votes[model_id] = {"raw": text, "eatable": vote[0], "reason": vote[1]}
+    yes = sum(1 for v in votes.values() if v["eatable"] is True)
+    no = sum(1 for v in votes.values() if v["eatable"] is False)
+    if yes >= 2:
+        majority = "pass"
+    elif no >= 2:
+        majority = "fail"
+    else:
+        majority = "undecided"
+    return {"votes": votes, "majority": majority}, unparsed
+
+
+def _parse_vote(text: str) -> tuple[bool, str] | None:
+    """Extract {"eatable": bool, "reason": str} from one voter reply."""
+    blob = _json_blob(text or "")
+    if blob is None:
+        return None
+    try:
+        data = json.loads(blob)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, Mapping):
+        return None
+    eatable = data.get("eatable")
+    if not isinstance(eatable, bool):
+        return None
+    reason = data.get("reason", "")
+    reason = "" if reason is None else str(reason)
+    return True if eatable else False, reason
 
 
 def make_reviewer(
-    models: Mapping[str, ReviewFn] | None = None,
+    stage_a: Mapping[str, ReviewFn] | None = None,
+    stage_b: Mapping[str, ReviewFn] | None = None,
     *,
-    model_ids: Sequence[str] | None = None,
     parse_retries: int = PARSE_RETRIES,
 ) -> Reviewer:
-    """Bind per-model callables (or live ``model_ids``) into a ``Reviewer``."""
-    if models is not None:
-        bound = dict(models)
-    else:
-        ids = tuple(model_ids) if model_ids is not None else DEFAULT_MODEL_IDS
-        bound = {model_id: _live_caller(model_id) for model_id in ids}
-    if not bound:
-        raise ValueError("make_reviewer requires models or model_ids")
+    """Bind per-stage callables (or live model ids) into a ``Reviewer``."""
+    bound_a = dict(stage_a) if stage_a is not None else {
+        model_id: _live_caller(model_id, STAGE_A_SYSTEM) for model_id in STAGE_A_MODEL_IDS
+    }
+    bound_b = dict(stage_b) if stage_b is not None else {
+        model_id: _live_caller(model_id, STAGE_B_SYSTEM) for model_id in STAGE_B_MODEL_IDS
+    }
+    if not bound_a or not bound_b:
+        raise ValueError("make_reviewer requires Stage A and Stage B models")
 
     def reviewer(candidates: Sequence[Task]) -> dict[str, object]:
         return review_candidates(
-            candidates, models=bound, parse_retries=parse_retries
+            candidates,
+            stage_a=bound_a,
+            stage_b=bound_b,
+            parse_retries=parse_retries,
         )
 
     return reviewer
 
 
-def call_reviewer(model_id: str, prompt: str) -> str:
+def call_reviewer(model_id: str, prompt: str, *, system: str = STAGE_A_SYSTEM) -> str:
     """One chat completion for ``model_id``. Network noise is retried three times."""
     load_dotenv_keys(_ROOT / ".env.local")
     url, api_key = _route(model_id)
     payload = {
         "model": model_id,
         "messages": [
-            {"role": "system", "content": REVIEW_SYSTEM},
+            {"role": "system", "content": system},
             {"role": "user", "content": prompt},
         ],
         "temperature": TEMPERATURE,
@@ -398,9 +507,9 @@ def call_reviewer(model_id: str, prompt: str) -> str:
     )
 
 
-def _live_caller(model_id: str) -> ReviewFn:
-    def call(prompt: str, *, _id: str = model_id) -> str:
-        return call_reviewer(_id, prompt)
+def _live_caller(model_id: str, system: str = STAGE_A_SYSTEM) -> ReviewFn:
+    def call(prompt: str, *, _id: str = model_id, _system: str = system) -> str:
+        return call_reviewer(_id, prompt, system=_system)
 
     return call
 
@@ -431,8 +540,19 @@ def _oracle_pairs(task: Task) -> list[tuple[str, float]]:
 
 
 def _pairs_from_one(oracle) -> list[tuple[str, float]]:
-    tail = getattr(oracle, "ledger_tail", None) or []
     pairs: list[tuple[str, float]] = []
+    evaluated = getattr(oracle, "evaluated_plan", None) or []
+    if evaluated:
+        for item in evaluated:
+            if not isinstance(item, Mapping):
+                continue
+            food_id = item.get("food_id")
+            grams = item.get("grams")
+            if food_id is None or grams is None:
+                continue
+            pairs.append((str(food_id), float(grams)))
+        return pairs
+    tail = getattr(oracle, "ledger_tail", None) or []
     if tail:
         for row in tail:
             food_id = getattr(row, "food_id", None)
@@ -468,23 +588,6 @@ def _match_portion(
     return None, None
 
 
-def _model_record(parsed: dict[str, object] | None) -> dict[str, object]:
-    if parsed is None:
-        return {
-            "consistency": None,
-            "naturalness": None,
-            "entailment": None,
-            "reason": "unparseable",
-            "unparseable": True,
-        }
-    return {
-        "consistency": parsed["consistency"],
-        "naturalness": parsed["naturalness"],
-        "entailment": parsed["entailment"],
-        "reason": parsed["reason"],
-    }
-
-
 def _json_blob(text: str) -> str | None:
     fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.S)
     if fence:
@@ -496,21 +599,10 @@ def _json_blob(text: str) -> str | None:
     return text[start : end + 1]
 
 
-def _score(value: object) -> float | None:
-    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
-        return None
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return None
-    if not math.isfinite(number) or number < 0.0 or number > 5.0:
-        return None
-    return number
-
-
 if __name__ == "__main__":
     print(
-        "review_harness usage: inject make_reviewer(models={...}) as "
+        "review_harness usage: inject make_reviewer(stage_a=..., stage_b=...) as "
         "run_batch(..., reviewer=...). Tests never call the network. "
-        f"Default live pool: {', '.join(DEFAULT_MODEL_IDS)}."
+        f"Stage A live pool: {', '.join(STAGE_A_MODEL_IDS)}. "
+        f"Stage B live pool: {', '.join(STAGE_B_MODEL_IDS)}."
     )
