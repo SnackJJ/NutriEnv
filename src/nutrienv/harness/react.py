@@ -71,6 +71,8 @@ _SYSTEM_V1_TAIL = """
 - "thick", "thin" and "regular" pick a different default serving of the same food: read portions.thick / portions.thin / portions.regular. They are not slice sizes -- "a thick slice" is not portions.thick, and a food without that key has no thick/thin/regular serving.
 - An ounce is always 28.35 g, whatever the table says. Grams ("150 g") are already grams.
 - Other portion keys you may see (oz, oz_yield, cubic_inch) are reference data, not measures a user speaks. Do not convert with them.
+- Recommend "eat along with X for dinner": X is spoken context, not part of your plan -- submit_plan your own safe meal that fits the windows.
+- "I am now allergic to Y, so no more Z": update_profile adds the catalog allergen tag for Y; never log_meal or submit_plan Z afterwards.
 """
 
 REACT_VERSIONS = ("v0", "v1")

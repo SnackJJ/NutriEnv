@@ -76,8 +76,8 @@ def resolve_candidate(
         return None, Rejected(candidate.query, "leak", candidate.family)
 
     # Recommend/update oracles carry no bound grams (free plan / profile
-    # patch), so the spoken foods are context: containment below still
-    # requires the query to name them, but there is nothing to back-resolve.
+    # patch), so there is nothing to gram-backresolve; the spoken foods are
+    # still context and the query must name them (containment below).
     context_only = candidate.family in {"recommend", "update"}
     if not skip_gram_backresolve and not context_only:
         for food_id, expression, grams in resolved:
@@ -86,6 +86,7 @@ def resolve_candidate(
             ):
                 return None, Rejected(candidate.query, "backresolve", candidate.family)
 
+    if not skip_gram_backresolve:
         for food_id, _expression, _grams in resolved:
             if not _mentioned(food_id, catalog, candidate.query, candidate.items):
                 return None, Rejected(candidate.query, "containment", candidate.family)
@@ -388,7 +389,11 @@ def _realize_recommend(candidate: Candidate, catalog, task_id: str) -> Task:
     leg uses. The occasion comes from the spoken "for <meal>" word.
     """
     profile = profile_for(ROSTER[0])
-    occasion = occasion_from_query(candidate.query) or "dinner"
+    occasion = occasion_from_query(candidate.query)
+    if occasion is None:
+        # occasions.py contract: an unresolved occasion fails loudly instead
+        # of silently pinning dinner geometry.
+        raise ValueError("recommend query names no meal occasion")
     plan_windows = plan_windows_for_meal(_composite_windows(), {}, occasion)
     if plan_windows is None:
         raise ValueError("recommend windows are empty")

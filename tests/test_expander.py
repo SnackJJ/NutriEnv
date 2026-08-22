@@ -361,6 +361,20 @@ def test_handbook_vocabulary_is_covered_by_react_manual() -> None:
     assert missing == [], missing
 
 
+def test_react_manual_covers_synthetic_recommend_and_update_speech() -> None:
+    """AGENTS.md discipline 4: new mill question expressions land in the
+    react.py manual in the same commit."""
+    from nutrienv.harness.react import react_manual
+
+    manual = react_manual("v1").lower()
+    assert "eat along with" in manual
+    assert "spoken context" in manual
+    assert "submit_plan your own safe meal" in manual
+    assert "now allergic to" in manual
+    assert "no more" in manual
+    assert "update_profile" in manual
+
+
 def test_gym_prompt_allows_grams_everyday_does_not() -> None:
     gym = build_system_prompt(persona="gym", family="log").lower()
     everyday = build_system_prompt(persona="everyday", family="log").lower()

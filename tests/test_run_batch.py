@@ -384,3 +384,41 @@ def test_update_family_job_yields_an_add_allergy_update_task(tmp_path: Path) -> 
     assert added == {"egg"}
     assert task.oracle.ledger is not None
     assert task.oracle.update_band is None
+
+
+def test_occasion_less_recommend_is_rejected_not_dinner_defaulted(tmp_path: Path) -> None:
+    payload = {
+        "items": [{"food": "milk_whole", "expression": "a cup"}],
+        "query": "Given the cup of milk I already had, what should I eat?",
+    }
+    result = _run(
+        tmp_path,
+        [payload],
+        judge=_ok_judge,
+        catalog=_nutrient_catalog(),
+        family_quotas={"recommend": 1},
+    )
+    assert result.accepted == []
+    assert [(r.reason, r.family) for r in result.rejected] == [
+        ("unresolvable", "recommend")
+    ]
+
+
+def test_recommend_context_food_absent_from_query_is_containment_rejected(
+    tmp_path: Path,
+) -> None:
+    payload = {
+        "items": [{"food": "egg", "expression": "a piece"}],
+        "query": "What should I eat along with a cup of milk for dinner?",
+    }
+    result = _run(
+        tmp_path,
+        [payload],
+        judge=_ok_judge,
+        catalog=_nutrient_catalog(),
+        family_quotas={"recommend": 1},
+    )
+    assert result.accepted == []
+    assert [(r.reason, r.family) for r in result.rejected] == [
+        ("containment", "recommend")
+    ]
