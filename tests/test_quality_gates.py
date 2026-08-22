@@ -603,3 +603,16 @@ def test_number_leaks_need_word_boundaries():
         ),
     ]
     assert window_leaks(tasks) == ("rec-real-leak",)
+
+
+def test_caller_declared_custom_tiers_are_counted():
+    tasks = [
+        _eval_task("ev-a", meal=[_FOOD], tier="knife_swap"),
+        _eval_task("ev-b", meal=[_FOOD], tier="knife_allergy"),
+    ]
+    assert evaluate_tier_coverage(tasks, floors={"knife_swap": 1}).counts[
+        "knife_swap"
+    ] == 1
+    assert evaluate_tier_coverage(tasks, floors={"knife_swap": 2}).missing == (
+        "knife_swap",
+    )

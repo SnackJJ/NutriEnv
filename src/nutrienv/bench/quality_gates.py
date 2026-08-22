@@ -160,7 +160,7 @@ def evaluate_tier_coverage(
     v0.3 floors exactly.
     """
     declared = DEFAULT_EVALUATE_TIER_FLOORS if floors is None else floors
-    counts = {tier: 0 for tier in EVALUATE_TIERS}
+    counts = {tier: 0 for tier in (*EVALUATE_TIERS, *declared)}
     for task in tasks:
         if task.family == "evaluate" and task.tier in counts:
             counts[task.tier] += 1
