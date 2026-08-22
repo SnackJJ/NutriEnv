@@ -247,3 +247,51 @@ $ .venv/bin/python -m pytest -q
 ```
 
 (Previously 1293; +3 regression/symmetry tests, 0 failures.)
+
+## Re-review (codex)
+
+**Verdict: ACC.** Commit `343399a` resolves all four findings from the first
+review. No new code or spec blocker was found.
+
+| Prior finding | Status | Re-review evidence |
+|---|---|---|
+| High — `react.py` manual symmetry | **Resolved** | The two rules live in `_SYSTEM_V1_TAIL`; v0 is untouched. Recommend explicitly says X is spoken context, not part of the submitted plan, and directs the agent to submit its own safe plan. Update directs `update_profile` with the catalog tag and forbids logging/submitting Z. `test_react_manual_covers_synthetic_recommend_and_update_speech` pins the expression and action vocabulary. |
+| Medium — occasion-less Recommend defaulted to dinner | **Resolved** | `_realize_recommend` now raises when `occasion_from_query` returns `None`; `resolve_candidate` converts that to `unresolvable`. The regression test and a direct probe both produced no task and `("unresolvable", "recommend")`. |
+| Medium — Recommend/Update containment disabled | **Resolved** | `context_only` now skips only `query_backresolves_oracle`; `_mentioned` containment remains active whenever the explicit global skip is false. The regression test and direct absent-food probe both returned `containment`. The valid egg Update still resolved with `validate_draft == []`, so tag-evidence handling remains intact. |
+| Low — incomplete five-family smoke | **Resolved** | The documented command was replayed independently: five pools/candidates yielded five accepted tasks — single Log, Evaluate, Recommend, Update, and one Composite carrier. Reloaded tasks all returned `validate_draft == []`, and accounting classified each family exactly once. |
+
+### Standards
+
+The prior hard `AGENTS.md` symmetry violation is closed. Applying the prose
+contract confirms both manual lines are concise, imperative, and unambiguous:
+they name the triggering speech, required operation, and prohibited action.
+Because the additions are confined to `_SYSTEM_V1_TAIL`, the v0 manual and its
+budget are unchanged.
+
+One new **Low, non-blocking prose finding**:
+`tests/test_expander.py:364-366` says the runtime test proves expressions land
+“in the same commit,” which a runtime assertion cannot establish; it also
+checks assembled v1 text rather than tail placement. **Fix:** describe only the
+enforceable manual-symmetry contract in the docstring, or directly assert tail
+placement if placement itself is required.
+
+No actionable baseline code smell was found.
+
+### Spec
+
+All previous spec findings are resolved. Occasion resolution now follows the
+shared fail-loud contract; containment and gram back-resolution have separate
+conditions; and the complete five-family CLI matrix is evidenced. No scope
+creep or forbidden-path change was found in `343399a`.
+
+### Verification
+
+- `tests/test_expander.py tests/test_run_batch.py tests/test_react.py`:
+  **75 passed**.
+- Full suite: **1296 passed**.
+- Direct probes: occasion-less → `unresolvable`; absent context →
+  `containment`; valid egg Update → accepted with no draft issues.
+- Five-family CLI smoke: **5/5 accepted**, reload validation clean.
+- Review-only: no code was edited or merged.
+
+Summary: Standards has **1 Low prose finding**; Spec has **0 findings**.
