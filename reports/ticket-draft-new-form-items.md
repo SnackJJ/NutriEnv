@@ -133,3 +133,18 @@ six-key meal-slot windows, so the fit→knife precondition rejects them. This
 is the expected recipe-design boundary, not a defect: bulk unfit production
 needs intentional pool/occasion selection (issue 15 #3 design). The
 unfitness gate itself (`evaluate_unfits` reading oracle geometry) is proven.
+
+## 14-断言合成预演（2026-08-23，25-pool synthetic batch）
+
+`generate_batch --synthetic --count 5 × {log,evaluate,recommend,update,composite}
+--recipe recommend:occasion=dinner --seed 20260822` → pools=25 candidates=25 accepted=24
+(1 code_gate) → validate 0 issues, window_leaks none.
+
+| 14 断言 | 合成水平 | 缺口 | recipe/pool 补法 |
+|---|---|---|---|
+| persona×allergen 覆盖 | everyday only + 0 allergens | cut/gym + 8 tags 全缺 | pool 按 persona/过敏源定向（sample_pools 无此过滤，需加） |
+| Evaluate 全 tier | 6 档全 0 | 全缺 | tier 通道已有，需 items/amount_path 打通（tier-mapping-draft） |
+| leftover ≥24 | 4（composite 产出） | 差 20 | scene=leftover 单 family recipe 或 composite 扩量（配方已验证） |
+| situation floors | constrained **6/8**（composite×4+recommend×2），unfit 0/8 | constrained 差 2、unfit 差 8 | constrained 接近自动达标；unfit 需 knife+allergy 配方（测试 catalog 证明，catalog-v2 需 pool 定向） |
+
+结论：constrained floor 几乎可自动达标；leftover 需 scene 配方扩量；**unfit 与 tier 是真正的 recipe 驱动缺口**（knife + items/amount_path + pool 定向）。这是 issue 15 批量产的量化起点。
