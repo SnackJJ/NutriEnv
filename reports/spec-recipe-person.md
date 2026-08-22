@@ -391,3 +391,100 @@ $ .venv/bin/python -m pytest -q
 ........................................................................ [100%]
 1332 passed in 51.74s        # 0 failed (was 1329; net +3 tests)
 ```
+
+## Final re-review (claude opus)
+
+**Verdict: ACC.** All four residuals are closed. The collision guard is the
+right shape — it fails at `resolve_candidate` with its own named reason
+(`allergen_clash`), so the shortfall is *countable* rather than silent, and I
+confirmed it surfaces in real CLI stats at scale. Two Low leftovers, neither
+blocking.
+
+### Finding status
+
+| # | Finding | Status | Evidence |
+|---|---|---|---|
+| N-1 | Medium — composite could log its own allergen | **Resolved** | Guard at `resolver.py:80-94`, placed after resolution/leak and before any Task is built. Probe: `composite:person=roster-fay` on the milk-logging `_COMPOSITE` fixture → `[('allergen_clash','composite')]`, nothing accepted. Non-colliding still works: `composite:person=roster-cam` → accepted, `s0.allergies=('egg',)`, logged `milk_whole`, `CLASH=-`, `validate_draft == []`. |
+| N-2 | Medium — evaluate silently emptied the allergies | **Resolved** | Same guard covers evaluate. Probe: `evaluate:person=roster-fay` + milk plate → `[('allergen_clash','evaluate')]`. It is never accepted with `allergies=()` any more; `roster-cam` on the same plate still accepts with `('egg',)` and `persona='cut'`. |
+| N-3 | Low — dead `windows=` arg + false comment | **Resolved** | Argument dropped; the comment now states the fact (`resolver.py:544`: "Evaluate plate windows are plate-derived downstream; the Material carries none"). Probe confirms the behaviour it describes: windows are `{'kcal': (490.0, 800.0), 'protein_g': (0.0, 30.0)}` for both `person=None` and `person=roster-cam`, while allergies/persona do follow the person. |
+| N-4 | Low — CLI mislabelled mid-run errors | **Resolved** | The `try` now wraps only spec validation (`generate_batch.py:279-284`), so nothing downstream can be reported as a spec rejection. Probe: `--recipe recommend:person=roster-bogus` → `batch spec rejected: unknown roster person 'roster-bogus'`; happy path unaffected. Pinned by two new `tests/test_generate_batch.py` cases. |
+
+### The guard behaves correctly at scale
+
+The part worth calling out: `allergen_clash` is a distinct rejection reason, so
+a collision is reported rather than absorbed. End-to-end on the real catalog,
+where a milk-allergic person collides with 11.3% of eligible pool foods:
+
+```
+$ generate_batch.py --count 30 --family composite \
+    --recipe composite:person=roster-fay --synthetic
+pools=30 candidates=30 accepted=29
+rejections: allergen_clash=1
+wrote …: 29 items
+```
+
+Fail-closed without being fail-useless — the batch still produces items, and
+the operator can see exactly how many were dropped and why. That is the
+property N-1/N-2 were asking for, and it is stronger than simply filtering the
+colliding tag would have been.
+
+Coverage is intact through the real gate (non-colliding catalog, cam+fay+ben):
+`personas=['cut','everyday','gym']`, `missing_personas=()`,
+`missing_allergens=()`. The fixture change to `_person_catalog()` (dropping
+`milk_whole`/`egg`) in the two coverage tests is legitimate — it isolates the
+coverage claim from the collision path, and both still assert against the real
+`recommend_coverage` report rather than a proxy.
+
+### Findings (Low, non-blocking)
+
+- **R-1 (Low) — dead stores left behind by the move**
+  (`src/nutrienv/bench/pipeline/resolver.py:95-96`). Inside `resolve_candidate`
+  the guard block ends with `allergies = chosen.allergies` and
+  `persona = chosen.persona`, but neither local is read again anywhere in that
+  function — verified by scanning the source after the block, no reads of
+  either name. `_realize` recomputes both at `:319-320`, which is where they
+  actually take effect. Harmless, but it reads as though `resolve_candidate`
+  threads them onward.
+  **Fix:** delete the two lines.
+
+- **R-2 (Low) — the CLI reaches for a private `_parse_spec`**
+  (`scripts/generate_batch.py:280`). To scope the label correctly the CLI now
+  imports `run_batch._parse_spec` inline — the same cross-module-private smell
+  F-4 raised, which was resolved there by making `resolve_roster_person`
+  public. It also means the spec is parsed twice per run (once for the label,
+  once inside `run_batch`); harmless today since `_parse_spec` is pure, but it
+  is a duplicated validation path that can drift.
+  **Fix:** expose a public `parse_spec` (or `validate_spec`) and call that.
+
+Observation, not a finding: with the `try` narrowed, a `ValueError` raised
+mid-run now surfaces as a raw traceback rather than a wrong label. That is the
+honest trade and matches the behaviour before the person work; worth a
+follow-up only if mid-run errors are ever worth presenting nicely.
+
+### Regression sweep
+
+Re-ran every guard closed across this channel's five rounds:
+`evaluate:tier=bogus`, `log:tier`, `update:tier`, `evaluate:occasion`,
+`knife=swap`, `recommend:shell/scene`, unrequested family, `tier=None` — all
+still refused; `knife allergy` still gram-exact with `tier='single'`;
+`empty recipe == no recipe` True. Nothing regressed.
+
+### Evidence
+
+```
+$ .venv/bin/python -m pytest tests/test_run_batch.py tests/test_generate_batch.py -q
+56 passed in 1.79s
+
+$ .venv/bin/python -m pytest -q
+1332 passed in 47.94s          # 0 failed
+```
+
+Commit scope: `a250d05` touches `reports/spec-recipe-person.md`,
+`scripts/generate_batch.py`, `src/nutrienv/bench/pipeline/resolver.py`,
+`tests/test_generate_batch.py`, `tests/test_run_batch.py`. No ADR,
+`data/splits/*`, `*.sqlite`, `scorer.py`, `validator.py`, `review_harness.py`,
+`quality_gates.py`, or `generate_one.py` change. `Pass ⇔ end state == Oracle`
+unaffected.
+
+**RELEASE: recipe person knob released for persona×allergen coverage
+(collision-safe).** R-1 and R-2 are tracked cleanups, not release gates.
