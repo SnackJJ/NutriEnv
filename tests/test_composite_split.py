@@ -124,7 +124,8 @@ def test_write_composite_sample_round_trips(tmp_path: Path):
         assert len(scored_oracles(task.oracle)) == 2
         assert task.s0.profile.user_id
     assert result.payload["quota_ledger"]["composite_accepted"] == len(loaded)
-    assert result.payload["quota_ledger"]["base_quota"] == 240
+    assert result.payload["quota_ledger"]["exam_quota"] == 240
+    assert result.payload["quota_ledger"]["composite_admission_slots"] == 36
 
 
 def test_omitted_last_verdict_loads_as_none(tmp_path: Path):

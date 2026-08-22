@@ -189,10 +189,10 @@ def test_fake_expander_composite_passes_end_to_end(tmp_path: Path) -> None:
     assert rec_oracle.plan_windows is not None
     assert "kcal" in rec_oracle.plan_windows
     ledger = result.payload["quota_ledger"]
-    assert ledger["base_quota"] == 240
-    assert ledger["composite_extra_quota"] == 24
+    assert ledger["exam_quota"] == 240
+    assert ledger["composite_admission_slots"] == 36
     assert ledger["composite_accepted"] == 1
-    assert ledger["base_accepted"] == {}
+    assert ledger["single_family_accepted"] == {}
     assert ledger["requested"] == {"composite": 1}
     assert result.path is not None
     loaded = load_split(result.path, catalog=catalog)
@@ -259,7 +259,7 @@ def test_base_and_composite_quotas_stay_separate(tmp_path: Path) -> None:
     )
     assert calls["n"] >= 2
     ledger = result.payload["quota_ledger"]
-    assert ledger["base_accepted"].get("log") == 1
+    assert ledger["single_family_accepted"].get("log") == 1
     assert ledger["composite_accepted"] == 1
     assert sum(1 for task in result.accepted if task.oracle.sub_oracles) == 1
     assert sum(1 for task in result.accepted if not task.oracle.sub_oracles) == 1

@@ -24,7 +24,7 @@ __all__ = [
     "SAMPLER_RULE_VERSION",
     "SUPPORTED_FAMILIES",
     "BASE_EXAM_QUOTA",
-    "COMPOSITE_EXTRA_QUOTA",
+    "COMPOSITE_ADMISSION_SLOTS",
     "COMPOSITE_FAMILY",
     "COMPOSITE_STEPS",
     "Candidate",
@@ -46,9 +46,10 @@ DEFAULT_GENERATE_POOL_SIZE = 12
 MAX_PER_POOL = 3
 QUANTITY_MULTIPLES = (0.5, 1.0, 1.5, 2.0)
 SUPPORTED_FAMILIES = frozenset({"log", "evaluate", "composite"})
-# Proposed extra quota (ADR 0013). Not frozen into the published exam.
+# ADR 0016: the published 240 includes the 36 composite admission slots;
+# composite is not an extra quota on top of the exam.
 BASE_EXAM_QUOTA = 240
-COMPOSITE_EXTRA_QUOTA = 24
+COMPOSITE_ADMISSION_SLOTS = 36
 COMPOSITE_FAMILY = "composite"
 COMPOSITE_STEPS = ("log", "recommend")
 CATALOG_V1_RELPATH = "data/fdc/archive/catalog-v1.sqlite"

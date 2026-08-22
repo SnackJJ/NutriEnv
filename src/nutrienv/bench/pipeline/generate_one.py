@@ -25,6 +25,7 @@ from .sampler import sample_pools
 from .semantic_vote import GRAM_TOLERANCE
 from .templates import recommend_query, update_query
 from .types import (
+    COMPOSITE_ADMISSION_SLOTS,
     DEFAULT_GENERATE_POOL_SIZE,
     FoodPool,
     PoolFood,
@@ -52,8 +53,6 @@ __all__ = [
 AMOUNT_EXPLICIT_GRAMS = "explicit_grams"
 AMOUNT_NAMED_MEASURE = "named_measure"
 AMOUNT_UNSPECIFIED = "unspecified"
-# ADR 0016: 36 composite slots sit inside the 240, using the same roster.
-COMPOSITE_ADMISSION_SLOTS = 36
 AMOUNT_PATHS: tuple[str, ...] = (
     AMOUNT_EXPLICIT_GRAMS,
     AMOUNT_NAMED_MEASURE,
@@ -424,7 +423,9 @@ def _log_then_evaluate_fit(
         query,
         s0,
         compose_oracles(log_oracle, eval_oracle),
-        ("multi_item_log", "evaluate_fit"),
+        # Split-vocabulary tag, same as log+recommend composites: the
+        # evaluate-fit shape lives in the child oracle's accept verdict.
+        ("multi_item_log",),
         persona,
     )
     return GenerateOneResult(accepted=task, rejected=None)

@@ -134,6 +134,16 @@ def test_react_manual_teaches_log_then_recommend_needs_both_writes() -> None:
     assert len(react_manual("v0").split()) <= 400
 
 
+def test_react_manual_teaches_composite_chains_need_every_write() -> None:
+    for version in REACT_VERSIONS:
+        text = react_manual(version).lower()
+        assert "multi-step" in text
+        # update+recommend and log+evaluate chains, symmetric with the mill.
+        assert "update_profile then submit_plan" in text
+        assert "log_meal then verdict=accept" in text
+    assert len(react_manual("v0").split()) <= 400
+
+
 def test_react_version_rejects_unknown_and_clone_keeps_it() -> None:
     import pytest
 

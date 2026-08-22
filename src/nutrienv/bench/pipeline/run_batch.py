@@ -30,7 +30,7 @@ from .semantic_vote import (
 from .types import (
     BASE_EXAM_QUOTA,
     CATALOG_V1_RELPATH,
-    COMPOSITE_EXTRA_QUOTA,
+    COMPOSITE_ADMISSION_SLOTS,
     DEFAULT_COMPOSITE_SAMPLE_RELPATH,
     DEFAULT_FREEZE_RELPATH,
     PIPELINE_VERSION,
@@ -220,18 +220,24 @@ def write_composite_sample(
 def quota_ledger(
     accepted: Sequence[Task], family_quotas: Sequence[tuple[str, int]]
 ) -> dict[str, object]:
-    """Base 240 vs composite extra, counted separately (ADR 0013)."""
-    base_accepted: dict[str, int] = {}
+    """The published 240 includes the 36 composite slots (ADR 0016).
+
+    Composite items are not an extra quota on top of the exam: they sit
+    inside ``BASE_EXAM_QUOTA`` through ``COMPOSITE_ADMISSION_SLOTS`` and use
+    the same roster. The ledger still counts single-family and composite
+    acceptances separately so drift from either slice stays visible.
+    """
+    single_accepted: dict[str, int] = {}
     composite_accepted = 0
     for task in accepted:
         if task.oracle.sub_oracles:
             composite_accepted += 1
             continue
-        base_accepted[task.family] = base_accepted.get(task.family, 0) + 1
+        single_accepted[task.family] = single_accepted.get(task.family, 0) + 1
     return {
-        "base_quota": BASE_EXAM_QUOTA,
-        "composite_extra_quota": COMPOSITE_EXTRA_QUOTA,
-        "base_accepted": base_accepted,
+        "exam_quota": BASE_EXAM_QUOTA,
+        "composite_admission_slots": COMPOSITE_ADMISSION_SLOTS,
+        "single_family_accepted": single_accepted,
         "composite_accepted": composite_accepted,
         "requested": {family: count for family, count in family_quotas},
     }
