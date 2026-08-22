@@ -253,22 +253,54 @@ def test_evaluate_unfit_reads_the_reject_verdict():
     assert evaluate_unfits(tasks) == ("ev-unfit",)
 
 
-def test_constrained_recommends_are_hard_s0_items():
+def test_constrained_recommends_are_verified_hard_s0_items():
     tasks = [
         _task("rec-plain"),
-        _task("rec-conflict", windows={"kcal": (0.0, 10.0), "protein_g": (90.0, 140.0)}),
+        _task(
+            "rec-impossible-pinned",
+            oracle=Oracle(plan_windows={"kcal": (0.0, 300.0), "protein_g": (90.0, 140.0)}),
+        ),
+        _task("rec-tight-400", oracle=Oracle(plan_windows={"kcal": (400.1, 400.1)})),
         _task("rec-trap", query="Shrimp tonight?", allergies=("shellfish",)),
         _task("rec-trap-alias", query="Any prawn ideas?", allergies=("shellfish",)),
-        _task("rec-declared", query="Dinner?", situations=("condition_suitability",)),
+        _task(
+            "rec-leftover-remainder",
+            query="What can I still eat today?",
+            ledger=(LedgerRow("white_rice", 200.0, "lunch"),),
+            oracle=Oracle(plan_windows={"kcal": (100.0, 300.0)}),
+        ),
+        _task(
+            "rec-double",
+            query="Shrimp tonight?",
+            allergies=("shellfish",),
+            ledger=(LedgerRow("white_rice", 200.0, "lunch"),),
+            oracle=Oracle(plan_windows={"kcal": (100.0, 300.0)}),
+        ),
         _task("rec-safe-named", query="Rice and chicken tonight?", allergies=("soy",)),
         _task("ev-x", family="evaluate", query="Is shrimp okay?", allergies=("shellfish",)),
     ]
     assert constrained_recommends(tasks) == (
-        "rec-conflict",
+        "rec-impossible-pinned",
+        "rec-tight-400",
         "rec-trap",
         "rec-trap-alias",
-        "rec-declared",
+        "rec-leftover-remainder",
+        "rec-double",
     )
+
+
+def test_a_lying_situation_label_never_satisfies_the_floor():
+    tasks = [
+        _task("rec-liar", query="Dinner?", situations=("conflict_windows",)),
+        _task(
+            "rec-real",
+            query="Shrimp tonight?",
+            allergies=("shellfish",),
+        ),
+    ]
+    report = situation_floors(tasks)
+    assert constrained_recommends(tasks) == ("rec-real",)
+    assert report.constrained_count == 1
 
 
 def test_situation_floors_default_to_the_adr_numbers():

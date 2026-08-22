@@ -18,7 +18,7 @@ from types import MappingProxyType
 from nutrienv.world.catalog import iter_catalog_entries
 
 from .realize import Task
-from .windows import any_pair_unsatisfiable
+from .validator import fitting_plan
 
 __all__ = [
     "CONSTRAINED_RECOMMEND_FLOOR",
@@ -45,9 +45,6 @@ LEFTOVER_RECOMMEND_FLOOR = 24
 # ADR 0016: the situation floors sit inside evaluate / recommend.
 EVALUATE_UNFIT_FLOOR = 8
 CONSTRAINED_RECOMMEND_FLOOR = 8
-
-# Situation names a split may declare for its hard-S0 recommend items.
-_HARD_SITUATIONS = frozenset({"condition_suitability", "conflict_windows"})
 
 
 def _leaks_windows(task: Task) -> bool:
@@ -229,30 +226,23 @@ def _query_names_allergen_food(task: Task) -> bool:
 
 
 def constrained_recommends(tasks: Sequence[Task]) -> tuple[str, ...]:
-    """Ids of recommend tasks whose S0 is hard (ADR 0016 constrained set).
+    """Ids of recommend tasks whose hard S0 is verified from the item itself.
 
-    A recommend is constrained when any of these reads off the frozen item:
-    declared hard situations, impossible windows -- judged on the remainder
-    ``oracle.plan_windows`` when the item pins one, else on the daily
-    profile -- a leftover/remainder scene (eaten food earlier that day with
-    the plan judged on pinned remainder windows), or a named-dish allergy
-    trap.
+    Three categories, each read off reality rather than a declared tag:
+    pinned ``oracle.plan_windows`` with no fitting allergen-safe plan
+    (``fitting_plan`` finds none), a leftover/remainder scene (food eaten
+    earlier that day judged on pinned remainder windows), or a named-dish
+    allergy trap. Situation labels are never trusted: an unverifiable
+    ``conflict_windows`` tag counts as unconstrained. Each task is counted
+    once even when several categories match.
     """
     ids = []
     for task in tasks:
         if task.family != "recommend":
             continue
-        if _HARD_SITUATIONS & set(task.situations):
-            ids.append(task.id)
-            continue
-        windows = (
-            task.oracle.plan_windows
-            if task.oracle.plan_windows is not None
-            else task.s0.profile.windows
-        )
-        if any_pair_unsatisfiable(
-            windows, task.s0.catalog, task.s0.profile.allergies
-        ):
+        if task.oracle.plan_windows is not None and fitting_plan(
+            task.s0.catalog, task.oracle.plan_windows, task.s0.profile.allergies
+        ) is None:
             ids.append(task.id)
             continue
         if task.s0.ledger and task.oracle.plan_windows is not None:
