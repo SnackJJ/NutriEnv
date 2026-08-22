@@ -587,3 +587,19 @@ def test_two_decimal_window_values_are_secrets():
         _task("rec-clean-frac", query="Half of my budget?", windows={"kcal": (400.0, 612.75)}),
     ]
     assert window_leaks(tasks) == ("rec-decimal",)
+
+
+def test_number_leaks_need_word_boundaries():
+    tasks = [
+        _task(
+            "rec-thousands",
+            query="I ate 6000 kcal yesterday, what now?",
+            windows={"kcal": (400.0, 600.0)},
+        ),
+        _task(
+            "rec-real-leak",
+            query="I have 600 kcal left for dinner.",
+            windows={"kcal": (400.0, 600.0)},
+        ),
+    ]
+    assert window_leaks(tasks) == ("rec-real-leak",)

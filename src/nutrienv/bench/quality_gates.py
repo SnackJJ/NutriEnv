@@ -71,7 +71,8 @@ def _leaks_windows(task: Task) -> bool:
         for bounds in windows.values():
             for value in bounds:
                 if any(
-                    token in task.query for token in _stated_numbers(value)
+                    re.search(rf"(?<!\d){re.escape(token)}(?!\d)", task.query)
+                    for token in _stated_numbers(value)
                 ):
                     return True
     return False
