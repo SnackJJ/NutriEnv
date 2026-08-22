@@ -229,8 +229,11 @@ def validate_draft(task: Task) -> list[str]:
     query = task.query.lower()
     if "catalog id" in query or "food_id" in query:
         issues.append("query leaks food_id")
-    if task.family == "recommend" and _WINDOW_LEAK.search(task.query):
-        issues.append("recommend query leaks window numbers")
+    if task.family == "recommend" or task.oracle.sub_oracles:
+        # Composite queries carry a recommend step even when family is
+        # log/update, so the whole spoken query stays window-number-free.
+        if _WINDOW_LEAK.search(task.query):
+            issues.append("recommend query leaks window numbers")
     if task.family != "evaluate":
         leaked = [
             token for token in _SLUG.findall(query) if token in task.s0.catalog
@@ -741,9 +744,35 @@ def _validate_composite(task: Task) -> list[str]:
     if has_unfit and has_substitute:
         issues.append("composite Evaluate-unfit paired with Recommend-substitute")
     query = task.query.lower()
+    tail: list = []
+    for sub in children:
+        if sub.ledger_tail:
+            tail = list(sub.ledger_tail)
+            break
     for child in children:
         if _child_is_update(child, task):
             issues.extend(_validate_update(replace(task, oracle=child), query))
+            continue
+        if child.last_plan != [] or not child.plan_must_fit_windows:
+            continue
+        # Leftover scenes pin the pure daily remainder after the log tail,
+        # mirroring the single-family leftover rule above. Other composites
+        # judge the meal-slot intersection the mill pinned.
+        if child.plan_windows and task.persona == "leftover":
+            eaten = ledger_totals([*task.s0.ledger, *tail], task.s0.catalog)
+            for key, (lo, hi) in task.s0.profile.windows.items():
+                used = eaten.get(key, 0.0)
+                expected = (
+                    round(max(0.0, lo - used), 2),
+                    round(max(0.0, hi - used), 2),
+                )
+                if child.plan_windows.get(key) != expected:
+                    issues.append(
+                        f"composite plan_windows {key} != remainder {expected}"
+                    )
+        windows = child.plan_windows or task.s0.profile.windows
+        if fitting_plan(task.s0.catalog, windows, task.s0.profile.allergies) is None:
+            issues.append("composite recommend is unpassable")
     return issues
 
 

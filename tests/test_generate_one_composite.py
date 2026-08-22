@@ -357,6 +357,14 @@ def test_validator_checks_composite_recommend_is_passable_on_the_child() -> None
     assert any("unpassable" in item for item in issues)
 
 
+def test_validator_rejects_window_numbers_in_the_composite_query() -> None:
+    result = _run()
+    assert result.rejected is None
+    leaky = replace(result.accepted, query=result.accepted.query + " kcal 800 dinner.")
+    issues = validate_draft(leaky)
+    assert any("leaks window numbers" in item for item in issues)
+
+
 def test_validator_rejects_composite_update_that_shifts_unmentioned_window() -> None:
     result = _run(
         steps=("update", "recommend"),
