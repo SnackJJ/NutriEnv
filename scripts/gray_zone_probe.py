@@ -283,11 +283,18 @@ def main() -> None:
     print(f"catalog={CATALOG_V2_PATH}\n")
     print("confirmed piece / qns:")
     for fdc_id, info in confirmed.items():
-        print(
-            f"  {info['label']:10} fdc {fdc_id}  "
-            f"piece={info['piece']:g}  qns={info['qns']:g}  "
-            f"ratio={info['ratio']}  ({info['name']})"
-        )
+        if "piece" in info:
+            print(
+                f"  {info['label']:10} fdc {fdc_id}  "
+                f"piece={info['piece']:g}  qns={info['qns']:g}  "
+                f"ratio={info['ratio']}  ({info['name']})"
+            )
+        else:
+            print(
+                f"  {info['label']:10} {fdc_id}  "
+                f"{info['key']}={info['grams']:g}  ({info['name']}, "
+                f"staple first-wins)"
+            )
     print()
 
     results = []
