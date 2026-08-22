@@ -6,6 +6,7 @@ import random
 from collections.abc import Mapping
 
 from nutrienv.world.catalog import canonical_food_id
+from nutrienv.world.types import normalize_tags
 
 from .types import (
     POOL_SIZE,
@@ -40,6 +41,7 @@ def sample_pools(
     n_pools: int,
     pool_size: int = POOL_SIZE,
     spoken_only: bool = False,
+    with_allergen: str | None = None,
 ) -> list[FoodPool]:
     """Draw ``n_pools`` independent pools of ~``pool_size`` foods.
 
@@ -48,6 +50,10 @@ def sample_pools(
     whose only speakable portion is a plain cup are excluded, so the pool can
     contain snacks and milk rather than only solid-cup mains. Pool membership
     is sorted then sampled so the same seed yields the same pools.
+
+    With ``with_allergen``, each drawn pool must contain at least one food
+    carrying that catalog allergen tag; draws without one are retried (same
+    rng, bounded) and a catalog with no such food raises fail-closed.
     """
     if n_pools <= 0:
         return []
@@ -56,11 +62,30 @@ def sample_pools(
         eligible = [food_id for food_id in eligible if not _cup_only(catalog, food_id)]
     if not eligible:
         raise ValueError("catalog has no foods with speakable PortionFacts")
+    carriers = None
+    if with_allergen is not None:
+        carriers = {
+            food_id
+            for food_id in eligible
+            if with_allergen
+            in normalize_tags(
+                list((catalog.get(food_id) or {}).get("allergen_tags") or [])
+            )
+        }
+        if not carriers:
+            raise ValueError(
+                f"catalog has no food with allergen tag {with_allergen!r}"
+            )
     rng = random.Random(seed)
     pools: list[FoodPool] = []
     size = min(pool_size, len(eligible))
     for index in range(n_pools):
-        picked = rng.sample(eligible, size)
+        picked = list(rng.sample(eligible, size))
+        if carriers is not None and not set(picked) & carriers:
+            # Guarantee the carrier condition: on huge catalogs a pure
+            # re-draw almost never hits, so swap one slot for a
+            # deterministically chosen carrier instead.
+            picked[0] = rng.choice(sorted(carriers))
         foods = tuple(_pool_food(catalog, food_id) for food_id in picked)
         pools.append(
             FoodPool(

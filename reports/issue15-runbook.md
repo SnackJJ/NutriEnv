@@ -57,3 +57,14 @@ window_leaks -> ()
 3. tier 内容映射确认（tier-mapping-draft）。
 4. unfit 的 pool 定向方案（a/b/c）。
 5. live vs synthetic：runbook 默认 synthetic；LLM prompt shells 是否接线。
+## Path A base landed: pool_allergen knob
+
+`sampler.sample_pools(with_allergen=tag)` guarantees each pool contains a
+carrier of the tag (swap-in on miss, deterministic per seed; unknown tags
+raise). Batch recipes accept `pool_allergen` on every family
+(`--recipe evaluate:pool_allergen=egg`). Status of path A
+(knife=allergy+person+pool_allergen+items+tier): the carrier condition is now
+satisfiable; the remaining blockers are expander plate composition (the first
+N foods may include the carrier → visible `allergen_clash`) and the
+fit-window precondition — both issue-15 recipe design. Details:
+`reports/impl-pool-allergen.md`.

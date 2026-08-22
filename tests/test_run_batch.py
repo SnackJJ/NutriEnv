@@ -1100,3 +1100,66 @@ def test_person_allergen_clash_is_rejected_visibly(tmp_path: Path) -> None:
         assert [(r.reason, r.family) for r in result.rejected] == [
             ("allergen_clash", family)
         ]
+
+
+def test_sample_pools_with_allergen_targets_carrier_pools() -> None:
+    from nutrienv.bench.pipeline.sampler import sample_pools
+    from nutrienv.world.catalog_store import load_catalog
+
+    catalog = load_catalog("data/fdc/catalog-v2.sqlite")
+    pools = sample_pools(
+        catalog,
+        seed=20260822,
+        family="evaluate",
+        n_pools=4,
+        with_allergen="egg",
+    )
+    assert len(pools) == 4
+    for pool in pools:
+        assert any(
+            "egg" in pool_food.allergen_tags for pool_food in pool.foods
+        ), [food.food_id for food in pool.foods]
+
+    with pytest.raises(ValueError, match="allergen tag"):
+        sample_pools(
+            catalog,
+            seed=1,
+            family="evaluate",
+            n_pools=1,
+            with_allergen="nonexistent_tag",
+        )
+
+
+def test_pool_allergen_recipe_feeds_the_sampler(tmp_path: Path) -> None:
+    """The recipe reaches the sampler: pools carry the tag. Honest residual
+    (see reports/impl-pool-allergen.md): with the synthetic expander taking
+    the FIRST N pool foods, the drawn carrier can land inside the plate --
+    those candidates reject visibly as allergen_clash; the rest fail the
+    person's fit gate (`unresolvable`). Turning carriers-into-unfit plates
+    into accepted bulk production is issue-15 recipe design."""
+    from nutrienv.bench.pipeline.expander import synthetic_expander
+
+    result = _run(
+        tmp_path,
+        None,
+        expander=synthetic_expander,
+        judge=_ok_judge,
+        catalog=_nutrient_catalog(),
+        family_quotas={"evaluate": 2},
+        family_recipes={
+            "evaluate": {
+                "knife": "allergy",
+                "person": "roster-cam",
+                "pool_allergen": "egg",
+                "items": "1",
+                "tier": "single",
+            },
+        },
+    )
+    assert result.accepted == [] or all(
+        task.oracle.last_verdict == "reject"
+        and "allergy" in task.oracle.last_reasons
+        and task.s0.profile.allergies == ("egg",)
+        for task in result.accepted
+    )
+    assert {r.reason for r in result.rejected} <= {"unresolvable", "allergen_clash"}

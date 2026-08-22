@@ -436,10 +436,12 @@ _HINTS_NEED_SYNTHETIC = (
 # ``log`` carries no recipe: it has no person semantics resolver-side (its
 # realize branch is the plain tracer log).
 _RECIPE_KEYS: dict[str, frozenset[str]] = {
-    "evaluate": frozenset({"knife", "tier", "items", "amount_path", "person"}),
-    "recommend": frozenset({"occasion", "person"}),
-    "update": frozenset({"person"}),
-    "composite": frozenset({"person"}),
+    "evaluate": frozenset(
+        {"knife", "tier", "items", "amount_path", "person", "pool_allergen"}
+    ),
+    "recommend": frozenset({"occasion", "person", "pool_allergen"}),
+    "update": frozenset({"person", "pool_allergen"}),
+    "composite": frozenset({"person", "pool_allergen"}),
 }
 # Knobs consumed by the expander when producing the query (the rest stamp the
 # Candidate). Synthetic expander only — anything else fails closed (see
@@ -586,6 +588,9 @@ def _build_jobs(spec: Mapping, catalog) -> list[_PoolJob]:
             seed=_family_seed(spec["seed"], family),
             family=family,
             n_pools=quota,
+            with_allergen=(spec.get("family_recipes") or {}).get(family, {}).get(
+                "pool_allergen"
+            ),
         )
         recipe = (spec.get("family_recipes") or {}).get(family) or {}
         for pool in pools:
@@ -665,7 +670,9 @@ def _expand_one(
         raw, family=job.family, persona=persona, pool_id=job.pool.pool_id
     )
     stamps = {
-        key: value for key, value in recipe.items() if key not in _EXPANDER_HINTS
+        key: value
+        for key, value in recipe.items()
+        if key not in _EXPANDER_HINTS and key != "pool_allergen"
     }
     if stamps:
         candidates = [replace(candidate, **stamps) for candidate in candidates]
