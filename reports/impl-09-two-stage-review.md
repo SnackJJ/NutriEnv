@@ -195,3 +195,43 @@ $ .venv/bin/python -m pytest tests/test_review_harness.py -q
 $ .venv/bin/python -m pytest -q
 1213 passed in 49.93s
 ```
+
+---
+
+## Fix round 3 — N09-3 (merge-time blocker)
+
+Commit: "09: add float tolerance and per-child profile to window gate (N09-3 merge blocker)".
+
+- **Tolerance** — `_single_window_reasons` no longer compares raw floats. The
+  daily ceiling a pinned window is judged against is now
+  `max(daily_hi, round(daily_hi, 2))`, with the module's `1e-6` tolerance on
+  top, for both the `hi` and the `lo` comparisons. A bare 1e-6 epsilon alone
+  would NOT have absorbed the reviewer's measured case (fiber_g child hi
+  38.25 vs full-precision daily hi 38.24625 is +0.00375): the real invariant
+  is that `plan_windows_for_meal` may emit the 2-decimal rendering of the
+  daily value, so the gate accepts exactly that rendering and nothing wider.
+- **Per-child profile** — `_single_window_reasons(task, oracle, windows)`
+  resolves the bound profile as `oracle.profile or task.s0.profile`
+  (`_window_reasons` passes each child oracle), matching ship-10's
+  validator fix: a post-update child is judged against its own windows.
+- **Regression tests** (real constructor output, not hand-written round
+  numbers): `test_composite_child_rounded_slot_ceiling_passes_gate` builds a
+  composite child from an actual `plan_windows_for_meal(full_precision_daily,
+  {}, "dinner")` with an empty ledger — asserts the fixture really contains
+  fiber hi 38.25 > 38.24625 and that the gate returns [].
+  `test_composite_child_judged_against_its_own_profile` gives the child its
+  own raised-fibre profile whose plan_windows_for_meal output exceeds the S0
+  ceiling — gate must judge against `child.profile`. 
+  `test_composite_child_genuinely_out_of_bounds_still_flags` pins that a real
+  violation (kcal hi 9000) still yields exactly `['windows_out_of_bounds']`.
+
+Test evidence:
+
+```
+$ .venv/bin/python -m pytest tests/test_review_harness.py -q
+..................................                                       [100%]
+34 passed in 0.14s
+
+$ .venv/bin/python -m pytest -q
+1216 passed in 48.30s
+```

@@ -30,6 +30,7 @@ from nutrienv.bench.pipeline.review_harness import (
     stage_b_leak_scan,
 )
 from nutrienv.bench.realize import Oracle, Task, compose_oracles
+from nutrienv.world.daily_windows import plan_windows_for_meal
 from nutrienv.world.types import LedgerRow, Profile, WorldState, ledger_totals
 
 _CATALOG = {
@@ -606,6 +607,105 @@ def test_composite_child_windows_are_gated() -> None:
     task = Task("comp-001", "composite", "Plan my day.", good.s0, oracle, (), "everyday")
     assert task.oracle.plan_windows is None
     assert stage_a_code_gate(task) == [REASON_WINDOWS_EMPTY]
+
+
+_FULL_PRECISION_DAILY = {
+    "kcal": (1911.2345, 2293.4814),
+    "protein_g": (72.6155, 144.12345),
+    "carb_g": (216.17385, 258.23456),
+    "fat_g": (53.42135, 74.98765),
+    "fiber_g": (25.28765, 38.24625),
+    "sodium_mg": (0.0, 2300.0),
+}
+
+
+def test_composite_child_rounded_slot_ceiling_passes_gate() -> None:
+    """Real plan_windows_for_meal output: round(daily_hi, 2) can round UP.
+
+    The dinner slot ceiling for fiber is 38.25 against a full-precision daily
+    hi of 38.24625 — a legitimately-constructed child window must pass the
+    gate (N09-3).
+    """
+    windows = plan_windows_for_meal(dict(_FULL_PRECISION_DAILY), {}, "dinner")
+    assert windows is not None
+    assert windows["fiber_g"][1] == 38.25
+    assert windows["fiber_g"][1] > _FULL_PRECISION_DAILY["fiber_g"][1]
+    child = Oracle(
+        last_plan=[],
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=windows,
+    )
+    benign = Oracle(ledger_tail=[LedgerRow("milk_whole", 244.0, "today-lunch")])
+    profile = Profile(user_id="ada", windows=dict(_FULL_PRECISION_DAILY))
+    s0 = WorldState(profile=profile, catalog=_PLAN_CATALOG)
+    task = Task(
+        "upd-rec-001",
+        "composite",
+        "Update my target, then recommend dinner.",
+        s0,
+        compose_oracles(benign, child),
+        (),
+        "everyday",
+    )
+    assert stage_a_code_gate(task) == []
+
+
+def test_composite_child_judged_against_its_own_profile() -> None:
+    raised = dict(_FULL_PRECISION_DAILY)
+    raised["fiber_g"] = (25.28765, 45.0)
+    child_profile = Profile(user_id="ada-post-update", windows=dict(raised))
+    windows = plan_windows_for_meal(dict(raised), {}, "dinner")
+    assert windows is not None
+    assert windows["fiber_g"][1] > _FULL_PRECISION_DAILY["fiber_g"][1]
+    child = Oracle(
+        profile=child_profile,
+        last_plan=[],
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=windows,
+    )
+    profile = Profile(user_id="ada", windows=dict(_FULL_PRECISION_DAILY))
+    s0 = WorldState(profile=profile, catalog=_PLAN_CATALOG)
+    task = Task(
+        "upd-rec-002",
+        "composite",
+        "Raise my fibre target, then recommend dinner.",
+        s0,
+        Oracle(sub_oracles=(child,)),
+        (),
+        "everyday",
+    )
+    assert stage_a_code_gate(task) == []
+
+
+def test_composite_child_genuinely_out_of_bounds_still_flags() -> None:
+    windows = {
+        "kcal": (500.0, 9000.0),
+        "protein_g": (0.0, 150.0),
+        "carb_g": (0.0, 300.0),
+        "fat_g": (0.0, 80.0),
+        "fiber_g": (0.0, 38.0),
+        "sodium_mg": (0.0, 2300.0),
+    }
+    child = Oracle(
+        last_plan=[],
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=windows,
+    )
+    profile = Profile(user_id="ada", windows=dict(_FULL_PRECISION_DAILY))
+    s0 = WorldState(profile=profile, catalog=_PLAN_CATALOG)
+    task = Task(
+        "upd-rec-003",
+        "composite",
+        "Update my target, then recommend dinner.",
+        s0,
+        Oracle(sub_oracles=(child,)),
+        (),
+        "everyday",
+    )
+    assert stage_a_code_gate(task) == [REASON_WINDOWS_OUT_OF_BOUNDS]
 
 
 def test_out_of_bounds_reason_appended_once() -> None:

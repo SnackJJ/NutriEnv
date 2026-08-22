@@ -140,14 +140,15 @@ def _window_reasons(task: Task) -> list[str]:
     """Window reasons across the oracle and every composite child.
 
     Mirrors ``_oracle_pairs``: a composite container itself pins nothing, so
-    each child oracle that pins ``plan_windows`` is gated on its own.
+    each child oracle that pins ``plan_windows`` is gated on its own, against
+    its own profile when it carries one (e.g. a post-update child).
     """
     reasons: list[str] = []
     for oracle in _window_oracles(task):
         windows = getattr(oracle, "plan_windows", None)
         if windows is None or not isinstance(windows, Mapping):
             continue
-        for reason in _single_window_reasons(task, windows):
+        for reason in _single_window_reasons(task, oracle, windows):
             if reason not in reasons:
                 reasons.append(reason)
     return reasons
@@ -161,8 +162,21 @@ def _window_oracles(task: Task) -> list:
     return list(children) if children else [oracle]
 
 
-def _single_window_reasons(task: Task, windows: Mapping) -> list[str]:
-    profile = getattr(getattr(task, "s0", None), "profile", None)
+_WINDOW_TOL = 1e-6
+
+
+def _single_window_reasons(task: Task, oracle: object, windows: Mapping) -> list[str]:
+    """One pinned window set vs the daily ceilings of its own profile.
+
+    ``plan_windows_for_meal`` rounds slot ceilings to 2 decimals while
+    ``Profile.windows`` keeps full precision, so a legitimately-constructed
+    ceiling may sit up to half a cent above the daily value. The bound is
+    therefore the coarser of the exact and the 2-decimal-rendered daily hi;
+    comparisons carry the module tolerance (1e-6).
+    """
+    profile = getattr(oracle, "profile", None) or getattr(
+        getattr(task, "s0", None), "profile", None
+    )
     daily = getattr(profile, "windows", None) or {}
     for lo, hi in windows.values():
         if float(lo) > float(hi):
@@ -171,8 +185,12 @@ def _single_window_reasons(task: Task, windows: Mapping) -> list[str]:
         bounds = daily.get(key)
         if bounds is None:
             continue
-        daily_hi = float(bounds[1])
-        if float(lo) < 0.0 or float(hi) > daily_hi or float(lo) > daily_hi:
+        daily_hi = max(float(bounds[1]), round(float(bounds[1]), 2))
+        if (
+            float(lo) < -_WINDOW_TOL
+            or float(hi) > daily_hi + _WINDOW_TOL
+            or float(lo) > daily_hi + _WINDOW_TOL
+        ):
             return [REASON_WINDOWS_OUT_OF_BOUNDS]
     if _kcal_infeasible(windows):
         return [REASON_WINDOWS_UNPASSABLE]
