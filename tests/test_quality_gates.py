@@ -675,3 +675,106 @@ def test_default_allergen_claim_is_the_union_of_split_catalogs():
         _with_catalog("rec-b", {"food_b": {"allergen_tags": ["beta"]}}, "alpha"),
     ]
     assert recommend_coverage(tasks).missing_allergens == ("beta",)
+
+
+def test_composite_recommend_child_counts_toward_constrained_floor():
+    """A composite (family log) carrying an unpassable recommend child
+    contributes to the ADR 0016 constrained-recommend floor."""
+    child = Oracle(
+        last_plan=[],
+        plan_windows={"kcal": (10_000.0, 10_000.0)},
+        plan_must_fit_windows=True,
+    )
+    composite = _task(
+        "composite-constrained",
+        family="log",
+        query="I logged lunch; what should I eat for dinner?",
+        oracle=compose_oracles(Oracle(), child),
+    )
+    passable_child = Oracle(
+        last_plan=[],
+        plan_windows={"kcal": (400.0, 600.0)},
+        plan_must_fit_windows=True,
+    )
+    passable = _task(
+        "composite-passable",
+        family="log",
+        query="I logged lunch; what should I eat for dinner?",
+        oracle=compose_oracles(Oracle(), passable_child),
+    )
+    assert constrained_recommends([composite, passable]) == ("composite-constrained",)
+
+
+def test_composite_recommend_child_leftover_counts_toward_leftover_floor():
+    """Parent ledger + a pinned remainder-window recommend child is the
+    composite leftover scene (ADR 0017 geometry inside ADR 0016 floors)."""
+    child = Oracle(
+        last_plan=[],
+        plan_windows={"kcal": (100.0, 300.0)},
+        plan_must_fit_windows=True,
+    )
+    with_ledger = _task(
+        "composite-leftover",
+        family="log",
+        query="I logged lunch; anything left for dinner?",
+        ledger=(LedgerRow("white_rice", 200.0, "lunch"),),
+        oracle=compose_oracles(Oracle(), child),
+    )
+    without_ledger = _task(
+        "composite-fresh-day",
+        family="log",
+        query="I logged breakfast; anything left for dinner?",
+        oracle=compose_oracles(Oracle(), replace(child)),
+    )
+    assert leftover_recommends([with_ledger, without_ledger]) == ("composite-leftover",)
+
+
+def test_composite_allergen_child_counts_toward_coverage():
+    """An allergen carried only by a composite recommend child's post-update
+    profile backs the allergen claim (mirrors validator S10-5)."""
+    child_profile = Profile(user_id="comp-child-user", allergies=("shellfish",))
+    child = Oracle(
+        last_plan=[],
+        profile=child_profile,
+        plan_windows={"kcal": (400.0, 700.0)},
+        plan_must_fit_windows=True,
+    )
+    single_family_only = [
+        task for task in _covered_split() if task.id != "rec-shellfish"
+    ]
+    assert recommend_coverage(single_family_only).missing_allergens == ("shellfish",)
+    tasks = single_family_only + [
+        _task(
+            "composite-allergen",
+            family="log",
+            query="I logged lunch; dinner ideas?",
+            oracle=compose_oracles(Oracle(), child),
+        ),
+    ]
+    assert recommend_coverage(tasks).missing_allergens == ()
+    assert recommend_coverage(tasks, personas=("everyday",)).missing_personas == ()
+
+
+def test_composite_evaluate_unfit_child_counts_toward_unfit_floor():
+    """A composite whose evaluate child rejects over an empty named plan
+    counts toward the ADR 0016 Evaluate-unfit floor."""
+    unfit_child = Oracle(
+        last_plan=[],
+        evaluated_plan=[_FOOD],
+        last_verdict="reject",
+        last_reasons=("kcal_hi",),
+    )
+    fit_child = Oracle(last_plan=[], evaluated_plan=[_FOOD], last_verdict="accept")
+    composite = _task(
+        "composite-unfit",
+        family="log",
+        query="I logged lunch and tried the cafeteria special.",
+        oracle=compose_oracles(unfit_child, fit_child),
+    )
+    clean = _task(
+        "composite-fit",
+        family="log",
+        query="I logged lunch.",
+        oracle=compose_oracles(fit_child, replace(fit_child)),
+    )
+    assert evaluate_unfits([composite, clean]) == ("composite-unfit",)

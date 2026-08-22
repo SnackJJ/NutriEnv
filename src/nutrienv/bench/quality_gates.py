@@ -16,8 +16,9 @@ from dataclasses import dataclass
 from types import MappingProxyType
 
 from nutrienv.world.catalog import iter_catalog_entries
+from nutrienv.world.types import Profile
 
-from .realize import Task
+from .realize import Oracle, Task
 from .validator import fitting_plan
 
 __all__ = [
@@ -121,13 +122,19 @@ def recommend_coverage(
     The diversity claim is persona x allergy: if the admitted recommends
     drop a declared persona or leave a catalog allergen tag uncovered by
     every profile, the claim is not backed. ``allergen_tags=None`` derives
-    the claim from the split's own catalog (every declared tag).
+    the claim from the split's own catalog (every declared tag). Composite
+    recommend children count (ADR 0016): their parent's persona and the
+    union of lens profiles' allergies back the claim.
     """
-    recommends = [task for task in tasks if task.family == "recommend"]
-    seen = {task.persona for task in recommends}
+    seen: set[str] = set()
     covered: set[str] = set()
-    for task in recommends:
-        covered.update(task.s0.profile.allergies)
+    for task in tasks:
+        lenses = _recommend_lenses(task)
+        if not lenses:
+            continue
+        seen.add(task.persona)
+        for lens in lenses:
+            covered.update(lens.profile.allergies)
     wanted = (
         set().union(
             *(_catalog_allergen_tags(task.s0.catalog) for task in tasks)
@@ -198,14 +205,26 @@ def leftover_recommends(tasks: Sequence[Task]) -> tuple[str, ...]:
 
     Leftover is a scene, not a persona name (ADR 0017): the S0 ledger holds
     food eaten earlier that day. Older frozen splits tag the same geometry
-    with the ``leftover`` persona, so both count.
+    with the ``leftover`` persona, so both count. Composite recommend
+    children count too: the parent ledger or a child ``ledger_tail`` shows
+    food earlier that day, and the child pins remainder windows.
     """
-    return tuple(
-        task.id
-        for task in tasks
-        if task.family == "recommend"
-        and (task.persona == "leftover" or task.s0.ledger)
-    )
+    ids = []
+    for task in tasks:
+        if task.family == "recommend" and (
+            task.persona == "leftover" or task.s0.ledger
+        ):
+            ids.append(task.id)
+            continue
+        scene = bool(task.s0.ledger) or any(
+            child.ledger_tail for child in task.oracle.sub_oracles or ()
+        )
+        if (
+            scene
+            and any(lens.oracle.plan_windows is not None for lens in _recommend_lenses(task))
+        ):
+            ids.append(task.id)
+    return tuple(ids)
 
 
 def leftover_floor(
@@ -215,16 +234,31 @@ def leftover_floor(
     return LeftoverFloorReport(count=len(leftover_recommends(tasks)), minimum=minimum)
 
 
+def _evaluate_lenses(task: Task) -> list[Oracle]:
+    """Oracles judged as Evaluate-unfit geometry carriers: single-family
+    evaluate -> [task.oracle]; composite -> each evaluate child (reject
+    verdict over an empty named plan)."""
+    if task.family == "evaluate":
+        return [task.oracle]
+    return [
+        child
+        for child in task.oracle.sub_oracles or ()
+        if child.last_verdict == "reject" and child.last_plan == []
+    ]
+
+
 def evaluate_unfits(tasks: Sequence[Task]) -> tuple[str, ...]:
     """Ids of evaluate items carrying ADR 0017's unfit envelope: a reject
     verdict over an empty named plan. A reject that still names a meal is
-    legacy shape, not Evaluate-unfit."""
+    legacy shape, not Evaluate-unfit. Composite evaluate children count the
+    same way (ADR 0016: the floors sit inside evaluate / recommend)."""
     return tuple(
         task.id
         for task in tasks
-        if task.family == "evaluate"
-        and task.oracle.last_verdict == "reject"
-        and task.oracle.last_plan == []
+        if any(
+            lens.last_verdict == "reject" and lens.last_plan == []
+            for lens in _evaluate_lenses(task)
+        )
     )
 
 
@@ -261,30 +295,75 @@ def _query_names_allergen_food(task: Task) -> bool:
     return False
 
 
+@dataclass(frozen=True)
+class _Lens:
+    """One recommend geometry carrier inside a task, judged with its own
+    oracle and profile (validator S10-5: a post-update recommend child
+    carries its own profile). Query and catalog stay on the parent task."""
+
+    oracle: Oracle
+    profile: Profile
+
+
+def _is_recommend_child(child: Oracle) -> bool:
+    """The same test ship-10's validator uses to identify the recommend leg."""
+    return (
+        child.plan_windows is not None
+        and child.last_plan == []
+        and bool(child.plan_must_fit_windows)
+    )
+
+
+def _recommend_lenses(task: Task) -> list[_Lens]:
+    """One lens per recommend geometry carrier in task: single-family
+    recommend -> [task.oracle]; composite -> each recommend child; else [].
+    Each lens carries (oracle, profile) so the gates below can judge
+    child-specific windows/allergies."""
+    if task.oracle.sub_oracles:
+        return [
+            _Lens(child, child.profile or task.s0.profile)
+            for child in task.oracle.sub_oracles
+            if _is_recommend_child(child)
+        ]
+    if task.family == "recommend":
+        return [_Lens(task.oracle, task.s0.profile)]
+    return []
+
+
 def constrained_recommends(tasks: Sequence[Task]) -> tuple[str, ...]:
     """Ids of recommend tasks whose hard S0 is verified from the item itself.
 
     Three categories, each read off reality rather than a declared tag:
-    pinned ``oracle.plan_windows`` with no fitting allergen-safe plan
+    pinned ``plan_windows`` with no fitting allergen-safe plan
     (``fitting_plan`` finds none), a leftover/remainder scene (food eaten
     earlier that day judged on pinned remainder windows), or a named-dish
     allergy trap. Situation labels are never trusted: an unverifiable
-    ``conflict_windows`` tag counts as unconstrained. Each task is counted
-    once even when several categories match.
+    ``conflict_windows`` tag counts as unconstrained. Composite recommend
+    children count (ADR 0016): each lens is judged in turn -- the leftover
+    scene reads the parent ledger or a child ``ledger_tail``. Each task is
+    counted once even when several lenses/categories match.
     """
     ids = []
     for task in tasks:
-        if task.family != "recommend":
+        lenses = _recommend_lenses(task)
+        if not lenses:
             continue
-        if task.oracle.plan_windows is not None and fitting_plan(
-            task.s0.catalog, task.oracle.plan_windows, task.s0.profile.allergies
-        ) is None:
-            ids.append(task.id)
-            continue
-        if task.s0.ledger and task.oracle.plan_windows is not None:
-            ids.append(task.id)
-            continue
-        if _query_names_allergen_food(task):
+        scene = bool(task.s0.ledger) or any(
+            child.ledger_tail for child in task.oracle.sub_oracles or ()
+        )
+        hit = False
+        for lens in lenses:
+            if lens.oracle.plan_windows is not None and fitting_plan(
+                task.s0.catalog, lens.oracle.plan_windows, lens.profile.allergies
+            ) is None:
+                hit = True
+                break
+            if scene and lens.oracle.plan_windows is not None:
+                hit = True
+                break
+        if not hit and _query_names_allergen_food(task):
+            hit = True
+        if hit:
             ids.append(task.id)
     return tuple(ids)
 
