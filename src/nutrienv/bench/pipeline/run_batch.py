@@ -415,11 +415,18 @@ def _parse_spec(batch_spec: Mapping) -> dict:
 # knives because its grams derive from target kcal rather than a catalog/QNS
 # portion.
 _RECIPE_KEYS: dict[str, frozenset[str]] = {
-    "evaluate": frozenset({"knife", "tier"}),
-    # tier is evaluate-only authoring data (mirrors generate_one's guard);
-    # recommend can only carry an occasion override.
-    "recommend": frozenset({"occasion"}),
+    "evaluate": frozenset({"knife", "tier", "items", "amount_path"}),
+    "recommend": frozenset({"occasion", "tier"}),
 }
+# Knobs consumed by the expander when producing the query (the rest stamp the
+# Candidate). Synthetic expander only: LLM prompt shells are issue-15 design.
+_EXPANDER_HINTS = frozenset({"items", "amount_path"})
+# amount_path values, mirroring generate_one's AMOUNT_PATHS. Only
+# "explicit_grams" changes synthetic speech; named_measure/unspecified keep
+# the table phrase.
+_RECIPE_AMOUNT_PATHS = frozenset(
+    {"explicit_grams", "named_measure", "unspecified"}
+)
 _BATCH_KNIVES = frozenset(KNIVES) - {"swap"}
 
 
@@ -465,6 +472,18 @@ def _parse_family_recipes(
                 raise ValueError(
                     f"recipe {family}.tier must be one of "
                     f"{sorted(EVALUATE_TIERS)}, got {value!r}"
+                )
+            if key == "items" and (
+                not value.isdigit() or int(value) < 1
+            ):
+                raise ValueError(
+                    f"recipe {family}.items must be a positive integer, "
+                    f"got {value!r}"
+                )
+            if key == "amount_path" and value not in _RECIPE_AMOUNT_PATHS:
+                raise ValueError(
+                    f"recipe {family}.amount_path must be one of "
+                    f"{sorted(_RECIPE_AMOUNT_PATHS)}, got {value!r}"
                 )
             parsed[str(key)] = value
         recipes[str(family)] = parsed
@@ -603,14 +622,27 @@ def _bind_expanders(
 def _expand_one(
     job: _PoolJob, expander: Expander, persona: str
 ) -> tuple[_PoolJob, list]:
-    raw = expander(job.pool, persona=persona, family=job.family)
+    recipe = job.recipe or {}
+    # Expander hints vs Candidate stamps: items/amount_path shape the query
+    # the expander produces; everything else is stamped onto the Candidate.
+    hints = {
+        key: int(value) if key == "items" else value
+        for key, value in recipe.items()
+        if key in _EXPANDER_HINTS
+    }
+    if hints and expander is not synthetic_expander:
+        # LLM expander prompt shells are issue-15 design; hints are
+        # synthetic-only until then.
+        hints = {}
+    raw = expander(job.pool, persona=persona, family=job.family, **hints)
     candidates = coerce_candidates(
         raw, family=job.family, persona=persona, pool_id=job.pool.pool_id
     )
-    if job.recipe:
-        # Stamp the family recipe onto each candidate (issue 15 transport);
-        # empty recipes keep the candidates byte-identical.
-        candidates = [replace(candidate, **job.recipe) for candidate in candidates]
+    stamps = {
+        key: value for key, value in recipe.items() if key not in _EXPANDER_HINTS
+    }
+    if stamps:
+        candidates = [replace(candidate, **stamps) for candidate in candidates]
     return job, candidates
 
 

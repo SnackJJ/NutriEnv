@@ -145,18 +145,45 @@ def coerce_candidates(
 
 
 def synthetic_expander(
-    pool: FoodPool, *, persona: str, family: str
+    pool: FoodPool,
+    *,
+    persona: str,
+    family: str,
+    items: int | None = None,
+    amount_path: str | None = None,
 ) -> dict[str, object]:
     """Deterministic fake: compose 1–2 pool foods with a table phrase.
 
     Used by the tracer-bullet freeze. No network, no clock, no RNG.
+
+    Recipe hints (issue 15 transport): ``items`` composes exactly N
+    speakable pool foods -- fewer available yields the empty payload
+    (fail-closed), never a smaller plate. ``amount_path="explicit_grams"``
+    speaks the food's one-portion gram amount ("150 g") instead of the table
+    phrase. Defaults keep today's behavior.
     """
     chosen: list[tuple[PoolFood, str]] = []
+
+    def _phrase_for(food: PoolFood) -> str | None:
+        if amount_path == "explicit_grams":
+            one = next(
+                (
+                    alt.grams
+                    for alt in food.alternatives
+                    if alt.quantity == 1.0 and alt.grams > 0
+                ),
+                None,
+            )
+            if one is not None:
+                return f"{one:g} g"
+        return _preferred_phrase(food)
+
     if family == COMPOSITE_FAMILY:
         # ADR 0014 six-nutrient windows leave a finite daily budget, and a
         # heavy tracer plate can spend it all — the draft is then (correctly)
         # dropped as unpassable. Keep the composite tracer plate to the
-        # lightest single pool food so the sample stays writable.
+        # lightest single pool food so the sample stays writable. Recipe
+        # hints do not apply: the composite shape owns its plate size.
         lightest = min(
             (food for food in pool.foods if _preferred_phrase(food) is not None),
             key=lambda food: min(
@@ -168,13 +195,18 @@ def synthetic_expander(
             [(lightest, _preferred_phrase(lightest))] if lightest is not None else []
         )
     else:
+        limit = items if items else 2
         for food in pool.foods:
-            phrase = _preferred_phrase(food)
+            phrase = _phrase_for(food)
             if phrase is None:
                 continue
             chosen.append((food, phrase))
-            if len(chosen) >= 2:
+            if len(chosen) >= limit:
                 break
+        if items is not None and len(chosen) < items:
+            # Fail-closed: fewer speakable foods than requested is an empty
+            # candidate (schema-dropped), never a smaller plate.
+            return {"items": [], "query": ""}
     if not chosen:
         return {"items": [], "query": ""}
     items = [

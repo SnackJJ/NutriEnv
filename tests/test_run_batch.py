@@ -111,11 +111,19 @@ def _spec(tmp_path: Path, catalog, **overrides) -> dict:
     return spec
 
 
-def _run(tmp_path: Path, payloads, *, judge=_ok_judge, catalog=None, **overrides):
+def _run(
+    tmp_path: Path,
+    payloads,
+    *,
+    judge=_ok_judge,
+    catalog=None,
+    expander=None,
+    **overrides,
+):
     foods = catalog if catalog is not None else _catalog()
     return run_batch(
         _spec(tmp_path, foods, **overrides),
-        expander=_expander(payloads),
+        expander=expander if expander is not None else _expander(payloads),
         judge=judge,
         reviewer=pass_through_reviewer,
         catalog=foods,
@@ -684,3 +692,98 @@ def test_evaluate_occasion_knob_is_no_longer_accepted(tmp_path: Path) -> None:
             reviewer=pass_through_reviewer,
             catalog=_nutrient_catalog(),
         )
+
+
+def test_items_recipe_produces_an_n_food_evaluate_plate(tmp_path: Path) -> None:
+    from nutrienv.bench.pipeline.expander import synthetic_expander
+    from nutrienv.bench.pipeline.freezer import freeze_tasks
+    from nutrienv.bench.split import load_split
+
+    result = _run(
+        tmp_path,
+        None,
+        expander=synthetic_expander,
+        judge=_ok_judge,
+        catalog=_nutrient_catalog(),
+        family_quotas={"evaluate": 1},
+        family_recipes={"evaluate": {"items": "3", "tier": "triple"}},
+    )
+    assert result.rejected == []
+    (task,) = result.accepted
+    assert task.tier == "triple"
+    assert len(task.oracle.last_plan) == 3
+    assert validate_draft(task) == []
+    _, target = freeze_tasks(
+        [task], catalog=task.s0.catalog, output_path=tmp_path / "triple.json"
+    )
+    (loaded,) = load_split(target, catalog=task.s0.catalog)
+    assert loaded.tier == "triple"
+    assert len(loaded.oracle.last_plan) == 3
+
+
+def test_explicit_grams_recipe_speaks_gram_amounts(tmp_path: Path) -> None:
+    from nutrienv.bench.pipeline.expander import synthetic_expander
+
+    result = _run(
+        tmp_path,
+        None,
+        expander=synthetic_expander,
+        judge=_ok_judge,
+        catalog=_nutrient_catalog(),
+        family_quotas={"evaluate": 1},
+        family_recipes={
+            "evaluate": {"amount_path": "explicit_grams", "tier": "explicit_grams"},
+        },
+    )
+    assert result.rejected == []
+    (task,) = result.accepted
+    assert task.tier == "explicit_grams"
+    assert " g of " in task.query
+    for item in task.oracle.evaluated_plan or task.oracle.last_plan:
+        assert f"{item['grams']:g} g" in task.query
+    assert validate_draft(task) == []
+
+
+def test_items_shortfall_is_a_clean_rejection(tmp_path: Path) -> None:
+    from nutrienv.bench.pipeline.expander import synthetic_expander
+
+    thin = {
+        food_id: entry
+        for food_id, entry in _nutrient_catalog().items()
+        if food_id in {"white_rice", "olive_oil"}
+    }
+    result = _run(
+        tmp_path,
+        None,
+        expander=synthetic_expander,
+        judge=_ok_judge,
+        catalog=thin,
+        family_quotas={"evaluate": 1},
+        family_recipes={"evaluate": {"items": "3"}},
+    )
+    assert result.accepted == []
+    assert [(r.reason, r.family) for r in result.rejected] == [
+        ("schema", "evaluate")
+    ]
+
+
+def test_items_and_amount_path_recipes_are_validated(tmp_path: Path) -> None:
+    for recipe in (
+        {"items": "0"},
+        {"items": "abc"},
+        {"items": "-1"},
+        {"amount_path": "bogus"},
+    ):
+        with pytest.raises(ValueError):
+            run_batch(
+                _spec(
+                    tmp_path,
+                    _catalog(),
+                    family_quotas={"evaluate": 1},
+                    family_recipes={"evaluate": dict(recipe)},
+                ),
+                expander=_expander([_EVALUATE_FIT]),
+                judge=_ok_judge,
+                reviewer=pass_through_reviewer,
+                catalog=_catalog(),
+            )

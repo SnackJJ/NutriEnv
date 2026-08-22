@@ -34,3 +34,15 @@
 1. tier→items 映射（single 1 / pair 2 / triple 3）是否认可？
 2. explicit_grams/synonym/long 是否按上表映射，还是你另有词典？
 3. recipe 是否增加 `items`/`amount_path` knob（还是 tier 直接隐含）？
+## Items/amount_path channel exists (recipe transport)
+
+The batch recipe channel now carries `evaluate:items=N` (exact N-food plate;
+fewer speakable pool foods → clean rejection, never a smaller plate) and
+`evaluate:amount_path=explicit_grams` ("150 g of X" speech; allowed values
+explicit_grams/named_measure/unspecified mirror generate_one's AMOUNT_PATHS,
+only explicit_grams changes synthetic speech). Synthetic expander only — LLM
+prompt shells stay issue-15 design. Verified: `items=3 + tier=triple`
+produces a genuine 3-food evaluate item that freezes/reloads with the tier
+(tests/test_run_batch.py::test_items_recipe_produces_an_n_food_evaluate_plate);
+CLI smoke `--recipe evaluate:items=3 --recipe evaluate:tier=triple` → frozen
+item `tier: triple`, 3 plan foods.

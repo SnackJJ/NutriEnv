@@ -47,10 +47,11 @@ from nutrienv.world.catalog_store import load_catalog  # noqa: E402
 DEFAULT_SEED = 20260817
 DEFAULT_WORKERS = 4
 DEFAULT_PREFIX = "v10"
-# Recipe knobs advertised on the CLI. ``shell``/``scene`` are generate_one-
-# only until resolver semantics exist; knife "swap" is excluded because its
-# grams derive from target kcal, not a catalog/QNS portion.
-RECIPE_KEYS = ("knife", "occasion", "tier")
+# Recipe knobs advertised on the CLI (family-specific rules are enforced by
+# run_batch's parser). ``shell``/``scene`` are generate_one-only until
+# resolver semantics exist; knife "swap" is excluded because its grams derive
+# from target kcal, not a catalog/QNS portion.
+RECIPE_KEYS = ("knife", "occasion", "tier", "items", "amount_path")
 
 
 def _parse_recipe(value: str) -> tuple[str, dict[str, str]]:

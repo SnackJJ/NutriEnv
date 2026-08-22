@@ -585,3 +585,26 @@ now emit `()`; the tier round-trip test dropped its situations-stripping
 workaround and a dedicated fit round-trip test pins freeze→load→
 `validate_draft == []`. Mill and batch producers now emit only reload-valid
 situations on all evaluate paths.
+
+## Follow-up: evaluate items/amount_path knobs
+
+`evaluate` recipes gained `items` (positive-int string) and `amount_path`
+(one of explicit_grams/named_measure/unspecified, mirroring generate_one's
+AMOUNT_PATHS). They are expander hints consumed by `synthetic_expander`
+(items → exactly N speakable pool foods, fail-closed empty payload on
+shortfall; explicit_grams → "150 g"-style speech), split from the Candidate
+stamps in `_expand_one`; LLM expander prompt shells remain issue-15 design
+(hints are synthetic-only until then). Parse validates items as a positive
+integer string and amount_path against the allowed set. CLI passes both
+through generically. Tests:
+`test_items_recipe_produces_an_n_food_evaluate_plate` (incl. tier=triple
+freeze→load round-trip),
+`test_explicit_grams_recipe_speaks_gram_amounts`,
+`test_items_shortfall_is_a_clean_rejection`,
+`test_items_and_amount_path_recipes_are_validated`.
+
+```
+$ .venv/bin/python -m pytest -q
+........................................................................ [100%]
+1318 passed in 51.74s        # 0 failed (was 1314; +4 tests)
+```
