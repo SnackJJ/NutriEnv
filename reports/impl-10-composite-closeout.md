@@ -129,3 +129,118 @@ react composite chains, composite window-number leak; net +9 pass, −9 fail).
   follow-up if mills ever feed the freezer directly.
 - `reports/composite-quota-ledger.md` still shows the old ADR-0013 keys;
   it is a historical report, not code, and was left as-is.
+
+---
+
+# Fix round: S10 review findings (claude opus review, verdict REV)
+
+Review record: `reports/review-09-10-impl.md` (ship-10 findings S10-1..S10-8).
+Ruling applied: **ADR 0014 controls** — composite `plan_windows` is
+meal-slot ∩ remainder via `plan_windows_for_meal`. ADR files, data/splits,
+catalog sqlite, and bench/scorer.py untouched. Suite after fixes:
+**1220 passed / 0 failed**.
+
+## S10-1 (blocker) — one plan_windows convention everywhere
+
+- `resolver._attach_recommend` now pins
+  `plan_windows_for_meal(s0.profile.windows, eaten_after_tail, rec_occasion)`
+  where `rec_occasion` is derived from the log tail's `eaten_at`
+  (`today-lunch` → dinner). `_remainder_after` (pure daily remainder)
+  deleted. Empty intersections raise → fail-closed `unresolvable`.
+- `run_batch._composite_draft_issues` **deleted** together with its call in
+  `_finish_one`: its remainder/unpassable checks live in
+  `validate_draft._validate_composite`, so there is exactly ONE gate with ONE
+  convention instead of two implementations to keep in sync. Orphaned imports
+  (`fitting_plan`, `ledger_totals`) removed.
+- The supersede note in ADR 0013 remains a main-agent edit (implementers do
+  not touch ADR files); the ruling is recorded in the issue file's Review
+  findings section.
+- Supporting change: `world/daily_windows.plan_windows_for_meal` /
+  `meal_slot_and_remainder` iterate the given `daily` dict instead of a fixed
+  six-key list. Identical output for full ADR 0014 profiles; legacy fixture
+  profiles (GOLD_WINDOWS carries only kcal/protein_g) no longer KeyError, so
+  resolver composites can use the same helper as the mill.
+
+## S10-2 — remainder check without the persona gate, real defect asserted
+
+- Dropped `task.persona == "leftover"` from `_validate_composite`. The gate
+  recomputes expected windows with `plan_windows_for_meal(child.profile or
+  s0.profile.windows, ledger_totals(s0.ledger + tail), occasion)`; occasion
+  comes from the tail's stamped meal or the spoken "for <meal>" word
+  (`_recommend_occasion`). When no occasion signal exists the equality check
+  cannot recompute and only passability is judged.
+- Test rewritten: `test_validator_checks_composite_recommend_remainder_on_the_child`
+  now shifts the child's kcal window by +50 on a valid everyday composite and
+  asserts the mismatch issue — it mutates the defect, not the label.
+
+## S10-3 — freezer round-trip regression tests (were zero)
+
+Added per legal pair, each asserting `loaded.oracle == task.oracle` and
+`validate_draft(loaded) == []` after `freeze_tasks → load_split`:
+
+```
+test_log_then_recommend_freeze_round_trips
+test_update_then_recommend_freeze_round_trips
+(+ round-trip assertions inside test_log_then_evaluate_fit_is_constructible)
+```
+
+Verified they guard the fixes: reverting freezer.py to `6402b45` makes all
+three fail (previously reverting kept "1217 passed").
+
+## S10-4 — table-legal, freeze-survivable log+evaluate fixture
+
+"three cups of rice" (474 g, not on QUANTITY_MULTIPLES) replaced with
+**"two cups of rice and a cup of milk"** = 316 g + 244 g (2×158, 1×244 — both
+portion-table multiples). Still `last_verdict == "accept"`; the test now also
+runs `freeze_tasks` + `load_split` and asserts oracle identity plus empty
+draft issues, so admission gate and freezer agree about the same item. The
+report line the reviewer called unverifiable is now reproducible from
+committed code.
+
+## S10-5 — unpassable check judges the child profile
+
+`_validate_composite` resolves `profile = child.profile or task.s0.profile`
+and uses it for both the window fallback and allergies in the
+`fitting_plan` search, mirroring `_judged_profile`. For update+recommend this
+is the post-update profile the Scorer actually judges against.
+
+## S10-6 — COMPOSITE_ADMISSION_SLOTS is now a budget
+
+`quota_ledger` raises when `composite_accepted > 36` ("admission slots") or
+when single-family + composite exceed 240 ("240-item exam"). New unit test
+`test_quota_ledger_enforces_adr_0016_ceilings` covers the boundary (36/204
+accepted), the slot breach, and the exam breach.
+
+## S10-7 — for the main agent (ADR files off-limits here)
+
+ADR 0012 (`docs/adr/0012-composite-tasks-extra-quota.md`) still states
+composites "额外占用配额，在基础 240 题之外另加". ADR 0016 (accepted) puts
+composite's 36 inside the 240 but names only ADR 0009/0013 as superseded.
+Please add a supersede note to 0012 (and fold ADR 0013's `plan_windows`
+sentence into the same note, per the S10-1 ruling).
+
+## S10-8 — situation tag workaround, documented risk
+
+log+evaluate composites stay tagged `("multi_item_log",)`:
+`evaluate_fit` is not in `bench/situations.py`, and adding it would break
+`test_realize_covers_every_situation`'s exact-coverage assertion (the
+realization tables have no such row), which implementers may not weaken.
+Risk: downstream slicing by situations counts these items as plain
+multi-item logs until either (a) a realization-row-backed situation kind
+lands, or (b) main agent relaxes the coverage assertion deliberately. The
+evaluate-fit shape itself stays fully determined by the child oracle
+(`last_verdict == "accept"`), so scoring and validation are unaffected.
+
+## Test evidence
+
+```
+$ python -m pytest tests/test_generate_one_composite.py -q
+15 passed in 0.21s
+
+$ python -m pytest -q
+1220 passed in 47.87s
+```
+
+Delta vs pre-fix HEAD: +3 tests (two freeze round-trips, one quota ceiling);
+the rewritten remainder test replaces the persona-relabel version one-for-one;
+freezer-revert check fails the three round-trip tests as intended.

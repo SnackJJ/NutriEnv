@@ -12,6 +12,8 @@ from dataclasses import replace
 from nutrienv.bench.realize import Oracle, Task, compose_oracles
 from nutrienv.bench.scorer import Scorer
 from nutrienv.bench.validator import fitting_plan, validate_draft
+from nutrienv.bench.pipeline.freezer import freeze_tasks
+from nutrienv.bench.split import load_split
 from nutrienv.env import NutriEnv
 from nutrienv.world.daily_windows import plan_windows_for_meal
 from nutrienv.world.types import ledger_totals
@@ -253,11 +255,18 @@ def test_validator_rejects_evaluate_unfit_paired_with_recommend_substitute() -> 
     assert any("unfit" in item and "substitute" in item for item in issues)
 
 
-def test_log_then_evaluate_fit_is_constructible() -> None:
+def test_log_then_evaluate_fit_is_constructible(tmp_path) -> None:
     def expand(pool, *, persona, family, amount_path=None):
-        foods = [food.food_id for food in pool.foods if food.food_id == "white_rice"]
+        foods = [
+            food.food_id
+            for food in pool.foods
+            if food.food_id in ("white_rice", "milk_whole")
+        ]
         return {
-            "query": "Please log three cups of rice for lunch. Is this lunch okay?",
+            "query": (
+                "Please log two cups of rice and a cup of milk for lunch. "
+                "Is this lunch okay?"
+            ),
             "foods": foods,
         }
 
@@ -266,24 +275,28 @@ def test_log_then_evaluate_fit_is_constructible() -> None:
     task = result.accepted
     assert task.family == "log"
     log_oracle, eval_oracle = task.oracle.sub_oracles
-    assert [row.food_id for row in log_oracle.ledger_tail] == ["white_rice"]
+    assert [row.food_id for row in log_oracle.ledger_tail] == [
+        "white_rice",
+        "milk_whole",
+    ]
     assert eval_oracle.last_verdict == "accept"
     assert eval_oracle.last_plan == [
-        {"food_id": "white_rice", "grams": 474.0}
+        {"food_id": "white_rice", "grams": 316.0},
+        {"food_id": "milk_whole", "grams": 244.0},
     ]
     assert tuple(eval_oracle.ledger) == tuple(log_oracle.ledger)
 
     env = NutriEnv()
     env.reset(task.s0)
-    row = log_oracle.ledger_tail[0]
-    assert env.step(
-        {
-            "op": "log_meal",
-            "food_id": row.food_id,
-            "grams": row.grams,
-            "eaten_at": row.eaten_at,
-        }
-    )["ok"] is True
+    for row in log_oracle.ledger_tail:
+        assert env.step(
+            {
+                "op": "log_meal",
+                "food_id": row.food_id,
+                "grams": row.grams,
+                "eaten_at": row.eaten_at,
+            }
+        )["ok"] is True
     assert env.step(
         {"op": "submit_plan", "items": eval_oracle.last_plan, "verdict": "accept"}
     )["ok"] is True
@@ -291,6 +304,18 @@ def test_log_then_evaluate_fit_is_constructible() -> None:
     assert scored["passed"] is True
     assert scored["sub_tags"] == ("pass", "pass")
     assert validate_draft(task) == []
+
+    # The plate must also survive the freezer's grams gate and load back.
+    _, path = freeze_tasks(
+        [task],
+        catalog=task.s0.catalog,
+        catalog_field="fixture",
+        output_path=tmp_path / "log-evaluate.json",
+        overwrite=True,
+    )
+    loaded = load_split(path, catalog=task.s0.catalog)[0]
+    assert loaded.oracle == task.oracle
+    assert validate_draft(loaded) == []
 
 
 def test_update_then_recommend_is_constructible() -> None:
@@ -338,9 +363,16 @@ def test_update_then_recommend_is_constructible() -> None:
 def test_validator_checks_composite_recommend_remainder_on_the_child() -> None:
     result = _run()
     assert result.rejected is None
-    leftover = replace(result.accepted, persona="leftover")
-    issues = validate_draft(leftover)
-    assert any("remainder" in item for item in issues)
+    task = result.accepted
+    log_oracle, rec_oracle = task.oracle.sub_oracles
+    lo, hi = rec_oracle.plan_windows["kcal"]
+    wrong = replace(
+        rec_oracle,
+        plan_windows={**rec_oracle.plan_windows, "kcal": (lo + 50.0, hi + 50.0)},
+    )
+    broken = replace(task, oracle=compose_oracles(log_oracle, wrong))
+    issues = validate_draft(broken)
+    assert any("plan_windows" in item and "kcal" in item for item in issues)
 
 
 def test_validator_checks_composite_recommend_is_passable_on_the_child() -> None:
@@ -394,3 +426,42 @@ def test_composite_uses_roster_people_and_counts_toward_36_admission_slots() -> 
     result = _run()
     assert result.rejected is None
     assert result.accepted.s0.profile.user_id in {person.user_id for person in ROSTER}
+
+
+def test_log_then_recommend_freeze_round_trips(tmp_path) -> None:
+    result = _run()
+    assert result.rejected is None
+    task = result.accepted
+    _, path = freeze_tasks(
+        [task],
+        catalog=task.s0.catalog,
+        catalog_field="fixture",
+        output_path=tmp_path / "log-recommend.json",
+        overwrite=True,
+    )
+    loaded = load_split(path, catalog=task.s0.catalog)[0]
+    assert loaded.oracle == task.oracle
+    assert validate_draft(loaded) == []
+
+
+def test_update_then_recommend_freeze_round_trips(tmp_path) -> None:
+    result = _run(
+        steps=("update", "recommend"),
+        shell="upd-add-allergy",
+        slots={"food": "shrimp"},
+        occasion="dinner",
+        expander=None,
+        person=ROSTER[3],
+    )
+    assert result.rejected is None
+    task = result.accepted
+    _, path = freeze_tasks(
+        [task],
+        catalog=task.s0.catalog,
+        catalog_field="fixture",
+        output_path=tmp_path / "update-recommend.json",
+        overwrite=True,
+    )
+    loaded = load_split(path, catalog=task.s0.catalog)[0]
+    assert loaded.oracle == task.oracle
+    assert validate_draft(loaded) == []
