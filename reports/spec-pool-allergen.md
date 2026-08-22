@@ -178,3 +178,62 @@ $ .venv/bin/python -m pytest -q
 ........................................................................ [100%]
 1335 passed in 57.70s        # 0 failed (was 1334; +1 net test)
 ```
+
+## Re-review (claude opus)
+
+**Verdict: ACC.** All four follow-ups are closed, and two of them I could
+verify beyond reading the diff: the wiring test now genuinely dies when the
+wiring is removed (mutation-checked), and the swap-bias fix measurably changed
+the downstream behaviour it was distorting. No new findings.
+
+### Finding status
+
+| # | Finding | Status | Evidence |
+|---|---|---|---|
+| F-1 | Medium — docstring described bounded retries | **Resolved** | `sampler.py:54-57` now reads "a draw without one has one slot replaced by a deterministically chosen carrier (so the carrier lands at a random index)". No "retry" wording, and the "random index" clause is borne out by the histogram under F-3. The inline comment at `:87-89` matches. |
+| F-2 | Medium — the wiring test had no power | **Resolved, mutation-checked** | The test is renamed `test_pool_allergen_recipe_reaches_the_sampler` and spies on `run_batch.sample_pools`, asserting `seen == {"evaluate": "egg"}`. I did not take that on faith: I rebuilt `_build_jobs` in memory with the `with_allergen=` kwarg stripped and re-ran the test against both versions. Real wiring → **PASSED**; wiring deleted → **AssertionError on `assert seen == {"evaluate": "egg"}`**. The guard is real. |
+| F-3 | Low — swap always hit slot 0 | **Resolved** | `sampler.py:90` uses `picked[rng.randrange(len(picked))]`. Measured over 200 carrier pools (40 seeds × 5): carrier index histogram `{0:29, 1:26, 2:25, 3:25, 4:30, 5:22, 6:32, 7:16}` — spread across all eight slots instead of pinned at 0. The knock-on the finding was really about is gone too: `items=1` drafts containing the carrier fell to **29/200 (14.5%)**, about the natural 1-in-8 rate, where swapped pools previously drafted it almost every time. The residual is no longer systematised. Guarantee intact: 200/200 pools carry the tag, size 8, zero duplicate-food pools. |
+| F-4 | Low — input tag not normalized | **Resolved** | `sampler.py:69-70` normalizes the input the same way catalog tags are. Probe: `'egg'`, `'Egg'`, `'EGG'`, `'  egg'` all accepted and land on real egg carriers; `'nonexistent_tag'` still raises `catalog has no food with allergen tag 'nonexistent_tag'`. `'shrimp'` still raises — correct, since `normalize_tags` does not alias it to `shellfish` anywhere in the codebase, so this stays consistent and fail-closed. Pinned by the new `test_pool_allergen_input_is_normalized`. |
+
+### Regression checks
+
+- Carrier guarantee re-swept after the swap change: egg/milk/soy/tree_nut/
+  shellfish/peanut × seeds {1, 7, 20260822, 99999} × families {evaluate,
+  recommend, composite, update} — **every pool carries the requested tag**.
+- Determinism: same seed → same pools ✓.
+- Default path (`with_allergen=None`) still **identical to the pre-feature
+  sampler at `6a5c7be`** across 15 seed × family configs — the two extra rng
+  calls are inside the carrier branch and cannot touch ordinary draws.
+- Recipe-channel guard sweep (all prior rounds) re-run: `evaluate:tier=bogus`,
+  `log:tier`, `update:tier`, `evaluate:occasion`, `knife=swap`,
+  `recommend:shell/scene`, unrequested family, `tier=None` — all still refused;
+  `knife allergy` still gram-exact at `tier='single'`; `empty recipe == no
+  recipe` True.
+
+### Note (informational, not a finding)
+
+`with_allergen` pool draws are not reproducible between `5269dd0` and
+`fdfd2dc`: the F-3 fix adds an `rng.randrange` call before `rng.choice`, so the
+same seed now yields different carrier pools. That is the intended consequence
+of removing the bias and it affects only `with_allergen` runs — ordinary draws
+are unchanged, and nothing frozen depends on the old stream. Worth knowing if
+any `pool_allergen` probe output recorded before this commit is ever compared
+byte-for-byte.
+
+### Evidence
+
+```
+$ .venv/bin/python -m pytest tests/test_run_batch.py -q
+48 passed in 0.75s          # the pool_allergen tests live here; there is no tests/test_sampler.py
+
+$ .venv/bin/python -m pytest -q
+1335 passed in 48.02s       # 0 failed
+```
+
+Commit scope: `fdfd2dc` touches `reports/spec-pool-allergen.md`,
+`src/nutrienv/bench/pipeline/sampler.py`, `tests/test_run_batch.py`. No ADR,
+`data/splits/*`, `*.sqlite`, `scorer.py`, `validator.py`, `review_harness.py`,
+`quality_gates.py`, or `generate_one.py` change. `run_batch.py` and
+`generate_batch.py` are correctly untouched — nothing there needed changing.
+
+**pool_allergen base fully closed.**
