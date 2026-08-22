@@ -73,3 +73,28 @@ Output analyzed with modern quality gates:
 - evaluate-unfit needs the knife=allergy + allergy catalog + rewriter recipe
   (tests/test_generate_one_evaluate.py:170-192) — not produced by default synthetic.
 - Evaluate tier labels (6) need tier-driven shells — none yet.
+
+## Matrix completion (2026-08-22, issue 15 #1 DONE)
+
+evaluate-unfit recipe verified precisely (knife="allergy" + allergy catalog +
+_rewrite_named; tests/test_generate_one_evaluate.py:170-192 pattern):
+4/4 seeds → last_verdict="reject", last_plan=[], reasons={allergy,
+protein_g_hi}, validate_draft==[], `evaluate_unfits` counts, tier
+carried. Evaluate tier channel verified for all six EVALUATE_TIERS
+(single/pair/triple/long/explicit_grams/synonym): each producible with
+task.tier carried + validate clean (needs generate_one tier= from 9643b4f).
+
+**Full constructibility matrix — all shapes producible:**
+
+| shape | recipe | status |
+|---|---|---|
+| log | generate_batch --synthetic family=log | ✓ |
+| evaluate-fit | family=evaluate | ✓ |
+| evaluate-unfit | knife=allergy + allergy catalog + rewriter | ✓ (4/4) |
+| evaluate tier ×6 | tier= param (9643b4f) | ✓ all six |
+| recommend | shell=rec-* occasion | ✓ pinned windows |
+| update | family=update (add-allergy evidence) | ✓ |
+| composite log+recommend | steps=(log,recommend) | ✓ leftover+constrained |
+
+Issue 15 checkbox #1 (constructibility matrix) is satisfied by probe evidence;
+the production run needs the main-agent rulings on the 5 open questions.
