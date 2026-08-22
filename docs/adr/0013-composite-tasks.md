@@ -57,6 +57,13 @@ v1 子 Oracle 顺序约定：先 log，再 recommend。所以「没记上」先�
   （ADR 0007），`ledger` 也是最终账本。若把 leftover 的
   `ledger=tuple(S0.ledger)` 原样搬过来，log 成功后 recommend 会 `log_miss`。
 
+  > **SUPERSEDED (2026-08-22, issue 10 ruling):** the `plan_windows` sentence
+  > above (pure daily remainder after the log) is superseded by ADR 0014
+  > (accepted): composite Recommend `plan_windows = meal-slot ∩ remainder`
+  > (`plan_windows_for_meal`), the convention the mill, resolver, and the
+  > single admission gate all use. ADR 0016 supersedes this file's pair
+  > list. The Pass ⇔ sub-oracles rule is unchanged.
+
 子 Oracle 不得再嵌套 `sub_oracles`（load 拒绝）。
 
 ## Serialization

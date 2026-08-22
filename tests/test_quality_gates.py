@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from nutrienv.bench.realize import Oracle, Task
+from nutrienv.bench.realize import Oracle, Task, compose_oracles
 from nutrienv.bench.split import load_split
 from nutrienv.bench.quality_gates import (
     DEFAULT_EVALUATE_TIER_FLOORS,
@@ -80,6 +80,33 @@ def test_window_numbers_are_only_secrets_for_recommend():
         _task("log-1", family="log", query="I ate 200 g of rice for lunch."),
     ]
     assert window_leaks(tasks) == ()
+
+
+def test_composite_query_leaking_child_recommend_window_is_a_leak():
+    """A composite carries a recommend step even when family is log/update;
+    its spoken query must stay free of the child's window numbers too."""
+    child = Oracle(
+        plan_windows={"kcal": (400.0, 600.0)},
+        plan_must_fit_windows=True,
+    )
+    composite = _task(
+        "composite-leak",
+        family="log",
+        query="I logged lunch; I have 600 kcal left, what should I eat?",
+        oracle=compose_oracles(Oracle(), child),
+    )
+    clean = _task(
+        "composite-clean",
+        family="log",
+        query="I logged lunch; what should I eat for dinner?",
+        oracle=compose_oracles(Oracle(), child),
+    )
+    assert window_leaks([composite, clean]) == ("composite-leak",)
+
+
+def test_plain_log_query_is_still_not_a_leak_with_no_recommend_child():
+    log = _task("log-1", family="log", query="I ate 200 g of rice for lunch.")
+    assert window_leaks([log]) == ()
 
 
 def test_recommend_coverage_reports_missing_personas_and_allergens():

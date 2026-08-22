@@ -1,5 +1,11 @@
 # Composite tasks score multiple oracles and occupy extra quota
 
+> **SUPERSEDED (2026-08-22, issue 10 closeout):** the "extra quota beyond 240"
+> decision below is superseded by ADR 0016 (accepted): the 36 composite
+> admission slots sit **inside** the published 240, not 240+extra. The
+> sub-oracle shape and the Pass ⇔ all sub-oracles matching rule remain
+> unchanged.
+
 v1.0 起允许复合题：一个 Task 的 query 要求多步（如先 log 再 recommend），携带
 **多个子 Oracle**，判分要求每个子 Oracle 的 end state 都匹配（Pass ⇔ 全部
 `end state == 对应 sub-oracle`，判分铁律语义不变）。复合题**额外占用配额**，

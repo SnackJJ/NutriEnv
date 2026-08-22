@@ -67,6 +67,9 @@ def _leaks_windows(task: Task) -> bool:
     window_sets = [task.s0.profile.windows]
     if task.oracle.plan_windows is not None:
         window_sets.append(task.oracle.plan_windows)
+    for child in task.oracle.sub_oracles or ():
+        if child.plan_windows is not None:
+            window_sets.append(child.plan_windows)
     for windows in window_sets:
         for bounds in windows.values():
             for value in bounds:
@@ -79,8 +82,18 @@ def _leaks_windows(task: Task) -> bool:
 
 
 def window_leaks(tasks: Sequence[Task]) -> tuple[str, ...]:
-    """Ids of recommend tasks whose query states one of their window numbers."""
-    return tuple(task.id for task in tasks if task.family == "recommend" and _leaks_windows(task))
+    """Ids of recommend tasks whose query states one of their window numbers.
+
+    A composite carries a recommend step even when its family is log/update
+    (the sub-oracles hold the recommend child), so its whole spoken query
+    stays window-number-free, mirroring the validator's widening.
+    """
+    return tuple(
+        task.id
+        for task in tasks
+        if (task.family == "recommend" or task.oracle.sub_oracles)
+        and _leaks_windows(task)
+    )
 
 
 @dataclass(frozen=True)
