@@ -520,27 +520,45 @@ def test_generate_one_log_rejects_tier() -> None:
 
 
 def test_evaluate_tier_survives_freeze_load_round_trip(tmp_path) -> None:
-    from dataclasses import replace
-
     from nutrienv.bench.pipeline.freezer import freeze_tasks, task_to_item
     from nutrienv.bench.split import load_split
 
     result = _run_eval(tier="pair")
     task = result.accepted
     assert task_to_item(task)["tier"] == "pair"
-    catalog = task.s0.catalog
-    # Freezing with the mill's authoring situation tag ("evaluate_fit")
-    # intact fails load_split — it is not in the split situations vocabulary
-    # (pre-existing, orthogonal to tiers). The test deliberately strips it
-    # before freeze so the round-trip asserts the tier channel independent
-    # of situations.
+    assert task.situations == ()
     _, target = freeze_tasks(
-        [replace(task, situations=())],
-        catalog=catalog,
+        [task],
+        catalog=task.s0.catalog,
         output_path=tmp_path / "tier.json",
     )
-    loaded = load_split(target, catalog=catalog)
+    loaded = load_split(target, catalog=task.s0.catalog)
     assert [loaded_task.tier for loaded_task in loaded] == ["pair"]
+
+
+def test_generate_one_fit_items_survive_freeze_load_round_trip(tmp_path) -> None:
+    """F-1: mill fit evaluate items emit reload-valid situations -- no
+    authoring tags left on the producer path."""
+    from nutrienv.bench.pipeline.freezer import freeze_tasks
+    from nutrienv.bench.split import load_split
+
+    result = _run_eval(tier="pair")
+    assert result.rejected is None
+    task = result.accepted
+    assert task.oracle.last_verdict == "accept"
+    assert task.oracle.evaluated_plan
+    assert task.situations == ()
+
+    _, target = freeze_tasks(
+        [task],
+        catalog=task.s0.catalog,
+        output_path=tmp_path / "fit.json",
+    )
+    (loaded,) = load_split(target, catalog=task.s0.catalog)
+    assert loaded.tier == "pair"
+    assert loaded.situations == ()
+    assert loaded.oracle.last_verdict == "accept"
+    assert validate_draft(loaded) == []
 
 
 def test_generate_one_rejects_falsey_non_string_tiers() -> None:

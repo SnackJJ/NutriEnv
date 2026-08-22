@@ -420,7 +420,9 @@ def _log_then_evaluate_fit(
         items,
         s0,
         occasion,
-        ("evaluate_fit",),
+        # Reload-valid situations: fit geometry lives in the oracle
+        # (accept + exact evaluated meal).
+        (),
         persona,
         last_meal=last_meal,
         tier=tier,
@@ -883,7 +885,7 @@ def _evaluate_from_bound(
         items,
         s0,
         occasion,
-        ("evaluate_fit",),
+        (),
         persona,
         last_meal=last_meal,
         tier=tier,

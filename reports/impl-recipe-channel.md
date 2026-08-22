@@ -575,3 +575,13 @@ $ .venv/bin/python -m pytest -q
 ........................................................................ [100%]
 1313 passed in 54.37s        # 0 failed (was 1312; +1 round-trip test)
 ```
+
+## F-1 follow-up: mill FIT items emit reload-valid situations too
+
+Adjacent to Low-4: `generate_one` still stamped `("evaluate_fit",)` on fit
+evaluate drafts (single-family and composite log+evaluate child) — the same
+non-SITUATIONS class that made knife/leftover output unloadable. Both sites
+now emit `()`; the tier round-trip test dropped its situations-stripping
+workaround and a dedicated fit round-trip test pins freeze→load→
+`validate_draft == []`. Mill and batch producers now emit only reload-valid
+situations on all evaluate paths.
