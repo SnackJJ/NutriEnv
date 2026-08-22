@@ -223,6 +223,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"--recipe family {family!r} is not among the requested "
                 f"--family values {families}"
             )
+        if not args.synthetic and set(recipe) & {"items", "amount_path"}:
+            raise SystemExit(
+                f"--recipe {family}:{'/'.join(recipe)} requires --synthetic; "
+                "the LLM expander cannot honour items/amount_path yet"
+            )
         family_recipes.setdefault(family, {}).update(recipe)
 
     catalog_path = _resolve_path(args.catalog)

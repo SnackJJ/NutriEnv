@@ -288,3 +288,18 @@ or `quality_gates.py` change. `Pass ⇔ end state == Oracle` unaffected.
 
 **RELEASE: recipe items/amount_path base transport is released.** N-1/N-2/N-3
 are tracked improvements, not release gates.
+
+## N-1/N-2 closed: expander-mismatch guard at run_batch entry + CLI
+
+- **N-1**: `run_batch` raises the shared "recipe items/amount_path require
+  the synthetic expander (--synthetic)…" ValueError right after `_parse_spec`
+  (before `_build_jobs`/sampling) when any family recipe carries
+  items/amount_path and the injected expander is not the synthetic one. The
+  per-job guard stays as defence in depth.
+  Regression: `test_expander_hint_mismatch_fails_at_entry_before_any_job` —
+  mixed quota (evaluate:1 + log:5, recipe only on evaluate, items=3) with a
+  counting fake LLM expander: raises with **zero** expander calls.
+- **N-2**: `scripts/generate_batch.py` refuses `--recipe FAMILY:items/…`
+  without `--synthetic` at CLI time ("--recipe evaluate:items requires
+  --synthetic; …"); with `--synthetic` it runs through (verified:
+  items=3 + tier=triple accepted, frozen item carries 3 plan foods).

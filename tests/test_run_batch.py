@@ -827,3 +827,25 @@ def test_items_and_amount_path_hints_require_the_synthetic_expander(
                 reviewer=pass_through_reviewer,
                 catalog=_nutrient_catalog(),
             )
+
+
+def test_expander_hint_mismatch_fails_at_entry_before_any_job(tmp_path: Path) -> None:
+    """N-1: a mixed-quota real batch fails at run_batch entry -- before
+    sampling or any expander call -- so recipe-free jobs waste no LLM calls."""
+    calls = []
+
+    def fake_llm_expander(_pool, *, persona, family):
+        calls.append((family, persona))
+        return {"items": [], "query": ""}
+
+    with pytest.raises(ValueError, match="require the synthetic expander"):
+        _run(
+            tmp_path,
+            None,
+            expander=fake_llm_expander,
+            judge=_ok_judge,
+            catalog=_nutrient_catalog(),
+            family_quotas={"evaluate": 1, "log": 5},
+            family_recipes={"evaluate": {"items": "3"}},
+        )
+    assert calls == []

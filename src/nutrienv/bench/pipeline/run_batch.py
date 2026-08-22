@@ -118,6 +118,18 @@ def run_batch(
     if isinstance(workers, bool) or not isinstance(workers, int) or workers < 1:
         raise ValueError("workers must be an int >= 1")
     spec = _parse_spec(batch_spec)
+    # Fail before any job runs: items/amount_path recipes are synthetic-only
+    # (same message as the per-job defence-in-depth guard in _expand_one),
+    # so a mixed-quota real batch does not waste LLM calls before failing.
+    if any(
+        key in _EXPANDER_HINTS
+        for recipe in spec["family_recipes"].values()
+        for key in recipe
+    ) and expander is not synthetic_expander:
+        raise ValueError(
+            "recipe items/amount_path require the synthetic expander "
+            "(--synthetic); the LLM expander cannot honour them yet"
+        )
     digest = catalog_digest(catalog)
     if digest != spec["catalog_sha"]:
         raise ValueError(
