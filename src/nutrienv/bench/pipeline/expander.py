@@ -166,6 +166,8 @@ def synthetic_expander(
 
     def _phrase_for(food: PoolFood) -> str | None:
         if amount_path == "explicit_grams":
+            # Fail-closed like items: a food without a one-portion table
+            # value is skipped rather than falling back to a mixed phrase.
             one = next(
                 (
                     alt.grams
@@ -174,8 +176,7 @@ def synthetic_expander(
                 ),
                 None,
             )
-            if one is not None:
-                return f"{one:g} g"
+            return None if one is None else f"{one:g} g"
         return _preferred_phrase(food)
 
     if family == COMPOSITE_FAMILY:
@@ -209,7 +210,9 @@ def synthetic_expander(
             return {"items": [], "query": ""}
     if not chosen:
         return {"items": [], "query": ""}
-    items = [
+    # Named payload_items so the ``items`` recipe hint parameter is not
+    # shadowed.
+    payload_items = [
         {"food": food.food_id, "expression": phrase} for food, phrase in chosen
     ]
     parts = [f"{phrase} of {_spoken_name(food)}" for food, phrase in chosen]
@@ -219,18 +222,22 @@ def synthetic_expander(
         meal = ", and ".join(parts)
     if family == "evaluate":
         query = f"Evaluate this as my plan: {meal}."
-        return {"items": items, "query": query}
+        return {"items": payload_items, "query": query}
     if family == COMPOSITE_FAMILY:
         query = (
             f"Please log {meal} for lunch, then recommend a dinner that fits "
             "what's left."
         )
-        return {"items": items, "query": query, "steps": list(COMPOSITE_STEPS)}
+        return {
+            "items": payload_items,
+            "query": query,
+            "steps": list(COMPOSITE_STEPS),
+        }
     if family == "recommend":
         # The named foods stay spoken context: the recommend oracle judges a
         # free plan, so the query never states window numbers.
         query = f"What should I eat along with {meal} for dinner?"
-        return {"items": items, "query": query}
+        return {"items": payload_items, "query": query}
     if family == "update":
         # The named food evidences the profile change; its catalog allergen
         # tags become the oracle's added allergies (resolver-side). Pick a
@@ -260,7 +267,7 @@ def synthetic_expander(
             "query": query,
         }
     query = f"Please log {meal} for lunch."
-    return {"items": items, "query": query}
+    return {"items": payload_items, "query": query}
 
 
 def _as_payloads(raw: object) -> list[Mapping]:

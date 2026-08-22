@@ -407,26 +407,23 @@ def _parse_spec(batch_spec: Mapping) -> dict:
 # Recipe knobs the resolver actually implements, per family (issue 15
 # transport). A key outside the family's set would be silently dropped or
 # ignored by the realize branch, so the parser refuses it. ``tier`` is
-# evaluate-only authoring data whose value must be a declared EVALUATE_TIERS
-# entry (mirrors generate_one's guard: nobody tiers a log or invents a tier).
-# ``shell``/``scene`` are generate_one-only until resolver semantics exist;
-# ``occasion`` on evaluate is read only by the knife branch from the spoken
-# query, so it is not an advertised knob there. ``swap`` is excluded from
-# knives because its grams derive from target kcal rather than a catalog/QNS
-# portion.
+# evaluate-only authoring data (mirrors generate_one's guard); recommend can
+# only carry an occasion override. ``shell``/``scene`` are generate_one-only
+# until resolver semantics exist; ``occasion`` on evaluate is read only by
+# the knife branch from the spoken query, so it is not an advertised knob
+# there. ``swap`` is excluded from knives because its grams derive from
+# target kcal rather than a catalog/QNS portion.
 _RECIPE_KEYS: dict[str, frozenset[str]] = {
     "evaluate": frozenset({"knife", "tier", "items", "amount_path"}),
-    "recommend": frozenset({"occasion", "tier"}),
+    "recommend": frozenset({"occasion"}),
 }
 # Knobs consumed by the expander when producing the query (the rest stamp the
-# Candidate). Synthetic expander only: LLM prompt shells are issue-15 design.
+# Candidate). Synthetic expander only — anything else fails closed (see
+# _expand_one): LLM prompt shells are issue-15 design.
 _EXPANDER_HINTS = frozenset({"items", "amount_path"})
-# amount_path values, mirroring generate_one's AMOUNT_PATHS. Only
-# "explicit_grams" changes synthetic speech; named_measure/unspecified keep
-# the table phrase.
-_RECIPE_AMOUNT_PATHS = frozenset(
-    {"explicit_grams", "named_measure", "unspecified"}
-)
+# amount_path values with resolver/expander semantics. Only "explicit_grams"
+# changes synthetic speech; there are no accepted no-op values.
+_RECIPE_AMOUNT_PATHS = frozenset({"explicit_grams"})
 _BATCH_KNIVES = frozenset(KNIVES) - {"swap"}
 
 
@@ -631,9 +628,13 @@ def _expand_one(
         if key in _EXPANDER_HINTS
     }
     if hints and expander is not synthetic_expander:
-        # LLM expander prompt shells are issue-15 design; hints are
-        # synthetic-only until then.
-        hints = {}
+        # Fail closed: a real (LLM) run must not accept --recipe
+        # items/amount_path and silently ignore them. LLM prompt shells are
+        # issue-15 design; knife/tier recipes keep working everywhere.
+        raise ValueError(
+            "recipe items/amount_path require the synthetic expander "
+            "(--synthetic); the LLM expander cannot honour them yet"
+        )
     raw = expander(job.pool, persona=persona, family=job.family, **hints)
     candidates = coerce_candidates(
         raw, family=job.family, persona=persona, pool_id=job.pool.pool_id

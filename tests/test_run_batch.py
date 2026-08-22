@@ -768,13 +768,16 @@ def test_items_shortfall_is_a_clean_rejection(tmp_path: Path) -> None:
 
 
 def test_items_and_amount_path_recipes_are_validated(tmp_path: Path) -> None:
-    for recipe in (
-        {"items": "0"},
-        {"items": "abc"},
-        {"items": "-1"},
-        {"amount_path": "bogus"},
-    ):
-        with pytest.raises(ValueError):
+    cases = [
+        ({"items": "0"}, "items must be a positive integer"),
+        ({"items": "abc"}, "items must be a positive integer"),
+        ({"items": "-1"}, "items must be a positive integer"),
+        ({"amount_path": "bogus"}, "amount_path must be one of"),
+        ({"amount_path": "named_measure"}, "amount_path must be one of"),
+        ({"amount_path": "unspecified"}, "amount_path must be one of"),
+    ]
+    for recipe, message in cases:
+        with pytest.raises(ValueError, match=message):
             run_batch(
                 _spec(
                     tmp_path,
@@ -786,4 +789,41 @@ def test_items_and_amount_path_recipes_are_validated(tmp_path: Path) -> None:
                 judge=_ok_judge,
                 reviewer=pass_through_reviewer,
                 catalog=_catalog(),
+            )
+
+
+def test_recommend_tier_recipe_stays_refused(tmp_path: Path) -> None:
+    # R-1 regression guard: tier is evaluate-only authoring data.
+    with pytest.raises(ValueError, match="not supported for 'recommend'"):
+        run_batch(
+            _spec(
+                tmp_path,
+                _nutrient_catalog(),
+                family_quotas={"recommend": 1},
+                family_recipes={"recommend": {"tier": "pair"}},
+            ),
+            expander=_expander([_RECOMMEND]),
+            judge=_ok_judge,
+            reviewer=pass_through_reviewer,
+            catalog=_nutrient_catalog(),
+        )
+
+
+def test_items_and_amount_path_hints_require_the_synthetic_expander(
+    tmp_path: Path,
+) -> None:
+    # Fail closed on real (LLM) runs instead of silently ignoring the knobs.
+    for recipe in ({"items": "3"}, {"amount_path": "explicit_grams"}):
+        with pytest.raises(ValueError, match="require the synthetic expander"):
+            run_batch(
+                _spec(
+                    tmp_path,
+                    _nutrient_catalog(),
+                    family_quotas={"evaluate": 1},
+                    family_recipes={"evaluate": dict(recipe)},
+                ),
+                expander=_expander([_EVALUATE_FIT]),
+                judge=_ok_judge,
+                reviewer=pass_through_reviewer,
+                catalog=_nutrient_catalog(),
             )
