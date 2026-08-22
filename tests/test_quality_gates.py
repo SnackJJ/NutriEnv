@@ -561,3 +561,17 @@ def test_declared_tiers_survive_realization_freeze_and_reload(tmp_path):
     assert report.counts["pair"] == 1
     assert report.counts["synonym"] == 1
     assert report.counts["long"] == 1
+
+
+def test_named_dish_matches_the_spoken_name_segment():
+    catalog = {
+        "salmon_dish": {
+            "name": "Grilled salmon, 150g portion",
+            "nutrients": {"kcal": 200.0},
+            "allergen_tags": ["fish"],
+            "aliases": [],
+        },
+    }
+    base = _task("rec-dish", query="Grilled salmon tonight?", allergies=("fish",))
+    task = replace(base, s0=replace(base.s0, catalog=catalog))
+    assert constrained_recommends([task]) == ("rec-dish",)

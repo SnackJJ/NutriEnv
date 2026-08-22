@@ -216,7 +216,12 @@ def _query_names_allergen_food(task: Task) -> bool:
         tags = {str(tag) for tag in entry.get("allergen_tags") or ()}
         if not tags & banned:
             continue
-        names = [food_id.replace("_", " "), str(entry.get("name") or "")]
+        name = str(entry.get("name") or "")
+        names = [food_id.replace("_", " "), name]
+        # Generation speaks the first comma-delimited segment ("grilled
+        # salmon" out of "Grilled salmon, 150g portion").
+        if "," in name:
+            names.append(name.split(",", 1)[0])
         names.extend(str(alias) for alias in entry.get("aliases") or [])
         for name in names:
             phrase = re.sub(r"[^a-z0-9]+", " ", name.lower()).strip()
