@@ -538,7 +538,7 @@ def test_declared_tiers_survive_realization_freeze_and_reload(tmp_path):
         realize(material_from_row(row, tag="t", catalog=catalog), row.query, catalog=catalog)
         for row in rows
     ]
-    assert [task.tier for task in tasks] == ["pair", "synonym", "gold"]
+    assert [task.tier for task in tasks] == ["pair", "synonym", ""]
 
     direct = realize_evaluate(
         task_id="ev-direct",

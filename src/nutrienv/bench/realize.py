@@ -340,7 +340,9 @@ def material_from_row(
             task_id=f"{tag}-eval-{stem}",
             user_id=f"{tag}-eval-{stem}",
             allergies=allergies,
-            tier=getattr(row, "tier", ""),
+            # "gold" is the row table's sentinel for an untiered legacy
+            # row, not a difficulty declaration; carry no tier.
+            tier="" if getattr(row, "tier", "") == "gold" else getattr(row, "tier", ""),
         )
     raise TypeError(f"unknown realization row: {type(row)!r}")
 

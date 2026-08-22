@@ -21,6 +21,7 @@ from nutrienv.world.types import (
     normalize_window,
 )
 
+from .quality_gates import EVALUATE_TIERS
 from .realize import FAMILIES, Oracle, Task
 from .situations import SITUATIONS
 
@@ -131,8 +132,10 @@ def _item(entry: object, catalog: dict) -> Task:
     if not isinstance(persona, str):
         raise ValueError(f"{task_id}: persona must be a string")
     tier = entry.get("tier") or ""
-    if not isinstance(tier, str):
-        raise ValueError(f"{task_id}: tier must be a string")
+    if not isinstance(tier, str) or (tier and tier not in EVALUATE_TIERS):
+        raise ValueError(
+            f"{task_id}: tier must be empty or one of {sorted(EVALUATE_TIERS)}"
+        )
     s0 = _s0(entry.get("s0"), catalog)
     oracle = _oracle(entry.get("oracle"), s0, catalog)
     return Task(task_id, family, query.strip(), s0, oracle, situations, persona, tier)

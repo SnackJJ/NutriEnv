@@ -924,3 +924,22 @@ def test_task_tier_round_trips_through_the_freezer(tmp_path: Path) -> None:
     path = tmp_path / "rt.json"
     path.write_text(json.dumps({"items": [item]}), encoding="utf-8")
     assert load_split(path)[0].tier == "pair"
+
+
+def test_load_split_whitelists_declared_tiers(tmp_path: Path) -> None:
+    payload = {
+        "items": [
+            {
+                "id": "ev-mystery",
+                "family": "evaluate",
+                "query": "Okay?",
+                "tier": "mystery",
+                "s0": {},
+                "oracle": {"last_plan": []},
+            }
+        ]
+    }
+    path = tmp_path / "mystery.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="tier"):
+        load_split(path)
