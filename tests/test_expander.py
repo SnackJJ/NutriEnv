@@ -362,8 +362,10 @@ def test_handbook_vocabulary_is_covered_by_react_manual() -> None:
 
 
 def test_react_manual_covers_synthetic_recommend_and_update_speech() -> None:
-    """AGENTS.md discipline 4: new mill question expressions land in the
-    react.py manual in the same commit."""
+    """AGENTS.md discipline 4: every mill question expression the synthetic
+    expander can emit must appear in the react.py v1 manual with its action
+    rule (what to submit / what is prohibited). Asserts on the assembled
+    built text, not on placement in a specific commit."""
     from nutrienv.harness.react import react_manual
 
     manual = react_manual("v1").lower()
