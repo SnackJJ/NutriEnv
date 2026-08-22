@@ -162,7 +162,10 @@ def meal_slot_and_remainder(
     share_lo, share_hi = MEAL_ENERGY_SHARE[occasion]
     slot: dict[str, tuple[float, float]] = {}
     remainder: dict[str, tuple[float, float]] = {}
-    for key in SIX_WINDOW_KEYS:
+    # Iterate the given daily windows, not a fixed key list: full ADR 0014
+    # profiles carry all six keys, legacy fixtures may carry fewer, and the
+    # result must cover exactly the keys the profile judges.
+    for key in daily:
         daily_lo, daily_hi = daily[key]
         used = float(eaten.get(key, 0.0))
         remainder[key] = (
@@ -195,7 +198,7 @@ def plan_windows_for_meal(
     """
     slot, remainder = meal_slot_and_remainder(daily, eaten, occasion)
     out: dict[str, tuple[float, float]] = {}
-    for key in SIX_WINDOW_KEYS:
+    for key in daily:
         slot_lo, slot_hi = slot[key]
         rem_lo, rem_hi = remainder[key]
         hi = min(slot_hi, rem_hi)

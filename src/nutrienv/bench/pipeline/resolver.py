@@ -17,6 +17,7 @@ from nutrienv.bench.realize import (
 )
 from nutrienv.bench.realizations import EvaluateRow, MultiItemLogRow
 from nutrienv.world.catalog import canonical_food_id
+from nutrienv.world.daily_windows import plan_windows_for_meal
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import ledger_totals
 
@@ -316,6 +317,14 @@ def _attach_recommend(task, candidate: Candidate):
     if not tail:
         raise ValueError("composite log sub-oracle has no ledger_tail")
     final_ledger = (*task.s0.ledger, *tail)
+    # ADR 0014: plan_windows is meal-slot ∩ remainder after the log tail,
+    # the same helper and convention the generate_one mill pins.
+    eaten = ledger_totals(list(final_ledger), task.s0.catalog)
+    plan_windows = plan_windows_for_meal(
+        task.s0.profile.windows, eaten, _rec_occasion(tail)
+    )
+    if plan_windows is None:
+        raise ValueError("composite recommend windows are empty")
     rec_oracle = Oracle(
         profile=copy.deepcopy(task.s0.profile),
         last_plan=[],
@@ -323,18 +332,28 @@ def _attach_recommend(task, candidate: Candidate):
         ledger=final_ledger,
         plan_must_be_safe=True,
         plan_must_fit_windows=True,
-        plan_windows=_remainder_after(task.s0, tail),
+        plan_windows=plan_windows,
     )
     return replace(task, oracle=compose_oracles(log_oracle, rec_oracle))
 
 
-def _remainder_after(s0, extra_rows) -> dict[str, tuple[float, float]]:
-    eaten = ledger_totals([*s0.ledger, *extra_rows], s0.catalog)
-    remain: dict[str, tuple[float, float]] = {}
-    for key, (lo, hi) in s0.profile.windows.items():
-        used = eaten.get(key, 0.0)
-        remain[key] = (round(max(0.0, lo - used), 2), round(max(0.0, hi - used), 2))
-    return remain
+# The recommend step asks for the meal after the logged one (ADR 0016 pairs).
+_REC_OCCASION_AFTER = {
+    "breakfast": "lunch",
+    "lunch": "dinner",
+    "dinner": "dinner",
+    "snack": "dinner",
+}
+
+
+def _rec_occasion(tail: list) -> str:
+    """Next occasion after the logged meal, read off the tail's eaten_at."""
+    match = re.search(
+        r"(?:^|-)(breakfast|lunch|dinner|snack)$", str(tail[-1].eaten_at)
+    )
+    if match is None:
+        return "dinner"
+    return _REC_OCCASION_AFTER[match.group(1)]
 
 
 def _log_distractor_ledger(slot: str) -> tuple[tuple[str, float, str], ...]:
