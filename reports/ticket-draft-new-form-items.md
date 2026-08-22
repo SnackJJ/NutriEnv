@@ -98,3 +98,13 @@ task.tier carried + validate clean (needs generate_one tier= from 9643b4f).
 
 Issue 15 checkbox #1 (constructibility matrix) is satisfied by probe evidence;
 the production run needs the main-agent rulings on the 5 open questions.
+
+## Leftover single-family Recommend recipe verified (issue 15 #4 probe)
+
+`scene="leftover" + prior_logs=[same-roster-person prior log]` on
+generate_one family=recommend → s0.ledger non-empty (copied provenanced Log
+tails, ADR 0017 no-shadow-meals), plan_windows pinned, `leftover_recommends`
+counts the id, validate_draft == []. Dropped cleanly with
+reason="no_ledger" when no parent log exists (foreign_log for another
+person's tail). So the 24-leftover floor has BOTH carriers:
+composite log+recommend (10) and single-family scene=leftover recomends.
