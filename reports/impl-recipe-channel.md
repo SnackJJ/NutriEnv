@@ -267,3 +267,188 @@ $ .venv/bin/python -m pytest -q
 ```
 
 (Previously 1306; net +3 tests after restructuring, 0 failures.)
+
+## Re-review (claude opus)
+
+**Verdict: REV.** All six codex findings are genuinely resolved — verified in
+the code and re-probed end to end. The fix round, however, closes finding 3's
+defect class only for `situations` and leaves the identical hole open on the
+`tier` knob it also owns: `run_batch` still emits a frozen split that
+`load_split` refuses. One further knob (`evaluate.occasion` without a knife)
+silently no-ops, contradicting the fail-closed contract finding 4 established.
+Both are inside the reviewed diff.
+
+### Prior-finding status
+
+| # | Finding | Status | Evidence |
+|---|---|---|---|
+| 1 | High — knife input not bind-confirmed | **Resolved** | `resolver.py:519` binds the ORIGINAL plate with `bind_evaluate_reasons` against the same `windows`/`profile` the unfit oracle pins (`resolver.py:513`, reused at `:540`, `:548`). Probe: fitting plate → `reasons=('allergy','kcal_hi')`, rebind of `evaluated_plan` == `last_reasons`; half-a-cup-of-rice plate → `[('unresolvable','evaluate')]`, no bogus pre-overflow. |
+| 2 | High — non-allergy knife speech contradicts `evaluated_plan` | **Resolved** | `_name_knifed_foods` gone; `_speak_knifed_plate` (`resolver.py:565`) re-speaks the whole plate from table grams. Probe over all three exposed knives (allergy / over_slot / under_slot): parsed query amounts == `evaluated_plan` amounts exactly in every case; `validate_draft == []`. react.py correctly untouched — the fix *removed* the novel `plus FOOD` wording instead of adding one, and gram-explicit speech is already covered by the v1 manual line "Grams (\"150 g\") are already grams" (`harness/react.py:75`). Discipline 4 satisfied. |
+| 3 | High — frozen knife result not reloadable | **Resolved (for `situations`)** | `situations=()` at `resolver.py:557`; `evaluate_unfits` reads oracle geometry (`quality_gates.py:237`), asserted in `test_knife_recipe_produces_an_evaluate_unfit` alongside a real freeze → `load_split` → `validate_draft` round trip. See NEW-1: the same class re-opens via `tier`. |
+| 4 | Medium — recipe parsing not fail-closed | **Resolved (with one gap)** | Per-family `_RECIPE_KEYS` (`run_batch.py:412`). Probes: `evaluate:tier=null` → "must be a non-empty string"; `evaluate:tier=3` → same; `recommend:knife=allergy` → "not supported for 'recommend'"; `evaluate:knife=bogus` → "unsupported evaluate knife"; recipe for a family absent from `family_quotas` → refused at the **library** API. Gap: see NEW-2. |
+| 5 | Medium — Recommend shell transport | **Resolved (authority narrowed)** | `shell`/`scene` removed from both `run_batch._RECIPE_KEYS` and `scripts/generate_batch.py:53`; `_realize_recommend` keeps the loud guard as defence in depth (`resolver.py:394`) and its docstring now says generate_one-only. Probes: `recommend:shell=…` and `recommend:scene=leftover` both raise at parse. Consistent across CLI, library, and docstring. |
+| 6 | High — swap knife exposed | **Resolved** | `_BATCH_KNIVES = frozenset(KNIVES) - {"swap"}` (`run_batch.py:419`) plus the dispatch guard at `resolver.py:497`. Probe: `evaluate:knife=swap` → `ValueError: unsupported evaluate knife 'swap' (allowed: ['allergy','over_slot','under_slot'])`. |
+
+### New findings
+
+- **High — the `tier` recipe value is unvalidated, so `run_batch` freezes an
+  unloadable split** (`src/nutrienv/bench/pipeline/run_batch.py:449`). The
+  parser only requires a non-empty string; nothing checks the value against
+  `EVALUATE_TIERS`. `family_recipes={"evaluate": {"tier": "bogus-tier"}}` is
+  accepted, `validate_draft` returns `[]`, `freezer.py:112` writes
+  `"tier": "bogus-tier"`, and `load_split` on run_batch's **own** output file
+  raises `ValueError: v10-evaluate-0001: tier must be empty or one of
+  ['explicit_grams','long','pair','single','synonym','triple']`. This is
+  finding 3's defect verbatim — a newly emitted batch artifact that cannot be
+  loaded end to end — re-entering through the other knob the same commit
+  hardened. It is reachable from the documented CLI (`--recipe
+  evaluate:tier=bogus`; `scripts/generate_batch.py:53` advertises `tier` and
+  validates no value either).
+  A second half of the same hole: `_RECIPE_KEYS` allows `tier` for `log`,
+  `update`, and `composite`. `family_recipes={"log": {"tier": "single"}}` is
+  accepted and produces a reloadable but semantically wrong row — a tiered
+  log — which `generate_one` explicitly forbids with a stated rationale
+  ("tier is evaluate-only authoring data … so nobody can invent a tier or tier
+  a log", `generate_one.py:165-173`). The mill and the batch now disagree on
+  the same invariant.
+  **Fix:** mirror the mill's guard in `_parse_family_recipes` — `tier` only for
+  `evaluate`, value only from `EVALUATE_TIERS` — and add a freeze→load
+  assertion for a bogus tier, the same shape as the knife one.
+
+- **Medium — `evaluate.occasion` without a knife is silently ignored**
+  (`src/nutrienv/bench/pipeline/resolver.py:466`). `occasion` is in evaluate's
+  allowed key set, but `_realize_evaluate` never reads `candidate.occasion`;
+  only `_realize_evaluate_knife` does (`resolver.py:509`). Probe:
+  `{"evaluate": {"occasion": "breakfast"}}` and `{"evaluate": {"occasion":
+  "lunch"}}` each produce a task **equal** to the no-recipe run (`a == b == c`,
+  `plan_windows is None`). That is exactly the behaviour `_RECIPE_KEYS`'s own
+  docstring says the parser refuses: "A key outside the family's set would be
+  silently dropped or ignored by the realize branch, so the parser refuses it."
+  **Fix:** either require `knife` alongside `occasion` for evaluate, or drop
+  `occasion` from evaluate's allowed set and let the knife branch read it from
+  the query, so no accepted knob is a no-op.
+
+- **Low — `fit_task` is now a dead parameter**
+  (`src/nutrienv/bench/pipeline/resolver.py:481`). `_realize_evaluate_knife`
+  never references it; `_realize` still builds the full legacy fit oracle at
+  `:466` and discards it. The call is not entirely inert (its `realize()` can
+  raise and reject a candidate whose query does not contain the spoken foods),
+  but that gate is implicit and unnamed. Either drop the parameter or make the
+  containment intent explicit.
+
+- **Low — producer asymmetry on the situations contract (pre-existing,
+  outside this diff).** `generate_one.py:956` still stamps
+  `("evaluate_unfit", knife)`, neither of which is in `SITUATIONS`;
+  `_situations(['evaluate_unfit','allergy'])` raises `unknown situations`. The
+  batch is now reloadable while the mill's knife output is not, so the
+  rationale committed here ("the unfit shape lives in the oracle geometry") is
+  not yet the project-wide contract. Worth a follow-up so the two producers
+  agree.
+
+- **Low — test fixture writes `catalog["olive_oil"]` twice**
+  (`tests/test_run_batch.py:341` and `:351`). The first block, including its
+  `dict(_STAPLE_NUTRIENTS["olive_oil"])` read, is fully overwritten by the
+  second. Dead code introduced by this commit.
+
+- **Low — plate speech reads "A, and B, and C"**
+  (`src/nutrienv/bench/pipeline/resolver.py:583`, `', and '.join(parts)`).
+  Probe output: "Evaluate this as dinner: 316 g of rice, and 27 g of olive oil,
+  and 16 g of peanut butter." Ungrammatical for 3+ items where the mill's LLM
+  rewriter would produce natural speech. Stage B votes on the spoken request so
+  it would alarm rather than pass silently, but the deterministic rewriter
+  should not be generating text the speech gate is expected to catch.
+
+### Evidence
+
+```
+$ .venv/bin/python -m pytest tests/test_run_batch.py -q
+26 passed in 0.22s
+
+$ .venv/bin/python -m pytest -q
+1309 passed in 48.95s          # 0 failed
+```
+
+Probes (fixture catalog, `pass_through_reviewer` → `stage_a_code_gate`):
+
+```
+[1a fit->knife]  reasons=('allergy','kcal_hi')  rebind-match=True
+                 query="Evaluate this as dinner: 316 g of rice, and 27 g of
+                 olive oil, and 16 g of peanut butter."
+                 spoken == evaluated_plan grams: True
+[1b unfit-input] accepted=0  rejected=[('unresolvable','evaluate')]
+[over_slot]      GRAM-EXACT=True   [under_slot] GRAM-EXACT=True
+[6 swap]         ValueError: unsupported evaluate knife 'swap'
+[4 null/int/bogus-knife/cross-family/unrequested-family]  all raise
+[5 shell/scene]  ValueError: recipe key … is not supported for 'recommend'
+[NEW-1 tier]     accepted, Task.tier='bogus-tier', validate_draft=[],
+                 load_split(run_batch output) -> ValueError: tier must be
+                 empty or one of [...]
+[NEW-1 log tier] accepted, family=log tier='single', reloads OK
+[NEW-2 occasion] task(occasion=breakfast) == task(no recipe) == task(lunch)
+```
+
+Alias fallback in `_speak_knifed_plate` checked against the real catalog: of
+5431 foods, 0 would fall back to a `food_id` slug (5404 have no alias but a
+speakable comma-free or comma-headed name), so no slug can leak into exam
+speech. Catalog portion grams all have ≤2 decimals, so the `round(grams, 2)`
+in the rewriter is lossless for portion-table amounts.
+
+Commit scope confirmed: `188a2ee` touches `reports/impl-recipe-channel.md`,
+`scripts/generate_batch.py`, `resolver.py`, `run_batch.py`,
+`tests/test_run_batch.py` only — no ADR, split, sqlite, scorer, validator,
+review-harness, or quality-gates change. `react.py` is correctly absent (see
+finding 2).
+
+**Blockers:** NEW-1 (High). NEW-2 (Medium) should land with it since both are
+one-line guards in the same parser.
+
+## Fix round 2 (claude opus findings)
+
+Review: "## Re-review (claude opus)" above. All findings addressed.
+
+- **NEW-1 High — tier value/family validated at parse.** `_RECIPE_KEYS` now
+  carries `tier` only for `evaluate`, and `_parse_family_recipes` checks the
+  value against `EVALUATE_TIERS` (imported from quality_gates) — mirroring
+  generate_one's guard, so nobody can freeze a bogus tier or a tiered log.
+  Tests: `test_bogus_tier_recipe_is_refused_at_parse`
+  (`"tier must be one of"`), `test_tier_recipe_is_evaluate_only`
+  (`log.tier` → "not supported for 'log'"). The valid-tier freeze→load
+  round-trip stays pinned in `test_knife_recipe_produces_an_evaluate_unfit`.
+- **NEW-2 Medium — evaluate.occasion knob removed.** `occasion` dropped from
+  evaluate's allowed keys: the fit realize path never read it, so it was a
+  silent no-op; the knife branch now derives the occasion from the spoken
+  query ("… for dinner …"), consistent with the recommend branch.
+  Regression: `test_evaluate_occasion_knife_is_no_longer_accepted` —
+  `{"evaluate": {"occasion": "breakfast"}}` raises "not supported for
+  'evaluate'" instead of producing an identical task. Knife fixture payload/
+  recipe updated accordingly (query speaks "for dinner").
+- **Low — dead `fit_task` parameter removed.** `_realize_evaluate_knife` no
+  longer takes the discarded fit oracle; the named-foods gate it implicitly
+  provided is now an explicit comment on the `_realize_evaluate` call site
+  ("Building the fit oracle doubles as the named-foods gate…").
+- **Low — plate speech join fixed.** `_speak_knifed_plate` emits a plain
+  comma list ("316 g of rice, 27 g of olive oil, 16 g of peanut butter")
+  instead of "A, and B, and C". No react.py change needed: no new agent-side
+  convention (gram-explicit speech already covered by the v1 manual's "150 g"
+  line).
+- **Low — dead fixture write merged.** `_nutrient_catalog` writes
+  `olive_oil` once (setdefault + update), removing the overwritten first
+  block.
+- Review-noted producer asymmetry (generate_one still stamps unloadable
+  `("evaluate_unfit", knife)` situations) acknowledged as pre-existing and
+  outside this diff's constraints (validator/split vocabulary untouched) —
+  flagged as follow-up.
+
+## Fix-round-2 verification
+
+```
+$ .venv/bin/python -m pytest tests/test_run_batch.py -q
+.............................                                            [100%]
+29 passed in 0.25s
+
+$ .venv/bin/python -m pytest -q
+........................................................................ [100%]
+1312 passed in 57.78s
+```
+
+(Previously 1309; net +3 tests, 0 failures.)

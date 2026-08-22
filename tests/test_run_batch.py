@@ -339,15 +339,17 @@ _STAPLE_NUTRIENTS = {
 
 def _nutrient_catalog() -> dict:
     catalog = _catalog()
-    catalog["olive_oil"] = {
-        "name": "Oil, olive",
-        "portions": {"tbsp": 13.5},
-        "aliases": ["olive oil"],
-        "allergen_tags": [],
-        "nutrients": dict(_STAPLE_NUTRIENTS["olive_oil"]),
-    }
     for food_id, nutrients in _STAPLE_NUTRIENTS.items():
+        catalog.setdefault(food_id, {"name": food_id.replace("_", " ")})
         catalog[food_id]["nutrients"] = dict(nutrients)
+    catalog["olive_oil"].update(
+        {
+            "name": "Oil, olive",
+            "portions": {"tbsp": 13.5},
+            "aliases": ["olive oil"],
+            "allergen_tags": [],
+        }
+    )
     catalog["olive_oil"] = {
         "name": "Oil, olive",
         "portions": {"tbsp": 13.5},
@@ -447,7 +449,7 @@ _EVALUATE_FIT = {
         {"food": "olive_oil", "expression": "two tablespoons"},
     ],
     "query": (
-        "Evaluate this as dinner: two cups of rice, "
+        "Evaluate what I should eat for dinner: two cups of rice, "
         "and two tablespoons of olive oil."
     ),
 }
@@ -514,7 +516,7 @@ def test_knife_recipe_produces_an_evaluate_unfit(tmp_path: Path) -> None:
         catalog=_knife_catalog(),
         family_quotas={"evaluate": 1},
         family_recipes={
-            "evaluate": {"knife": "allergy", "occasion": "dinner", "tier": "single"},
+            "evaluate": {"knife": "allergy", "tier": "single"},
         },
     )
     assert len(result.accepted) == 1, [
@@ -565,7 +567,7 @@ def test_knife_input_that_does_not_fit_is_rejected(tmp_path: Path) -> None:
         judge=_ok_judge,
         catalog=_knife_catalog(),
         family_quotas={"evaluate": 1},
-        family_recipes={"evaluate": {"knife": "allergy", "occasion": "dinner"}},
+        family_recipes={"evaluate": {"knife": "allergy"}},
     )
     assert result.accepted == []
     assert [(r.reason, r.family) for r in result.rejected] == [
@@ -640,3 +642,53 @@ def test_recommend_shell_and_scene_recipes_are_refused_at_parse(
                 reviewer=pass_through_reviewer,
                 catalog=_nutrient_catalog(),
             )
+
+
+def test_bogus_tier_recipe_is_refused_at_parse(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="tier must be one of"):
+        run_batch(
+            _spec(
+                tmp_path,
+                _catalog(),
+                family_quotas={"evaluate": 1},
+                family_recipes={"evaluate": {"tier": "bogus-tier"}},
+            ),
+            expander=_expander([_EVALUATE_FIT]),
+            judge=_ok_judge,
+            reviewer=pass_through_reviewer,
+            catalog=_catalog(),
+        )
+
+
+def test_tier_recipe_is_evaluate_only(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="not supported for 'log'"):
+        run_batch(
+            _spec(
+                tmp_path,
+                _nutrient_catalog(),
+                family_quotas={"log": 1},
+                family_recipes={"log": {"tier": "single"}},
+            ),
+            expander=_expander([_PASS]),
+            judge=_ok_judge,
+            reviewer=pass_through_reviewer,
+            catalog=_nutrient_catalog(),
+        )
+
+
+def test_evaluate_occasion_knob_is_no_longer_accepted(tmp_path: Path) -> None:
+    # evaluate.occasion was a silent no-op on the fit path; the knife branch
+    # reads the occasion from the spoken query instead, so the knob is gone.
+    with pytest.raises(ValueError, match="not supported for 'evaluate'"):
+        run_batch(
+            _spec(
+                tmp_path,
+                _nutrient_catalog(),
+                family_quotas={"evaluate": 1},
+                family_recipes={"evaluate": {"occasion": "breakfast"}},
+            ),
+            expander=_expander([_EVALUATE_FIT]),
+            judge=_ok_judge,
+            reviewer=pass_through_reviewer,
+            catalog=_nutrient_catalog(),
+        )

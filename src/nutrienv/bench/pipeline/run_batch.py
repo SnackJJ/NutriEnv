@@ -8,6 +8,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from nutrienv.bench.grams_gate import plausibility_gate
+from nutrienv.bench.quality_gates import EVALUATE_TIERS
 from nutrienv.bench.realize import Task, scored_oracles
 from nutrienv.bench.validator import validate_draft
 from nutrienv.world.catalog_store import load_catalog
@@ -405,16 +406,17 @@ def _parse_spec(batch_spec: Mapping) -> dict:
 
 # Recipe knobs the resolver actually implements, per family (issue 15
 # transport). A key outside the family's set would be silently dropped or
-# ignored by the realize branch, so the parser refuses it. ``shell`` and
-# ``scene`` are generate_one-only until resolver semantics exist; ``swap`` is
-# excluded from knives because its grams derive from target kcal rather than
-# a catalog/QNS portion.
+# ignored by the realize branch, so the parser refuses it. ``tier`` is
+# evaluate-only authoring data whose value must be a declared EVALUATE_TIERS
+# entry (mirrors generate_one's guard: nobody tiers a log or invents a tier).
+# ``shell``/``scene`` are generate_one-only until resolver semantics exist;
+# ``occasion`` on evaluate is read only by the knife branch from the spoken
+# query, so it is not an advertised knob there. ``swap`` is excluded from
+# knives because its grams derive from target kcal rather than a catalog/QNS
+# portion.
 _RECIPE_KEYS: dict[str, frozenset[str]] = {
-    "evaluate": frozenset({"knife", "occasion", "tier"}),
+    "evaluate": frozenset({"knife", "tier"}),
     "recommend": frozenset({"occasion", "tier"}),
-    "update": frozenset({"tier"}),
-    "log": frozenset({"tier"}),
-    "composite": frozenset({"tier"}),
 }
 _BATCH_KNIVES = frozenset(KNIVES) - {"swap"}
 
@@ -437,7 +439,7 @@ def _parse_family_recipes(
                 f"family_recipes entry for {family!r} is not among the "
                 f"requested family_quotas {sorted(requested_families)}"
             )
-        allowed = _RECIPE_KEYS[family]
+        allowed = _RECIPE_KEYS.get(family, frozenset())
         if not isinstance(recipe, Mapping):
             raise ValueError(f"family_recipes[{family!r}] must be a mapping")
         parsed: dict[str, str] = {}
@@ -456,6 +458,11 @@ def _parse_family_recipes(
                 raise ValueError(
                     f"unsupported evaluate knife {value!r} "
                     f"(allowed: {sorted(_BATCH_KNIVES)})"
+                )
+            if key == "tier" and value not in EVALUATE_TIERS:
+                raise ValueError(
+                    f"recipe {family}.tier must be one of "
+                    f"{sorted(EVALUATE_TIERS)}, got {value!r}"
                 )
             parsed[str(key)] = value
         recipes[str(family)] = parsed

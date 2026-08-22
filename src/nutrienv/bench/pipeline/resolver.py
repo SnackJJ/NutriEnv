@@ -297,13 +297,14 @@ def _realize(
     if candidate.family == "update":
         return _realize_update(candidate, resolved, catalog, task_id)
     if candidate.family == "evaluate":
+        # Building the fit oracle doubles as the named-foods gate:
+        # realize() raises when the query does not name every bound food, so
+        # a knife candidate can never skip that check before knifing.
         task = _realize_evaluate(
             candidate, pairs, allergies, catalog, task_id
         )
         if candidate.knife:
-            return _realize_evaluate_knife(
-                candidate, task, resolved, catalog, task_id, pool
-            )
+            return _realize_evaluate_knife(candidate, resolved, catalog, task_id, pool)
         return task
     is_composite = candidate.family == COMPOSITE_FAMILY or len(candidate.steps) > 1
     row = MultiItemLogRow(task_id, candidate.query, pairs, _LOG_SLOT)
@@ -478,7 +479,6 @@ def _realize_evaluate(
 
 def _realize_evaluate_knife(
     candidate: Candidate,
-    fit_task: Task,
     resolved: Sequence[tuple[str, str, float]],
     catalog: Mapping,
     task_id: str,
@@ -580,4 +580,4 @@ def _speak_knifed_plate(
         )
         amount = int(grams) if grams.is_integer() else round(grams, 2)
         parts.append(f"{amount} g of {spoken}")
-    return f"Evaluate this as {occasion}: {', and '.join(parts)}."
+    return f"Evaluate this as {occasion}: {', '.join(parts)}."
