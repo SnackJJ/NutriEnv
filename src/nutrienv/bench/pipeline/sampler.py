@@ -52,8 +52,9 @@ def sample_pools(
     is sorted then sampled so the same seed yields the same pools.
 
     With ``with_allergen``, each drawn pool must contain at least one food
-    carrying that catalog allergen tag; draws without one are retried (same
-    rng, bounded) and a catalog with no such food raises fail-closed.
+    carrying that catalog allergen tag: a draw without one has one slot
+    replaced by a deterministically chosen carrier (so the carrier lands at a
+    random index), and a catalog with no such food raises fail-closed.
     """
     if n_pools <= 0:
         return []
@@ -64,18 +65,19 @@ def sample_pools(
         raise ValueError("catalog has no foods with speakable PortionFacts")
     carriers = None
     if with_allergen is not None:
+        # Same normalization the catalog tags go through, so "Egg" finds "egg".
+        normalized = normalize_tags([with_allergen])
+        tag = normalized[0] if normalized else with_allergen
         carriers = {
             food_id
             for food_id in eligible
-            if with_allergen
+            if tag
             in normalize_tags(
                 list((catalog.get(food_id) or {}).get("allergen_tags") or [])
             )
         }
         if not carriers:
-            raise ValueError(
-                f"catalog has no food with allergen tag {with_allergen!r}"
-            )
+            raise ValueError(f"catalog has no food with allergen tag {tag!r}")
     rng = random.Random(seed)
     pools: list[FoodPool] = []
     size = min(pool_size, len(eligible))
@@ -83,9 +85,9 @@ def sample_pools(
         picked = list(rng.sample(eligible, size))
         if carriers is not None and not set(picked) & carriers:
             # Guarantee the carrier condition: on huge catalogs a pure
-            # re-draw almost never hits, so swap one slot for a
-            # deterministically chosen carrier instead.
-            picked[0] = rng.choice(sorted(carriers))
+            # re-draw almost never hits, so swap a randomly chosen slot for
+            # a deterministically chosen carrier.
+            picked[rng.randrange(len(picked))] = rng.choice(sorted(carriers))
         foods = tuple(_pool_food(catalog, food_id) for food_id in picked)
         pools.append(
             FoodPool(

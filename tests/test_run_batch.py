@@ -1130,14 +1130,24 @@ def test_sample_pools_with_allergen_targets_carrier_pools() -> None:
         )
 
 
-def test_pool_allergen_recipe_feeds_the_sampler(tmp_path: Path) -> None:
-    """The recipe reaches the sampler: pools carry the tag. Honest residual
-    (see reports/impl-pool-allergen.md): with the synthetic expander taking
-    the FIRST N pool foods, the drawn carrier can land inside the plate --
-    those candidates reject visibly as allergen_clash; the rest fail the
-    person's fit gate (`unresolvable`). Turning carriers-into-unfit plates
-    into accepted bulk production is issue-15 recipe design."""
-    from nutrienv.bench.pipeline.expander import synthetic_expander
+def test_pool_allergen_recipe_reaches_the_sampler(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The recipe wiring is real: sample_pools receives with_allergen for the
+    recipe's family (deleting the _build_jobs wiring fails this test). The
+    honest run residual is documented in reports/impl-pool-allergen.md."""
+    import sys
+
+    run_batch_module = sys.modules["nutrienv.bench.pipeline.run_batch"]
+
+    seen: dict[str, str | None] = {}
+    real = run_batch_module.sample_pools
+
+    def spy(catalog, *, seed, family, n_pools, **kwargs):
+        seen[family] = kwargs.get("with_allergen")
+        return real(catalog, seed=seed, family=family, n_pools=n_pools, **kwargs)
+
+    monkeypatch.setattr(run_batch_module, "sample_pools", spy)
 
     result = _run(
         tmp_path,
@@ -1156,6 +1166,10 @@ def test_pool_allergen_recipe_feeds_the_sampler(tmp_path: Path) -> None:
             },
         },
     )
+    assert seen == {"evaluate": "egg"}
+    # Sampler-level guarantee holds on the drawn pools too: every acceptance
+    # (if any) is an allergy reject over the person's profile; rejections are
+    # the documented residual (allergen_clash / fit-gate unresolvable).
     assert result.accepted == [] or all(
         task.oracle.last_verdict == "reject"
         and "allergy" in task.oracle.last_reasons
@@ -1163,3 +1177,19 @@ def test_pool_allergen_recipe_feeds_the_sampler(tmp_path: Path) -> None:
         for task in result.accepted
     )
     assert {r.reason for r in result.rejected} <= {"unresolvable", "allergen_clash"}
+
+
+def test_pool_allergen_input_is_normalized() -> None:
+    from nutrienv.bench.pipeline.sampler import sample_pools
+    from nutrienv.world.catalog_store import load_catalog
+
+    catalog = load_catalog("data/fdc/catalog-v2.sqlite")
+    pools = sample_pools(
+        catalog,
+        seed=1,
+        family="evaluate",
+        n_pools=1,
+        with_allergen="Egg",
+    )
+    (pool,) = pools
+    assert any("egg" in food.allergen_tags for food in pool.foods)
