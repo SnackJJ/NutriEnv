@@ -4,6 +4,16 @@ from __future__ import annotations
 
 import pytest
 
+from nutrienv.io.chat import DASHSCOPE_CHAT_URL
+
+from nutrienv.bench.pipeline import catalog_digest, pass_through_reviewer, run_batch
+from nutrienv.bench.pipeline.review_harness import (
+    _route,
+    call_reviewer,
+    format_stage_a_prompt,
+    resolved_items,
+    review_candidates,
+)
 from nutrienv.bench.pipeline.review_harness import (
     REASON_GRAMS_OFF_TABLE,
     REASON_LEAK_ALLERGY,
@@ -12,6 +22,8 @@ from nutrienv.bench.pipeline.review_harness import (
     REASON_WINDOWS_EMPTY,
     REASON_WINDOWS_OUT_OF_BOUNDS,
     REASON_WINDOWS_UNPASSABLE,
+    STAGE_A_MODEL_IDS,
+    STAGE_B_MODEL_IDS,
     format_stage_b_prompt,
     make_reviewer,
     stage_a_code_gate,
@@ -164,7 +176,7 @@ def test_code_gate_off_table_grams_rejects_without_llm_vote() -> None:
 
     review = make_reviewer(
         stage_a={"a1": track, "a2": track, "a3": track},
-        stage_b={"b1": _boom, "b2": _boom, "b3": _boom},
+        stage_b={"b1": track, "b2": track, "b3": track},
     )([_OFF, _TABLE])
 
     assert _OFF.id in {row["id"] for row in review["dropped"]}
@@ -172,13 +184,18 @@ def test_code_gate_off_table_grams_rejects_without_llm_vote() -> None:
     off = review["per_candidate"][_OFF.id]
     assert off["dropped"] is True
     assert REASON_GRAMS_OFF_TABLE in off["stage_a"]["code_gate"]
+    assert off["stage_a"]["votes"] == {}
     table = review["per_candidate"][_TABLE.id]
     assert table["dropped"] is False
     assert table["stage_a"]["code_gate"] == []
-    assert calls, "table-gram candidate still receives Stage A votes"
-    for prompt in calls:
+    # Only the table-gram candidate is voted: 3 Stage A plate votes then
+    # 3 Stage B speech votes.
+    assert len(calls) == 6
+    for prompt in calls[:3]:
         assert _TABLE.query not in prompt
         assert "300" not in prompt
+    for prompt in calls[3:]:
+        assert "Please log a cup of milk" in prompt
 
 
 def test_log_without_pinned_windows_skips_window_checks() -> None:
@@ -374,21 +391,79 @@ def test_stage_b_votes_see_query_but_not_grams() -> None:
         assert "244" not in prompt
 
 
-def test_stage_b_log_candidates_get_no_speech_vote() -> None:
-    calls: list[str] = []
+def test_stage_b_speech_votes_cover_log_candidates() -> None:
+    seen_a: list[str] = []
+    seen_b: list[str] = []
 
-    def track(prompt: str) -> str:
-        calls.append(prompt)
+    def track_a(prompt: str) -> str:
+        seen_a.append(prompt)
+        return '{"eatable": true, "reason": "ok"}'
+
+    def track_b(prompt: str) -> str:
+        seen_b.append(prompt)
         return '{"eatable": true, "reason": "ok"}'
 
     review = make_reviewer(
-        stage_a={"a1": track, "a2": track, "a3": track},
-        stage_b={"b1": _boom, "b2": _boom, "b3": _boom},
+        stage_a={"a1": track_a, "a2": track_a, "a3": track_a},
+        stage_b={"b1": track_b, "b2": track_b, "b3": track_b},
     )([_TABLE])
     entry = review["per_candidate"][_TABLE.id]
     assert entry["dropped"] is False
     assert entry["verdict"] == "pass"
-    assert len(calls) == 3
+    assert len(seen_a) == 3 and len(seen_b) == 3
+    for prompt in seen_a:
+        assert _TABLE.query not in prompt
+    for prompt in seen_b:
+        assert _TABLE.query in prompt
+
+
+def test_run_batch_structural_code_gate_drops_off_table_grams(tmp_path) -> None:
+    catalog = {
+        "milk_whole": {
+            "name": "Milk, whole",
+            "portions": {"cup": 244.0},
+            "aliases": ["milk"],
+            "allergen_tags": [],
+        },
+        "apple": {
+            "name": "Apple, raw",
+            "portions": {"piece": 182.0},
+            "aliases": ["apple"],
+            "allergen_tags": [],
+        },
+        "orange": {
+            "name": "Orange, raw",
+            "portions": {"piece": 131.0},
+            "aliases": ["orange"],
+            "allergen_tags": [],
+        },
+    }
+
+    def expand(_pool, *, persona, family):
+        return {
+            "items": [{"food": "milk_whole", "expression": "300 g"}],
+            "query": "Please log 300 grams of milk for lunch.",
+        }
+
+    spec = {
+        "seed": 7,
+        "sampler_rule_version": "sampler-v1",
+        "catalog_sha": catalog_digest(catalog),
+        "persona": "everyday",
+        "family_quotas": {"log": 1},
+        "model_route": {},
+        "catalog": "fixture",
+        "output_path": tmp_path / "batch.json",
+    }
+    result = run_batch(
+        spec,
+        expander=expand,
+        judge=lambda _food, _grams: "ok",
+        reviewer=pass_through_reviewer,
+        catalog=catalog,
+    )
+    assert result.accepted == []
+    assert [row.reason for row in result.rejected] == ["code_gate"]
 
 
 def test_stage_b_leak_drop_skips_stage_b_votes() -> None:
@@ -412,3 +487,133 @@ def test_format_stage_b_prompt_lists_names_without_grams() -> None:
     prompt = format_stage_b_prompt(_TABLE)
     assert "Milk, whole" in prompt
     assert "244" not in prompt
+
+
+# --- restored coverage deleted with the c328bd0 rewrite (S09-3) -------------
+
+
+def test_review_candidates_requires_models() -> None:
+    with pytest.raises(ValueError, match="requires Stage A models"):
+        review_candidates([_TABLE], stage_a={}, stage_b={"b1": _boom})
+    with pytest.raises(ValueError, match="requires Stage B models"):
+        review_candidates([_TABLE], stage_a={"a1": _boom}, stage_b={})
+
+
+def test_make_reviewer_rejects_empty_pools() -> None:
+    def ok(_prompt: str) -> str:
+        return '{"eatable": true, "reason": "ok"}'
+
+    with pytest.raises(ValueError, match="requires Stage A and Stage B models"):
+        make_reviewer(stage_a={}, stage_b={"b1": ok, "b2": ok, "b3": ok})
+    with pytest.raises(ValueError, match="requires Stage A and Stage B models"):
+        make_reviewer(stage_a={"a1": ok, "a2": ok, "a3": ok}, stage_b={})
+
+
+def test_empty_candidates_return_required_keys() -> None:
+    def ok(_prompt: str) -> str:
+        return '{"eatable": true, "reason": "ok"}'
+
+    review = review_candidates(
+        [], stage_a={"a1": ok, "a2": ok, "a3": ok}, stage_b={"b1": ok, "b2": ok, "b3": ok}
+    )
+    assert review == {"anomalies": [], "dropped": [], "per_candidate": {}}
+
+
+def test_resolved_items_and_stage_a_prompt_carry_portion_facts() -> None:
+    items = resolved_items(_TABLE)
+    assert items[0]["food_id"] == "milk_whole"
+    assert items[0]["portion_key"] == "cup"
+    assert items[0]["quantity"] == 1.0
+    assert items[0]["grams"] == 244.0
+    prompt = format_stage_a_prompt(_TABLE)
+    assert "Milk, whole" in prompt
+    assert "244 g" in prompt
+    assert _TABLE.query not in prompt
+
+
+def test_parse_failure_is_retried_then_parsed() -> None:
+    calls: list[str] = []
+
+    def flaky(prompt: str) -> str:
+        calls.append(prompt)
+        return "still not json" if len(calls) % 2 else '{"eatable": true, "reason": "ok"}'
+
+    entry = make_reviewer(
+        stage_a={"a1": flaky, "a2": flaky, "a3": flaky},
+        stage_b={"b1": flaky, "b2": flaky, "b3": flaky},
+        parse_retries=1,
+    )([_TABLE])["per_candidate"][_TABLE.id]
+    assert len(calls) == 12  # 6 voter slots × 2 calls: junk retried once, then parsed
+    assert entry["anomaly"] is False
+    assert entry["stage_a"]["majority"] == "pass"
+
+
+def test_route_always_uses_dashscope(monkeypatch) -> None:
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "dash-dummy")
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    for model_id in (*STAGE_A_MODEL_IDS, *STAGE_B_MODEL_IDS):
+        url, key = _route(model_id)
+        assert url == DASHSCOPE_CHAT_URL
+        assert key == "dash-dummy"
+
+
+def test_route_requires_dashscope_key(monkeypatch) -> None:
+    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="DASHSCOPE_API_KEY is not set"):
+        _route("qwen3.8-max")
+
+
+def test_call_reviewer_posts_to_dashscope(monkeypatch) -> None:
+    captured: dict = {}
+
+    def fake_post(url, payload, api_key, **_kwargs):
+        captured["url"] = url
+        captured["model"] = payload["model"]
+        captured["api_key"] = api_key
+        captured["system"] = payload["messages"][0]["content"]
+        return '{"eatable": true, "reason": "ok"}'
+
+    monkeypatch.setattr(
+        "nutrienv.bench.pipeline.review_harness.post_chat_completion", fake_post
+    )
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "dash-dummy")
+    text = call_reviewer("deepseek-v4-flash-0731", "prompt")
+    assert "eatable" in text
+    assert captured["url"] == DASHSCOPE_CHAT_URL
+    assert captured["model"] == "deepseek-v4-flash-0731"
+    assert captured["api_key"] == "dash-dummy"
+    assert captured["system"].startswith("You review a plate")
+
+
+# --- S09-5 / S09-6 / S09-8 regressions --------------------------------------
+
+
+def test_macro_free_window_is_not_unpassable() -> None:
+    task = _rec_task("rec-kcal-only", plan_windows={"kcal": (540.0, 880.0)})
+    assert stage_a_code_gate(task) == []
+
+
+def test_out_of_bounds_reason_appended_once() -> None:
+    wide = dict(_MEAL)
+    wide["kcal"] = (540.0, 5000.0)
+    wide["protein_g"] = (0.0, 9999.0)
+    task = _rec_task("rec-wide-two-keys", plan_windows=wide)
+    reasons = stage_a_code_gate(task)
+    assert reasons == [REASON_WINDOWS_OUT_OF_BOUNDS]
+
+
+def test_named_dish_allergen_leak_with_empty_ledger() -> None:
+    s0 = WorldState(
+        profile=Profile(user_id="dish", windows=dict(_DAILY), allergies=("milk",)),
+        catalog=_PLAN_CATALOG,
+    )
+    oracle = Oracle(
+        last_plan=[{"food_id": "milk_whole", "grams": 244.0}],
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=dict(_MEAL),
+    )
+    task = Task("rec-named-dish", "recommend", "Make me a creamy pasta tonight.",
+                s0, oracle, (), "everyday")
+    assert stage_a_code_gate(task) == []
+    assert REASON_LEAK_ALLERGY in stage_b_leak_scan(task)

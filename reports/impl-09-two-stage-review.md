@@ -33,8 +33,11 @@ Branch `ship-09`, on top of c328bd0 (Stage A code-gate + injection seam).
   - `_live_caller(model_id, system)`: Stage B live pool posts with
     `STAGE_B_SYSTEM`.
   - Module docstring updated; `__all__` extended.
-- `tests/test_review_harness.py`: WIP window tests kept verbatim (all pass as
-  written); added 11 tests for leak scan, speech votes, majority/verdicts.
+- `tests/test_review_harness.py`: all tests in this file were written in
+  2a6bff7 alongside the code they test, including the five window tests
+  (the working tree at that point held only one committed test and no
+  `REASON_WINDOWS` references — they were not pre-existing WIP specs).
+  They cover window gates, leak scan, speech votes, majority/verdicts.
 
 ## Committee flow (`review_candidates`)
 
@@ -94,3 +97,65 @@ $ /home/jzq/Projects/nutri-env/.venv/bin/python -m pytest -q
 Counts above are session evidence, not frozen harness output. Unmodified:
 docs/adr text, `data/splits`, catalog sqlite files, the scoring rule
 (`Pass ⇔ end state == Oracle`), and all pre-existing test expectations.
+
+---
+
+## Fix round — S09 findings (claude opus review, verdict REV)
+
+Commit: "09: enforce code gate structurally in run_batch, fix S09 review findings".
+
+- **S09-1 (blocker)** — `run_batch` now applies `stage_a_code_gate`
+  structurally (`_code_gate` in `run_batch.py`) after candidate assembly and
+  before any `reviewer(...)` call; gate failures become
+  `Rejected(query, "code_gate", family)` and never reach the reviewer or the
+  freezer. No mill mode can reach a freeze without the gate, regardless of
+  which reviewer is injected. `pass_through_reviewer` stays vote-level-only;
+  its docstring now says the gate cannot be skipped. Regression test:
+  `test_run_batch_structural_code_gate_drops_off_table_grams` (real pipeline,
+  `300 g` milk, pass-through reviewer → accepted=[], rejected=[code_gate]).
+- **S09-2** — the false provenance sentence above corrected; issue Status line
+  now names the right commits.
+- **S09-3** — restored coverage in `tests/test_review_harness.py`: empty-pool
+  `ValueError` for `review_candidates` and `make_reviewer`; `_route` DashScope
+  routing + missing-key `RuntimeError`; monkeypatched `call_reviewer` posting
+  (no network); `resolved_items`/`format_stage_a_prompt` portion facts;
+  empty-candidates result shape.
+- **S09-4** — Stage B speech votes now run for **every** candidate that
+  survives the leak scan (leak scan stays recommend-only). Updated
+  `test_stage_b_log_candidates_get_no_speech_vote` →
+  `test_stage_b_speech_votes_cover_log_candidates` (log query IS seen by
+  Stage B, still hidden from Stage A); committed
+  `test_code_gate_off_table_grams_rejects_without_llm_vote` updated to give
+  Stage B real voters and assert the 3+3 split (Stage A prompts hide the
+  query; Stage B prompts carry it).
+- **S09-5** — `_kcal_infeasible` returns False when no macro span
+  (protein_g/carb_g/fat_g) is present; also dropped the redundant
+  `kcal_lo > forced` conjunct. Test: `test_macro_free_window_is_not_unpassable`.
+- **S09-6** — `windows_out_of_bounds` appended once, not per offending key.
+  Test: two offending keys still yield exactly one reason.
+- **S09-7** — `parse_retries` now retries parse failures (loops until
+  `_parse_vote` returns a vote). Test: `test_parse_failure_is_retried_then_parsed`
+  (6 voter slots × 2 calls = 12 calls, all parsed on retry).
+- **S09-8** — leak-scan docstring cites `daily_windows.meal_slot_and_remainder`
+  correctly and states the allergy mapping precisely; allergy check moved out
+  of the `if ledger:` block and now also scans `oracle.last_plan`,
+  `oracle.evaluated_plan`, and `s0.last_plan` food ids, so a Recommend whose
+  named-dish plan item carries a banned allergen is flagged with an empty
+  ledger. Test: `test_named_dish_allergen_leak_with_empty_ledger`.
+- **S09-9** — pools are now three distinct families per stage:
+  Stage A qwen3.8-max / deepseek-v4-flash-0731 / glm-5.2; Stage B
+  kimi-k2.7-code / deepseek-v4-pro-0813 / qwen3.8-2.4t-a95b (cross-stage
+  family reuse is unavoidable with six registry ids; no single vendor carries
+  either ≥2 majority alone). Module docstring records this.
+- **S09-10** — dead `if entry["dropped"]:` branch removed.
+
+Test evidence:
+
+```
+$ .venv/bin/python -m pytest tests/test_review_harness.py -q
+.............................                                            [100%]
+29 passed in 0.18s
+
+$ .venv/bin/python -m pytest -q
+1211 passed in 48.78s
+```

@@ -5,10 +5,14 @@ k=3 blind votes on whether one person could eat the plate at one meal.
 Voters do not see the query and do not judge table-gram correctness.
 Code-gate failure drops the candidate without an LLM vote.
 
-Stage B is code plus speech on Recommend candidates: a leak scan for
-leftover/allergy/remaining-kcal inconsistencies (code fail drops), then
-k=3 votes on the spoken request (query + food names). LLM majority-fail
-alarms first; it does not silently pass and it does not drop.
+Stage B is code plus speech: a leak scan for leftover/allergy/
+remaining-kcal inconsistencies on Recommend candidates (code fail drops),
+then k=3 votes on the spoken request (query + food names) for every
+candidate that survives the leak scan. LLM majority-fail alarms first;
+it does not silently pass and it does not drop.
+
+Each stage votes across three distinct model families; family sets differ
+between stages so no single vendor carries both votes.
 
 ``make_reviewer(stage_a=..., stage_b=...)`` is the grams_gate-style seam.
 Tests inject callables; they never call the network.
@@ -62,15 +66,16 @@ __all__ = [
 
 _ROOT = Path(__file__).resolve().parents[4]
 
+# One id per family per stage: a >=2 majority must span at least two vendors.
 STAGE_A_MODEL_IDS: tuple[str, ...] = (
     "qwen3.8-max",
-    "qwen3.8-2.4t-a95b",
+    "deepseek-v4-flash-0731",
     "glm-5.2",
 )
 STAGE_B_MODEL_IDS: tuple[str, ...] = (
-    "deepseek-v4-flash-0731",
-    "deepseek-v4-pro-0813",
     "kimi-k2.7-code",
+    "deepseek-v4-pro-0813",
+    "qwen3.8-2.4t-a95b",
 )
 DEFAULT_MODEL_IDS: tuple[str, ...] = STAGE_A_MODEL_IDS
 
@@ -140,16 +145,13 @@ def _window_reasons(task: Task) -> list[str]:
     for lo, hi in windows.values():
         if float(lo) > float(hi):
             return [REASON_WINDOWS_EMPTY]
-    out_of_bounds: list[str] = []
     for key, (lo, hi) in windows.items():
         bounds = daily.get(key)
         if bounds is None:
             continue
         daily_hi = float(bounds[1])
         if float(lo) < 0.0 or float(hi) > daily_hi or float(lo) > daily_hi:
-            out_of_bounds.append(REASON_WINDOWS_OUT_OF_BOUNDS)
-    if out_of_bounds:
-        return out_of_bounds
+            return [REASON_WINDOWS_OUT_OF_BOUNDS]
     if _kcal_infeasible(windows):
         return [REASON_WINDOWS_UNPASSABLE]
     return []
@@ -161,23 +163,31 @@ def _kcal_infeasible(windows: Mapping) -> bool:
     Every kcal comes from protein/carb/fat at Atwater rates (4/4/9 kcal per g,
     matching ``nutrienv.bench.windows.KCAL_RATIO_CAP``). Macro floors force a
     minimum kcal; macro ceilings cap the reachable kcal. The check is physics,
-    so it needs no catalog.
+    so it needs no catalog. Without any macro span there is nothing to
+    contradict the kcal window.
     """
     kcal = windows.get("kcal")
     if not isinstance(kcal, (tuple, list)) or len(kcal) != 2:
+        return False
+    spans = {
+        key: windows[key]
+        for key in _ATWATER_KCAL_PER_G
+        if isinstance(windows.get(key), (tuple, list)) and len(windows.get(key)) == 2
+    }
+    if not spans:
         return False
     kcal_lo, kcal_hi = float(kcal[0]), float(kcal[1])
     forced = 0.0
     reachable = 0.0
     for key, rate in _ATWATER_KCAL_PER_G.items():
-        span = windows.get(key)
-        if not isinstance(span, (tuple, list)) or len(span) != 2:
+        span = spans.get(key)
+        if span is None:
             continue
         forced += rate * max(0.0, float(span[0]))
         reachable += rate * max(0.0, float(span[1]))
     if forced > kcal_hi + 1e-6:
         return True
-    return kcal_lo > forced and reachable + 1e-6 < kcal_lo
+    return reachable + 1e-6 < kcal_lo
 
 
 def resolved_items(task: Task) -> list[dict[str, object]]:
@@ -225,11 +235,16 @@ def stage_b_leak_scan(task: Task) -> list[str]:
     - leftover (``realize._leftover_from_row``): a non-empty S0 ledger must be
       bound into scoring through pinned ``plan_windows``; an eaten timeline
       with unpinned windows leaks the leftover context.
-    - remaining-kcal (``generate_one._recommend_from_template`` /
-      ``meal_slot_and_remainder``): pinned windows may never budget more of a
-      nutrient than the day still has left after the ledger.
-    - allergy (``realize.bind_evaluate_reasons``): S0 foods carrying a
-      profile-banned allergen tag make the world unsafe.
+    - remaining-kcal (``nutrienv.world.daily_windows.meal_slot_and_remainder``
+      as applied by ``generate_one._recommend_from_template``): pinned windows
+      may never budget more of a nutrient than the day still has left after
+      the ledger.
+    - allergy: S0 ledger foods and oracle/s0 plan items carrying a
+      profile-banned allergen tag make the world or the named dish unsafe.
+      The tag-vs-profile comparison mirrors ``realize.bind_evaluate_reasons``
+      (which applies it to the evaluated plate); here it covers the ledger
+      and both plan sides so a Recommend whose named-dish plan item carries a
+      banned allergen is flagged even with an empty ledger.
     Naturalness alone never drops; that is what the Stage B votes are for.
     """
     if task.family != "recommend":
@@ -257,12 +272,21 @@ def stage_b_leak_scan(task: Task) -> list[str]:
                 if float(span[1]) > remaining_hi + 1e-6:
                     reasons.append(REASON_LEAK_REMAINING_KCAL)
                     break
-        for row in ledger:
-            entry = catalog.get(row.food_id) or {}
-            tags = set(normalize_tags(list(entry.get("allergen_tags") or [])))
-            if tags & allergies:
-                reasons.append(REASON_LEAK_ALLERGY)
-                break
+    food_ids = [row.food_id for row in ledger]
+    for plan in (
+        getattr(oracle, "last_plan", None) or [],
+        getattr(oracle, "evaluated_plan", None) or [],
+        getattr(s0, "last_plan", None) or [],
+    ):
+        for item in plan:
+            if isinstance(item, Mapping) and item.get("food_id") is not None:
+                food_ids.append(str(item["food_id"]))
+    for food_id in food_ids:
+        entry = catalog.get(food_id) or {}
+        tags = set(normalize_tags(list(entry.get("allergen_tags") or [])))
+        if tags & allergies:
+            reasons.append(REASON_LEAK_ALLERGY)
+            break
     return reasons
 
 
@@ -282,12 +306,13 @@ def review_candidates(
     stage_b: Mapping[str, ReviewFn],
     parse_retries: int = PARSE_RETRIES,
 ) -> dict[str, object]:
-    """Stage A code-gate, then Stage A votes, then Stage B on Recommend.
+    """Stage A code-gate, then Stage A votes, then Stage B.
 
     Code fail (Stage A gate or Stage B leak scan) drops without an LLM vote.
     LLM majority-fail raises an alarm; it never silently passes and never
-    drops. Stage B speech votes run only for ``family == "recommend"``;
-    other families were already plate-voted by Stage A.
+    drops. The leak scan is recommend-only; the speech vote runs for every
+    candidate that survives the leak scan, because Stage A deliberately
+    hides the query.
     """
     if not stage_a:
         raise ValueError("review_candidates requires Stage A models")
@@ -325,19 +350,16 @@ def review_candidates(
             dropped.append({"id": task.id, "reasons": list(leaks), "stage": "stage_b"})
             per_candidate[task.id] = entry
             continue
-        if task.family == "recommend":
-            result_b, anomalies_b = _run_stage_vote(
-                stage_b, format_stage_b_prompt(task), parse_retries
-            )
-            entry["stage_b"].update(result_b)
-            if anomalies_b:
-                entry["anomaly"] = True
-                anomalies.append({"id": task.id, "stage": "stage_b"})
-            if result_b["majority"] != "pass":
-                entry["alarm"] = True
-        if entry["dropped"]:
-            entry["verdict"] = "drop"
-        elif entry["alarm"]:
+        result_b, anomalies_b = _run_stage_vote(
+            stage_b, format_stage_b_prompt(task), parse_retries
+        )
+        entry["stage_b"].update(result_b)
+        if anomalies_b:
+            entry["anomaly"] = True
+            anomalies.append({"id": task.id, "stage": "stage_b"})
+        if result_b["majority"] != "pass":
+            entry["alarm"] = True
+        if entry["alarm"]:
             entry["verdict"] = "alarm_majority"
         else:
             entry["verdict"] = "pass"
@@ -357,11 +379,12 @@ def _run_stage_vote(
     unparsed = 0
     for model_id in sorted(voters):
         text = ""
+        vote: tuple[bool, str] | None = None
         for _attempt in range(1 + parse_retries):
             text = voters[model_id](prompt) or ""
-            if text.strip():
+            vote = _parse_vote(text)
+            if vote is not None:
                 break
-        vote = _parse_vote(text)
         if vote is None:
             unparsed += 1
             votes[model_id] = {"raw": text, "eatable": None, "reason": ""}
