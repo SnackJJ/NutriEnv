@@ -98,6 +98,14 @@ class Candidate:
     persona: str
     pool_id: str = ""
     steps: tuple[str, ...] = ()
+    # Per-family recipe knobs (issue 15 transport): stamped from
+    # batch_spec.family_recipes by run_batch; defaults keep every existing
+    # constructor byte-identical.
+    knife: str | None = None
+    occasion: str | None = None
+    shell: str | None = None
+    scene: str = "empty"
+    tier: str = ""
 
 
 @dataclass(frozen=True)

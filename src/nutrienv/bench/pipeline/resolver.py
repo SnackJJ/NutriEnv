@@ -18,6 +18,7 @@ from nutrienv.bench.realize import (
     Material,
     Oracle,
     Task,
+    bind_evaluate_reasons,
     compose_oracles,
     realize,
 )
@@ -99,7 +100,7 @@ def resolve_candidate(
     seen.add(key)
 
     try:
-        task = _realize(candidate, resolved, catalog, task_id)
+        task = _realize(candidate, resolved, catalog, task_id, pool)
     except (RuntimeError, ValueError, TypeError):
         return None, Rejected(candidate.query, "unresolvable", candidate.family)
     return task, None
@@ -286,6 +287,7 @@ def _realize(
     resolved: list[tuple[str, str, float]],
     catalog: Mapping,
     task_id: str,
+    pool: FoodPool | None = None,
 ) -> object:
     food_ids = [food_id for food_id, _expression, _grams in resolved]
     pairs = tuple((food_id, expression) for food_id, expression, _grams in resolved)
@@ -295,17 +297,14 @@ def _realize(
     if candidate.family == "update":
         return _realize_update(candidate, resolved, catalog, task_id)
     if candidate.family == "evaluate":
-        row = EvaluateRow(task_id, candidate.query, pairs)
-        material = Material(
-            row=row,
-            family="evaluate",
-            situations=(),
-            persona=candidate.persona,
-            task_id=task_id,
-            user_id=task_id,
-            allergies=allergies,
+        task = _realize_evaluate(
+            candidate, pairs, allergies, catalog, task_id
         )
-        return realize(material, candidate.query, catalog=catalog)
+        if candidate.knife:
+            return _realize_evaluate_knife(
+                candidate, task, resolved, catalog, task_id, pool
+            )
+        return task
     is_composite = candidate.family == COMPOSITE_FAMILY or len(candidate.steps) > 1
     row = MultiItemLogRow(task_id, candidate.query, pairs, _LOG_SLOT)
     material = Material(
@@ -325,8 +324,8 @@ def _realize(
     )
     task = realize(material, candidate.query, catalog=catalog)
     if is_composite:
-        return _attach_recommend(task, candidate)
-    return task
+        return replace(_attach_recommend(task, candidate), tier=candidate.tier)
+    return replace(task, tier=candidate.tier)
 
 
 def _composite_windows() -> dict:
@@ -386,10 +385,16 @@ def _realize_recommend(candidate: Candidate, catalog, task_id: str) -> Task:
     The named foods stay spoken context (the oracle judges any
     allergen-safe plan inside the windows); windows derive from a roster
     person's six-key daily table -- the same source the composite recommend
-    leg uses. The occasion comes from the spoken "for <meal>" word.
+    leg uses. The occasion comes from the recipe override, else the spoken
+    "for <meal>" word. ``shell``/``scene`` recipes have no resolver-side
+    semantics (scene="leftover" needs prior logs -- the batch's leftover
+    carrier is composite log+recommend) and fail loudly instead of being
+    silently ignored.
     """
+    if candidate.shell or candidate.scene != "empty":
+        raise ValueError("resolver recommend supports no shell/scene recipe")
     profile = profile_for(ROSTER[0])
-    occasion = occasion_from_query(candidate.query)
+    occasion = candidate.occasion or occasion_from_query(candidate.query)
     if occasion is None:
         # occasions.py contract: an unresolved occasion fails loudly instead
         # of silently pinning dinner geometry.
@@ -406,7 +411,10 @@ def _realize_recommend(candidate: Candidate, catalog, task_id: str) -> Task:
         ledger=(),
     )
     s0 = WorldState(profile=copy.deepcopy(profile), ledger=[], catalog=catalog)
-    return Task(task_id, "recommend", candidate.query, s0, oracle, (), candidate.persona)
+    return Task(
+        task_id, "recommend", candidate.query, s0, oracle, (), candidate.persona,
+        tier=candidate.tier,
+    )
 
 
 def _realize_update(
@@ -420,8 +428,12 @@ def _realize_update(
     The query names a food; that food's catalog allergen tags (not already
     on the roster profile) become the oracle's added allergies, so the
     change is always evidenced in the query. Windows stay untouched, so
-    they remain world-derived and need no spoken magnitudes.
+    they remain world-derived and need no spoken magnitudes. ``knife``/
+    ``shell``/``scene`` recipes have no update semantics here and fail
+    loudly instead of being silently ignored.
     """
+    if candidate.knife or candidate.shell or candidate.scene != "empty":
+        raise ValueError("resolver update supports no knife/shell/scene recipe")
     profile = profile_for(ROSTER[0])
     added: set[str] = set()
     for food_id, _expression, _grams in resolved:
@@ -436,4 +448,128 @@ def _realize_update(
         raise ValueError("update has no effect on the profile")
     oracle = Oracle(profile=expected, ledger=())
     s0 = WorldState(profile=copy.deepcopy(profile), ledger=[], catalog=catalog)
-    return Task(task_id, "update", candidate.query, s0, oracle, (), candidate.persona)
+    return Task(
+        task_id, "update", candidate.query, s0, oracle, (), candidate.persona,
+        tier=candidate.tier,
+    )
+
+
+def _realize_evaluate(
+    candidate: Candidate,
+    pairs: tuple[tuple[str, str], ...],
+    allergies: tuple[str, ...],
+    catalog: Mapping,
+    task_id: str,
+) -> Task:
+    row = EvaluateRow(task_id, candidate.query, pairs)
+    material = Material(
+        row=row,
+        family="evaluate",
+        situations=(),
+        persona=candidate.persona,
+        task_id=task_id,
+        user_id=task_id,
+        allergies=allergies,
+    )
+    return replace(
+        realize(material, candidate.query, catalog=catalog), tier=candidate.tier
+    )
+
+
+def _realize_evaluate_knife(
+    candidate: Candidate,
+    fit_task: Task,
+    resolved: Sequence[tuple[str, str, float]],
+    catalog: Mapping,
+    task_id: str,
+    pool: FoodPool | None,
+) -> Task:
+    """Evaluate knife recipe → an Evaluate-unfit draft.
+
+    Mirrors the mill's fit→knife flow (generate_one ``_evaluate_from_bound``):
+    ``apply_knife`` perturbs the bind-confirmed plate, and the reject oracle
+    binds the knifed plate's reasons against meal-slot windows derived from
+    the same roster profile source. The speech rewrite the mill delegates to
+    its LLM rewriter is done deterministically here: every knifed food is
+    appended to the query so the evaluated plan stays fully named.
+    """
+    # Lazy import: pipeline.knives -> semantic_vote -> resolver would be
+    # circular at module load; by call time everything is initialized.
+    from .knives import KNIVES, apply_knife
+
+    if candidate.knife not in KNIVES:
+        raise ValueError(f"unknown evaluate knife {candidate.knife!r}")
+    if pool is None:
+        raise ValueError("evaluate knife recipe requires a pool")
+    profile = profile_for(ROSTER[0])
+    occasion = candidate.occasion or occasion_from_query(candidate.query)
+    if occasion is None:
+        raise ValueError("evaluate knife recipe names no meal occasion")
+    windows = plan_windows_for_meal(_composite_windows(), {}, occasion)
+    if windows is None:
+        raise ValueError("knife recipe windows are empty")
+    items = [
+        {"food_id": food_id, "grams": grams}
+        for food_id, _expression, grams in resolved
+    ]
+    knifed = apply_knife(
+        candidate.knife,
+        items,
+        profile=profile,
+        catalog=catalog,
+        pool=pool,
+        windows=windows,
+    )
+    if not knifed:
+        # Clean documented rejection path: e.g. a pool without an allergen
+        # food for the allergy knife.
+        raise ValueError(f"knife {candidate.knife!r} produced no unfit plate")
+    reasons = bind_evaluate_reasons(knifed, dict(windows), catalog, profile.allergies)
+    if not reasons:
+        raise ValueError("knifed evaluate plate still fits its windows")
+    query = _name_knifed_foods(candidate.query, knifed, resolved, catalog)
+    oracle = Oracle(
+        profile=copy.deepcopy(profile),
+        last_plan=[],
+        last_verdict="reject",
+        last_reasons=tuple(reasons),
+        plan_windows=dict(windows),
+        evaluated_plan=knifed,
+        ledger=tuple(),
+    )
+    s0 = WorldState(profile=copy.deepcopy(profile), ledger=[], catalog=catalog)
+    return Task(
+        task_id,
+        "evaluate",
+        query,
+        s0,
+        oracle,
+        ("evaluate_unfit", candidate.knife),
+        candidate.persona,
+        tier=candidate.tier,
+    )
+
+
+def _name_knifed_foods(
+    query: str,
+    knifed: Sequence[Mapping[str, object]],
+    resolved: Sequence[tuple[str, str, float]],
+    catalog: Mapping,
+) -> str:
+    """Append the spoken name of each knifed-only food to the query."""
+    original = {food_id for food_id, _expression, _grams in resolved}
+    additions = []
+    for item in knifed:
+        food_id = str(item["food_id"])
+        if food_id in original:
+            continue
+        entry = catalog.get(food_id) or {}
+        aliases = [str(a) for a in (entry.get("aliases") or []) if a]
+        name = str(entry.get("name") or "")
+        spoken = aliases[0] if aliases else (
+            name.split(",", 1)[0] if "," in name else name or food_id
+        )
+        additions.append(spoken)
+    if not additions:
+        return query
+    return f"{query.rstrip('.')}, plus {' and '.join(additions)}."

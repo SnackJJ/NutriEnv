@@ -10,7 +10,8 @@ import pytest
 from nutrienv.bench.pipeline import catalog_digest, pass_through_reviewer, run_batch
 from nutrienv.bench.pipeline.run_batch import quota_ledger
 from nutrienv.bench.realize import Oracle, Task
-from nutrienv.bench.split import load_exam
+from nutrienv.bench.split import load_exam, load_split
+from nutrienv.bench.validator import validate_draft
 
 V05 = Path("data/splits/archive/v0.5-gold.json")
 
@@ -343,9 +344,10 @@ def _nutrient_catalog() -> dict:
     # be a catalog tag, so the fixture needs a peanut carrier too.
     catalog["peanut_butter"] = {
         "name": "Peanut butter",
-        "portions": {"tablespoon": 16.0},
+        "portions": {"tbsp": 16.0},
         "aliases": ["peanut butter"],
         "allergen_tags": ["peanut"],
+        "nutrients": {"kcal": 588.0, "protein_g": 25.0},
     }
     return catalog
 
@@ -421,4 +423,109 @@ def test_recommend_context_food_absent_from_query_is_containment_rejected(
     assert result.accepted == []
     assert [(r.reason, r.family) for r in result.rejected] == [
         ("containment", "recommend")
+    ]
+
+
+_EVALUATE_FIT = {
+    "items": [{"food": "milk_whole", "expression": "a cup"}],
+    "query": "Evaluate this as my plan: a cup of milk.",
+}
+
+
+def _knife_catalog() -> dict:
+    """Compact catalog: every food lands in every pool, so the allergy
+    knife deterministically finds its peanut carrier."""
+    catalog = _nutrient_catalog()
+    keep = {"milk_whole", "egg", "chicken_breast", "white_rice", "peanut_butter"}
+    return {food_id: entry for food_id, entry in catalog.items() if food_id in keep}
+
+
+def test_empty_family_recipes_behave_like_today(tmp_path: Path) -> None:
+    result = _run(
+        tmp_path,
+        [_EVALUATE_FIT],
+        judge=_ok_judge,
+        catalog=_nutrient_catalog(),
+        family_quotas={"evaluate": 1},
+        family_recipes={"evaluate": {}},
+    )
+    assert result.accepted != []
+    task = result.accepted[0]
+    assert task.family == "evaluate"
+    assert task.tier == ""
+    assert task.oracle.last_verdict is None or task.oracle.last_verdict == "accept"
+    assert all(r.reason != "unresolvable" for r in result.rejected)
+
+
+def test_tier_recipe_is_carried_into_the_frozen_output(tmp_path: Path) -> None:
+    result = _run(
+        tmp_path,
+        [_EVALUATE_FIT],
+        judge=_ok_judge,
+        catalog=_nutrient_catalog(),
+        family_quotas={"evaluate": 1},
+        family_recipes={"evaluate": {"tier": "pair"}},
+    )
+    assert result.rejected == [] or all(
+        r.reason != "unresolvable" for r in result.rejected
+    )
+    assert result.accepted, result.rejected
+    task = result.accepted[0]
+    assert task.tier == "pair"
+    item = next(i for i in result.payload["items"] if i["id"] == task.id)
+    assert item["tier"] == "pair"
+
+
+def test_knife_recipe_produces_an_evaluate_unfit(tmp_path: Path) -> None:
+    result = _run(
+        tmp_path,
+        [_EVALUATE_FIT],
+        judge=_ok_judge,
+        catalog=_knife_catalog(),
+        family_quotas={"evaluate": 1},
+        family_recipes={"evaluate": {"knife": "allergy", "occasion": "dinner"}},
+    )
+    assert len(result.accepted) == 1, [
+        (r.reason, r.family) for r in result.rejected
+    ]
+    (task,) = result.accepted
+    assert task.oracle.last_verdict == "reject"
+    assert task.oracle.evaluated_plan
+    assert task.oracle.last_plan == []
+    assert task.oracle.last_reasons
+    assert validate_draft(task) == []
+
+
+def test_unknown_recipe_key_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="unknown recipe key"):
+        run_batch(
+            _spec(
+                tmp_path,
+                _catalog(),
+                family_quotas={"evaluate": 1},
+                family_recipes={"evaluate": {"bogus": "x"}},
+            ),
+            expander=_expander([_EVALUATE_FIT]),
+            judge=_ok_judge,
+            reviewer=pass_through_reviewer,
+            catalog=_catalog(),
+        )
+
+
+def test_leftover_scene_recipe_for_recommend_is_rejected_cleanly(
+    tmp_path: Path,
+) -> None:
+    # scene="leftover" needs prior_logs: the batch's leftover carrier is
+    # composite log+recommend; single-family leftover stays generate_one-only.
+    result = _run(
+        tmp_path,
+        [_RECOMMEND],
+        judge=_ok_judge,
+        catalog=_nutrient_catalog(),
+        family_quotas={"recommend": 1},
+        family_recipes={"recommend": {"scene": "leftover"}},
+    )
+    assert result.accepted == []
+    assert [(r.reason, r.family) for r in result.rejected] == [
+        ("unresolvable", "recommend")
     ]

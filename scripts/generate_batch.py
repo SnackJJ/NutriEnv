@@ -47,6 +47,22 @@ from nutrienv.world.catalog_store import load_catalog  # noqa: E402
 DEFAULT_SEED = 20260817
 DEFAULT_WORKERS = 4
 DEFAULT_PREFIX = "v10"
+# Candidate recipe knobs the resolver knows (issue 15 transport).
+RECIPE_KEYS = ("knife", "occasion", "shell", "scene", "tier")
+
+
+def _parse_recipe(value: str) -> tuple[str, dict[str, str]]:
+    family, separator, assignment = value.partition(":")
+    family = family.strip()
+    if not separator or not family:
+        raise argparse.ArgumentTypeError(f"expected family:key=value, got {value!r}")
+    key, _, raw = assignment.partition("=")
+    key, raw_value = key.strip(), raw.strip()
+    if key not in RECIPE_KEYS or not raw_value:
+        raise argparse.ArgumentTypeError(
+            f"expected family:key=value with key in {list(RECIPE_KEYS)}, got {value!r}"
+        )
+    return family, {key: raw_value}
 
 
 def _parse_model_quota(value: str) -> tuple[str, int]:
@@ -90,6 +106,17 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         choices=sorted(SUPPORTED_FAMILIES),
         help="repeatable family (default: log)",
+    )
+    parser.add_argument(
+        "--recipe",
+        action="append",
+        default=[],
+        type=_parse_recipe,
+        metavar="FAMILY:KEY=VALUE",
+        help=(
+            "repeatable per-family recipe knob, e.g. --recipe evaluate:tier=pair "
+            f"or --recipe evaluate:knife=allergy (keys: {list(RECIPE_KEYS)})"
+        ),
     )
     parser.add_argument("--persona", default="everyday")
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
@@ -186,6 +213,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             model: count * len(families) for model, count in model_quotas.items()
         }
 
+    family_recipes: dict[str, dict[str, str]] = {}
+    for family, recipe in args.recipe:
+        if family not in families:
+            raise SystemExit(
+                f"--recipe family {family!r} is not among the requested "
+                f"--family values {families}"
+            )
+        family_recipes.setdefault(family, {}).update(recipe)
+
     catalog_path = _resolve_path(args.catalog)
     catalog = load_catalog(catalog_path)
     digest = catalog_digest(catalog)
@@ -204,6 +240,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "family_quotas": family_quotas,
         "model_route": {},
         "model_quotas": model_quotas,
+        "family_recipes": family_recipes or None,
         "catalog": catalog_field,
         "output_path": _resolve_path(args.output),
         "overwrite": bool(args.force),

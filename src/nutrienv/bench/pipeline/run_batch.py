@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from nutrienv.bench.grams_gate import plausibility_gate
@@ -379,6 +379,7 @@ def _parse_spec(batch_spec: Mapping) -> dict:
     skip_gram_backresolve = batch_spec.get("skip_gram_backresolve", False)
     if not isinstance(skip_gram_backresolve, bool):
         raise ValueError("batch_spec.skip_gram_backresolve must be a bool")
+    family_recipes = _parse_family_recipes(batch_spec.get("family_recipes"))
     total_quota = sum(count for _family, count in quotas)
     model_quotas = _parse_model_quotas(batch_spec.get("model_quotas"), total_quota)
     return {
@@ -395,7 +396,44 @@ def _parse_spec(batch_spec: Mapping) -> dict:
         "start_seq": start_seq,
         "model_quotas": model_quotas,
         "skip_gram_backresolve": skip_gram_backresolve,
+        "family_recipes": family_recipes,
     }
+
+
+# Candidate recipe knobs the resolver knows (issue 15 transport). A key
+# outside this set would be silently dropped by the dataclasses.replace
+# stamp, so the spec parser refuses it instead.
+_RECIPE_KEYS = frozenset({"knife", "occasion", "shell", "scene", "tier"})
+
+
+def _parse_family_recipes(raw: object) -> dict[str, dict[str, object]]:
+    if raw is None:
+        return {}
+    if not isinstance(raw, Mapping) or not raw:
+        raise ValueError(
+            "batch_spec.family_recipes must be a non-empty mapping"
+        )
+    recipes: dict[str, dict[str, object]] = {}
+    for family, recipe in raw.items():
+        if family not in SUPPORTED_FAMILIES:
+            raise ValueError(f"unsupported family {family!r} in family_recipes")
+        if not isinstance(recipe, Mapping):
+            raise ValueError(f"family_recipes[{family!r}] must be a mapping")
+        parsed: dict[str, object] = {}
+        for key, value in recipe.items():
+            if key not in _RECIPE_KEYS:
+                raise ValueError(
+                    f"unknown recipe key {key!r} for {family!r} "
+                    f"(known: {sorted(_RECIPE_KEYS)})"
+                )
+            if value is not None and not isinstance(value, str):
+                raise ValueError(
+                    f"recipe {family}.{key} must be a string or null, "
+                    f"got {type(value).__name__}"
+                )
+            parsed[str(key)] = value
+        recipes[str(family)] = parsed
+    return recipes
 
 
 def _family_seed(seed: int, family: str) -> int:
@@ -409,6 +447,7 @@ class _PoolJob:
     pool: object
     model: str | None
     index: int
+    recipe: Mapping[str, object] = field(default_factory=dict)
 
 
 @dataclass
@@ -469,9 +508,13 @@ def _build_jobs(spec: Mapping, catalog) -> list[_PoolJob]:
             family=family,
             n_pools=quota,
         )
+        recipe = (spec.get("family_recipes") or {}).get(family) or {}
         for pool in pools:
             jobs.append(
-                _PoolJob(family=family, pool=pool, model=None, index=len(jobs))
+                _PoolJob(
+                    family=family, pool=pool, model=None, index=len(jobs),
+                    recipe=dict(recipe),
+                )
             )
     quotas = spec.get("model_quotas")
     if quotas:
@@ -529,6 +572,10 @@ def _expand_one(
     candidates = coerce_candidates(
         raw, family=job.family, persona=persona, pool_id=job.pool.pool_id
     )
+    if job.recipe:
+        # Stamp the family recipe onto each candidate (issue 15 transport);
+        # empty recipes keep the candidates byte-identical.
+        candidates = [replace(candidate, **job.recipe) for candidate in candidates]
     return job, candidates
 
 
