@@ -8,13 +8,15 @@ from __future__ import annotations
 
 import itertools
 import re
+from dataclasses import replace
 
 from nutrienv.world.catalog import canonical_food_id, iter_catalog_entries
-from nutrienv.world.daily_windows import derive_profile_windows
+from nutrienv.world.daily_windows import derive_profile_windows, plan_windows_for_meal
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals, normalize_tags
 
 from .generator import Task
+from .occasions import recommend_occasion
 from .portion_table import matches_portion_table
 from .realize import bind_evaluate_reasons
 from .realizations import UPDATE_ROWS
@@ -228,8 +230,11 @@ def validate_draft(task: Task) -> list[str]:
     query = task.query.lower()
     if "catalog id" in query or "food_id" in query:
         issues.append("query leaks food_id")
-    if task.family == "recommend" and _WINDOW_LEAK.search(task.query):
-        issues.append("recommend query leaks window numbers")
+    if task.family == "recommend" or task.oracle.sub_oracles:
+        # Composite queries carry a recommend step even when family is
+        # log/update, so the whole spoken query stays window-number-free.
+        if _WINDOW_LEAK.search(task.query):
+            issues.append("recommend query leaks window numbers")
     if task.family != "evaluate":
         leaked = [
             token for token in _SLUG.findall(query) if token in task.s0.catalog
@@ -253,7 +258,7 @@ def validate_draft(task: Task) -> list[str]:
         if kcal is not None and kcal[1] <= 0:
             issues.append("leftover kcal ceiling is not positive")
 
-    if task.family == "update":
+    if task.family == "update" and not task.oracle.sub_oracles:
         issues.extend(_validate_update(task, query))
     if task.family == "constrain" and "condition_suitability" in task.situations:
         issues.extend(_validate_condition(task, query))
@@ -739,7 +744,49 @@ def _validate_composite(task: Task) -> list[str]:
     )
     if has_unfit and has_substitute:
         issues.append("composite Evaluate-unfit paired with Recommend-substitute")
+    query = task.query.lower()
+    tail: list = []
+    for sub in children:
+        if sub.ledger_tail:
+            tail = list(sub.ledger_tail)
+            break
+    occasion = recommend_occasion(query, tail)
+    eaten: dict[str, float] | None = None
+    for child in children:
+        if _child_is_update(child, task):
+            issues.extend(_validate_update(replace(task, oracle=child), query))
+            continue
+        if child.last_plan != [] or not child.plan_must_fit_windows:
+            continue
+        # The Scorer judges the plan against this child's profile, so the
+        # gate reads the same one (update+recommend children carry the
+        # post-update windows and allergies).
+        profile = child.profile or task.s0.profile
+        if child.plan_windows:
+            if occasion is None:
+                issues.append("composite recommend occasion unresolved")
+            else:
+                if eaten is None:
+                    eaten = ledger_totals([*task.s0.ledger, *tail], task.s0.catalog)
+                expected = plan_windows_for_meal(profile.windows, eaten, occasion)
+                if expected is not None:
+                    for key, bounds in expected.items():
+                        if child.plan_windows.get(key) != bounds:
+                            issues.append(
+                                f"composite plan_windows {key} != expected meal windows {bounds}"
+                            )
+        windows = child.plan_windows or profile.windows
+        if fitting_plan(task.s0.catalog, windows, profile.allergies) is None:
+            issues.append("composite recommend is unpassable")
     return issues
+
+
+def _child_is_update(child, task: Task) -> bool:
+    if child.ledger_tail is not None or child.last_plan is not None:
+        return False
+    if child.profile is None:
+        return False
+    return child.profile != task.s0.profile or bool(child.update_band)
 
 
 def _evaluate_food_names(food_id: str, catalog) -> list[str]:

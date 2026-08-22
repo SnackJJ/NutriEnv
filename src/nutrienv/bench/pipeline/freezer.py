@@ -123,8 +123,9 @@ def _oracle_gram_issues(task: Task) -> list[str]:
 
 def _oracle_payload(oracle: Oracle, *, family: str, s0) -> dict[str, object]:
     if oracle.sub_oracles:
+        # Parent fields are unused (compose_oracles); serializing a "profile"
+        # here would resurrect one on load and break round-trip identity.
         return {
-            "profile": "s0",
             "sub_oracles": [
                 _oracle_payload(sub, family=_sub_family(sub), s0=s0)
                 for sub in oracle.sub_oracles
@@ -148,7 +149,7 @@ def _oracle_payload(oracle: Oracle, *, family: str, s0) -> dict[str, object]:
         _attach_verdict(payload, oracle)
         _attach_update_band(payload, oracle)
         _attach_evaluated_plan(payload, oracle)
-        payload["ledger"] = "s0"
+        payload["ledger"] = _ledger_payload(oracle.ledger, s0)
         return payload
     if oracle.ledger_tail is not None:
         payload["ledger_tail"] = [
@@ -169,7 +170,24 @@ def _oracle_payload(oracle: Oracle, *, family: str, s0) -> dict[str, object]:
     _attach_verdict(payload, oracle)
     _attach_update_band(payload, oracle)
     _attach_evaluated_plan(payload, oracle)
+    if "ledger" not in payload and oracle.ledger is not None:
+        payload["ledger"] = _ledger_payload(oracle.ledger, s0)
     return payload
+
+
+def _ledger_payload(ledger, s0) -> object:
+    """'s0' when the ledger equals S0's, else the explicit row list.
+
+    A composite update child carries ``ledger=()``; dropping the key would
+    load as ``None`` and fail validate_draft's "update oracle ledger is
+    missing" gate on reload.
+    """
+    if tuple(ledger or ()) == tuple(s0.ledger):
+        return "s0"
+    return [
+        {"food_id": row.food_id, "grams": row.grams, "eaten_at": row.eaten_at}
+        for row in (ledger or ())
+    ]
 
 
 def _attach_plan_flags(payload: dict[str, object], oracle: Oracle) -> None:

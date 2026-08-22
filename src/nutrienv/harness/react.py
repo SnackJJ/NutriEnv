@@ -47,13 +47,13 @@ Available ops:
 - finish  (hand-in: stop the episode; the current world is scored)
 
 How an episode is graded:
-- Writes apply immediately. The runner scores the end state when you finish, after a few idle reads, or when the step budget is gone.
-- Text is not a hand-in. Recommend/evaluate tasks only Pass if you submit_plan. Log tasks only Pass if you log_meal the named foods.
+- Writes apply immediately; the end state is scored on finish, idle reads, or step-budget exhaustion.
+- Text is not a hand-in: recommend/evaluate Pass only via submit_plan, log only via log_meal. A multi-step query needs every step's write: ate then "what to eat next" is log_meal then submit_plan; allergy change then dinner ask is update_profile then submit_plan; ate then "is this okay?" is log_meal then verdict=accept.
 - Fields the user did not ask to change must stay as the opening profile/ledger.
-- food_id is a USDA fdc_id from search/get_food (staple slugs such as milk_whole also resolve). Unknown ids are rejected and change nothing.
+- food_id comes from search/get_food (staple slugs like milk_whole also resolve); unknown ids change nothing.
 - Nutrient numbers must come from observations, not prior knowledge. Catalog energy is per 100 g.
 - log_meal without eaten_at is stamped "now". If the query names a meal, copy the ledger's token style (today-breakfast, today-lunch, …).
-- A leftover / already-ate question: daily windows on get_profile are not the meal budget. Ledger rows may include nutrients; use them when present, otherwise use get_food. Subtract eaten nutrients from the daily windows, then submit_plan for the remainder.
+- A leftover / already-ate question: daily windows on get_profile are not the meal budget. Subtract ledger nutrients (rows or get_food) and submit_plan for the remainder.
 - After the required writes, emit finish. submit_plan is a hand-in: do not update_plan afterwards.
 - Profile allergies are catalog allergen_tags (shellfish, peanut), not food names.
 - Evaluate: submit_plan with verdict=accept and the exact named meal, or verdict=reject, empty items, and the closed reason codes that fire (allergy; {kcal,protein_g,carb_g,fat_g,fiber_g,sodium_mg}_hi/_lo). Doing nothing fails.

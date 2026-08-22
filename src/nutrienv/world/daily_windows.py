@@ -162,6 +162,9 @@ def meal_slot_and_remainder(
     share_lo, share_hi = MEAL_ENERGY_SHARE[occasion]
     slot: dict[str, tuple[float, float]] = {}
     remainder: dict[str, tuple[float, float]] = {}
+    # ADR 0014: judged intervals for ALL SIX catalog nutrients. A caller
+    # with a partial window dict fails loudly here instead of silently
+    # widening the judged keys.
     for key in SIX_WINDOW_KEYS:
         daily_lo, daily_hi = daily[key]
         used = float(eaten.get(key, 0.0))

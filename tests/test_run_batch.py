@@ -8,6 +8,8 @@ from pathlib import Path
 import pytest
 
 from nutrienv.bench.pipeline import catalog_digest, pass_through_reviewer, run_batch
+from nutrienv.bench.pipeline.run_batch import quota_ledger
+from nutrienv.bench.realize import Oracle, Task
 from nutrienv.bench.split import load_exam
 
 V05 = Path("data/splits/archive/v0.5-gold.json")
@@ -286,3 +288,18 @@ def test_archived_v05_is_rejected_by_load_exam() -> None:
     payload = V05.read_text(encoding="utf-8")
     assert '"version": "v0.5-gold"' in payload
     assert "data/fdc/archive/catalog.sqlite" in payload
+
+
+def _ledger_item(composite: bool):
+    oracle = Oracle(sub_oracles=(Oracle(), Oracle())) if composite else Oracle()
+    return Task("t", "log", "q", object(), oracle)
+
+
+def test_quota_ledger_enforces_adr_0016_ceilings() -> None:
+    full = [_ledger_item(True)] * 36 + [_ledger_item(False)] * 204
+    ledger = quota_ledger(full, (("log", 204), ("composite", 36)))
+    assert ledger["composite_accepted"] == 36
+    with pytest.raises(ValueError, match="admission slots"):
+        quota_ledger([_ledger_item(True)] * 37, (("composite", 37),))
+    with pytest.raises(ValueError, match="240-item exam"):
+        quota_ledger([_ledger_item(False)] * 241, (("log", 241),))

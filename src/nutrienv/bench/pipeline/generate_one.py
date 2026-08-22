@@ -9,7 +9,7 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 
-from nutrienv.bench.realize import Oracle, Task, realize_evaluate
+from nutrienv.bench.realize import Oracle, Task, compose_oracles, realize_evaluate
 from nutrienv.world.daily_windows import (
     derive_profile_windows,
     estimated_energy_requirement,
@@ -25,6 +25,7 @@ from .sampler import sample_pools
 from .semantic_vote import GRAM_TOLERANCE
 from .templates import recommend_query, update_query
 from .types import (
+    COMPOSITE_ADMISSION_SLOTS,
     DEFAULT_GENERATE_POOL_SIZE,
     FoodPool,
     PoolFood,
@@ -33,6 +34,7 @@ from .types import (
 
 __all__ = [
     "AMOUNT_PATHS",
+    "COMPOSITE_ADMISSION_SLOTS",
     "KNIVES",
     "GenerateOneResult",
     "LogExpander",
@@ -67,6 +69,18 @@ _RECOMMEND_SHELLS_BY_OCCASION: dict[str, str] = {
 }
 # Recommend additionally accepts the thin snack occasion (no energy share).
 _RECOMMEND_OCCASIONS: frozenset[str] = frozenset(_OCCASIONS) | {"snack"}
+_NEXT_OCCASION: dict[str, str] = {
+    "breakfast": "lunch",
+    "lunch": "dinner",
+    "dinner": "dinner",
+}
+_LEGAL_COMPOSITE_PAIRS: frozenset[tuple[str, ...]] = frozenset(
+    {
+        ("log", "recommend"),
+        ("log", "evaluate"),
+        ("update", "recommend"),
+    }
+)
 _NAMED_PORTION_KEYS = frozenset(
     {"cup", "tbsp", "tsp", "slice", "piece", "can", "fl_oz"}
 )
@@ -81,6 +95,12 @@ _HYPHEN_QUANTITY_AND = re.compile(
     r"\d+(?:\.\d+)?)-and-(?:a-)?(half|quarter|third|halves|quarters|thirds)\b"
 )
 _FOOD_SPLIT = re.compile(r",|\band\b|\bwith\b|\bplus\b|&", re.I)
+_LOG_SAY = re.compile(r"\b(?:log|ate|eaten|had)\b", re.I)
+_REC_ASK = re.compile(
+    r"what(?:'s| is) for|what should i (?:eat|have)|should i have|recommend",
+    re.I,
+)
+_EVAL_ASK = re.compile(r"\b(?:evaluate|okay|ok)\b", re.I)
 _PROTECT_SLOT = re.compile(r"\x00(\d+)\x00")
 _MENTION_STOP = frozenset(
     {
@@ -132,12 +152,14 @@ def generate_one(
     last_meal: bool = False,
     shell: str | None = None,
     slots: Mapping[str, str] | None = None,
+    steps: Sequence[str] | None = None,
 ) -> GenerateOneResult:
     """One mill item: roster person → world windows → pool → expander → speech bind.
 
     Recommend items are template-filled (``shell``/``slots``) with no expander.
+    Composite log-then-recommend remainder is computed after the log tail.
     """
-    if family not in {"log", "evaluate", "recommend", "update"}:
+    if family not in {"log", "evaluate", "recommend", "update", "composite"}:
         raise ValueError(f"generate_one does not implement {family!r}")
     if amount_path is not None and amount_path not in AMOUNT_PATHS:
         raise ValueError(f"unknown amount_path {amount_path!r}")
@@ -149,6 +171,17 @@ def generate_one(
         raise ValueError(f"unknown knife {knife!r}")
     if scene not in _SCENES:
         raise ValueError(f"unknown scene {scene!r}")
+
+    pair = tuple(steps) if steps is not None else ("log", "recommend")
+    if family == "composite":
+        if pair == ("evaluate", "recommend"):
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected("", "unfit_substitute", "composite")
+            )
+        if pair not in _LEGAL_COMPOSITE_PAIRS:
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected("", "illegal_pair", "composite")
+            )
 
     rng = random.Random(seed)
     chosen = person if person is not None else sample_roster_person(seed)
@@ -177,6 +210,17 @@ def generate_one(
             seed=seed,
             shell=shell,
             slots=dict(slots or {}),
+        )
+
+    if family == "composite" and pair == ("update", "recommend"):
+        return _update_then_recommend(
+            catalog,
+            chosen=chosen,
+            profile=profile,
+            seed=seed,
+            shell=shell,
+            slots=dict(slots or {}),
+            occasion=occasion,
         )
 
     if family == "log" and (knife is not None or scene != "empty"):
@@ -210,8 +254,25 @@ def generate_one(
         )
     query = str(payload["query"])
     foods = list(payload["foods"])
+    bind_query = query
+    if family == "composite" and pair == ("log", "recommend"):
+        log_span, rec_span, speech_reason = _composite_speech_spans(query)
+        if speech_reason is not None:
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected(query, speech_reason, family)
+            )
+        if _mentioned_pool_ids(rec_span, pool, catalog):
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected(query, "rec_foods", family)
+            )
+        bind_query = log_span
+    elif family == "composite" and pair == ("log", "evaluate"):
+        if not _LOG_SAY.search(query) or not _EVAL_ASK.search(query):
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected(query, "steps", family)
+            )
     bound, reason = _bind_log_foods(
-        query, foods, pool, catalog, occasion, amount_path=path
+        bind_query, foods, pool, catalog, occasion, amount_path=path
     )
     if reason is not None:
         return GenerateOneResult(
@@ -239,6 +300,26 @@ def generate_one(
             amount_path=path,
             last_meal=last_meal,
         )
+    if family == "composite" and pair == ("log", "recommend"):
+        rec_occasion = _NEXT_OCCASION.get(occasion, "dinner")
+        return _log_then_recommend(
+            query,
+            bound,
+            s0,
+            seed=seed,
+            rec_occasion=rec_occasion,
+            persona=chosen.persona,
+        )
+    if family == "composite" and pair == ("log", "evaluate"):
+        return _log_then_evaluate_fit(
+            query,
+            bound,
+            s0,
+            seed=seed,
+            occasion=occasion,
+            persona=chosen.persona,
+            last_meal=last_meal,
+        )
     oracle = Oracle(
         profile=copy.deepcopy(profile),
         ledger_tail=bound,
@@ -254,6 +335,175 @@ def generate_one(
         chosen.persona,
     )
     return GenerateOneResult(accepted=task, rejected=None)
+
+
+def _log_then_recommend(
+    query: str,
+    bound: Sequence,
+    s0: WorldState,
+    *,
+    seed: int,
+    rec_occasion: str,
+    persona: str,
+) -> GenerateOneResult:
+    """Log sub-oracle plus recommend remainder after that log tail."""
+    tail = list(bound)
+    final_ledger = (*s0.ledger, *tail)
+    log_oracle = Oracle(
+        profile=copy.deepcopy(s0.profile),
+        ledger_tail=tail,
+        ledger=final_ledger,
+    )
+    eaten = ledger_totals(list(final_ledger), s0.catalog)
+    plan_windows = plan_windows_for_meal(s0.profile.windows, eaten, rec_occasion)
+    if plan_windows is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "empty_windows", "composite")
+        )
+    rec_oracle = Oracle(
+        profile=copy.deepcopy(s0.profile),
+        last_plan=[],
+        ledger_tail=list(tail),
+        ledger=final_ledger,
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=plan_windows,
+    )
+    task = Task(
+        f"one-comp-{seed:04d}",
+        "log",
+        query,
+        s0,
+        compose_oracles(log_oracle, rec_oracle),
+        ("multi_item_log",),
+        persona,
+    )
+    return GenerateOneResult(accepted=task, rejected=None)
+
+
+def _log_then_evaluate_fit(
+    query: str,
+    bound: Sequence,
+    s0: WorldState,
+    *,
+    seed: int,
+    occasion: str,
+    persona: str,
+    last_meal: bool,
+) -> GenerateOneResult:
+    """Log the named meal and accept it as the Evaluate plate."""
+    items = [{"food_id": row.food_id, "grams": float(row.grams)} for row in bound]
+    draft = _realize_eval(
+        f"one-comp-{seed:04d}",
+        query,
+        items,
+        s0,
+        occasion,
+        ("evaluate_fit",),
+        persona,
+        last_meal=last_meal,
+    )
+    if isinstance(draft, GenerateOneResult):
+        return draft
+    if draft.oracle.last_verdict != "accept":
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "not_fit", "composite")
+        )
+    tail = list(bound)
+    final_ledger = (*s0.ledger, *tail)
+    log_oracle = Oracle(
+        profile=copy.deepcopy(s0.profile),
+        ledger_tail=tail,
+        ledger=final_ledger,
+    )
+    eval_oracle = replace(draft.oracle, ledger=final_ledger)
+    task = Task(
+        f"one-comp-{seed:04d}",
+        "log",
+        query,
+        s0,
+        compose_oracles(log_oracle, eval_oracle),
+        # Split-vocabulary tag, same as log+recommend composites: the
+        # evaluate-fit shape lives in the child oracle's accept verdict.
+        ("multi_item_log",),
+        persona,
+    )
+    return GenerateOneResult(accepted=task, rejected=None)
+
+
+def _update_then_recommend(
+    catalog: Mapping,
+    *,
+    chosen: RosterPerson,
+    profile: object,
+    seed: int,
+    shell: str | None,
+    slots: dict[str, str],
+    occasion: str,
+) -> GenerateOneResult:
+    """Update the profile, then recommend against the final windows and allergies."""
+    upd = _update_from_template(
+        catalog,
+        chosen=chosen,
+        profile=profile,
+        seed=seed,
+        shell=shell,
+        slots=slots,
+    )
+    if upd.accepted is None:
+        rejected = upd.rejected
+        reason = rejected.reason if rejected is not None else "template"
+        query = rejected.query if rejected is not None else ""
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, reason, "composite")
+        )
+    update_task = upd.accepted
+    expected = update_task.oracle.profile
+    rec_shell = _RECOMMEND_SHELLS_BY_OCCASION.get(occasion)
+    rec_text = (
+        recommend_query(rec_shell, {"occasion": occasion}) if rec_shell else None
+    )
+    if rec_text is None:
+        return GenerateOneResult(
+            accepted=None,
+            rejected=Rejected(update_task.query, "template", "composite"),
+        )
+    query = f"{update_task.query} {rec_text}"
+    s0 = update_task.s0
+    eaten = ledger_totals(list(s0.ledger), s0.catalog)
+    plan_windows = plan_windows_for_meal(expected.windows, eaten, occasion)
+    if plan_windows is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "empty_windows", "composite")
+        )
+    rec_oracle = Oracle(
+        profile=copy.deepcopy(expected),
+        last_plan=[],
+        ledger=tuple(s0.ledger),
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=plan_windows,
+    )
+    task = Task(
+        f"one-comp-{seed:04d}",
+        "update",
+        query,
+        s0,
+        compose_oracles(update_task.oracle, rec_oracle),
+        (),
+        chosen.persona,
+    )
+    return GenerateOneResult(accepted=task, rejected=None)
+
+
+def _composite_speech_spans(query: str) -> tuple[str, str, str | None]:
+    """Split a composite query into the log span and the recommend ask."""
+    if not _LOG_SAY.search(query):
+        return "", "", "steps"
+    rec = _REC_ASK.search(query)
+    if rec is None:
+        return "", "", "steps"
+    return query[: rec.start()], query[rec.start() :], None
 
 
 def _recommend_from_template(
@@ -838,18 +1088,31 @@ def parse_query_foods_payload(payload: object) -> dict[str, object] | None:
     return {"query": query.strip(), "foods": foods}
 
 
-def build_log_system_prompt(*, amount_path: str, persona: str = "everyday") -> str:
+def build_log_system_prompt(
+    *, amount_path: str, persona: str = "everyday", family: str = "log"
+) -> str:
     """Amount-path instructions for the Log expander. Unspecified does not teach serving-of."""
     if amount_path not in AMOUNT_PATHS:
         raise ValueError(f"unknown amount_path {amount_path!r}")
-    lines = [
-        "Compose one plausible meal from the food pool and write one user query.",
-        "Return exactly one JSON object and nothing else:",
-        '{"query":"<one sentence>","foods":["<pool food_id>", ...]}',
-        "foods are pool ids. Do not put grams in the JSON.",
-        "The query names each chosen food in natural speech.",
-        "Do not leak window numbers or food_id slugs in the query.",
-    ]
+    if family == "composite":
+        lines = [
+            "Compose one plausible meal the user already ate, then ask what to eat next.",
+            "Return exactly one JSON object and nothing else:",
+            '{"query":"<log the meal, then ask for the next meal>","foods":["<pool food_id>", ...]}',
+            "foods are pool ids for the logged meal only. Do not put grams in the JSON.",
+            "The query names each logged food in natural speech, then asks what to eat next.",
+            "Do not name foods for the next meal. The recommend step is a free request.",
+            "Do not leak window numbers or food_id slugs in the query.",
+        ]
+    else:
+        lines = [
+            "Compose one plausible meal from the food pool and write one user query.",
+            "Return exactly one JSON object and nothing else:",
+            '{"query":"<one sentence>","foods":["<pool food_id>", ...]}',
+            "foods are pool ids. Do not put grams in the JSON.",
+            "The query names each chosen food in natural speech.",
+            "Do not leak window numbers or food_id slugs in the query.",
+        ]
     if amount_path == AMOUNT_EXPLICIT_GRAMS:
         lines.append(
             'Amount path is explicit grams: you may write household grams such as "150 g".'
@@ -869,7 +1132,7 @@ def build_log_system_prompt(*, amount_path: str, persona: str = "everyday") -> s
     return "\n".join(lines)
 
 
-def build_log_user_prompt(pool: FoodPool) -> str:
+def build_log_user_prompt(pool: FoodPool, *, family: str = "log") -> str:
     """Pool table for the Log expander. foods in JSON must be these ids."""
     lines = [
         f"Food pool {pool.pool_id} (pick 1-3 foods; JSON foods must be pool ids):",
@@ -878,8 +1141,12 @@ def build_log_user_prompt(pool: FoodPool) -> str:
         spoken = food.aliases[0] if food.aliases else food.name.split(",", 1)[0]
         lines.append(f"- id={food.food_id} spoken={spoken} — {food.name}")
     lines.append("")
-    lines.append("The user already ate this meal. Write a log request.")
-    lines.append("Compose one meal. Output the JSON object only.")
+    if family == "composite":
+        lines.append("The user already ate this meal and now asks what to eat next.")
+        lines.append("foods JSON covers the logged meal only. Output the JSON object only.")
+    else:
+        lines.append("The user already ate this meal. Write a log request.")
+        lines.append("Compose one meal. Output the JSON object only.")
     return "\n".join(lines)
 
 
@@ -907,10 +1174,10 @@ class LogExpander:
             {
                 "role": "system",
                 "content": build_log_system_prompt(
-                    amount_path=amount_path, persona=persona
+                    amount_path=amount_path, persona=persona, family=family
                 ),
             },
-            {"role": "user", "content": build_log_user_prompt(pool)},
+            {"role": "user", "content": build_log_user_prompt(pool, family=family)},
         )
         last: dict[str, object] = {"query": "", "foods": []}
         for _attempt in range(1 + self._parse_retries):

@@ -9,10 +9,9 @@ from pathlib import Path
 
 from nutrienv.bench.grams_gate import plausibility_gate
 from nutrienv.bench.realize import Task, scored_oracles
-from nutrienv.bench.validator import fitting_plan, validate_draft
+from nutrienv.bench.validator import validate_draft
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.portions import resolve_portion
-from nutrienv.world.types import ledger_totals
 
 from .expander import LlmExpander, coerce_candidates, make_llm_expander, synthetic_expander
 from .freezer import freeze_tasks
@@ -31,7 +30,7 @@ from .semantic_vote import (
 from .types import (
     BASE_EXAM_QUOTA,
     CATALOG_V1_RELPATH,
-    COMPOSITE_EXTRA_QUOTA,
+    COMPOSITE_ADMISSION_SLOTS,
     DEFAULT_COMPOSITE_SAMPLE_RELPATH,
     DEFAULT_FREEZE_RELPATH,
     PIPELINE_VERSION,
@@ -241,18 +240,34 @@ def write_composite_sample(
 def quota_ledger(
     accepted: Sequence[Task], family_quotas: Sequence[tuple[str, int]]
 ) -> dict[str, object]:
-    """Base 240 vs composite extra, counted separately (ADR 0013)."""
-    base_accepted: dict[str, int] = {}
+    """The published 240 includes the 36 composite slots (ADR 0016).
+
+    Composite items are not an extra quota on top of the exam: they sit
+    inside ``BASE_EXAM_QUOTA`` through ``COMPOSITE_ADMISSION_SLOTS`` and use
+    the same roster. The ledger still counts single-family and composite
+    acceptances separately so drift from either slice stays visible.
+    """
+    single_accepted: dict[str, int] = {}
     composite_accepted = 0
     for task in accepted:
         if task.oracle.sub_oracles:
             composite_accepted += 1
             continue
-        base_accepted[task.family] = base_accepted.get(task.family, 0) + 1
+        single_accepted[task.family] = single_accepted.get(task.family, 0) + 1
+    if composite_accepted > COMPOSITE_ADMISSION_SLOTS:
+        raise ValueError(
+            f"composite accepted {composite_accepted} exceeds the "
+            f"{COMPOSITE_ADMISSION_SLOTS} admission slots inside the exam (ADR 0016)"
+        )
+    total = sum(single_accepted.values()) + composite_accepted
+    if total > BASE_EXAM_QUOTA:
+        raise ValueError(
+            f"accepted {total} items exceed the {BASE_EXAM_QUOTA}-item exam (ADR 0016)"
+        )
     return {
-        "base_quota": BASE_EXAM_QUOTA,
-        "composite_extra_quota": COMPOSITE_EXTRA_QUOTA,
-        "base_accepted": base_accepted,
+        "exam_quota": BASE_EXAM_QUOTA,
+        "composite_admission_slots": COMPOSITE_ADMISSION_SLOTS,
+        "single_family_accepted": single_accepted,
         "composite_accepted": composite_accepted,
         "requested": {family: count for family, count in family_quotas},
     }
@@ -311,34 +326,6 @@ def _implausible(task: Task, catalog, judge: Judge) -> bool:
         if not accepted:
             return True
     return False
-
-
-def _composite_draft_issues(task: Task) -> list[str]:
-    if not task.oracle.sub_oracles:
-        return []
-    issues: list[str] = []
-    tail: list = []
-    for sub in task.oracle.sub_oracles:
-        if sub.ledger_tail:
-            tail = list(sub.ledger_tail)
-            break
-    eaten = ledger_totals([*task.s0.ledger, *tail], task.s0.catalog)
-    for sub in task.oracle.sub_oracles:
-        if sub.last_plan != [] or not sub.plan_must_fit_windows:
-            continue
-        if sub.plan_windows:
-            for key, (lo, hi) in task.s0.profile.windows.items():
-                used = eaten.get(key, 0.0)
-                expected = (
-                    round(max(0.0, lo - used), 2),
-                    round(max(0.0, hi - used), 2),
-                )
-                if sub.plan_windows.get(key) != expected:
-                    issues.append(f"composite plan_windows {key} != remainder {expected}")
-        windows = sub.plan_windows or task.s0.profile.windows
-        if fitting_plan(task.s0.catalog, windows, task.s0.profile.allergies) is None:
-            issues.append("composite recommend is unpassable")
-    return issues
 
 
 def _parse_spec(batch_spec: Mapping) -> dict:
@@ -656,7 +643,6 @@ def _finish_one(
                         for issue in draft_issues
                         if "not mentioned in the query" not in issue
                     ]
-                draft_issues.extend(_composite_draft_issues(task))
                 if draft_issues:
                     draft_fail = True
         cands.append(
