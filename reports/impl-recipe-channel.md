@@ -452,3 +452,106 @@ $ .venv/bin/python -m pytest -q
 ```
 
 (Previously 1309; net +3 tests, 0 failures.)
+
+## Final re-review (claude opus)
+
+**Verdict: ACC.** Both blockers are closed and verified by probe. `tier` is now
+value-checked against `EVALUATE_TIERS` and gated to the families that mean it;
+the no-op `evaluate.occasion` knob is gone. Two Low residuals remain — neither
+can produce a bad exam artifact, both are one-line follow-ups.
+
+### Finding status
+
+| # | Finding | Status | Evidence |
+|---|---|---|---|
+| NEW-1 | High — `tier` unvalidated → unloadable split | **Resolved** (one Low residual) | `run_batch.py:462` checks `value not in EVALUATE_TIERS`. Probes: `evaluate:tier=bogus-tier` → `ValueError: recipe evaluate.tier must be one of ['explicit_grams','long','pair','single','synonym','triple']`; `log:tier=single` and `update:tier=single` → `recipe key 'tier' is not supported for … (allowed: [])`. All six declared tiers round-trip: run_batch → `freeze_tasks` → `load_split` preserves the tier with `validate_draft == []`. Residual R-1 below. |
+| NEW-2 | Medium — `evaluate.occasion` silent no-op | **Resolved** | `occasion` dropped from evaluate's key set (`run_batch.py:417`, now `{"knife","tier"}`). Probe: `evaluate:occasion=breakfast` → `recipe key 'occasion' is not supported for 'evaluate' (allowed: ['knife','tier'])`. The knife branch derives the occasion from the spoken query (`resolver.py:509`). Pinned by `test_evaluate_occasion_knob_is_no_longer_accepted`. No accepted knob is a no-op any more. |
+| Low-1 | dead `fit_task` parameter | **Resolved** | Parameter removed from `_realize_evaluate_knife`; the discarded `_realize_evaluate` call is kept with an explicit comment naming what it is for ("Building the fit oracle doubles as the named-foods gate", `resolver.py:300`). The implicit gate is now named, which is what the finding asked for. |
+| Low-2 | `"A, and B, and C"` plate speech | **Resolved** | `', '.join(parts)` (`resolver.py:583`). Emitted: `"Evaluate this as dinner: 316 g of rice, 27 g of olive oil, 16 g of peanut butter."` — plain comma list, gram-exact, covered by the v1 manual line "Grams (\"150 g\") are already grams" (`harness/react.py:75`). No new agent-side convention, so react.py stays untouched (discipline 4 holds). |
+| Low-3 | duplicated `olive_oil` fixture block | **Not resolved** | See R-2. |
+| Low-4 | mill/batch situations asymmetry | **Open follow-up** (as agreed) | `generate_one.py:956` still stamps `("evaluate_unfit", knife)`; `_situations(['evaluate_unfit','allergy'])` still raises `unknown situations`. Correctly scoped out of this diff; should be tracked. |
+
+### Residual concerns (non-blocking)
+
+- **R-1 (Low) — `recommend` is still tierable, so batch and mill still disagree
+  on half the invariant** (`src/nutrienv/bench/pipeline/run_batch.py:418`).
+  `_RECIPE_KEYS["recommend"]` keeps `tier`, so
+  `family_recipes={"recommend": {"tier": "pair"}}` is accepted and freezes a
+  row with `family=recommend, tier='pair'`. `generate_one.py:173`
+  (`if tier and (family != "evaluate" or tier not in EVALUATE_TIERS)`) refuses
+  exactly that input, and this commit's own comment claims the guard is
+  mirrored ("nobody tiers a log or invents a tier"). The value half and the
+  log/update/composite half are mirrored; the recommend half is not.
+  Why this is not a blocker: the row is fully valid downstream — probe shows
+  `load_split` round-trips it, `validate_draft == []`, and
+  `evaluate_tier_coverage` counts it toward nothing (it filters
+  `task.family == "evaluate"`, `quality_gates.py:189`). So it is inert
+  authoring metadata, not a corrupt or unloadable artifact — unlike the
+  original NEW-1. **Follow-up:** `"recommend": frozenset({"occasion"})`.
+
+- **R-2 (Low) — the duplicated fixture write survived the fix**
+  (`tests/test_run_batch.py:345-359`). The intent was "define `olive_oil` once
+  (setdefault + update)", but the original full reassignment at `:353` was left
+  in place and overwrites the new `.update()` at `:345`. Net effect: the dead
+  half moved rather than disappeared, and `olive_oil` is now written three
+  times (`setdefault` + nutrients loop, `.update`, full reassign). Test-only,
+  no behaviour change. **Follow-up:** delete the `:353` reassignment.
+
+- **N-1 (note, not a defect) — knife candidates must now speak "for &lt;meal&gt;".**
+  With the `occasion` override gone, the knife branch's only occasion source is
+  `occasion_from_query`, which matches the literal `\bfor (breakfast|lunch|
+  dinner|snack)\b` pattern (`occasions.py:33`). That is why `_EVALUATE_FIT` had
+  to be reworded to "Evaluate **what I should eat for dinner**: two cups of
+  rice, …" — phrasing that reads like a recommend ask on an evaluate plate.
+  Worth recording in the recipe spec as a constraint on knife candidate
+  queries, and worth a second look at that fixture wording.
+  Related asymmetry: the rewriter emits "Evaluate this as dinner: …", for which
+  `occasion_from_query` returns `None` — the deterministic rewriter produces a
+  form the project's own occasion parser cannot read. Inert today: the knife
+  occasion is captured into `oracle.plan_windows` at build time and never
+  re-derived from the frozen query, and the validator's only occasion re-derive
+  (`validator.py:753`) is on recommend/composite legs. Flagging because
+  `occasions.py`'s own docstring anticipates resolver and validator resolving
+  the same occasion the same way.
+
+### Evidence
+
+```
+$ .venv/bin/python -m pytest tests/test_run_batch.py -q
+29 passed in 0.19s
+
+$ .venv/bin/python -m pytest -q
+1312 passed in 51.29s          # 0 failed
+```
+
+```
+[N1a evaluate:tier=bogus]  ValueError: recipe evaluate.tier must be one of
+                           ['explicit_grams','long','pair','single','synonym','triple']
+[N1b log:tier=single]      ValueError: recipe key 'tier' is not supported for 'log'
+[N1b' update:tier=single]  ValueError: recipe key 'tier' is not supported for 'update'
+[N1c recommend:tier=pair]  ACCEPTED  family=recommend tier='pair' reloads=OK
+                           validate=[]  tier_coverage(pair)=0        <- R-1
+[N2 evaluate:occasion]     ValueError: recipe key 'occasion' is not supported
+                           for 'evaluate' (allowed: ['knife','tier'])
+[N1 valid tiers]           all 6 freeze->load round-trip, tier preserved,
+                           validate_draft == []
+```
+
+Knife path re-probed on `8ed4e5f` with the `occasion` knob removed — all three
+exposed knives still land ADR-0017-shaped:
+
+```
+[allergy]    "Evaluate this as dinner: 316 g of rice, 27 g of olive oil, 16 g of peanut butter."
+             gram-exact=True reasons=('allergy','kcal_hi') rebind=True
+             situations=() evaluate_unfits=True validate_draft=[]
+[over_slot]  gram-exact=True  [under_slot] gram-exact=True   (same envelope)
+```
+
+Commit scope: `8ed4e5f` touches `reports/impl-recipe-channel.md`,
+`resolver.py`, `run_batch.py`, `tests/test_run_batch.py` only — no ADR, split,
+sqlite, scorer, validator, review-harness, quality-gates, or `react.py` change.
+`Pass ⇔ end state == Oracle` and the frozen-split exam contract are untouched.
+
+**RELEASE: the per-family recipe channel (`evaluate:knife`, `evaluate:tier`,
+`recommend:occasion`, `recommend:tier`) is accepted for use.** R-1, R-2 and the
+generate_one situations asymmetry are tracked follow-ups, not release gates.
