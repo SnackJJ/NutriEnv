@@ -122,7 +122,7 @@ def run_batch(
         raise ValueError("expander, judge, and reviewer must be injected")
     if isinstance(workers, bool) or not isinstance(workers, int) or workers < 1:
         raise ValueError("workers must be an int >= 1")
-    spec = _parse_spec(batch_spec)
+    spec = parse_spec(batch_spec)
     # Fail before any job runs: items/amount_path recipes are synthetic-only
     # (same message as the per-job defence-in-depth guard in _expand_one),
     # so a mixed-quota real batch does not waste LLM calls before failing.
@@ -344,7 +344,7 @@ def _implausible(task: Task, catalog, judge: Judge) -> bool:
     return False
 
 
-def _parse_spec(batch_spec: Mapping) -> dict:
+def parse_spec(batch_spec: Mapping) -> dict:
     if not isinstance(batch_spec, Mapping):
         raise ValueError("batch_spec must be a mapping")
     if "seed" not in batch_spec:

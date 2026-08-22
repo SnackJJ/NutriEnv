@@ -277,9 +277,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     # failures here are rejections, while later run_batch failures keep their
     # own reporting.
     try:
-        from nutrienv.bench.pipeline.run_batch import _parse_spec
+        from nutrienv.bench.pipeline.run_batch import parse_spec
 
-        _parse_spec(spec)
+        parse_spec(spec)
     except ValueError as exc:
         raise SystemExit(f"batch spec rejected: {exc}")
 

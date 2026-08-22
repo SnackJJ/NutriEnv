@@ -92,8 +92,6 @@ def resolve_candidate(
             return None, Rejected(
                 candidate.query, "allergen_clash", candidate.family
             )
-        allergies = chosen.allergies
-        persona = chosen.persona
 
     # Recommend/update oracles carry no bound grams (free plan / profile
     # patch), so there is nothing to gram-backresolve; the spoken foods are
