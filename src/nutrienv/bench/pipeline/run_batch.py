@@ -126,10 +126,7 @@ def run_batch(
         for recipe in spec["family_recipes"].values()
         for key in recipe
     ) and expander is not synthetic_expander:
-        raise ValueError(
-            "recipe items/amount_path require the synthetic expander "
-            "(--synthetic); the LLM expander cannot honour them yet"
-        )
+        raise ValueError(_HINTS_NEED_SYNTHETIC)
     digest = catalog_digest(catalog)
     if digest != spec["catalog_sha"]:
         raise ValueError(
@@ -425,6 +422,12 @@ def _parse_spec(batch_spec: Mapping) -> dict:
 # the knife branch from the spoken query, so it is not an advertised knob
 # there. ``swap`` is excluded from knives because its grams derive from
 # target kcal rather than a catalog/QNS portion.
+# Shared by the run_batch entry guard and the per-job guard so a future
+# wording change cannot silently desynchronise the two fail-early paths.
+_HINTS_NEED_SYNTHETIC = (
+    "recipe items/amount_path require the synthetic expander "
+    "(--synthetic); the LLM expander cannot honour them yet"
+)
 _RECIPE_KEYS: dict[str, frozenset[str]] = {
     "evaluate": frozenset({"knife", "tier", "items", "amount_path"}),
     "recommend": frozenset({"occasion"}),
@@ -643,10 +646,7 @@ def _expand_one(
         # Fail closed: a real (LLM) run must not accept --recipe
         # items/amount_path and silently ignore them. LLM prompt shells are
         # issue-15 design; knife/tier recipes keep working everywhere.
-        raise ValueError(
-            "recipe items/amount_path require the synthetic expander "
-            "(--synthetic); the LLM expander cannot honour them yet"
-        )
+        raise ValueError(_HINTS_NEED_SYNTHETIC)
     raw = expander(job.pool, persona=persona, family=job.family, **hints)
     candidates = coerce_candidates(
         raw, family=job.family, persona=persona, pool_id=job.pool.pool_id
