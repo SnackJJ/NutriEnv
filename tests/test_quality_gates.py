@@ -616,3 +616,11 @@ def test_caller_declared_custom_tiers_are_counted():
     assert evaluate_tier_coverage(tasks, floors={"knife_swap": 2}).missing == (
         "knife_swap",
     )
+
+
+def test_allergen_matching_normalizes_tags():
+    tasks = [
+        _task("rec-messy", query="Shrimp tonight?", allergies=("  Shellfish ",)),
+        _task("rec-clean", query="Shrimp tonight?", allergies=("shellfish",)),
+    ]
+    assert constrained_recommends(tasks) == ("rec-messy", "rec-clean")

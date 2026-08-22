@@ -211,6 +211,10 @@ def evaluate_unfits(tasks: Sequence[Task]) -> tuple[str, ...]:
     )
 
 
+def _tag(token: object) -> str:
+    return str(token).strip().lower()
+
+
 def _query_names_allergen_food(task: Task) -> bool:
     """True when the query names a catalog food carrying a profile allergen.
 
@@ -218,12 +222,12 @@ def _query_names_allergen_food(task: Task) -> bool:
     the profile. Names, aliases, and slugs match as whole phrases so
     ``prawns`` finds ``shrimp``.
     """
-    banned = {str(tag) for tag in task.s0.profile.allergies}
+    banned = {_tag(token) for token in task.s0.profile.allergies}
     if not banned:
         return False
     query = re.sub(r"[^a-z0-9]+", " ", task.query.lower())
     for food_id, entry in iter_catalog_entries(task.s0.catalog):
-        tags = {str(tag) for tag in entry.get("allergen_tags") or ()}
+        tags = {_tag(tag) for tag in entry.get("allergen_tags") or ()}
         if not tags & banned:
             continue
         name = str(entry.get("name") or "")
