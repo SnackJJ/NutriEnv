@@ -209,3 +209,82 @@ $ .venv/bin/python -m pytest -q
 ........................................................................ [100%]
 1320 passed in 55.28s        # 0 failed (was 1318; +2 tests)
 ```
+
+## Re-review (claude opus)
+
+**Verdict: ACC.** All six findings resolved, each verified by probe rather than
+by diff reading. The two blockers are properly closed: the R-1 revert is undone
+*and* pinned by a named regression test, and the expander hints now raise
+instead of vanishing — on both the serial and threaded paths. I also re-swept
+every previously-closed recipe-channel finding; none regressed.
+
+### Finding status
+
+| # | Finding | Status | Evidence |
+|---|---|---|---|
+| F-1 | High — silent revert of the accepted R-1 fix | **Resolved** | `run_batch.py:418` back to `frozenset({"occasion"})` with the 333ab82 comment restored. Probe: `_RECIPE_KEYS["recommend"] == {"occasion"}`; `recommend:tier=pair` → `recipe key 'tier' is not supported for 'recommend' (allowed: ['occasion'])`; `recommend:occasion=dinner` still accepted. Now pinned by `test_recommend_tier_recipe_stays_refused` (`:795`) — the guard that was missing when this regressed. |
+| F-2 | High — hints silently discarded on non-synthetic expanders | **Resolved** | `run_batch.py:630-637` raises instead of blanking. Probed at **workers=1 and workers=4**: both raise `recipe items/amount_path require the synthetic expander (--synthetic); the LLM expander cannot honour them yet` — `future.result()` re-raises, so the threaded path fails closed too. No collateral: `knife`+`tier` recipes still work on a non-synthetic expander (accepted, `tier='single'`). Synthetic path intact: `items=3 + tier=triple` → 3-food plate, `validate_draft == []`, freeze→load preserves 3 foods and the tier. Pinned by `test_items_and_amount_path_hints_require_the_synthetic_expander` (`:812`). |
+| F-3 | Medium — two accepted `amount_path` no-ops | **Resolved** | `run_batch.py:426` is now `frozenset({"explicit_grams"})`, and the comment says so ("there are no accepted no-op values"). Probes: `named_measure`, `unspecified`, `bogus` all → `amount_path must be one of ['explicit_grams']`; `explicit_grams` still produces `"Evaluate this as my plan: 50 g of eggs, and 13.5 g of olive oil."` |
+| F-4 | Low — `explicit_grams` fell back to the table phrase | **Resolved** | `expander.py:179` → `return None if one is None else f"{one:g} g"`, commented as fail-closed "like items". Because the branch is unreachable on the real catalog, I exercised it directly: took a real pool food, stripped its `quantity == 1.0` alternatives (leaving qty 0.5/1.5/2.0, still speakable — `_preferred_phrase` returns "half a cup"), and ran both paths. Default → `half a cup of Milk`; `explicit_grams` → `{"items": [], "query": ""}`. Fail-closed confirmed, default path untouched. |
+| F-5 | Low — parameter shadowing | **Resolved** | Payload list renamed `payload_items` (`expander.py:215`) with a comment naming the reason; all five return sites updated (`:225`, `:232`, `:240`, `:270`). No `items = [` rebinding remains. Behaviour unchanged — probe outputs byte-identical to the pre-fix run. |
+| F-6 | Low — bare `pytest.raises(ValueError)` | **Resolved** | `tests/test_run_batch.py:770-790` now drives a `(recipe, message)` table with `match=`, and grew two cases (`named_measure`, `unspecified`) that double as F-3's regression guard. |
+
+### Regression sweep
+
+F-1 was a silent revert, so I re-verified every recipe-channel finding closed in
+earlier rounds rather than assuming they held:
+
+```
+evaluate:tier=bogus (NEW-1)       rejected: tier must be one of [...]
+log:tier=single     (NEW-1b)      rejected: not supported for 'log' (allowed: [])
+update:tier=single  (NEW-1b)      rejected: not supported for 'update' (allowed: [])
+evaluate:occasion   (NEW-2)       rejected: not supported for 'evaluate'
+evaluate:knife=swap (finding 6)   rejected: unsupported evaluate knife 'swap'
+recommend:shell     (finding 5)   rejected: not supported for 'recommend'
+recommend:scene     (finding 5)   rejected: not supported for 'recommend'
+unrequested family                rejected: not among the requested family_quotas
+evaluate:tier=None                rejected: must be a non-empty string
+knife allergy                     reasons=('allergy','kcal_hi') gram_exact=True tier='single'
+empty recipe == no recipe         True
+```
+
+All hold. Nothing else in this commit changed behaviour.
+
+### Notes (non-blocking)
+
+- **N-1 — the guard fires per job, not at `run_batch` entry**
+  (`run_batch.py:630`). Every job carrying the offending recipe hits the check
+  *before* its own `expander(...)` call, so the single-family case wastes
+  nothing. But with a mixed quota — say `{"evaluate": 1, "log": 5}` and a recipe
+  only on `evaluate` — the recipe-free `log` jobs are already in flight and, on
+  a real run, would spend LLM calls before the evaluate job's failure surfaces.
+  `run_batch` has both the parsed spec and the expander in hand at `:116`; a
+  check there would fail before pool sampling. Cheap improvement, not a defect.
+- **N-2 — `scripts/generate_batch.py` still advertises `items`/`amount_path`
+  in its flat `RECIPE_KEYS` with no `--synthetic` awareness.** Acceptable as
+  is: the library fails closed and the message names `--synthetic`, which is
+  the actionable instruction. Noting it only because a CLI-side pre-check would
+  fail earlier and cheaper (this is the same fix as N-1).
+- **N-3 — the rewritten `_RECIPE_KEYS` comment dropped the clause "whose value
+  must be a declared EVALUATE_TIERS entry."** The check itself is intact and
+  verified (`evaluate:tier=bogus` → rejected); only the comment is now less
+  specific than the code it documents.
+
+### Evidence
+
+```
+$ .venv/bin/python -m pytest tests/test_run_batch.py tests/test_expander.py -q
+75 passed in 0.70s
+
+$ .venv/bin/python -m pytest -q
+1320 passed in 48.57s          # 0 failed
+```
+
+Commit scope: `29c9057` touches `reports/spec-recipe-items.md`,
+`src/nutrienv/bench/pipeline/expander.py`,
+`src/nutrienv/bench/pipeline/run_batch.py`, `tests/test_run_batch.py`. No ADR,
+`data/splits/*`, `*.sqlite`, `scorer.py`, `validator.py`, `review_harness.py`,
+or `quality_gates.py` change. `Pass ⇔ end state == Oracle` unaffected.
+
+**RELEASE: recipe items/amount_path base transport is released.** N-1/N-2/N-3
+are tracked improvements, not release gates.
