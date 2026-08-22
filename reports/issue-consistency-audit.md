@@ -81,3 +81,10 @@ coverage / Evaluate-unfit floors（`_recommend_lenses` / `_evaluate_lenses`，
 commit fec223d，spec 见 `reports/spec-composite-floors.md`，实现报告
 `reports/impl-composite-floors.md`）。剩余前置只有 14 的四条"等新 exam"断言
 与 Phase 5 试点。
+## 更新（2026-08-23）：checkbox 补勾完成
+
+按上表核对的"漏勾"项已全部补勾（.scratch 记录）：
+- 01/02/03/04/07/08/11：34 个 checkbox 全部 [x]（实现已在表中核实：scorer verdict、types.py body facts、update bands、knives、模板+band 门、catalog immutable）。
+- 14：`检查函数不硬编码 data/splits/*.json 或具体 item id` 已核对勾选（quality_gates.py 无路径/ID 字面量）；其余 4 项（persona×过敏原覆盖 / Evaluate 全 tier / leftover 24 / situation floors）仍等新 exam 冻结产物（issue 15 交付后验收）。
+- 04 的 Status 补注"checkbox 实现核对后补勾"。
+剩余直接依赖 design 裁决的只有 issue 15 的 4 个 checkbox（配额确认、批量产、floors 达标、冻结+14 验收）。
