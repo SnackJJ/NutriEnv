@@ -243,3 +243,151 @@ $ .venv/bin/python -m pytest -q
 ........................................................................ [100%]
 1329 passed in 52.08s        # 0 failed (was 1326; net +3 tests)
 ```
+
+## Re-review (claude opus)
+
+**Verdict: REV.** All four findings are genuinely resolved — verified by probe,
+including the composite child reaching the *real* `recommend_coverage` gate and
+the CLI now exiting cleanly. But the fix that closed F-2 silently removed a
+deliberate guard: `allergies = chosen.allergies` replaces `_log_allergies`
+unconditionally, so a chosen person's allergen and the drafted foods are now
+picked independently with no collision check. That produces a composite that
+logs a food the profile is allergic to, and — on the evaluate path — silently
+drops the allergen so the item contributes nothing to coverage.
+
+### Finding status
+
+| # | Finding | Status | Evidence |
+|---|---|---|---|
+| F-1 | High — `person` no-op on `log` and evaluate-fit | **Resolved** | `log` removed from `_RECIPE_KEYS` (`run_batch.py:436-441`, with a comment saying why); probe: `log:person=roster-cam` → `recipe key 'person' is not supported for 'log' (allowed: [])`. Evaluate-fit took the thread-it-through route (`resolver.py:299-302`, `:510-528`): probe `evaluate:person=roster-cam` → `persona='cut'`, `allergies=('egg',)` vs baseline `'everyday'`/`('peanut',)`, task **not** identical to the no-person run. The rule is consistent — no accepted `person` value is now inert. |
+| F-2 | Medium — `composite:person` windows-only | **Resolved** | `_realize`(`resolver.py:299-302`) now takes allergies **and** persona from the chosen roster person and feeds both into the composite Material. Probe against the **real** gate: `composite:person=roster-cam` → `persona='cut'`, `s0.allergies=('egg',)`, `child.allergies=('egg',)`, `recommend_coverage([task], personas=("cut",), allergen_tags=("egg",))` → `missing_personas=() missing_allergens=()`. Freeze→load keeps the child allergies (pinned by the new test). |
+| F-3 | Low — proxy assertion | **Resolved** | `_recommend_lens_allergies` helper deleted; `test_mixed_person_recipes_cover_cut_and_both_allergens` now asserts `"egg" not in report.missing_allergens` and `"milk" not in report.missing_allergens` off the real `recommend_coverage` report. |
+| F-4 | Low — private import + CLI traceback | **Resolved** | `resolve_roster_person` is public (`resolver.py:344`), imported normally by `run_batch.py:22`. CLI probes: `--recipe log:person=roster-cam` → `batch spec rejected: recipe key 'person' is not supported for 'log'`; `--recipe recommend:person=roster-bogus` → `batch spec rejected: unknown roster person 'roster-bogus'`. No traceback, matching the sibling guards. Happy path end to end: `--recipe composite:person=roster-cam --synthetic` wrote an item with `persona=cut allergies=['egg']`. |
+
+### New findings
+
+- **N-1 (Medium) — the `_log_allergies` collision guard is bypassed on the
+  person path, so a composite can log a food its own profile is allergic to**
+  (`src/nutrienv/bench/pipeline/resolver.py:301`). `_log_allergies`
+  (`resolver.py:415-419`) exists to prevent exactly this: it adds `peanut`
+  **only if** none of the bound foods carries peanut. The person branch
+  discards it — `allergies = chosen.allergies`, unconditionally. Probe with the
+  commit's own `_COMPOSITE` fixture (which logs a cup of milk) and a
+  milk-allergic person:
+
+  ```
+  composite:person=roster-fay -> ACCEPTED
+     s0.allergies=('milk',)  ledger_tail=[('milk_whole', 244.0)]
+     food tags=['milk']  CLASH=['milk']  validate_draft=[]
+  composite:person=roster-cam -> s0.allergies=('egg',) logged=milk_whole  CLASH=-   (fine)
+  no person                   -> s0.allergies=('peanut',) logged=milk_whole (guard held)
+  ```
+
+  The commit's test picks `roster-cam` (egg) against a milk plate, so the
+  collision case is never exercised. Nothing catches it: `validate_draft`
+  returns `[]`, and the validator has no ledger-vs-profile allergen rule (its
+  allergen checks cover update evidence, the condition family, and
+  `fitting_plan` unpassability — none of them this). The item stays *passable*,
+  so this is a plausibility/coherence regression rather than a scoring bug —
+  but it is a deliberate guard removed as a side effect, and it is not rare:
+  measured against the real catalog's 5394 eligible pool foods, a milk-allergic
+  person (fay, quin) collides with **11.3%** of them, egg 2.4%, shellfish/peanut
+  ~2.5%. A 1–2 food draft with fay clashes roughly one time in five.
+  **Fix:** keep the guard's shape — `allergies = tuple(t for t in chosen.allergies if t not in carried)` where `carried` is the bound foods' tags — or reject the candidate on collision, which is more in keeping with this channel's fail-closed habit.
+
+- **N-2 (Medium) — on the evaluate path the colliding allergen is silently
+  dropped, so the person contributes nothing** (same root cause,
+  `resolver.py:301` feeding `_realize_evaluate`). The evaluate realize path
+  filters the allergy against the plate to keep the fit oracle fit, so:
+
+  ```
+  evaluate:person=roster-fay, plate = a cup of milk
+     -> ACCEPTED  s0.allergies=()   persona='everyday'
+  ```
+
+  The operator asked for fay and got a profile with **no allergies at all**.
+  Coverage silently fails to improve, which is precisely the outcome this spec
+  exists to prevent, and there is no signal that it happened. This channel has
+  twice ruled that an accepted knob must not silently under-deliver
+  (`evaluate.occasion` removed as NEW-2; `items`/`amount_path` made fail-closed
+  as F-2 of the items round).
+  **Fix:** the same collision check as N-1 — reject the candidate so the
+  shortfall is visible instead of silent.
+
+- **N-3 (Low) — `_realize_evaluate`'s `windows=` argument is dead for the
+  evaluate family** (`resolver.py:526-527`). The comment says "A chosen roster
+  person also owns the evaluated plate's windows", but the evaluate realize
+  path derives its own two-key plate windows and never uses `Material.windows`.
+  Probed: with `person=roster-cam`, `s0.profile.windows["kcal"] == (490.0,
+  800.0)` — neither `GOLD_WINDOWS` (1800–2200) nor cam's (1300.8, 1300.8), for
+  both the person and no-person runs. The commit's own test comment concedes
+  the windows "stay put", so the intent is understood — but the code and its
+  comment claim an effect they do not have.
+  **Fix:** drop the argument and the comment, or say in one line why evaluate
+  windows are plate-derived.
+
+- **N-4 (Low) — the CLI's `except ValueError` wraps the whole `run_batch`
+  call** (`scripts/generate_batch.py:287-290`). Any `ValueError` raised
+  mid-run, long after spec parsing, is reported as `batch spec rejected: …`,
+  which would mislead. **Fix:** wrap only the spec-validating portion, or
+  re-word to `batch failed: …`.
+
+### Regression sweep
+
+Re-ran every guard closed in earlier rounds (this commit touched `_RECIPE_KEYS`
+again): `evaluate:tier=bogus`, `log:tier`, `update:tier`, `evaluate:occasion`,
+`knife=swap`, `recommend:shell/scene`, unrequested family, `tier=None` — all
+still refused; `knife allergy` still gram-exact; `empty recipe == no recipe`
+True. Nothing regressed.
+
+### Evidence
+
+```
+$ .venv/bin/python -m pytest tests/test_run_batch.py -q
+44 passed in 0.25s
+
+$ .venv/bin/python -m pytest -q
+1329 passed in 48.33s          # 0 failed
+```
+
+Commit scope: `49b9193` touches `reports/spec-recipe-person.md`,
+`scripts/generate_batch.py`, `src/nutrienv/bench/pipeline/resolver.py`,
+`src/nutrienv/bench/pipeline/run_batch.py`, `tests/test_run_batch.py`. No ADR,
+`data/splits/*`, `*.sqlite`, `scorer.py`, `validator.py`, `review_harness.py`,
+`quality_gates.py`, or `generate_one.py` change.
+
+**Blockers: N-1 and N-2** — one root cause, one fix. F-1..F-4 are closed and
+the persona×allergen transport works; once a person's allergens and the drafted
+foods are reconciled instead of silently colliding, this is releasable.
+
+## Fix round 2 (claude opus findings)
+
+- **N-1/N-2 (Medium) — allergen collision is now a visible rejection.**
+  `resolve_candidate` checks the chosen person's allergen tags against the
+  bound plate's catalog tags BEFORE realization: a clash returns
+  `Rejected(reason="allergen_clash")` instead of either logging an allergic
+  food (composite) or silently stripping the allergy to keep the item
+  (evaluate). `_realize` applies the chosen person's allergies/persona only
+  after that check. Tests:
+  `test_person_allergen_clash_is_rejected_visibly` — composite:fay+milk and
+  evaluate:fay+milk both reject with `("allergen_clash", family)` and zero
+  acceptances; non-colliding drafts still work (cam knife test, fay/mixed
+  tests use an egg/milk-free pool catalog).
+- **N-3 (Low)** — the dead `windows=...` Material argument and its misleading
+  comment are dropped from `_realize_evaluate` (evaluate plate windows are
+  plate-derived downstream).
+- **N-4 (Low)** — CLI labeling narrowed: the script now runs `_parse_spec`
+  first and labels only parse-phase failures "batch spec rejected: …";
+  mid-run `run_batch` failures keep their own reporting.
+  Tests: `test_bad_recipe_person_exits_cleanly`,
+  `test_items_recipe_without_synthetic_exits_cleanly`.
+- **Demo re-probe** (catalog-v2, synthetic, composite:roster-cam +
+  recommend:roster-fay): composite accepted with persona cut / allergies
+  ('egg',); fay recommends accepted with ('milk',); any clashing candidate
+  would surface as `allergen_clash`. `recommend_coverage(personas=("cut",
+  "everyday"))` → missing_personas == (), egg/milk both covered.
+```
+$ .venv/bin/python -m pytest -q
+........................................................................ [100%]
+1332 passed in 51.74s        # 0 failed (was 1329; net +3 tests)
+```

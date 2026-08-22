@@ -899,6 +899,15 @@ def test_person_recipe_uses_the_chosen_roster_profile(tmp_path: Path) -> None:
     assert validate_draft(task) == []
 
 
+def _person_catalog() -> dict:
+    """Foods without fay/cam allergen carriers, so their plates never clash."""
+    return {
+        food_id: entry
+        for food_id, entry in _nutrient_catalog().items()
+        if food_id not in {"milk_whole", "egg"}
+    }
+
+
 def test_recommend_person_recipe_carries_the_allergy(tmp_path: Path) -> None:
     from nutrienv.bench.quality_gates import recommend_coverage
 
@@ -907,7 +916,7 @@ def test_recommend_person_recipe_carries_the_allergy(tmp_path: Path) -> None:
         None,
         expander=synthetic_expander,
         judge=_ok_judge,
-        catalog=_nutrient_catalog(),
+        catalog=_person_catalog(),
         family_quotas={"recommend": 2},
         family_recipes={"recommend": {"person": "roster-fay"}},
         overwrite=True,
@@ -926,7 +935,7 @@ def test_mixed_person_recipes_cover_cut_and_both_allergens(tmp_path: Path) -> No
         None,
         expander=synthetic_expander,
         judge=_ok_judge,
-        catalog=_nutrient_catalog(),
+        catalog=_person_catalog(),
         family_quotas={"recommend": 1},
         family_recipes={"recommend": {"person": "roster-cam"}},
     )
@@ -935,7 +944,7 @@ def test_mixed_person_recipes_cover_cut_and_both_allergens(tmp_path: Path) -> No
         None,
         expander=synthetic_expander,
         judge=_ok_judge,
-        catalog=_nutrient_catalog(),
+        catalog=_person_catalog(),
         family_quotas={"recommend": 1},
         family_recipes={"recommend": {"person": "roster-fay"}},
         overwrite=True,
@@ -1065,3 +1074,29 @@ def test_composite_person_recipe_feeds_recommend_coverage(tmp_path: Path) -> Non
     (loaded,) = load_split(target, catalog=task.s0.catalog)
     assert validate_draft(loaded) == []
     assert loaded.oracle.sub_oracles[1].profile.allergies == ("egg",)
+
+
+def test_person_allergen_clash_is_rejected_visibly(tmp_path: Path) -> None:
+    """N-1/N-2: a chosen person never gets a plate carrying their allergen --
+    the candidate is rejected, not accepted with the allergy stripped."""
+    milk_plate = {
+        "items": [{"food": "milk_whole", "expression": "a cup"}],
+        "query": "Evaluate this as my plan: a cup of milk.",
+    }
+    for family, payload in (
+        ("composite", {**_COMPOSITE}),
+        ("evaluate", milk_plate),
+    ):
+        result = _run(
+            tmp_path,
+            [payload],
+            judge=_ok_judge,
+            catalog=_nutrient_catalog(),
+            family_quotas={family: 1},
+            family_recipes={family: {"person": "roster-fay"}},
+            output_path=tmp_path / f"{family}-clash.json",
+        )
+        assert result.accepted == [], (family, result.accepted)
+        assert [(r.reason, r.family) for r in result.rejected] == [
+            ("allergen_clash", family)
+        ]

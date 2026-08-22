@@ -76,6 +76,25 @@ def resolve_candidate(
     if _leaks(candidate.query, catalog):
         return None, Rejected(candidate.query, "leak", candidate.family)
 
+    # A chosen roster person owns the profile AND the identity: windows,
+    # allergies, and persona all come from them (recommend_coverage reads
+    # composite children). Fail closed when a bound food collides with their
+    # allergens -- never log/serve/evaluate an allergic plate, and never
+    # silently drop the allergy to keep an item.
+    if candidate.person:
+        chosen = resolve_roster_person(candidate.person)
+        banned = set(normalize_tags(list(chosen.allergies)))
+        carried: set[str] = set()
+        for food_id, _expression, _grams in resolved:
+            entry = catalog.get(food_id) or {}
+            carried.update(normalize_tags(list(entry.get("allergen_tags") or [])))
+        if banned & carried:
+            return None, Rejected(
+                candidate.query, "allergen_clash", candidate.family
+            )
+        allergies = chosen.allergies
+        persona = chosen.persona
+
     # Recommend/update oracles carry no bound grams (free plan / profile
     # patch), so there is nothing to gram-backresolve; the spoken foods are
     # still context and the query must name them (containment below).
@@ -294,9 +313,8 @@ def _realize(
     allergies = _log_allergies(catalog, food_ids)
     persona = candidate.persona
     if candidate.person:
-        # A chosen roster person owns the profile AND the identity: windows,
-        # allergies, and persona all come from them (recommend_coverage reads
-        # composite children).
+        # Collisions were already rejected in resolve_candidate, so the
+        # chosen person's allergens are safe to apply wholesale.
         chosen = resolve_roster_person(candidate.person)
         allergies = chosen.allergies
         persona = chosen.persona
@@ -523,8 +541,8 @@ def _realize_evaluate(
         task_id=task_id,
         user_id=task_id,
         allergies=allergies,
-        # A chosen roster person also owns the evaluated plate's windows.
-        windows=_composite_windows(candidate.person) if candidate.person else None,
+        # Evaluate plate windows are plate-derived downstream; the Material
+        # carries none.
     )
     return replace(
         realize(material, candidate.query, catalog=catalog), tier=candidate.tier

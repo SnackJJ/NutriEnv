@@ -273,21 +273,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         voter = None
         enable_semantic_vote = True
 
+    # Spec validation (recipe keys/values, quotas, sha) is labeled as such:
+    # failures here are rejections, while later run_batch failures keep their
+    # own reporting.
     try:
-        result = run_batch(
-            spec,
-            expander=expander,
-            judge=judge,
-            reviewer=reviewer,
-            catalog=catalog,
-            workers=args.workers,
-            voter=voter,
-            enable_semantic_vote=enable_semantic_vote,
-        )
+        from nutrienv.bench.pipeline.run_batch import _parse_spec
+
+        _parse_spec(spec)
     except ValueError as exc:
-        # Spec validation (recipe keys/values, quotas, sha) exits with a clean
-        # message instead of a traceback.
         raise SystemExit(f"batch spec rejected: {exc}")
+
+    result = run_batch(
+        spec,
+        expander=expander,
+        judge=judge,
+        reviewer=reviewer,
+        catalog=catalog,
+        workers=args.workers,
+        voter=voter,
+        enable_semantic_vote=enable_semantic_vote,
+    )
     _print_stats(result)
     if not result.accepted:
         print("no candidates accepted", file=sys.stderr)

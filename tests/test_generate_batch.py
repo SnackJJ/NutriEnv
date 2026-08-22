@@ -350,3 +350,42 @@ def test_generate_batch_overwrite_guard(tmp_path: Path) -> None:
             ]
         )
     assert out.read_text(encoding="utf-8") == "{}\n"
+
+
+def test_bad_recipe_person_exits_cleanly(tmp_path: Path) -> None:
+    argv = [
+        "--synthetic",
+        "--model",
+        "synthetic",
+        "--count",
+        "1",
+        "--family",
+        "recommend",
+        "--recipe",
+        "recommend:person=roster-bogus",
+        "--seed",
+        "1",
+        "--output",
+        str(tmp_path / "person-bad.json"),
+    ]
+    with pytest.raises(SystemExit, match="batch spec rejected"):
+        generate_batch.main(argv)
+
+
+def test_items_recipe_without_synthetic_exits_cleanly(tmp_path: Path) -> None:
+    argv = [
+        "--model",
+        "m",
+        "--count",
+        "1",
+        "--family",
+        "evaluate",
+        "--recipe",
+        "evaluate:items=3",
+        "--seed",
+        "1",
+        "--output",
+        str(tmp_path / "items.json"),
+    ]
+    with pytest.raises(SystemExit, match="requires --synthetic"):
+        generate_batch.main(argv)
