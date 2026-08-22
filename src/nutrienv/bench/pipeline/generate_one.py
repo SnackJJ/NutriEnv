@@ -898,16 +898,18 @@ def _evaluate_from_bound(
             )
         return GenerateOneResult(
             accepted=_retag(
-                draft, ("evaluate_unfit", "leftover_under", "draft_only"), persona,
+                draft,
+                # Reload-valid situations: the unfit/leftover geometry lives
+                # in the oracle (reject + empty plan, bound_labels).
+                (),
+                persona,
                 tier=tier,
             ),
             rejected=None,
         )
     if "leftover_over" in labels and knife in (None, "over_slot"):
         return GenerateOneResult(
-            accepted=_retag(
-                draft, ("evaluate_unfit", "leftover_over"), persona, tier=tier
-            ),
+            accepted=_retag(draft, (), persona, tier=tier),
             rejected=None,
         )
     if draft.oracle.last_verdict != "accept":
@@ -953,7 +955,9 @@ def _evaluate_from_bound(
         knifed,
         s0,
         occasion,
-        ("evaluate_unfit", knife),
+        # Reload-valid situations: the unfit geometry lives in the oracle
+        # (reject + empty plan + evaluated meal + bound reasons).
+        (),
         persona,
         last_meal=last_meal,
         tier=tier,

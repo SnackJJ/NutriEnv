@@ -374,7 +374,7 @@ def test_generate_one_evaluate_leftover_under_only_on_last_meal() -> None:
     )
     if earlier.accepted is not None:
         assert "leftover_under" not in earlier.accepted.oracle.bound_labels
-        assert "draft_only" not in earlier.accepted.situations
+        assert earlier.accepted.situations == ()
 
     last = _run_eval(
         expander=_rice_dinner_expander,
@@ -387,7 +387,7 @@ def test_generate_one_evaluate_leftover_under_only_on_last_meal() -> None:
     task = last.accepted
     assert task.oracle.last_verdict == "reject"
     assert "leftover_under" in task.oracle.bound_labels
-    assert "draft_only" in task.situations
+    assert task.situations == ()
     assert task.oracle.last_reasons == bind_evaluate_reasons(
         task.oracle.evaluated_plan,
         task.oracle.plan_windows,
@@ -549,3 +549,43 @@ def test_generate_one_rejects_falsey_non_string_tiers() -> None:
     for bad_tier in (None, 0, [], False):
         with pytest.raises(ValueError, match="tier must be a string"):
             generate_one(catalog=_FIT_CATALOG, family="evaluate", tier=bad_tier)
+
+
+def test_mill_unfit_items_survive_freeze_load_round_trip(tmp_path) -> None:
+    """Producers agree with the batch channel: a knife-unfit and a
+    leftover-unfit evaluate item freeze and reload cleanly."""
+    from nutrienv.bench.pipeline.freezer import freeze_tasks
+    from nutrienv.bench.split import load_split
+
+    knife = _run_eval(
+        catalog=_allergy_catalog(),
+        pool_size=5,
+        knife="allergy",
+        rewriter=_rewrite_named,
+    )
+    leftover = _run_eval(
+        expander=_rice_dinner_expander,
+        scene="leftover",
+        prior_ledger=_LEFTOVER_LUNCH,
+        last_meal=True,
+    )
+    tasks = []
+    for result in (knife, leftover):
+        assert result.rejected is None
+        task = result.accepted
+        assert task.oracle.last_verdict == "reject"
+        assert task.situations == ()
+        tasks.append(task)
+
+    # The allergy catalog is a superset of the fit fixture, so one catalog
+    # serves both items.
+    _, target = freeze_tasks(
+        tasks,
+        catalog=tasks[0].s0.catalog,
+        output_path=tmp_path / "unfit.json",
+    )
+    loaded = load_split(target, catalog=tasks[0].s0.catalog)
+    assert [loaded_task.tier for loaded_task in loaded] == ["", ""]
+    for loaded_task in loaded:
+        assert loaded_task.oracle.last_verdict == "reject"
+        assert validate_draft(loaded_task) == []

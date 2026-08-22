@@ -555,3 +555,23 @@ sqlite, scorer, validator, review-harness, quality-gates, or `react.py` change.
 **RELEASE: the per-family recipe channel (`evaluate:knife`, `evaluate:tier`,
 `recommend:occasion`, `recommend:tier`) is accepted for use.** R-1, R-2 and the
 generate_one situations asymmetry are tracked follow-ups, not release gates.
+
+## Low-4 follow-up closed: mill unfit output is reloadable
+
+Spec: `reports/spec-unfit-situations.md`. generate_one's three non-SITUATIONS
+situation tuples on knife/leftover-unfit evaluate items
+(`("evaluate_unfit", "leftover_under", "draft_only")`,
+`("evaluate_unfit", "leftover_over")`, `("evaluate_unfit", knife)`) are
+replaced with `()` — the unfit/leftover geometry lives in the oracle
+(reject + empty plan, `evaluated_plan`, `bound_labels`), which the quality
+gates already read. The two tag-asserting tests now assert oracle geometry /
+`situations == ()`, and a new round-trip test freezes a mill knife-unfit AND a
+mill leftover-unfit item → `load_split` → `validate_draft == []` on both.
+Producers now agree: a mill knife item and a batch knife item both reload
+cleanly (batch side pinned by `test_knife_recipe_produces_an_evaluate_unfit`).
+
+```
+$ .venv/bin/python -m pytest -q
+........................................................................ [100%]
+1313 passed in 54.37s        # 0 failed (was 1312; +1 round-trip test)
+```
