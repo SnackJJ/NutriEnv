@@ -11,8 +11,8 @@ then k=3 votes on the spoken request (query + food names) for every
 candidate that survives the leak scan. LLM majority-fail alarms first;
 it does not silently pass and it does not drop.
 
-Each stage votes across three distinct model families; family sets differ
-between stages so no single vendor carries both votes.
+Each stage votes across three distinct model families (cross-stage family
+reuse exists; no single vendor carries a stage's majority alone).
 
 ``make_reviewer(stage_a=..., stage_b=...)`` is the grams_gate-style seam.
 Tests inject callables; they never call the network.
@@ -137,9 +137,31 @@ _ATWATER_KCAL_PER_G = {"protein_g": 4.0, "carb_g": 4.0, "fat_g": 9.0}
 
 
 def _window_reasons(task: Task) -> list[str]:
-    windows = getattr(getattr(task, "oracle", None), "plan_windows", None)
-    if windows is None or not isinstance(windows, Mapping):
+    """Window reasons across the oracle and every composite child.
+
+    Mirrors ``_oracle_pairs``: a composite container itself pins nothing, so
+    each child oracle that pins ``plan_windows`` is gated on its own.
+    """
+    reasons: list[str] = []
+    for oracle in _window_oracles(task):
+        windows = getattr(oracle, "plan_windows", None)
+        if windows is None or not isinstance(windows, Mapping):
+            continue
+        for reason in _single_window_reasons(task, windows):
+            if reason not in reasons:
+                reasons.append(reason)
+    return reasons
+
+
+def _window_oracles(task: Task) -> list:
+    oracle = getattr(task, "oracle", None)
+    if oracle is None:
         return []
+    children = getattr(oracle, "sub_oracles", None) or ()
+    return list(children) if children else [oracle]
+
+
+def _single_window_reasons(task: Task, windows: Mapping) -> list[str]:
     profile = getattr(getattr(task, "s0", None), "profile", None)
     daily = getattr(profile, "windows", None) or {}
     for lo, hi in windows.values():
@@ -163,31 +185,27 @@ def _kcal_infeasible(windows: Mapping) -> bool:
     Every kcal comes from protein/carb/fat at Atwater rates (4/4/9 kcal per g,
     matching ``nutrienv.bench.windows.KCAL_RATIO_CAP``). Macro floors force a
     minimum kcal; macro ceilings cap the reachable kcal. The check is physics,
-    so it needs no catalog. Without any macro span there is nothing to
-    contradict the kcal window.
+    so it needs no catalog. An absent macro span is unconstrained, not zero:
+    it adds nothing to the forced minimum but leaves the reachable kcal
+    unbounded.
     """
     kcal = windows.get("kcal")
     if not isinstance(kcal, (tuple, list)) or len(kcal) != 2:
         return False
-    spans = {
-        key: windows[key]
-        for key in _ATWATER_KCAL_PER_G
-        if isinstance(windows.get(key), (tuple, list)) and len(windows.get(key)) == 2
-    }
-    if not spans:
-        return False
     kcal_lo, kcal_hi = float(kcal[0]), float(kcal[1])
     forced = 0.0
     reachable = 0.0
+    unbounded = False
     for key, rate in _ATWATER_KCAL_PER_G.items():
-        span = spans.get(key)
-        if span is None:
+        span = windows.get(key)
+        if not isinstance(span, (tuple, list)) or len(span) != 2:
+            unbounded = True
             continue
         forced += rate * max(0.0, float(span[0]))
         reachable += rate * max(0.0, float(span[1]))
     if forced > kcal_hi + 1e-6:
         return True
-    return reachable + 1e-6 < kcal_lo
+    return not unbounded and reachable + 1e-6 < kcal_lo
 
 
 def resolved_items(task: Task) -> list[dict[str, object]]:

@@ -29,7 +29,7 @@ from nutrienv.bench.pipeline.review_harness import (
     stage_a_code_gate,
     stage_b_leak_scan,
 )
-from nutrienv.bench.realize import Oracle, Task
+from nutrienv.bench.realize import Oracle, Task, compose_oracles
 from nutrienv.world.types import LedgerRow, Profile, WorldState, ledger_totals
 
 _CATALOG = {
@@ -417,7 +417,10 @@ def test_stage_b_speech_votes_cover_log_candidates() -> None:
         assert _TABLE.query in prompt
 
 
-def test_run_batch_structural_code_gate_drops_off_table_grams(tmp_path) -> None:
+@pytest.mark.parametrize("skip_backresolve", [False, True])
+def test_run_batch_structural_code_gate_drops_off_table_grams(
+    tmp_path, skip_backresolve
+) -> None:
     catalog = {
         "milk_whole": {
             "name": "Milk, whole",
@@ -454,6 +457,9 @@ def test_run_batch_structural_code_gate_drops_off_table_grams(tmp_path) -> None:
         "model_route": {},
         "catalog": "fixture",
         "output_path": tmp_path / "batch.json",
+        # Worst case: speech-only resolution AND the no-voter reviewer.
+        # Both guards empty must still hit the structural code gate (N09-2).
+        "skip_gram_backresolve": skip_backresolve,
     }
     result = run_batch(
         spec,
@@ -591,6 +597,15 @@ def test_call_reviewer_posts_to_dashscope(monkeypatch) -> None:
 def test_macro_free_window_is_not_unpassable() -> None:
     task = _rec_task("rec-kcal-only", plan_windows={"kcal": (540.0, 880.0)})
     assert stage_a_code_gate(task) == []
+
+
+def test_composite_child_windows_are_gated() -> None:
+    good = _rec_task("comp-good", plan_windows=dict(_MEAL))
+    bad = _rec_task("comp-bad", plan_windows={"kcal": (900.0, 200.0)})
+    oracle = compose_oracles(good.oracle, bad.oracle)
+    task = Task("comp-001", "composite", "Plan my day.", good.s0, oracle, (), "everyday")
+    assert task.oracle.plan_windows is None
+    assert stage_a_code_gate(task) == [REASON_WINDOWS_EMPTY]
 
 
 def test_out_of_bounds_reason_appended_once() -> None:

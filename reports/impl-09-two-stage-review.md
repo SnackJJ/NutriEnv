@@ -159,3 +159,39 @@ $ .venv/bin/python -m pytest tests/test_review_harness.py -q
 $ .venv/bin/python -m pytest -q
 1211 passed in 48.78s
 ```
+
+---
+
+## Fix round 2 — N09-1 / N09-2
+
+Commit: "09: window-gate composite children and pin worst-case skip/no-voter mode".
+
+- **N09-1** — `_window_reasons` now iterates `oracle.sub_oracles` when present
+  (`_window_oracles`, mirroring `_oracle_pairs`), gating each composite child
+  that pins `plan_windows` on its own; a child without pinned windows still
+  skips. Reasons are collected once across children. While wiring this, the
+  composite fixtures exposed an adjacent bug in `_kcal_infeasible`: absent
+  macro keys were treated as zero instead of unconstrained, so a legitimate
+  kcal+protein-only window (exactly what composite rec children pin) was
+  called unpassable. Absent macros now leave the reachable kcal unbounded.
+  Test: `test_composite_child_windows_are_gated` — a Task whose composite
+  child pins `{'kcal': (900, 200)}` yields `['windows_empty']` through
+  `stage_a_code_gate` even though the parent container pins nothing.
+- **N09-2** — `test_run_batch_structural_code_gate_drops_off_table_grams` is
+  now parametrized over `skip_gram_backresolve` False/True with the no-voter
+  `pass_through_reviewer`; both parametrizations assert
+  `accepted == []` / `rejected == ["code_gate"]`, pinning that the worst-case
+  mode cannot bypass the structural gate. Module docstring reworded to what is
+  true: per-stage pools are three distinct families; cross-stage family reuse
+  exists.
+
+Test evidence:
+
+```
+$ .venv/bin/python -m pytest tests/test_review_harness.py -q
+..............................                                           [100%]
+31 passed in 0.18s
+
+$ .venv/bin/python -m pytest -q
+1213 passed in 49.93s
+```
