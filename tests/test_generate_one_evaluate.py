@@ -491,3 +491,50 @@ def test_unfit_rewriter_does_not_send_window_numbers() -> None:
     )
     assert "kcal" not in seen[0].lower()
     assert payload["foods"] == ["white_rice"]
+
+
+def test_generate_one_evaluate_accepts_declared_tier() -> None:
+    from nutrienv.bench.quality_gates import evaluate_tier_coverage
+
+    result = _run_eval(tier="pair")
+    assert result.rejected is None
+    task = result.accepted
+    assert task.tier == "pair"
+    assert validate_draft(task) == []
+    report = evaluate_tier_coverage([task])
+    assert report.counts["pair"] == 1
+
+
+def test_generate_one_evaluate_rejects_unknown_tier() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="tier"):
+        _run_eval(tier="bogus")
+
+
+def test_generate_one_log_rejects_tier() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="tier"):
+        generate_one(catalog=_FIT_CATALOG, family="log", tier="single")
+
+
+def test_evaluate_tier_survives_freeze_load_round_trip(tmp_path) -> None:
+    from dataclasses import replace
+
+    from nutrienv.bench.pipeline.freezer import freeze_tasks, task_to_item
+    from nutrienv.bench.split import load_split
+
+    result = _run_eval(tier="pair")
+    task = result.accepted
+    assert task_to_item(task)["tier"] == "pair"
+    catalog = task.s0.catalog
+    # The mill's authoring situations ("evaluate_fit") are not split-reload
+    # vocabulary; the tier channel is what this pins.
+    _, target = freeze_tasks(
+        [replace(task, situations=())],
+        catalog=catalog,
+        output_path=tmp_path / "tier.json",
+    )
+    loaded = load_split(target, catalog=catalog)
+    assert [loaded_task.tier for loaded_task in loaded] == ["pair"]

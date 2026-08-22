@@ -9,6 +9,7 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 
+from nutrienv.bench.quality_gates import EVALUATE_TIERS
 from nutrienv.bench.realize import Oracle, Task, compose_oracles, realize_evaluate
 from nutrienv.world.daily_windows import (
     derive_profile_windows,
@@ -153,14 +154,21 @@ def generate_one(
     shell: str | None = None,
     slots: Mapping[str, str] | None = None,
     steps: Sequence[str] | None = None,
+    tier: str = "",
 ) -> GenerateOneResult:
     """One mill item: roster person → world windows → pool → expander → speech bind.
 
     Recommend items are template-filled (``shell``/``slots``) with no expander.
     Composite log-then-recommend remainder is computed after the log tail.
+
+    ``tier`` is evaluate-only authoring data (ADR 0016 difficulty tiers): it
+    must be empty for every other family and a declared ``EVALUATE_TIERS``
+    value for evaluate, so nobody can invent a tier or tier a log.
     """
     if family not in {"log", "evaluate", "recommend", "update", "composite"}:
         raise ValueError(f"generate_one does not implement {family!r}")
+    if tier and (family != "evaluate" or tier not in EVALUATE_TIERS):
+        raise ValueError(f"unknown evaluate tier {tier!r} for family {family!r}")
     if amount_path is not None and amount_path not in AMOUNT_PATHS:
         raise ValueError(f"unknown amount_path {amount_path!r}")
     if occasion not in _OCCASIONS and not (
@@ -198,6 +206,7 @@ def generate_one(
             prior_logs=prior_logs,
             shell=shell,
             slots=dict(slots or {}),
+            tier=tier,
         )
 
     if family == "update":
@@ -210,6 +219,7 @@ def generate_one(
             seed=seed,
             shell=shell,
             slots=dict(slots or {}),
+            tier=tier,
         )
 
     if family == "composite" and pair == ("update", "recommend"):
@@ -221,6 +231,7 @@ def generate_one(
             shell=shell,
             slots=dict(slots or {}),
             occasion=occasion,
+            tier=tier,
         )
 
     if family == "log" and (knife is not None or scene != "empty"):
@@ -299,6 +310,7 @@ def generate_one(
             pool=pool,
             amount_path=path,
             last_meal=last_meal,
+            tier=tier,
         )
     if family == "composite" and pair == ("log", "recommend"):
         rec_occasion = _NEXT_OCCASION.get(occasion, "dinner")
@@ -309,6 +321,7 @@ def generate_one(
             seed=seed,
             rec_occasion=rec_occasion,
             persona=chosen.persona,
+            tier=tier,
         )
     if family == "composite" and pair == ("log", "evaluate"):
         return _log_then_evaluate_fit(
@@ -319,6 +332,7 @@ def generate_one(
             occasion=occasion,
             persona=chosen.persona,
             last_meal=last_meal,
+            tier=tier,
         )
     oracle = Oracle(
         profile=copy.deepcopy(profile),
@@ -333,6 +347,7 @@ def generate_one(
         oracle,
         ("multi_item_log",),
         chosen.persona,
+        tier=tier,
     )
     return GenerateOneResult(accepted=task, rejected=None)
 
@@ -345,6 +360,7 @@ def _log_then_recommend(
     seed: int,
     rec_occasion: str,
     persona: str,
+    tier: str = "",
 ) -> GenerateOneResult:
     """Log sub-oracle plus recommend remainder after that log tail."""
     tail = list(bound)
@@ -377,6 +393,7 @@ def _log_then_recommend(
         compose_oracles(log_oracle, rec_oracle),
         ("multi_item_log",),
         persona,
+        tier=tier,
     )
     return GenerateOneResult(accepted=task, rejected=None)
 
@@ -390,6 +407,7 @@ def _log_then_evaluate_fit(
     occasion: str,
     persona: str,
     last_meal: bool,
+    tier: str = "",
 ) -> GenerateOneResult:
     """Log the named meal and accept it as the Evaluate plate."""
     items = [{"food_id": row.food_id, "grams": float(row.grams)} for row in bound]
@@ -402,6 +420,7 @@ def _log_then_evaluate_fit(
         ("evaluate_fit",),
         persona,
         last_meal=last_meal,
+        tier=tier,
     )
     if isinstance(draft, GenerateOneResult):
         return draft
@@ -427,6 +446,7 @@ def _log_then_evaluate_fit(
         # evaluate-fit shape lives in the child oracle's accept verdict.
         ("multi_item_log",),
         persona,
+        tier=tier,
     )
     return GenerateOneResult(accepted=task, rejected=None)
 
@@ -440,6 +460,7 @@ def _update_then_recommend(
     shell: str | None,
     slots: dict[str, str],
     occasion: str,
+    tier: str = "",
 ) -> GenerateOneResult:
     """Update the profile, then recommend against the final windows and allergies."""
     upd = _update_from_template(
@@ -492,6 +513,7 @@ def _update_then_recommend(
         compose_oracles(update_task.oracle, rec_oracle),
         (),
         chosen.persona,
+        tier=tier,
     )
     return GenerateOneResult(accepted=task, rejected=None)
 
@@ -517,6 +539,7 @@ def _recommend_from_template(
     prior_logs: Sequence[Task] | None,
     shell: str | None,
     slots: dict[str, str],
+    tier: str = "",
 ) -> GenerateOneResult:
     """Template-filled Recommend: query from the agreed shells, work in S0."""
     default_shell = _RECOMMEND_SHELLS_BY_OCCASION[occasion]
@@ -609,6 +632,7 @@ def _recommend_from_template(
         oracle,
         (),
         chosen.persona,
+        tier=tier,
     )
     return GenerateOneResult(accepted=task, rejected=None)
 
@@ -658,6 +682,7 @@ def _update_from_template(
     seed: int,
     shell: str | None,
     slots: dict[str, str],
+    tier: str = "",
 ) -> GenerateOneResult:
     """Template-filled Update: the query states the profile change."""
     if shell is None:
@@ -760,6 +785,7 @@ def _update_from_template(
         oracle,
         (),
         chosen.persona,
+        tier=tier,
     )
     return GenerateOneResult(accepted=task, rejected=None)
 
@@ -845,6 +871,7 @@ def _evaluate_from_bound(
     pool: FoodPool,
     amount_path: str,
     last_meal: bool,
+    tier: str = "",
 ) -> GenerateOneResult:
     items = [{"food_id": row.food_id, "grams": float(row.grams)} for row in bound]
     draft = _realize_eval(
@@ -856,6 +883,7 @@ def _evaluate_from_bound(
         ("evaluate_fit",),
         persona,
         last_meal=last_meal,
+        tier=tier,
     )
     if isinstance(draft, GenerateOneResult):
         return draft
@@ -867,13 +895,16 @@ def _evaluate_from_bound(
             )
         return GenerateOneResult(
             accepted=_retag(
-                draft, ("evaluate_unfit", "leftover_under", "draft_only"), persona
+                draft, ("evaluate_unfit", "leftover_under", "draft_only"), persona,
+                tier=tier,
             ),
             rejected=None,
         )
     if "leftover_over" in labels and knife in (None, "over_slot"):
         return GenerateOneResult(
-            accepted=_retag(draft, ("evaluate_unfit", "leftover_over"), persona),
+            accepted=_retag(
+                draft, ("evaluate_unfit", "leftover_over"), persona, tier=tier
+            ),
             rejected=None,
         )
     if draft.oracle.last_verdict != "accept":
@@ -922,6 +953,7 @@ def _evaluate_from_bound(
         ("evaluate_unfit", knife),
         persona,
         last_meal=last_meal,
+        tier=tier,
     )
     if isinstance(unfit, GenerateOneResult):
         return unfit
@@ -932,9 +964,18 @@ def _evaluate_from_bound(
     return GenerateOneResult(accepted=unfit, rejected=None)
 
 
-def _retag(task: Task, situations: tuple[str, ...], persona: str) -> Task:
+def _retag(
+    task: Task, situations: tuple[str, ...], persona: str, tier: str = ""
+) -> Task:
     return Task(
-        task.id, task.family, task.query, task.s0, task.oracle, situations, persona
+        task.id,
+        task.family,
+        task.query,
+        task.s0,
+        task.oracle,
+        situations,
+        persona,
+        tier=tier or task.tier,
     )
 
 
@@ -948,6 +989,7 @@ def _realize_eval(
     persona: str,
     *,
     last_meal: bool,
+    tier: str = "",
 ) -> Task | GenerateOneResult:
     meal = [
         {"food_id": str(item["food_id"]), "grams": float(item["grams"])}
@@ -961,6 +1003,7 @@ def _realize_eval(
             s0=s0,
             occasion=occasion,
             last_meal=last_meal,
+            tier=tier,
         )
     except ValueError:
         return GenerateOneResult(
@@ -974,6 +1017,7 @@ def _realize_eval(
         task.oracle,
         situations,
         persona,
+        tier=tier or task.tier,
     )
 
 
