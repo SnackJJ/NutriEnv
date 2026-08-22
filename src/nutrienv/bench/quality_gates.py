@@ -116,9 +116,11 @@ def recommend_coverage(
     for task in recommends:
         covered.update(task.s0.profile.allergies)
     wanted = (
-        _catalog_allergen_tags(next((t.s0.catalog for t in tasks), {}))
-        if allergen_tags is None
-        else set(allergen_tags)
+        set().union(
+            *(_catalog_allergen_tags(task.s0.catalog) for task in tasks)
+        )
+        if allergen_tags is None and tasks
+        else set(allergen_tags or ())
     )
     return CoverageReport(
         missing_personas=tuple(sorted(set(personas) - seen)),

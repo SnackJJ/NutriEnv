@@ -624,3 +624,15 @@ def test_allergen_matching_normalizes_tags():
         _task("rec-clean", query="Shrimp tonight?", allergies=("shellfish",)),
     ]
     assert constrained_recommends(tasks) == ("rec-messy", "rec-clean")
+
+
+def test_default_allergen_claim_is_the_union_of_split_catalogs():
+    def _with_catalog(task_id, catalog, allergy):
+        base = _task(task_id, allergies=(allergy,))
+        return replace(base, s0=replace(base.s0, catalog=catalog))
+
+    tasks = [
+        _with_catalog("rec-a", {"food_a": {"allergen_tags": ["alpha"]}}, "alpha"),
+        _with_catalog("rec-b", {"food_b": {"allergen_tags": ["beta"]}}, "alpha"),
+    ]
+    assert recommend_coverage(tasks).missing_allergens == ("beta",)
