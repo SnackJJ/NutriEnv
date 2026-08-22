@@ -303,3 +303,110 @@ are tracked improvements, not release gates.
   without `--synthetic` at CLI time ("--recipe evaluate:items requires
   --synthetic; …"); with `--synthetic` it runs through (verified:
   items=3 + tier=triple accepted, frozen item carries 3 plan foods).
+
+## Review (claude opus) — N-1/N-2
+
+**Verdict: ACC.** Both tracking items are closed, and the N-1 claim is stronger
+than the test asserts: the entry guard fires before `_build_jobs` too, so a
+mixed-quota real batch spends neither an LLM call nor a sampling pass. One Low
+note about the guard message, which is duplicated rather than shared.
+
+### Verification
+
+**1 — `run_batch` entry, mixed quota → zero work done.** Guard at
+`run_batch.py:122-132`, placed after `_parse_spec` (it needs the parsed
+recipes) and before `build_food_index`/`_build_jobs` at `:140-141`. Probed with
+a counting fake non-synthetic expander **and** an instrumented `_build_jobs`,
+on the exact mixed shape N-1 named (`{"evaluate": 1, "log": 5}`, recipe only on
+`evaluate`):
+
+```
+ValueError: recipe items/amount_path require the synthetic expander
+            (--synthetic); the LLM expander cannot honour them yet
+expander calls=[]   _build_jobs calls=0
+```
+
+So no pool is sampled and no recipe-free `log` job reaches the expander — which
+was the whole cost N-1 was about. `test_expander_hint_mismatch_fails_at_entry_before_any_job`
+(`tests/test_run_batch.py:832`) pins the zero-call half; the zero-sampling half
+is a free consequence of the placement and is worth knowing.
+
+**2 — CLI.** Guard at `scripts/generate_batch.py:226-230`, inside the
+`--recipe` loop before the recipe is accumulated. Ran the real CLI:
+
+```
+--recipe evaluate:items=3                  -> --recipe evaluate:items requires --synthetic;
+                                              the LLM expander cannot honour items/amount_path yet
+--recipe evaluate:items=3 --synthetic      -> pools=1 candidates=1 accepted=1, wrote 1 item
+                                              family=evaluate  n_plan=3  situations=[]
+                                              "Evaluate this as my plan: a serving of Chinese pancake,
+                                               and a can of Snack, and a tablespoon of Pickle relish."
+--recipe evaluate:amount_path=explicit_grams  -> blocked, names --synthetic
+--recipe evaluate:items=3 --recipe evaluate:amount_path=explicit_grams -> blocked
+--recipe evaluate:tier=pair (no --synthetic)  -> NOT blocked, runs normally
+```
+
+Mixed flags behave: `tier`/`knife` are Candidate stamps, not expander hints, so
+they are correctly left alone — the guard keys off `{"items","amount_path"}`
+only. And the `--synthetic` path is proven end to end, not just at the API: the
+frozen split really contains a 3-food evaluate item.
+
+**3 — per-job guard still present.** `run_batch.py:643-649` is untouched. Since
+the entry guard now shadows it on every normal path, I reached it directly by
+building jobs and calling `_expand_one(job, fake_llm, persona)` — it raises the
+same ValueError. Defence in depth is real, not vestigial. Synthetic path
+unchanged: `items=3` still yields a 3-food plate with the same query as before
+this commit.
+
+**4 — the message is duplicated, not shared.** See N-4 below.
+
+### Regression sweep
+
+Given this channel's history of a silent revert (F-1), I re-ran the full guard
+sweep rather than assuming:
+
+```
+evaluate:tier=bogus / log:tier / update:tier / evaluate:occasion / knife=swap
+recommend:shell / recommend:scene / unrequested family / tier=None   -- all rejected
+recommend:tier=pair (F-1)   -> rejected: not supported for 'recommend' (allowed: ['occasion'])
+knife allergy               -> reasons=('allergy','kcal_hi') gram_exact=True tier='single'
+empty recipe == no recipe   -> True
+```
+
+All hold. This commit is purely additive (`+54 lines, -0`).
+
+### Finding
+
+- **N-4 (Low) — the guard message is two identical literals, not one shared
+  constant** (`src/nutrienv/bench/pipeline/run_batch.py:130-131` and
+  `:647-648`). Verified byte-identical today, so a test matching either works
+  and the commit comment ("same message as the per-job defence-in-depth guard")
+  is factually true right now. But nothing keeps them in step: editing one —
+  say to name a future non-synthetic capability — silently desynchronises the
+  entry and per-job paths, and the per-job path is the one no normal run
+  reaches, so the drift would go unnoticed.
+  **Fix:** hoist to a module constant, e.g.
+  `_HINTS_NEED_SYNTHETIC = "recipe items/amount_path require the synthetic expander (--synthetic); the LLM expander cannot honour them yet"`,
+  and raise `ValueError(_HINTS_NEED_SYNTHETIC)` from both sites. The CLI
+  message at `generate_batch.py:227` is deliberately different (it names the
+  offending family and key) and should stay as it is.
+
+### Evidence
+
+```
+$ .venv/bin/python -m pytest tests/test_run_batch.py -q
+36 passed in 0.27s
+
+$ .venv/bin/python -m pytest -q
+1321 passed in 49.27s          # 0 failed
+```
+
+Commit scope: `e30b128` touches `reports/spec-recipe-items.md`,
+`scripts/generate_batch.py`, `src/nutrienv/bench/pipeline/run_batch.py`,
+`tests/test_run_batch.py`. No ADR, `data/splits/*`, `*.sqlite`, `scorer.py`,
+`validator.py`, `review_harness.py`, or `quality_gates.py` change.
+`Pass ⇔ end state == Oracle` unaffected.
+
+**RELEASE: N-1/N-2 are closed — recipe/expander mismatch now fails at the
+`run_batch` entry and at the CLI, before any sampling or LLM call.** N-4 is a
+tracked cleanup, not a release gate.
