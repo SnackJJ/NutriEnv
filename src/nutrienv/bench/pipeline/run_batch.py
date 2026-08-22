@@ -416,7 +416,9 @@ def _parse_spec(batch_spec: Mapping) -> dict:
 # portion.
 _RECIPE_KEYS: dict[str, frozenset[str]] = {
     "evaluate": frozenset({"knife", "tier"}),
-    "recommend": frozenset({"occasion", "tier"}),
+    # tier is evaluate-only authoring data (mirrors generate_one's guard);
+    # recommend can only carry an occasion override.
+    "recommend": frozenset({"occasion"}),
 }
 _BATCH_KNIVES = frozenset(KNIVES) - {"swap"}
 

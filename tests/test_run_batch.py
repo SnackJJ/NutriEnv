@@ -342,14 +342,6 @@ def _nutrient_catalog() -> dict:
     for food_id, nutrients in _STAPLE_NUTRIENTS.items():
         catalog.setdefault(food_id, {"name": food_id.replace("_", " ")})
         catalog[food_id]["nutrients"] = dict(nutrients)
-    catalog["olive_oil"].update(
-        {
-            "name": "Oil, olive",
-            "portions": {"tbsp": 13.5},
-            "aliases": ["olive oil"],
-            "allergen_tags": [],
-        }
-    )
     catalog["olive_oil"] = {
         "name": "Oil, olive",
         "portions": {"tbsp": 13.5},
