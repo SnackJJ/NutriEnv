@@ -230,3 +230,115 @@ round-trip test's `replace(task, situations=())` workaround is gone, and a new
 `test_generate_one_fit_items_survive_freeze_load_round_trip` freezes → loads a
 tiered fit item cleanly. generate_one now emits only reload-valid situations
 on every evaluate path. Full suite 1314 passed, 0 failed.
+
+## Final review (claude opus)
+
+**Verdict: ACC.** F-1 is closed. Both `("evaluate_fit",)` sites emit `()`, the
+fit geometry survives in the oracle, no consumer existed or remains, and — this
+is the part worth naming — the fix also removed a test workaround that had been
+holding the defect in place. Scope is clean. No findings.
+
+### 1 — both sites closed
+
+`generate_one.py:423` (composite log+evaluate child draft) and `:886`
+(single-family fit) both now pass `()` to `_realize_eval`. Static audit of the
+whole file: the only remaining situation literals are `:351`, `:397`, `:452` —
+all `("multi_item_log",)`, which **is** in `SITUATIONS`. Every other
+construction site (`:511`, `:630`, `:783`, plus the three unfit sites closed in
+`22f9231`) passes `()`. Grepping `src/` and `tests/` for the string
+`"evaluate_fit"` returns zero hits — only function and test *names* survive.
+So the mill's situations vocabulary is now closed under `SITUATIONS`, by
+construction rather than by spot fix.
+
+Fit geometry is intact and independently observable: `last_verdict == "accept"`
+plus the exact `evaluated_plan`, asserted in the new test and preserved through
+freeze→load.
+
+The `:452` composite tag is untouched, as it should be — verified the composite
+still emits `("multi_item_log",)` and reloads. Worth restating precisely: `:423`
+is an internal draft whose oracle alone is reused, so it has no observable
+emission and no test can pin it; changing it is a consistency cleanup that
+makes the file uniformly correct rather than correct-where-it-escapes. That is
+the right call.
+
+### 2 — round-trip test, and the workaround it retired
+
+`test_generate_one_fit_items_survive_freeze_load_round_trip` builds a tiered
+mill fit item, asserts `last_verdict == "accept"`, a populated
+`evaluated_plan`, and `situations == ()`, then `freeze_tasks` → `load_split` →
+asserts tier, `situations == ()`, verdict, and `validate_draft == []` on the
+**reloaded** task. Genuine round trip, not a shape check.
+
+More significant than the new test: `test_evaluate_tier_survives_freeze_load_round_trip`
+(`:522`) previously froze `replace(task, situations=())` behind a comment that
+openly acknowledged F-1 ("Freezing with the mill's authoring situation tag
+intact fails load_split … pre-existing, orthogonal to tiers"). That test was
+green *because* it stripped the bad tag, and would have stayed green forever
+with F-1 unfixed. The workaround is now gone and the real task is frozen. That
+converts a test that was documenting the defect into one that would catch its
+return — the more valuable half of this commit.
+
+### 3 — no consumer missed; producers agree
+
+`evaluate_fit` had zero code consumers before the change (confirmed in my prior
+review and re-confirmed here: no string-literal reference anywhere in `src/`).
+Nothing to migrate.
+
+Complete producer sweep — every mill shape frozen and reloaded, plus the batch
+side for comparison:
+
+```
+mill log                    log       situations=('multi_item_log',)  reload OK  validate=[]
+mill evaluate FIT           evaluate  situations=()                   reload OK  validate=[]  accept
+mill evaluate FIT tier=pair evaluate  situations=()                   reload OK  validate=[]  accept
+mill evaluate knife-unfit   evaluate  situations=()                   reload OK  validate=[]  reject
+mill evaluate leftover_under evaluate situations=()                   reload OK  validate=[]  reject
+mill evaluate leftover_over  evaluate situations=()                   reload OK  validate=[]  reject
+mill recommend              recommend situations=()                   reload OK  validate=[]
+composite log+evaluate      log       situations=('multi_item_log',)  reload OK  validate=[]
+composite log+recommend     log       situations=('multi_item_log',)  reload OK  validate=[]
+batch evaluate FIT          evaluate  situations=()                   reload OK  validate=[]
+```
+
+(`update` emits `()` statically at `:630`/`:783`; its fixture rejected on
+template grounds, and the literal audit above is conclusive for it.)
+
+Mill and batch now agree on both shapes — fit and unfit. The asymmetry Low-4
+named is eliminated, not narrowed.
+
+### 4 — scope
+
+`6937177` touches four files: `reports/spec-unfit-situations.md`,
+`reports/impl-recipe-channel.md`,
+`src/nutrienv/bench/pipeline/generate_one.py`,
+`tests/test_generate_one_evaluate.py`. No ADR, `data/splits/*`, `*.sqlite`,
+`scorer.py`, `validator.py`, `review_harness.py`, or `quality_gates.py` change.
+`situations.py` and `split.py` remain untouched across both commits — the
+approved vocabulary was never widened to accommodate the producer, which is the
+right direction of fit. `Pass ⇔ end state == Oracle` unaffected.
+
+### Notes (non-blocking)
+
+- `test_generate_one_fit_items_survive_freeze_load_round_trip` and
+  `test_evaluate_tier_survives_freeze_load_round_trip` both call
+  `_run_eval(tier="pair")` and both freeze→load; the new one is nearly a
+  superset of the old. They are scoped differently (situations vs. the tier
+  channel), so the overlap is defensible — just be aware they will fail
+  together.
+- The `leftover_over`-only branch (`:912`) still has no freeze→load coverage in
+  the round-trip tests. Verified correct by probe in both reviews; adding the
+  existing `white_rice` 965 g + `over_slot` fixture to a round-trip loop would
+  make all mill evaluate branches test-pinned. Cosmetic.
+
+### Evidence
+
+```
+$ .venv/bin/python -m pytest tests/test_generate_one_evaluate.py -q
+19 passed in 0.16s
+
+$ .venv/bin/python -m pytest -q
+1314 passed in 48.66s          # 0 failed
+```
+
+**RELEASE: mill evaluate output (fit + unfit) is now reload-valid end to end —
+`generate_one` can feed `freeze_tasks`.**
