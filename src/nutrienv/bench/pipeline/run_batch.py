@@ -13,6 +13,7 @@ from nutrienv.bench.realize import Task, scored_oracles
 from nutrienv.bench.validator import validate_draft
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.portions import resolve_portion
+from nutrienv.world.types import normalize_tags
 
 from .expander import LlmExpander, coerce_candidates, make_llm_expander, synthetic_expander
 from .freezer import freeze_tasks
@@ -437,16 +438,24 @@ _HINTS_NEED_SYNTHETIC = (
 # realize branch is the plain tracer log).
 _RECIPE_KEYS: dict[str, frozenset[str]] = {
     "evaluate": frozenset(
-        {"knife", "tier", "items", "amount_path", "person", "pool_allergen"}
+        {
+            "knife",
+            "tier",
+            "items",
+            "amount_path",
+            "person",
+            "pool_allergen",
+            "exclude_allergens",
+        }
     ),
-    "recommend": frozenset({"occasion", "person", "pool_allergen"}),
-    "update": frozenset({"person", "pool_allergen"}),
+    "recommend": frozenset({"occasion", "person", "pool_allergen", "exclude_allergens"}),
+    "update": frozenset({"person", "pool_allergen", "exclude_allergens"}),
     "composite": frozenset({"person", "pool_allergen"}),
 }
 # Knobs consumed by the expander when producing the query (the rest stamp the
 # Candidate). Synthetic expander only — anything else fails closed (see
 # _expand_one): LLM prompt shells are issue-15 design.
-_EXPANDER_HINTS = frozenset({"items", "amount_path"})
+_EXPANDER_HINTS = frozenset({"items", "amount_path", "exclude_allergens"})
 # amount_path values with resolver/expander semantics. Only "explicit_grams"
 # changes synthetic speech; there are no accepted no-op values.
 _RECIPE_AMOUNT_PATHS = frozenset({"explicit_grams"})
@@ -491,6 +500,18 @@ def _parse_family_recipes(
                     f"unsupported evaluate knife {value!r} "
                     f"(allowed: {sorted(_BATCH_KNIVES)})"
                 )
+            if key == "exclude_allergens":
+                # Comma/space-separated tags, normalized like catalog tags;
+                # an unparseable value is refused rather than silently
+                # excluding nothing.
+                tags = normalize_tags(value.replace(",", " ").split())
+                if not tags:
+                    raise ValueError(
+                        f"recipe {family}.exclude_allergens must name at "
+                        f"least one allergen tag, got {value!r}"
+                    )
+                parsed[key] = ",".join(tags)
+                continue
             if key == "tier" and value not in EVALUATE_TIERS:
                 raise ValueError(
                     f"recipe {family}.tier must be one of "
@@ -653,13 +674,19 @@ def _expand_one(
     job: _PoolJob, expander: Expander, persona: str
 ) -> tuple[_PoolJob, list]:
     recipe = job.recipe or {}
-    # Expander hints vs Candidate stamps: items/amount_path shape the query
-    # the expander produces; everything else is stamped onto the Candidate.
-    hints = {
-        key: int(value) if key == "items" else value
-        for key, value in recipe.items()
-        if key in _EXPANDER_HINTS
-    }
+    # Expander hints vs Candidate stamps: items/amount_path/exclude_allergens
+    # shape the query the expander produces; everything else is stamped onto
+    # the Candidate.
+    hints = {}
+    for key, value in recipe.items():
+        if key not in _EXPANDER_HINTS:
+            continue
+        if key == "items":
+            hints[key] = int(value)
+        elif key == "exclude_allergens":
+            hints[key] = tuple(value.split(","))
+        else:
+            hints[key] = value
     if hints and expander is not synthetic_expander:
         # Fail closed: a real (LLM) run must not accept --recipe
         # items/amount_path and silently ignore them. LLM prompt shells are

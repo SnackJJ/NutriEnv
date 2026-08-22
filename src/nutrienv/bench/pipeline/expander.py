@@ -151,6 +151,7 @@ def synthetic_expander(
     family: str,
     items: int | None = None,
     amount_path: str | None = None,
+    exclude_allergens: tuple[str, ...] | None = None,
 ) -> dict[str, object]:
     """Deterministic fake: compose 1–2 pool foods with a table phrase.
 
@@ -160,8 +161,11 @@ def synthetic_expander(
     speakable pool foods -- fewer available yields the empty payload
     (fail-closed), never a smaller plate. ``amount_path="explicit_grams"``
     speaks the food's one-portion gram amount ("150 g") instead of the table
-    phrase. Defaults keep today's behavior.
+    phrase. ``exclude_allergens`` skips pool foods whose catalog allergen
+    tags intersect the set (the fit→knife construction needs an allergen-free
+    plate so the knife can add the carrier). Defaults keep today's behavior.
     """
+    banned = {str(tag).strip().lower() for tag in (exclude_allergens or ())} - {""}
     chosen: list[tuple[PoolFood, str]] = []
 
     def _phrase_for(food: PoolFood) -> str | None:
@@ -179,12 +183,17 @@ def synthetic_expander(
             return None if one is None else f"{one:g} g"
         return _preferred_phrase(food)
 
+    def _excluded(food: PoolFood) -> bool:
+        return bool(
+            banned & {str(tag).lower() for tag in food.allergen_tags}
+        )
+
     if family == COMPOSITE_FAMILY:
         # ADR 0014 six-nutrient windows leave a finite daily budget, and a
         # heavy tracer plate can spend it all — the draft is then (correctly)
         # dropped as unpassable. Keep the composite tracer plate to the
         # lightest single pool food so the sample stays writable. Recipe
-        # hints do not apply: the composite shape owns its plate size.
+        # hints do not apply: the composite shape owns its plate.
         lightest = min(
             (food for food in pool.foods if _preferred_phrase(food) is not None),
             key=lambda food: min(
@@ -198,15 +207,17 @@ def synthetic_expander(
     else:
         limit = items if items else 2
         for food in pool.foods:
+            if _excluded(food):
+                continue
             phrase = _phrase_for(food)
             if phrase is None:
                 continue
             chosen.append((food, phrase))
             if len(chosen) >= limit:
                 break
-        if items is not None and len(chosen) < items:
-            # Fail-closed: fewer speakable foods than requested is an empty
-            # candidate (schema-dropped), never a smaller plate.
+        if len(chosen) < (items or 0):
+            # Fail-closed: fewer speakable non-excluded foods than requested
+            # is an empty candidate (schema-dropped), never a smaller plate.
             return {"items": [], "query": ""}
     if not chosen:
         return {"items": [], "query": ""}
@@ -221,7 +232,8 @@ def synthetic_expander(
     else:
         meal = ", and ".join(parts)
     if family == "evaluate":
-        query = f"Evaluate this as my plan: {meal}."
+        # The spoken occasion feeds the knife branch's window derivation.
+        query = f"Evaluate this as my plan for dinner: {meal}."
         return {"items": payload_items, "query": query}
     if family == COMPOSITE_FAMILY:
         query = (

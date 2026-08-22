@@ -59,6 +59,7 @@ RECIPE_KEYS = (
     "amount_path",
     "person",
     "pool_allergen",
+    "exclude_allergens",
 )
 
 

@@ -68,3 +68,13 @@ satisfiable; the remaining blockers are expander plate composition (the first
 N foods may include the carrier → visible `allergen_clash`) and the
 fit-window precondition — both issue-15 recipe design. Details:
 `reports/impl-pool-allergen.md`.
+
+## Path A reachable: exclude_allergens knob
+
+`evaluate:exclude_allergens=egg` (comma/space-separated tags) makes the
+synthetic plate skip the person's allergen carriers, so pool_allergen +
+knife=allergy completes ADR 0017's fit→knife construction end to end on the
+real catalog (verified: unfit items produced for roster-cam/egg and
+roster-kim/soy; acceptance ~1/15 random pools due to the fit-window residual —
+details and honest rates in `reports/impl-exclude-allergens.md`). Path A is
+now mechanically reachable; bulk yield tuning stays issue-15 design.

@@ -10,6 +10,7 @@ import pytest
 from nutrienv.bench.pipeline import catalog_digest, pass_through_reviewer, run_batch
 from nutrienv.bench.pipeline.expander import synthetic_expander
 from nutrienv.bench.pipeline.run_batch import quota_ledger
+from nutrienv.bench.pipeline.types import PortionAlternative
 from nutrienv.bench.realize import Oracle, Task, bind_evaluate_reasons
 from nutrienv.bench.split import load_exam, load_split
 from nutrienv.bench.validator import validate_draft
@@ -1193,3 +1194,116 @@ def test_pool_allergen_input_is_normalized() -> None:
     )
     (pool,) = pools
     assert any("egg" in food.allergen_tags for food in pool.foods)
+
+
+def test_exclude_allergens_recipe_produces_the_knife_unfit(tmp_path: Path) -> None:
+    """fit→knife on a deterministic fixture: the plate skips the egg carrier,
+    binds clean inside cam's cut-dinner window, then the allergy knife steals
+    the egg carrier → ADR 0017 unfit."""
+    from nutrienv.bench.quality_gates import evaluate_unfits
+
+    # Three foods so the pool holds all of them (size 3); the two non-egg
+    # foods sum into cam's cut-dinner kcal slot [390.2, 520.3], and the egg
+    # carrier joins via the knife afterwards.
+    catalog = {
+        "white_rice": {
+            "name": "Rice, white",
+            "portions": {"cup": 158.0},
+            "aliases": ["rice"],
+            "allergen_tags": [],
+            "nutrients": {"kcal": 130.0, "protein_g": 2.7},
+        },
+        "avocado": {
+            "name": "Avocado, raw",
+            "portions": {"piece": 150.0},
+            "aliases": ["avocado"],
+            "allergen_tags": [],
+            "nutrients": {"kcal": 160.0, "protein_g": 2.0},
+        },
+        "egg": {
+            "name": "Egg, whole",
+            "portions": {"piece": 50.0},
+            "aliases": ["eggs", "egg"],
+            "allergen_tags": ["egg"],
+            "nutrients": {"kcal": 165.0, "protein_g": 31.0},
+        },
+    }
+    result = _run(
+        tmp_path,
+        None,
+        expander=synthetic_expander,
+        judge=_ok_judge,
+        catalog=catalog,
+        family_quotas={"evaluate": 1},
+        family_recipes={
+            "evaluate": {
+                "knife": "allergy",
+                "person": "roster-cam",
+                "pool_allergen": "egg",
+                "exclude_allergens": "egg",
+                # The two non-carrier foods reach cam's dinner kcal window;
+                # a single food would fail it (fit residual).
+                "items": "2",
+                "tier": "single",
+            },
+        },
+    )
+    assert len(result.accepted) == 1, [
+        (r.reason, r.family) for r in result.rejected
+    ]
+    (task,) = result.accepted
+    oracle = task.oracle
+    assert oracle.last_verdict == "reject"
+    assert oracle.last_plan == []
+    # The knife ADDED exactly one carrier to an otherwise allergen-free
+    # plate (fit -> knife, ADR 0017).
+    named = oracle.evaluated_plan
+    assert named
+
+    def _carries_egg(item):
+        entry = task.s0.catalog.get(str(item["food_id"])) or {}
+        return "egg" in (
+            entry.get("allergen_tags") or []
+        )
+
+    assert sum(_carries_egg(i) for i in named) == 1, named
+    assert "allergy" in oracle.last_reasons
+    assert validate_draft(task) == []
+    assert evaluate_unfits([task]) == (task.id,)
+
+
+def test_exclude_allergens_shortfall_is_fail_closed() -> None:
+    from nutrienv.bench.pipeline.expander import synthetic_expander
+    from nutrienv.bench.pipeline.types import FoodPool, PoolFood
+
+    pool = FoodPool(
+        pool_id="p",
+        family="evaluate",
+        foods=(
+            PoolFood(
+                "egg",
+                "Egg, whole",
+                ("egg",),
+                (PortionAlternative("piece", 1.0, "a piece", 50.0),),
+                ("egg",),
+            ),
+            PoolFood(
+                "milk_whole",
+                "Milk, whole",
+                ("milk",),
+                (PortionAlternative("cup", 1.0, "a cup", 244.0),),
+                ("milk",),
+            ),
+        ),
+    )
+    payload = synthetic_expander(
+        pool, persona="everyday", family="evaluate", items=2,
+        exclude_allergens=("egg",),
+    )
+    # Only one non-egg food is speakable: an items=2 ask fails closed.
+    assert payload == {"items": [], "query": ""}
+    ok = synthetic_expander(
+        pool, persona="everyday", family="evaluate", items=1,
+        exclude_allergens=("egg",),
+    )
+    assert [item["food"] for item in ok["items"]] == ["milk_whole"]
