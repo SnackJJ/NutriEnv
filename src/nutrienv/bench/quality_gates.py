@@ -47,6 +47,18 @@ EVALUATE_UNFIT_FLOOR = 8
 CONSTRAINED_RECOMMEND_FLOOR = 8
 
 
+def _stated_numbers(value: object) -> tuple[str, ...]:
+    """The numeric spellings of a window bound that would leak it."""
+    number = float(value)
+    if not number or abs(number) < 10:
+        return ()
+    stated = [str(int(number))]
+    text = f"{number:.2f}".rstrip("0").rstrip(".")
+    if "." in text:
+        stated.append(text)
+    return tuple(stated)
+
+
 def _leaks_windows(task: Task) -> bool:
     """A recommend query that names its own numbers is answerable without
     reading the profile, which is the whole point of the family. New exams
@@ -58,11 +70,8 @@ def _leaks_windows(task: Task) -> bool:
     for windows in window_sets:
         for bounds in windows.values():
             for value in bounds:
-                if (
-                    value
-                    and float(value).is_integer()
-                    and abs(value) >= 10
-                    and str(int(value)) in task.query
+                if any(
+                    token in task.query for token in _stated_numbers(value)
                 ):
                     return True
     return False

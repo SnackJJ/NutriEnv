@@ -575,3 +575,15 @@ def test_named_dish_matches_the_spoken_name_segment():
     base = _task("rec-dish", query="Grilled salmon tonight?", allergies=("fish",))
     task = replace(base, s0=replace(base.s0, catalog=catalog))
     assert constrained_recommends([task]) == ("rec-dish",)
+
+
+def test_two_decimal_window_values_are_secrets():
+    tasks = [
+        _task(
+            "rec-decimal",
+            query="I have about 612.75 kcal left, what should I eat?",
+            windows={"kcal": (400.0, 612.75)},
+        ),
+        _task("rec-clean-frac", query="Half of my budget?", windows={"kcal": (400.0, 612.75)}),
+    ]
+    assert window_leaks(tasks) == ("rec-decimal",)
