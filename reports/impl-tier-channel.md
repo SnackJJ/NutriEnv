@@ -52,3 +52,113 @@ $ .venv/bin/python -m pytest -q
 ```
 
 (Previously 1296; +4 new tests, 0 failures.)
+
+## Review (codex)
+
+**Verdict: REV.** Valid declared string tiers are threaded correctly through
+every accepted Evaluate path and survive serialization, but the public
+validation accepts invalid falsey non-string values and stores them on
+`Task.tier`.
+
+### Standards
+
+No `AGENTS.md` violation or actionable baseline smell was found. The import
+direction is acyclic: `pipeline.generate_one -> quality_gates ->
+realize/validator`, with no reverse import of `generate_one`. Reusing
+`EVALUATE_TIERS` keeps tier policy centralized.
+
+### Spec
+
+- **Medium — invalid falsey tier values bypass validation** —
+  `src/nutrienv/bench/pipeline/generate_one.py:170-171`: `if tier and ...`
+  validates only truthy values, although spec lines 23-26 permit only the empty
+  string or a declared `EVALUATE_TIERS` string. Direct probes showed
+  `tier=None`, `False`, `0`, and `[]` all accepted and stored verbatim on the
+  returned `Task`. These values silently count toward no tier floor and violate
+  the `Task.tier: str` contract. **Fix:** reject non-strings explicitly, then
+  validate every non-empty string against family and `EVALUATE_TIERS`; add a
+  falsey non-string regression test.
+
+- **Low — the round-trip description is inaccurate** —
+  `tests/test_generate_one_evaluate.py:532-536` and
+  `reports/impl-tier-channel.md:38-42`: the report/comment says the
+  `evaluate_fit` authoring situation is stripped on reload, but the test
+  removes it with `replace(task, situations=())` before freezing. Freezing the
+  unmodified generated task and loading it raises `ValueError: unknown
+  situations: ['evaluate_fit']`. **Fix:** say explicitly that the test
+  normalizes the unrelated authoring-only situation before freeze, or provide
+  a separate normalization channel.
+
+- **Low — the committed report references an untracked spec** —
+  `reports/impl-tier-channel.md:3` points to
+  `reports/spec-tier-channel.md`, but that spec is absent from the commit and
+  remains untracked. **Fix:** commit the design-authority spec so the report's
+  reference resolves in a clean checkout.
+
+### Correctness of threading
+
+- All current accepted branches preserve a valid tier: fit, knife-unfit
+  rewrite, leftover-over retag, and leftover-under retag each returned
+  `tier="triple"` in direct probes. Every direct non-Evaluate Task constructor
+  receives the validated empty tier.
+- `_retag(..., tier="")` correctly preserves `task.tier`; a direct probe kept
+  `"triple"`. Rejected results contain no Task, so they need no tier.
+- A Composite probe retained the default empty tier, as required. No valid-tier
+  loss exists between `generate_one`, `task_to_item`, `freeze_tasks`, and
+  `load_split` once the orthogonal situation vocabulary is normalized.
+- No pre-existing caller passed `tier=` to `generate_one`, so the new strict
+  declared-string checks do not break an existing call site.
+
+### Test quality and evidence
+
+The four new tests assert real behavior and no existing assertion was weakened.
+The round-trip test uses the real freezer and loader rather than mocks, although
+it pre-normalizes situations as noted above. The main coverage gap is that only
+the fit path is tested with a tier; a regression in either `_retag` branch or
+the knife-unfit rewrite would remain green. **Low — add a parameterized tier
+propagation test covering fit, knife-unfit, leftover-over, and
+leftover-under.**
+
+- `tests/test_generate_one_evaluate.py`: **16 passed**.
+- Full suite: **1300 passed**.
+- Direct probes: four accepted Evaluate branches kept `triple`; Composite kept
+  `""`; invalid falsey values were accepted, confirming the blocker.
+- Commit scope contains no ADR, split, SQLite, scorer, validator,
+  review-harness, or `quality_gates.py` change.
+- Review-only: no code was edited or merged.
+
+Summary: Standards has **0 findings**; Spec has **3 findings** (worst: Medium
+falsey-value validation bypass), plus **1 Low test-coverage gap**.
+
+## Fix round (codex findings)
+
+Review: "## Review (codex)" above (verdict REV). Two findings, both fixed.
+
+- **Medium — falsey non-string tiers bypassed validation.** `generate_one`
+  now rejects non-string `tier` values before the truthy check:
+  `if not isinstance(tier, str): raise ValueError("tier must be a string,
+  ...")`. `None`, `0`, `[]`, `False` all raise instead of being stored
+  verbatim on `Task.tier`. Regression test:
+  `test_generate_one_rejects_falsey_non_string_tiers` (covers None / 0 / []
+  / False).
+- **Low — round-trip wording corrected.** The reload failure with the
+  authoring situation tag intact is real (`evaluate_fit` is not in split.py's
+  situations vocabulary; `load_split` raises "unknown situations"), so the
+  accurate description — now in both the test comment and this report — is:
+  the test deliberately strips the situation tag via
+  `replace(task, situations=())` before freezing, so the round-trip asserts
+  that the tier survives independent of situations. Test semantics unchanged.
+
+## Fix-round verification
+
+```
+$ .venv/bin/python -m pytest tests/test_generate_one_evaluate.py -q
+.................                                                        [100%]
+17 passed in 0.19s
+
+$ .venv/bin/python -m pytest -q
+........................................................................ [100%]
+1301 passed in 44.03s
+```
+
+(Previously 1300; +1 regression test, 0 failures.)

@@ -529,8 +529,11 @@ def test_evaluate_tier_survives_freeze_load_round_trip(tmp_path) -> None:
     task = result.accepted
     assert task_to_item(task)["tier"] == "pair"
     catalog = task.s0.catalog
-    # The mill's authoring situations ("evaluate_fit") are not split-reload
-    # vocabulary; the tier channel is what this pins.
+    # Freezing with the mill's authoring situation tag ("evaluate_fit")
+    # intact fails load_split — it is not in the split situations vocabulary
+    # (pre-existing, orthogonal to tiers). The test deliberately strips it
+    # before freeze so the round-trip asserts the tier channel independent
+    # of situations.
     _, target = freeze_tasks(
         [replace(task, situations=())],
         catalog=catalog,
@@ -538,3 +541,11 @@ def test_evaluate_tier_survives_freeze_load_round_trip(tmp_path) -> None:
     )
     loaded = load_split(target, catalog=catalog)
     assert [loaded_task.tier for loaded_task in loaded] == ["pair"]
+
+
+def test_generate_one_rejects_falsey_non_string_tiers() -> None:
+    import pytest
+
+    for bad_tier in (None, 0, [], False):
+        with pytest.raises(ValueError, match="tier must be a string"):
+            generate_one(catalog=_FIT_CATALOG, family="evaluate", tier=bad_tier)

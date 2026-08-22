@@ -163,10 +163,13 @@ def generate_one(
 
     ``tier`` is evaluate-only authoring data (ADR 0016 difficulty tiers): it
     must be empty for every other family and a declared ``EVALUATE_TIERS``
-    value for evaluate, so nobody can invent a tier or tier a log.
+    value for evaluate, so nobody can invent a tier or tier a log. It must be
+    a string: falsey non-string values (None, 0, ...) are rejected too.
     """
     if family not in {"log", "evaluate", "recommend", "update", "composite"}:
         raise ValueError(f"generate_one does not implement {family!r}")
+    if not isinstance(tier, str):
+        raise ValueError(f"tier must be a string, got {type(tier).__name__}")
     if tier and (family != "evaluate" or tier not in EVALUATE_TIERS):
         raise ValueError(f"unknown evaluate tier {tier!r} for family {family!r}")
     if amount_path is not None and amount_path not in AMOUNT_PATHS:
