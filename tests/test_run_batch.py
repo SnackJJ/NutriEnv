@@ -303,3 +303,84 @@ def test_quota_ledger_enforces_adr_0016_ceilings() -> None:
         quota_ledger([_ledger_item(True)] * 37, (("composite", 37),))
     with pytest.raises(ValueError, match="240-item exam"):
         quota_ledger([_ledger_item(False)] * 241, (("log", 241),))
+
+
+def test_quota_ledger_counts_recommend_and_update_against_the_exam() -> None:
+    def _family(family: str):
+        return Task("t", family, "q", object(), Oracle())
+
+    tasks = [_family("recommend")] * 200 + [_family("update")] * 40
+    ledger = quota_ledger(tasks, (("recommend", 200), ("update", 40)))
+    assert ledger["single_family_accepted"] == {"recommend": 200, "update": 40}
+    assert ledger["composite_accepted"] == 0
+    with pytest.raises(ValueError, match="240-item exam"):
+        quota_ledger(tasks + [_family("recommend")], (("recommend", 201),))
+
+
+_RECOMMEND = {
+    "items": [{"food": "milk_whole", "expression": "a cup"}],
+    "query": "What should I eat along with a cup of milk for dinner?",
+}
+
+_UPDATE = {
+    "items": [{"food": "egg", "expression": "a piece"}],
+    "query": "Please remember, I am now allergic to egg, so no more egg.",
+}
+
+# fitting_plan searches staples for an allergen-safe plan inside the judged
+# windows, so the fixture staples need nutrient tables.
+_STAPLE_NUTRIENTS = {
+    "white_rice": {"kcal": 130.0, "protein_g": 2.7},
+    "chicken_breast": {"kcal": 165.0, "protein_g": 31.0},
+}
+
+
+def _nutrient_catalog() -> dict:
+    catalog = _catalog()
+    for food_id, nutrients in _STAPLE_NUTRIENTS.items():
+        catalog[food_id]["nutrients"] = dict(nutrients)
+    # The roster profile carries a peanut allergy; every oracle allergy must
+    # be a catalog tag, so the fixture needs a peanut carrier too.
+    catalog["peanut_butter"] = {
+        "name": "Peanut butter",
+        "portions": {"tablespoon": 16.0},
+        "aliases": ["peanut butter"],
+        "allergen_tags": ["peanut"],
+    }
+    return catalog
+
+
+def test_recommend_family_job_yields_a_recommend_task(tmp_path: Path) -> None:
+    result = _run(
+        tmp_path,
+        [_RECOMMEND],
+        judge=_ok_judge,
+        catalog=_nutrient_catalog(),
+        family_quotas={"recommend": 1},
+    )
+    assert result.rejected == []
+    assert len(result.accepted) == 1
+    task = result.accepted[0]
+    assert task.family == "recommend"
+    assert task.oracle.last_plan == []
+    assert task.oracle.plan_must_be_safe
+    assert task.oracle.plan_must_fit_windows
+    assert task.oracle.plan_windows is not None
+
+
+def test_update_family_job_yields_an_add_allergy_update_task(tmp_path: Path) -> None:
+    result = _run(
+        tmp_path,
+        [_UPDATE],
+        judge=_ok_judge,
+        catalog=_nutrient_catalog(),
+        family_quotas={"update": 1},
+    )
+    assert result.rejected == []
+    assert len(result.accepted) == 1
+    task = result.accepted[0]
+    assert task.family == "update"
+    added = set(task.oracle.profile.allergies) - set(task.s0.profile.allergies)
+    assert added == {"egg"}
+    assert task.oracle.ledger is not None
+    assert task.oracle.update_band is None

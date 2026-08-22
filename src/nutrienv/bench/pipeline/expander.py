@@ -194,6 +194,39 @@ def synthetic_expander(
             "what's left."
         )
         return {"items": items, "query": query, "steps": list(COMPOSITE_STEPS)}
+    if family == "recommend":
+        # The named foods stay spoken context: the recommend oracle judges a
+        # free plan, so the query never states window numbers.
+        query = f"What should I eat along with {meal} for dinner?"
+        return {"items": items, "query": query}
+    if family == "update":
+        # The named food evidences the profile change; its catalog allergen
+        # tags become the oracle's added allergies (resolver-side). Pick a
+        # pool food that actually carries a tag; a pool without one yields
+        # no candidate (the pool is then schema-dropped, fail-closed). The
+        # query speaks the tag words themselves -- the oracle stores tags,
+        # never speech, and the validator demands tag-level evidence.
+        carrier = next(
+            (
+                food
+                for food in pool.foods
+                if food.allergen_tags and _preferred_phrase(food) is not None
+            ),
+            None,
+        )
+        if carrier is None:
+            return {"items": [], "query": ""}
+        tags = " and ".join(sorted(tag.replace("_", " ") for tag in carrier.allergen_tags))
+        query = (
+            f"Please remember, I am now allergic to {tags}, "
+            f"so no more {_spoken_name(carrier)}."
+        )
+        return {
+            "items": [
+                {"food": carrier.food_id, "expression": _preferred_phrase(carrier)}
+            ],
+            "query": query,
+        }
     query = f"Please log {meal} for lunch."
     return {"items": items, "query": query}
 

@@ -4,15 +4,20 @@ from __future__ import annotations
 
 import copy
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 
-from nutrienv.bench.occasions import REC_OCCASION_AFTER, occasion_from_stamp
+from nutrienv.bench.occasions import (
+    REC_OCCASION_AFTER,
+    occasion_from_query,
+    occasion_from_stamp,
+)
 from nutrienv.bench.realize import (
     FUZZY_DISTRACTORS,
     GOLD_WINDOWS,
     Material,
     Oracle,
+    Task,
     compose_oracles,
     realize,
 )
@@ -20,7 +25,7 @@ from nutrienv.bench.realizations import EvaluateRow, MultiItemLogRow
 from nutrienv.world.catalog import canonical_food_id
 from nutrienv.world.daily_windows import plan_windows_for_meal
 from nutrienv.world.portions import resolve_portion
-from nutrienv.world.types import ledger_totals
+from nutrienv.world.types import WorldState, ledger_totals, normalize_tags
 
 from .expander import match_pool_food
 from .roster import ROSTER, profile_for
@@ -70,7 +75,11 @@ def resolve_candidate(
     if _leaks(candidate.query, catalog):
         return None, Rejected(candidate.query, "leak", candidate.family)
 
-    if not skip_gram_backresolve:
+    # Recommend/update oracles carry no bound grams (free plan / profile
+    # patch), so the spoken foods are context: containment below still
+    # requires the query to name them, but there is nothing to back-resolve.
+    context_only = candidate.family in {"recommend", "update"}
+    if not skip_gram_backresolve and not context_only:
         for food_id, expression, grams in resolved:
             if not query_backresolves_oracle(
                 candidate.query, food_id, expression, grams, catalog
@@ -280,6 +289,10 @@ def _realize(
     food_ids = [food_id for food_id, _expression, _grams in resolved]
     pairs = tuple((food_id, expression) for food_id, expression, _grams in resolved)
     allergies = _log_allergies(catalog, food_ids)
+    if candidate.family == "recommend":
+        return _realize_recommend(candidate, catalog, task_id)
+    if candidate.family == "update":
+        return _realize_update(candidate, resolved, catalog, task_id)
     if candidate.family == "evaluate":
         row = EvaluateRow(task_id, candidate.query, pairs)
         material = Material(
@@ -364,3 +377,58 @@ def _log_allergies(catalog: Mapping, food_ids: list[str]) -> tuple[str, ...]:
     for food_id in food_ids:
         carried.update((catalog.get(food_id) or {}).get("allergen_tags") or [])
     return tuple(tag for tag in ("peanut",) if tag not in carried)
+
+
+def _realize_recommend(candidate: Candidate, catalog, task_id: str) -> Task:
+    """Synthetic recommend draft: a free plan pinned to meal-slot windows.
+
+    The named foods stay spoken context (the oracle judges any
+    allergen-safe plan inside the windows); windows derive from a roster
+    person's six-key daily table -- the same source the composite recommend
+    leg uses. The occasion comes from the spoken "for <meal>" word.
+    """
+    profile = profile_for(ROSTER[0])
+    occasion = occasion_from_query(candidate.query) or "dinner"
+    plan_windows = plan_windows_for_meal(_composite_windows(), {}, occasion)
+    if plan_windows is None:
+        raise ValueError("recommend windows are empty")
+    oracle = Oracle(
+        profile=copy.deepcopy(profile),
+        last_plan=[],
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=plan_windows,
+        ledger=(),
+    )
+    s0 = WorldState(profile=copy.deepcopy(profile), ledger=[], catalog=catalog)
+    return Task(task_id, "recommend", candidate.query, s0, oracle, (), candidate.persona)
+
+
+def _realize_update(
+    candidate: Candidate,
+    resolved: Sequence[tuple[str, str, float]],
+    catalog,
+    task_id: str,
+) -> Task:
+    """Synthetic add-allergy update draft.
+
+    The query names a food; that food's catalog allergen tags (not already
+    on the roster profile) become the oracle's added allergies, so the
+    change is always evidenced in the query. Windows stay untouched, so
+    they remain world-derived and need no spoken magnitudes.
+    """
+    profile = profile_for(ROSTER[0])
+    added: set[str] = set()
+    for food_id, _expression, _grams in resolved:
+        tags = (catalog.get(food_id) or {}).get("allergen_tags") or ()
+        added.update(str(tag) for tag in tags if tag not in profile.allergies)
+    if not added:
+        raise ValueError("update names no food carrying a new allergen tag")
+    expected = replace(
+        profile, allergies=normalize_tags([*profile.allergies, *sorted(added)])
+    )
+    if expected.allergies == profile.allergies:
+        raise ValueError("update has no effect on the profile")
+    oracle = Oracle(profile=expected, ledger=())
+    s0 = WorldState(profile=copy.deepcopy(profile), ledger=[], catalog=catalog)
+    return Task(task_id, "update", candidate.query, s0, oracle, (), candidate.persona)

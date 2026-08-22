@@ -45,7 +45,11 @@ POOL_SIZE = 8
 DEFAULT_GENERATE_POOL_SIZE = 12
 MAX_PER_POOL = 3
 QUANTITY_MULTIPLES = (0.5, 1.0, 1.5, 2.0)
-SUPPORTED_FAMILIES = frozenset({"log", "evaluate", "composite"})
+# ADR 0016: the published exam has four families (Log, Evaluate, Recommend,
+# Update) plus Composite; recommend/update items back the situation floors.
+SUPPORTED_FAMILIES = frozenset(
+    {"log", "evaluate", "recommend", "update", "composite"}
+)
 # ADR 0016: the published 240 includes the 36 composite admission slots;
 # composite is not an extra quota on top of the exam.
 BASE_EXAM_QUOTA = 240
@@ -74,6 +78,9 @@ class PoolFood:
     name: str
     aliases: tuple[str, ...]
     alternatives: tuple[PortionAlternative, ...]
+    # Catalog allergen tags, so an update expander can name a food that
+    # evidences the profile change. Empty for hand-built fixtures.
+    allergen_tags: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

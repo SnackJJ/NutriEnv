@@ -134,6 +134,7 @@ def _pool_food(catalog: Mapping, food_id: str) -> PoolFood:
         name=str(entry.get("name") or food_id),
         aliases=aliases,
         alternatives=portion_alternatives(entry),
+        allergen_tags=tuple(str(tag) for tag in (entry.get("allergen_tags") or [])),
     )
 
 
