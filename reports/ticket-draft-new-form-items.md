@@ -108,3 +108,17 @@ counts the id, validate_draft == []. Dropped cleanly with
 reason="no_ledger" when no parent log exists (foreign_log for another
 person's tail). So the 24-leftover floor has BOTH carriers:
 composite log+recommend (10) and single-family scene=leftover recomends.
+
+## ADR 0016 quota table verified against quota_ledger (issue 15 #2 code side)
+
+log 48 / evaluate 48 / recommend 72 / update 36 / composite 36 = 240 exactly.
+`quota_ledger` accepts the full 240 (single-family classified per family,
+composite counted to exactly 36, ≤36 and ≤240 ceilings enforced). No code
+gap for the ADR 0016 allocation — only the main-agent confirmation of the
+numbers remains (ADR 0016 shows recommend 72, evaluate 48, update 36,
+composite 36; log = the remaining 48).
+
+Note: the ticket says "log 60" earlier — ADR 0016's own table sums to
+recommend 72 + evaluate 48 + update 36 + composite 36 = 192, so log is 48
+(not 60) for a 240 exam. Flag for the main-agent ruling: log 60 would
+exceed 240; correct number is 48.
