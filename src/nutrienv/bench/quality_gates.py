@@ -234,16 +234,22 @@ def leftover_floor(
     return LeftoverFloorReport(count=len(leftover_recommends(tasks)), minimum=minimum)
 
 
+def _is_evaluate_unfit(oracle: Oracle) -> bool:
+    """ADR 0017's unfit envelope: a reject verdict over an empty named plan."""
+    return oracle.last_verdict == "reject" and oracle.last_plan == []
+
+
 def _evaluate_lenses(task: Task) -> list[Oracle]:
-    """Oracles judged as Evaluate-unfit geometry carriers: single-family
-    evaluate -> [task.oracle]; composite -> each evaluate child (reject
-    verdict over an empty named plan)."""
+    """Oracles judged as genuine evaluate geometry carriers: single-family
+    evaluate -> [task.oracle]; composite -> each child carrying evaluate
+    evidence (an evaluated meal, no recommend fitting contract). A
+    verdict-bearing recommend child is not an evaluate carrier."""
     if task.family == "evaluate":
         return [task.oracle]
     return [
         child
         for child in task.oracle.sub_oracles or ()
-        if child.last_verdict == "reject" and child.last_plan == []
+        if child.evaluated_plan is not None and not child.plan_must_fit_windows
     ]
 
 
@@ -255,10 +261,7 @@ def evaluate_unfits(tasks: Sequence[Task]) -> tuple[str, ...]:
     return tuple(
         task.id
         for task in tasks
-        if any(
-            lens.last_verdict == "reject" and lens.last_plan == []
-            for lens in _evaluate_lenses(task)
-        )
+        if any(_is_evaluate_unfit(lens) for lens in _evaluate_lenses(task))
     )
 
 
@@ -266,14 +269,15 @@ def _tag(token: object) -> str:
     return str(token).strip().lower()
 
 
-def _query_names_allergen_food(task: Task) -> bool:
-    """True when the query names a catalog food carrying a profile allergen.
+def _query_names_allergen_food(task: Task, allergies: Sequence[str]) -> bool:
+    """True when the query names a catalog food carrying one of ``allergies``.
 
     The named-dish trap of ADR 0017: ordinary speech, the allergy sits in
     the profile. Names, aliases, and slugs match as whole phrases so
-    ``prawns`` finds ``shrimp``.
+    ``prawns`` finds ``shrimp``. Callers pass the lens profile's allergies so
+    a post-update composite child is judged on its own profile (S10-5).
     """
-    banned = {_tag(token) for token in task.s0.profile.allergies}
+    banned = {_tag(token) for token in allergies}
     if not banned:
         return False
     query = re.sub(r"[^a-z0-9]+", " ", task.query.lower())
@@ -306,7 +310,13 @@ class _Lens:
 
 
 def _is_recommend_child(child: Oracle) -> bool:
-    """The same test ship-10's validator uses to identify the recommend leg."""
+    """The gate's recommend-leg test: the validator's empty-plan /
+    fits-windows contract plus pinned ``plan_windows``. Deliberately stricter
+    than validator.py, which also admits a recommend leg falling back to
+    profile windows; these floors count only pinned-window geometry (the
+    mill always pins composite remainder windows), so a child without
+    ``plan_windows`` is counted toward neither the recommend nor the
+    evaluate lenses."""
     return (
         child.plan_windows is not None
         and child.last_plan == []
@@ -339,9 +349,10 @@ def constrained_recommends(tasks: Sequence[Task]) -> tuple[str, ...]:
     earlier that day judged on pinned remainder windows), or a named-dish
     allergy trap. Situation labels are never trusted: an unverifiable
     ``conflict_windows`` tag counts as unconstrained. Composite recommend
-    children count (ADR 0016): each lens is judged in turn -- the leftover
-    scene reads the parent ledger or a child ``ledger_tail``. Each task is
-    counted once even when several lenses/categories match.
+    children count (ADR 0016): each lens is judged in turn with its own
+    profile (S10-5) -- the leftover scene reads the parent ledger or a child
+    ``ledger_tail``. Each task is counted once even when several
+    lenses/categories match.
     """
     ids = []
     for task in tasks:
@@ -361,8 +372,9 @@ def constrained_recommends(tasks: Sequence[Task]) -> tuple[str, ...]:
             if scene and lens.oracle.plan_windows is not None:
                 hit = True
                 break
-        if not hit and _query_names_allergen_food(task):
-            hit = True
+            if _query_names_allergen_food(task, lens.profile.allergies):
+                hit = True
+                break
         if hit:
             ids.append(task.id)
     return tuple(ids)

@@ -778,3 +778,74 @@ def test_composite_evaluate_unfit_child_counts_toward_unfit_floor():
         oracle=compose_oracles(fit_child, replace(fit_child)),
     )
     assert evaluate_unfits([composite, clean]) == ("composite-unfit",)
+
+
+def test_composite_named_dish_allergen_trap_uses_child_profile():
+    """The trap is judged on each lens profile (S10-5): an update child that
+    ADDS shellfish turns "Shrimp tonight?" into a trap; a child that REMOVES
+    it un-traps the same query."""
+    trap_windows = {"kcal": (400.0, 600.0)}
+
+    def _child(allergies):
+        return Oracle(
+            last_plan=[],
+            profile=Profile(user_id="trap-child-user", allergies=allergies),
+            plan_windows=dict(trap_windows),
+            plan_must_fit_windows=True,
+        )
+
+    added = _task(
+        "composite-trap-added",
+        family="update",
+        query="Shrimp tonight?",
+        oracle=compose_oracles(Oracle(), _child(("shellfish",))),
+    )
+    removed = _task(
+        "composite-trap-removed",
+        family="update",
+        query="Shrimp tonight?",
+        allergies=("shellfish",),
+        oracle=compose_oracles(Oracle(), _child(())),
+    )
+    assert constrained_recommends([added, removed]) == ("composite-trap-added",)
+
+
+def test_composite_verdict_bearing_recommend_child_not_unfit():
+    """A recommend child (pinned windows + fits-windows contract) carrying a
+    reject verdict is not an Evaluate-unfit carrier."""
+    hybrid = Oracle(
+        last_plan=[],
+        plan_windows={"kcal": (400.0, 600.0)},
+        plan_must_fit_windows=True,
+        last_verdict="reject",
+        last_reasons=("kcal_hi",),
+    )
+    composite = _task(
+        "composite-hybrid-reject",
+        family="log",
+        query="I logged lunch; what should I eat for dinner?",
+        oracle=compose_oracles(Oracle(), hybrid),
+    )
+    assert evaluate_unfits([composite]) == ()
+    assert constrained_recommends([composite]) == ()
+
+
+def test_recommend_child_without_pinned_windows_counts_toward_no_lens():
+    """The gate discriminator is stricter than the validator's: a child with
+    the fits-windows contract but no pinned windows falls back to profile
+    windows in the validator and counts toward no floor lens here."""
+    fallback = Oracle(
+        last_plan=[],
+        plan_must_fit_windows=True,
+        evaluated_plan=[_FOOD],
+        last_verdict="reject",
+        last_reasons=("kcal_hi",),
+    )
+    composite = _task(
+        "composite-fallback-child",
+        family="log",
+        query="I logged lunch.",
+        oracle=compose_oracles(Oracle(), replace(fallback)),
+    )
+    assert constrained_recommends([composite]) == ()
+    assert evaluate_unfits([composite]) == ()
