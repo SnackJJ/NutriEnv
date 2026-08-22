@@ -159,10 +159,12 @@ def evaluate_tier_coverage(
 
     Items are grouped by ``Task.tier`` exactly as each split declares it;
     items with no declared tier count toward no floor. Defaults are the
-    v0.3 floors exactly.
+    v0.3 floors exactly, and ``counts`` mirrors the effective floor
+    mapping: caller-supplied floors key ``counts`` exactly, so an item
+    whose declared tier is not among them counts toward nothing.
     """
     declared = DEFAULT_EVALUATE_TIER_FLOORS if floors is None else floors
-    counts = {tier: 0 for tier in (*EVALUATE_TIERS, *declared)}
+    counts = {tier: 0 for tier in declared}
     for task in tasks:
         if task.family == "evaluate" and task.tier in counts:
             counts[task.tier] += 1

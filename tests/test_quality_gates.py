@@ -146,7 +146,6 @@ def test_gate_groups_evaluate_items_by_declared_tier():
         "triple": 0,
         "long": 0,
         "explicit_grams": 1,
-        "synonym": 0,
     }
 
     holed = [task for task in tasks if task.id != "ev-pair"]
@@ -157,8 +156,7 @@ def test_content_never_guesses_a_declared_tier():
     synonym = _eval_task("ev-a", meal=[_FOOD], tier="synonym")
     single = _eval_task("ev-b", meal=[_FOOD], tier="single")
     report = evaluate_tier_coverage([synonym, single], floors={"synonym": 1})
-    assert report.counts["synonym"] == 1
-    assert report.counts["single"] == 1
+    assert report.counts == {"synonym": 1}
     assert report.missing == ()
 
 
@@ -190,7 +188,6 @@ def test_evaluate_slice_must_cover_every_structural_tier():
         "triple": 1,
         "long": 0,
         "explicit_grams": 1,
-        "synonym": 0,
     }
 
     holed = [task for task in tasks if task.id != "ev-pair"]
@@ -616,6 +613,21 @@ def test_caller_declared_custom_tiers_are_counted():
     assert evaluate_tier_coverage(tasks, floors={"knife_swap": 2}).missing == (
         "knife_swap",
     )
+
+
+def test_custom_floors_key_the_report_exactly_by_the_supplied_tiers():
+    tasks = [
+        _eval_task("ev-knife", meal=[_FOOD], tier="knife_swap"),
+        _eval_task("ev-builtin", meal=[_FOOD], tier="single"),
+    ]
+    report = evaluate_tier_coverage(tasks, floors={"knife_swap": 1})
+    assert report.counts == {"knife_swap": 1}
+    assert report.missing == ()
+
+
+def test_default_call_keys_counts_by_the_six_builtin_tiers():
+    report = evaluate_tier_coverage([_eval_task("ev-single", meal=[_FOOD], tier="single")])
+    assert set(report.counts) == set(DEFAULT_EVALUATE_TIER_FLOORS)
 
 
 def test_allergen_matching_normalizes_tags():

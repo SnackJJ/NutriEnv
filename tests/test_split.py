@@ -943,3 +943,45 @@ def test_load_split_whitelists_declared_tiers(tmp_path: Path) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ValueError, match="tier"):
         load_split(path)
+
+
+def _tier_item(tier: object) -> dict:
+    item = {
+        "id": "ev-tier-kind",
+        "family": "evaluate",
+        "query": "Okay?",
+        "s0": {},
+        "oracle": {"last_plan": []},
+    }
+    if tier is not ...:
+        item["tier"] = tier
+    return item
+
+
+@pytest.mark.parametrize("bad", [0, False, [], 3.2])
+def test_load_split_rejects_non_string_declared_tiers(
+    tmp_path: Path, bad: object
+) -> None:
+    payload = {"items": [_tier_item(bad)]}
+    path = tmp_path / "bad-tier.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="tier must be empty or one of"):
+        load_split(path)
+
+
+@pytest.mark.parametrize("untiered", [..., None, ""])
+def test_load_split_loads_absent_null_and_empty_tiers_untiered(
+    tmp_path: Path, untiered: object
+) -> None:
+    payload = {"items": [_tier_item(untiered)]}
+    path = tmp_path / "untiered.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    assert load_split(path)[0].tier == ""
+
+
+def test_load_split_still_rejects_unknown_declared_tiers(tmp_path: Path) -> None:
+    payload = {"items": [_tier_item("mystery")]}
+    path = tmp_path / "mystery.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="tier must be empty or one of"):
+        load_split(path)

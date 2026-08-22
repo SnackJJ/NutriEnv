@@ -131,11 +131,15 @@ def _item(entry: object, catalog: dict) -> Task:
     persona = entry.get("persona") or ""
     if not isinstance(persona, str):
         raise ValueError(f"{task_id}: persona must be a string")
-    tier = entry.get("tier") or ""
-    if not isinstance(tier, str) or (tier and tier not in EVALUATE_TIERS):
+    declared_tier = entry.get("tier")
+    if declared_tier is not None and (
+        not isinstance(declared_tier, str)
+        or (declared_tier and declared_tier not in EVALUATE_TIERS)
+    ):
         raise ValueError(
             f"{task_id}: tier must be empty or one of {sorted(EVALUATE_TIERS)}"
         )
+    tier = declared_tier or ""
     s0 = _s0(entry.get("s0"), catalog)
     oracle = _oracle(entry.get("oracle"), s0, catalog)
     return Task(task_id, family, query.strip(), s0, oracle, situations, persona, tier)
