@@ -162,3 +162,38 @@ $ .venv/bin/python -m pytest -q
 ```
 
 (Previously 1300; +1 regression test, 0 failures.)
+
+## Re-review (codex)
+
+**Verdict: ACC.** The blocking validation defect is fixed, valid string inputs
+remain compatible, and no new code or spec finding was introduced.
+
+| Prior finding | Status | Re-review evidence |
+|---|---|---|
+| Medium — falsey non-string tier bypass | **Resolved** | `generate_one` rejects non-strings before the truthy policy check. Direct probes confirmed `None`, `0`, `[]`, and `False` raise `ValueError`; the regression test covers all four. `tier=""` remains accepted and carried as empty, while `tier="pair"` remains accepted and carried as `"pair"`. |
+| Low — inaccurate round-trip wording | **Resolved in the test and fix-round record** | The test comment and fix-round section now explicitly state that `replace(task, situations=())` removes the authoring-only situation before freeze, isolating tier persistence. The original implementation-summary sentence at lines 35-40 still says the round-trip “strips” situations; this stale historical wording is non-blocking but should be aligned in a later documentation cleanup. |
+
+### Standards
+
+No documented-standard violation or actionable baseline smell was found. The
+type guard is localized at the public authoring boundary and preserves the
+existing string policy.
+
+### Spec
+
+The accepted domain is now exactly the intended runtime contract: a string,
+empty for no tier or a declared Evaluate tier under the existing family check.
+No scope creep or forbidden-path change was introduced.
+
+### Verification
+
+- `tests/test_generate_one_evaluate.py`: **17 passed**.
+- Full suite: **1301 passed**.
+- Direct probes: four falsey non-strings rejected; `""` and `"pair"` accepted
+  and carried correctly.
+- Review-only: no code was edited or merged.
+
+No new findings. The previously noted untracked spec is unchanged and outside
+this two-finding fix round.
+
+Summary: Standards has **0 findings**; Spec has **0 new findings**.
