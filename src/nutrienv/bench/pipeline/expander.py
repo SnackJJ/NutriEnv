@@ -152,13 +152,29 @@ def synthetic_expander(
     Used by the tracer-bullet freeze. No network, no clock, no RNG.
     """
     chosen: list[tuple[PoolFood, str]] = []
-    for food in pool.foods:
-        phrase = _preferred_phrase(food)
-        if phrase is None:
-            continue
-        chosen.append((food, phrase))
-        if len(chosen) >= 2:
-            break
+    if family == COMPOSITE_FAMILY:
+        # ADR 0014 six-nutrient windows leave a finite daily budget, and a
+        # heavy tracer plate can spend it all — the draft is then (correctly)
+        # dropped as unpassable. Keep the composite tracer plate to the
+        # lightest single pool food so the sample stays writable.
+        lightest = min(
+            (food for food in pool.foods if _preferred_phrase(food) is not None),
+            key=lambda food: min(
+                alt.grams for alt in food.alternatives if alt.quantity == 1.0
+            ),
+            default=None,
+        )
+        chosen = (
+            [(lightest, _preferred_phrase(lightest))] if lightest is not None else []
+        )
+    else:
+        for food in pool.foods:
+            phrase = _preferred_phrase(food)
+            if phrase is None:
+                continue
+            chosen.append((food, phrase))
+            if len(chosen) >= 2:
+                break
     if not chosen:
         return {"items": [], "query": ""}
     items = [

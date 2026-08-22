@@ -11,8 +11,11 @@ from nutrienv.bench.pipeline.expander import (
     parse_expander_payload,
     synthetic_expander,
 )
+from nutrienv.bench.pipeline.run_batch import write_composite_sample
 from nutrienv.bench.pipeline.types import COMPOSITE_STEPS, FoodPool, PoolFood, PortionAlternative
+from nutrienv.bench.realize import GOLD_WINDOWS
 from nutrienv.bench.split import load_split
+from nutrienv.world.daily_windows import SIX_WINDOW_KEYS, plan_windows_for_meal
 
 
 def _catalog() -> dict:
@@ -263,3 +266,22 @@ def test_base_and_composite_quotas_stay_separate(tmp_path: Path) -> None:
     assert ledger["composite_accepted"] == 1
     assert sum(1 for task in result.accepted if task.oracle.sub_oracles) == 1
     assert sum(1 for task in result.accepted if not task.oracle.sub_oracles) == 1
+
+
+def test_partial_daily_windows_fail_loudly() -> None:
+    # ADR 0014: a recommend leg is judged on all six catalog nutrients.
+    # A partial profile must KeyError here, not silently narrow the keys.
+    import pytest
+
+    with pytest.raises(KeyError):
+        plan_windows_for_meal(dict(GOLD_WINDOWS), {}, "dinner")
+
+
+def test_composite_recommend_child_judges_all_six_nutrients(tmp_path: Path) -> None:
+    result = write_composite_sample(output_path=tmp_path / "six-key.json", n=1)
+    assert result.accepted
+    task = result.accepted[0]
+    rec = task.oracle.sub_oracles[-1]
+    assert set(rec.plan_windows) == set(SIX_WINDOW_KEYS)
+    loaded = load_split(result.path, catalog=task.s0.catalog)[0]
+    assert set(loaded.oracle.sub_oracles[-1].plan_windows) == set(SIX_WINDOW_KEYS)

@@ -7,6 +7,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import replace
 
+from nutrienv.bench.occasions import REC_OCCASION_AFTER, occasion_from_stamp
 from nutrienv.bench.realize import (
     FUZZY_DISTRACTORS,
     GOLD_WINDOWS,
@@ -22,6 +23,7 @@ from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import ledger_totals
 
 from .expander import match_pool_food
+from .roster import ROSTER, profile_for
 from .types import COMPOSITE_FAMILY, COMPOSITE_STEPS, Candidate, FoodPool, Rejected
 
 __all__ = [
@@ -290,6 +292,7 @@ def _realize(
             allergies=allergies,
         )
         return realize(material, candidate.query, catalog=catalog)
+    is_composite = candidate.family == COMPOSITE_FAMILY or len(candidate.steps) > 1
     row = MultiItemLogRow(task_id, candidate.query, pairs, _LOG_SLOT)
     material = Material(
         row=row,
@@ -299,13 +302,22 @@ def _realize(
         task_id=task_id,
         user_id=task_id,
         allergies=allergies,
-        windows=dict(GOLD_WINDOWS),
+        # ADR 0014: a composite recommend leg is judged on all six catalog
+        # nutrients, so its profile carries a roster person's full derived
+        # windows — the same source the mill uses — not the two-key legacy
+        # GOLD_WINDOWS fixture.
+        windows=_composite_windows() if is_composite else dict(GOLD_WINDOWS),
         ledger=_log_distractor_ledger(_LOG_SLOT),
     )
     task = realize(material, candidate.query, catalog=catalog)
-    if candidate.family == COMPOSITE_FAMILY or len(candidate.steps) > 1:
+    if is_composite:
         return _attach_recommend(task, candidate)
     return task
+
+
+def _composite_windows() -> dict:
+    """Full six-key derived windows for synthetic composite drafts."""
+    return dict(profile_for(ROSTER[0]).windows)
 
 
 def _attach_recommend(task, candidate: Candidate):
@@ -319,9 +331,12 @@ def _attach_recommend(task, candidate: Candidate):
     final_ledger = (*task.s0.ledger, *tail)
     # ADR 0014: plan_windows is meal-slot ∩ remainder after the log tail,
     # the same helper and convention the generate_one mill pins.
+    stamped = occasion_from_stamp(str(tail[-1].eaten_at))
+    if stamped is None:
+        raise ValueError("composite recommend occasion unresolved")
     eaten = ledger_totals(list(final_ledger), task.s0.catalog)
     plan_windows = plan_windows_for_meal(
-        task.s0.profile.windows, eaten, _rec_occasion(tail)
+        task.s0.profile.windows, eaten, REC_OCCASION_AFTER[stamped]
     )
     if plan_windows is None:
         raise ValueError("composite recommend windows are empty")
@@ -335,25 +350,6 @@ def _attach_recommend(task, candidate: Candidate):
         plan_windows=plan_windows,
     )
     return replace(task, oracle=compose_oracles(log_oracle, rec_oracle))
-
-
-# The recommend step asks for the meal after the logged one (ADR 0016 pairs).
-_REC_OCCASION_AFTER = {
-    "breakfast": "lunch",
-    "lunch": "dinner",
-    "dinner": "dinner",
-    "snack": "dinner",
-}
-
-
-def _rec_occasion(tail: list) -> str:
-    """Next occasion after the logged meal, read off the tail's eaten_at."""
-    match = re.search(
-        r"(?:^|-)(breakfast|lunch|dinner|snack)$", str(tail[-1].eaten_at)
-    )
-    if match is None:
-        return "dinner"
-    return _REC_OCCASION_AFTER[match.group(1)]
 
 
 def _log_distractor_ledger(slot: str) -> tuple[tuple[str, float, str], ...]:

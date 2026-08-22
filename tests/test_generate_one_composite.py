@@ -420,6 +420,38 @@ def test_validator_rejects_composite_update_that_shifts_unmentioned_window() -> 
     assert any("unmentioned window" in item for item in issues)
 
 
+def test_validator_flags_unresolved_composite_recommend_occasion() -> None:
+    result = _run()
+    assert result.rejected is None
+    task = result.accepted
+    log_oracle, rec_oracle = task.oracle.sub_oracles
+    # "now" stamps no meal word and the query names none either: the
+    # expected windows cannot be recomputed, so the gate must flag it
+    # instead of silently skipping the remainder check.
+    now_tail = [replace(row, eaten_at="now") for row in log_oracle.ledger_tail]
+    log_now = replace(log_oracle, ledger_tail=list(now_tail), ledger=tuple(now_tail))
+    rec_now = replace(rec_oracle, ledger_tail=list(now_tail), ledger=tuple(now_tail))
+    muted = replace(
+        task,
+        query="Please log a cup of rice. What should I eat?",
+        oracle=compose_oracles(log_now, rec_now),
+    )
+    issues = validate_draft(muted)
+    assert any("occasion unresolved" in item for item in issues)
+
+
+def test_occasion_helper_is_shared_and_fails_closed() -> None:
+    from nutrienv.bench.occasions import recommend_occasion
+    from nutrienv.world.types import LedgerRow
+
+    # Same resolution on both sides (resolver and validator import this).
+    assert recommend_occasion("", [LedgerRow("rice", 100.0, "today-lunch")]) == "dinner"
+    assert recommend_occasion("What's for lunch?", []) == "lunch"
+    # "now" stamps no meal and the query names none: None, never a guess.
+    row_now = LedgerRow("rice", 100.0, "now")
+    assert recommend_occasion("What should I eat?", [row_now]) is None
+
+
 def test_composite_uses_roster_people_and_counts_toward_36_admission_slots() -> None:
     assert COMPOSITE_ADMISSION_SLOTS == 36
     assert len(ROSTER) == 20

@@ -244,3 +244,70 @@ $ python -m pytest -q
 Delta vs pre-fix HEAD: +3 tests (two freeze round-trips, one quota ceiling);
 the rewritten remainder test replaces the persona-relabel version one-for-one;
 freezer-revert check fails the three round-trip tests as intended.
+
+---
+
+# Fix round 2: N10 re-review findings (claude opus)
+
+Review record: `reports/review-09-10-impl.md` lines 497-568. Both findings
+fixed; suite **1224 passed / 0 failed** (1220 + 4 new tests).
+
+## N10-1 — ADR 0014 six-nutrient contract restored (reviewer's option 1)
+
+- `world/daily_windows.py`: `meal_slot_and_remainder` and
+  `plan_windows_for_meal` iterate `SIX_WINDOW_KEYS` again. A caller with a
+  partial profile fails loudly (`KeyError`) instead of silently narrowing
+  the judged keys. The ecc3389 relaxation is fully reverted.
+- `resolver._realize`: composite materials now carry a **six-key profile**
+  derived from a roster person (`profile_for(ROSTER[0]).windows`) — the same
+  source the mill uses ("Mill does not invent kcal") — instead of the
+  two-key legacy `GOLD_WINDOWS`. Plain log candidates keep GOLD_WINDOWS.
+- Consequence handled honestly: under the correct six-key convention the
+  old two-food tracer plates (hamburger+pizza) spend the roster person's
+  whole daily protein budget, so their recommend remainder degenerates to
+  `(0, 0)` and the draft is correctly dropped as unpassable.
+  `synthetic_expander` therefore keeps composite tracer plates to the
+  **lightest single pool food** so `write_composite_sample` stays writable;
+  log/evaluate tracer behaviour is unchanged.
+- Regression tests:
+  - `test_partial_daily_windows_fail_loudly` — partial profile → KeyError.
+  - `test_composite_recommend_child_judges_all_six_nutrients` — frozen
+    sample's rec child carries exactly the six judged keys, before and after
+    a load_split round-trip.
+
+## N10-2 — one occasion helper; unresolved occasion fails loudly
+
+- New shared module `src/nutrienv/bench/occasions.py`:
+  `occasion_from_stamp`, `occasion_from_query`, `recommend_occasion`,
+  `REC_OCCASION_AFTER`. Resolver and validator import the same resolution,
+  so "now" (or any unrecognised stamp) resolves identically on both sides.
+- `validator._validate_composite`: when a recommend child pins
+  `plan_windows` but no occasion can be resolved, the gate now appends
+  **"composite recommend occasion unresolved"** instead of silently skipping
+  the equality check. No committed fixture hits the None path (log tails
+  always stamp today-<meal>; update+recommend shells speak "for <meal>"),
+  so it is a hard issue, not soft.
+- `resolver._attach_recommend`: unrecognised stamp raises
+  `"composite recommend occasion unresolved"` (→ fail-closed `unresolvable`
+  rejection), replacing the silent default-to-dinner that could disagree
+  with the validator.
+- Regression tests:
+  - `test_validator_flags_unresolved_composite_recommend_occasion` — a
+    "now"-stamped tail plus meal-word-free query produces the issue.
+  - `test_occasion_helper_is_shared_and_fails_closed` — one helper resolves
+    stamps/queries for both sides and returns None for "now", never dinner.
+
+## Test evidence
+
+```
+$ python -m pytest tests/test_generate_one_composite.py tests/test_pipeline_composite.py -q
+25 passed in 0.76s
+
+$ python -m pytest -q
+1224 passed in 44.86s
+```
+
+Delta vs pre-fix HEAD b374c3f: +4 tests (two six-key contract pins, one
+unresolved-occasion flag, one shared-helper agreement); no existing
+expectation weakened; ADR files, data/splits, catalog sqlite, and
+bench/scorer.py untouched.

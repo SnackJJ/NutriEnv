@@ -16,6 +16,7 @@ from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals, normalize_tags
 
 from .generator import Task
+from .occasions import recommend_occasion
 from .portion_table import matches_portion_table
 from .realize import bind_evaluate_reasons
 from .realizations import UPDATE_ROWS
@@ -749,7 +750,7 @@ def _validate_composite(task: Task) -> list[str]:
         if sub.ledger_tail:
             tail = list(sub.ledger_tail)
             break
-    occasion = _recommend_occasion(query, tail)
+    occasion = recommend_occasion(query, tail)
     eaten: dict[str, float] | None = None
     for child in children:
         if _child_is_update(child, task):
@@ -761,49 +762,23 @@ def _validate_composite(task: Task) -> list[str]:
         # gate reads the same one (update+recommend children carry the
         # post-update windows and allergies).
         profile = child.profile or task.s0.profile
-        if child.plan_windows and occasion is not None:
-            if eaten is None:
-                eaten = ledger_totals([*task.s0.ledger, *tail], task.s0.catalog)
-            expected = plan_windows_for_meal(profile.windows, eaten, occasion)
-            if expected is not None:
-                for key, bounds in expected.items():
-                    if child.plan_windows.get(key) != bounds:
-                        issues.append(
-                            f"composite plan_windows {key} != expected meal windows {bounds}"
-                        )
+        if child.plan_windows:
+            if occasion is None:
+                issues.append("composite recommend occasion unresolved")
+            else:
+                if eaten is None:
+                    eaten = ledger_totals([*task.s0.ledger, *tail], task.s0.catalog)
+                expected = plan_windows_for_meal(profile.windows, eaten, occasion)
+                if expected is not None:
+                    for key, bounds in expected.items():
+                        if child.plan_windows.get(key) != bounds:
+                            issues.append(
+                                f"composite plan_windows {key} != expected meal windows {bounds}"
+                            )
         windows = child.plan_windows or profile.windows
         if fitting_plan(task.s0.catalog, windows, profile.allergies) is None:
             issues.append("composite recommend is unpassable")
     return issues
-
-
-# A composite recommend step asks for the meal after the logged one.
-_REC_OCCASION_AFTER = {
-    "breakfast": "lunch",
-    "lunch": "dinner",
-    "dinner": "dinner",
-    "snack": "dinner",
-}
-
-
-def _recommend_occasion(query: str, tail: list) -> str | None:
-    """The occasion a composite recommend step was pinned for, or None.
-
-    Log+recommend tails stamp the logged meal ("today-lunch"); the ask is
-    for the next occasion. Update+recommend leaves no tail, so the spoken
-    meal word decides. None means the expected windows cannot be
-    recomputed and the gate only checks passability.
-    """
-    if tail:
-        match = re.search(
-            r"(?:^|-)(breakfast|lunch|dinner|snack)$", str(tail[-1].eaten_at)
-        )
-        if match is not None:
-            return _REC_OCCASION_AFTER[match.group(1)]
-    match = re.search(r"\bfor\s+(breakfast|lunch|dinner|snack)\b", query)
-    if match is not None:
-        return match.group(1)
-    return None
 
 
 def _child_is_update(child, task: Task) -> bool:
