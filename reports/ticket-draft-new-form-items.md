@@ -148,3 +148,25 @@ unfitness gate itself (`evaluate_unfits` reading oracle geometry) is proven.
 | situation floors | constrained **6/8**（composite×4+recommend×2），unfit 0/8 | constrained 差 2、unfit 差 8 | constrained 接近自动达标；unfit 需 knife+allergy 配方（测试 catalog 证明，catalog-v2 需 pool 定向） |
 
 结论：constrained floor 几乎可自动达标；leftover 需 scene 配方扩量；**unfit 与 tier 是真正的 recipe 驱动缺口**（knife + items/amount_path + pool 定向）。这是 issue 15 批量产的量化起点。
+
+## Recipe-open demo (2026-08-23) — all knobs on, strongest current baseline
+
+30 pools × {log,evaluate,recommend,update,composite} with recipes
+(`evaluate:tier/items/person`, `recommend:person:occasion`, `composite:person`,
+`update:person`) on catalog-v2 synthetic → 28 accepted (2 code_gate).
+
+| 14 assertion | recipe-open | vs R10 default | driver |
+|---|---|---|---|
+| validate / window_leaks | 0 issues / none | same | — |
+| constrained Recommends | **9/8 达标** | 6/8 | composite + recommend occasion |
+| leftover | 5/24 | 4/24 | composite (scene recipe still needed for scale) |
+| evaluate tier | **triple=6** (single/pair missing) | all 0 | `items=3+tier=triple` ✓ — items/amount_path channel proven |
+| evaluate-unfit | 0/8 | 0/8 | knife+allergy needs recipe-layered pools (fit precondition; only _knife_catalog fixture proves it; real-catalog random pools reject cleanly) |
+| persona coverage | cut/gym/everyday seen | everyday | `person=` ✓ |
+| allergen coverage | milk/peanut seen | peanut | person= → fay(milk)+ada; egg/cam eaten by recipe-key collision in this demo (one recipe dict per family — separate runs needed per evaluate variant) |
+
+Conclusion: recipe-open production does reach tier>0, constrained floor, and
+persona diversity. Remaining for issue-15 design: (a) one-recipe-per-family
+per run — split evaluate variants into separate batch calls; (b) unfit needs
+recipe-layered pools or a dedicated fixture catalog; (c) leftover scale needs
+`scene` (single-family generate_one) or composite expansion.
