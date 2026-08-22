@@ -51,7 +51,7 @@ DEFAULT_PREFIX = "v10"
 # run_batch's parser). ``shell``/``scene`` are generate_one-only until
 # resolver semantics exist; knife "swap" is excluded because its grams derive
 # from target kcal, not a catalog/QNS portion.
-RECIPE_KEYS = ("knife", "occasion", "tier", "items", "amount_path")
+RECIPE_KEYS = ("knife", "occasion", "tier", "items", "amount_path", "person")
 
 
 def _parse_recipe(value: str) -> tuple[str, dict[str, str]]:

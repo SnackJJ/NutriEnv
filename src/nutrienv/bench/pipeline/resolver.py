@@ -320,7 +320,11 @@ def _realize(
         # nutrients, so its profile carries a roster person's full derived
         # windows — the same source the mill uses — not the two-key legacy
         # GOLD_WINDOWS fixture.
-        windows=_composite_windows() if is_composite else dict(GOLD_WINDOWS),
+        windows=(
+            _composite_windows(candidate.person)
+            if is_composite
+            else dict(GOLD_WINDOWS)
+        ),
         ledger=_log_distractor_ledger(_LOG_SLOT),
     )
     task = realize(material, candidate.query, catalog=catalog)
@@ -329,9 +333,36 @@ def _realize(
     return replace(task, tier=candidate.tier)
 
 
-def _composite_windows() -> dict:
-    """Full six-key derived windows for synthetic composite drafts."""
-    return dict(profile_for(ROSTER[0]).windows)
+def _resolve_roster_person(value: str):
+    """A recipe ``person`` value (roster user_id or index) → RosterPerson.
+
+    Fail-closed: an unknown id or out-of-range index raises instead of
+    silently falling back to the default roster person.
+    """
+    if value.isdigit():
+        index = int(value)
+        if index >= len(ROSTER):
+            raise ValueError(f"roster index {index} is out of range")
+        return ROSTER[index]
+    for person in ROSTER:
+        if person.user_id == value:
+            return person
+    raise ValueError(f"unknown roster person {value!r}")
+
+
+def _person_profile(candidate: Candidate):
+    """The profile a resolver draft derives from: the recipe's chosen roster
+    person, else ROSTER[0] (the long-standing default, byte-identical)."""
+    if candidate.person:
+        return profile_for(_resolve_roster_person(candidate.person))
+    return profile_for(ROSTER[0])
+
+
+def _composite_windows(person: str | None = None) -> dict:
+    """Full six-key derived windows for synthetic drafts, from the recipe's
+    chosen roster person (default ROSTER[0])."""
+    chosen = _resolve_roster_person(person) if person else ROSTER[0]
+    return dict(profile_for(chosen).windows)
 
 
 def _attach_recommend(task, candidate: Candidate):
@@ -394,13 +425,15 @@ def _realize_recommend(candidate: Candidate, catalog, task_id: str) -> Task:
     """
     if candidate.shell or candidate.scene != "empty":
         raise ValueError("resolver recommend supports no shell/scene recipe")
-    profile = profile_for(ROSTER[0])
+    profile = _person_profile(candidate)
     occasion = candidate.occasion or occasion_from_query(candidate.query)
     if occasion is None:
         # occasions.py contract: an unresolved occasion fails loudly instead
         # of silently pinning dinner geometry.
         raise ValueError("recommend query names no meal occasion")
-    plan_windows = plan_windows_for_meal(_composite_windows(), {}, occasion)
+    plan_windows = plan_windows_for_meal(
+        _composite_windows(candidate.person), {}, occasion
+    )
     if plan_windows is None:
         raise ValueError("recommend windows are empty")
     oracle = Oracle(
@@ -412,8 +445,13 @@ def _realize_recommend(candidate: Candidate, catalog, task_id: str) -> Task:
         ledger=(),
     )
     s0 = WorldState(profile=copy.deepcopy(profile), ledger=[], catalog=catalog)
+    persona = (
+        _resolve_roster_person(candidate.person).persona
+        if candidate.person
+        else candidate.persona
+    )
     return Task(
-        task_id, "recommend", candidate.query, s0, oracle, (), candidate.persona,
+        task_id, "recommend", candidate.query, s0, oracle, (), persona,
         tier=candidate.tier,
     )
 
@@ -435,7 +473,7 @@ def _realize_update(
     """
     if candidate.knife or candidate.shell or candidate.scene != "empty":
         raise ValueError("resolver update supports no knife/shell/scene recipe")
-    profile = profile_for(ROSTER[0])
+    profile = _person_profile(candidate)
     added: set[str] = set()
     for food_id, _expression, _grams in resolved:
         tags = (catalog.get(food_id) or {}).get("allergen_tags") or ()
@@ -449,8 +487,13 @@ def _realize_update(
         raise ValueError("update has no effect on the profile")
     oracle = Oracle(profile=expected, ledger=())
     s0 = WorldState(profile=copy.deepcopy(profile), ledger=[], catalog=catalog)
+    persona = (
+        _resolve_roster_person(candidate.person).persona
+        if candidate.person
+        else candidate.persona
+    )
     return Task(
-        task_id, "update", candidate.query, s0, oracle, (), candidate.persona,
+        task_id, "update", candidate.query, s0, oracle, (), persona,
         tier=candidate.tier,
     )
 
@@ -505,11 +548,13 @@ def _realize_evaluate_knife(
         raise ValueError(f"unsupported evaluate knife {candidate.knife!r}")
     if pool is None:
         raise ValueError("evaluate knife recipe requires a pool")
-    profile = profile_for(ROSTER[0])
+    profile = _person_profile(candidate)
     occasion = candidate.occasion or occasion_from_query(candidate.query)
     if occasion is None:
         raise ValueError("evaluate knife recipe names no meal occasion")
-    windows = plan_windows_for_meal(_composite_windows(), {}, occasion)
+    windows = plan_windows_for_meal(
+        _composite_windows(candidate.person), {}, occasion
+    )
     if windows is None:
         raise ValueError("knife recipe windows are empty")
     items = [
@@ -548,6 +593,11 @@ def _realize_evaluate_knife(
         ledger=tuple(),
     )
     s0 = WorldState(profile=copy.deepcopy(profile), ledger=[], catalog=catalog)
+    persona = (
+        _resolve_roster_person(candidate.person).persona
+        if candidate.person
+        else candidate.persona
+    )
     return Task(
         task_id,
         "evaluate",
@@ -557,7 +607,7 @@ def _realize_evaluate_knife(
         # Reloadable metadata: the unfit shape lives in the oracle geometry
         # (reject + empty plan + evaluated meal), which the quality gates read.
         (),
-        candidate.persona,
+        persona,
         tier=candidate.tier,
     )
 

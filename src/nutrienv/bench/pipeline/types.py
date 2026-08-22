@@ -106,6 +106,9 @@ class Candidate:
     shell: str | None = None
     scene: str = "empty"
     tier: str = ""
+    # Roster user_id (or index) choosing whose profile the resolver derives
+    # windows/allergies from; None keeps the ROSTER[0] default.
+    person: str | None = None
 
 
 @dataclass(frozen=True)

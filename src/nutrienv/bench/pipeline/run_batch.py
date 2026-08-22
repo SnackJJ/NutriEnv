@@ -18,7 +18,12 @@ from .expander import LlmExpander, coerce_candidates, make_llm_expander, synthet
 from .freezer import freeze_tasks
 from .knives import KNIVES
 from .models import assign_model
-from .resolver import build_food_index, match_spoken, resolve_candidate
+from .resolver import (
+    _resolve_roster_person,
+    build_food_index,
+    match_spoken,
+    resolve_candidate,
+)
 from .review_harness import stage_a_code_gate
 from .sampler import sample_pools
 from .semantic_vote import (
@@ -429,8 +434,11 @@ _HINTS_NEED_SYNTHETIC = (
     "(--synthetic); the LLM expander cannot honour them yet"
 )
 _RECIPE_KEYS: dict[str, frozenset[str]] = {
-    "evaluate": frozenset({"knife", "tier", "items", "amount_path"}),
-    "recommend": frozenset({"occasion"}),
+    "evaluate": frozenset({"knife", "tier", "items", "amount_path", "person"}),
+    "recommend": frozenset({"occasion", "person"}),
+    "update": frozenset({"person"}),
+    "log": frozenset({"person"}),
+    "composite": frozenset({"person"}),
 }
 # Knobs consumed by the expander when producing the query (the rest stamp the
 # Candidate). Synthetic expander only — anything else fails closed (see
@@ -497,6 +505,10 @@ def _parse_family_recipes(
                     f"recipe {family}.amount_path must be one of "
                     f"{sorted(_RECIPE_AMOUNT_PATHS)}, got {value!r}"
                 )
+            if key == "person":
+                # Fail-closed roster resolution: an unknown id or out-of-range
+                # index never reaches the jobs.
+                _resolve_roster_person(value)
             parsed[str(key)] = value
         recipes[str(family)] = parsed
     return recipes

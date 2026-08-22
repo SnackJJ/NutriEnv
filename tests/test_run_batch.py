@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from nutrienv.bench.pipeline import catalog_digest, pass_through_reviewer, run_batch
+from nutrienv.bench.pipeline.expander import synthetic_expander
 from nutrienv.bench.pipeline.run_batch import quota_ledger
 from nutrienv.bench.realize import Oracle, Task, bind_evaluate_reasons
 from nutrienv.bench.split import load_exam, load_split
@@ -695,7 +696,6 @@ def test_evaluate_occasion_knob_is_no_longer_accepted(tmp_path: Path) -> None:
 
 
 def test_items_recipe_produces_an_n_food_evaluate_plate(tmp_path: Path) -> None:
-    from nutrienv.bench.pipeline.expander import synthetic_expander
     from nutrienv.bench.pipeline.freezer import freeze_tasks
     from nutrienv.bench.split import load_split
 
@@ -722,8 +722,6 @@ def test_items_recipe_produces_an_n_food_evaluate_plate(tmp_path: Path) -> None:
 
 
 def test_explicit_grams_recipe_speaks_gram_amounts(tmp_path: Path) -> None:
-    from nutrienv.bench.pipeline.expander import synthetic_expander
-
     result = _run(
         tmp_path,
         None,
@@ -745,8 +743,6 @@ def test_explicit_grams_recipe_speaks_gram_amounts(tmp_path: Path) -> None:
 
 
 def test_items_shortfall_is_a_clean_rejection(tmp_path: Path) -> None:
-    from nutrienv.bench.pipeline.expander import synthetic_expander
-
     thin = {
         food_id: entry
         for food_id, entry in _nutrient_catalog().items()
@@ -849,3 +845,145 @@ def test_expander_hint_mismatch_fails_at_entry_before_any_job(tmp_path: Path) ->
             family_recipes={"evaluate": {"items": "3"}},
         )
     assert calls == []
+
+
+def test_person_recipe_uses_the_chosen_roster_profile(tmp_path: Path) -> None:
+    """cam (egg allergy, cut phase) replaces ROSTER[0] on the knife path.
+
+    Her cut-phase dinner slot is smaller ([390.2, 520.3] kcal), so the plate
+    is two cups of rice; the allergy knife then adds the peanut carrier.
+    """
+    rice_plate = {
+        "items": [{"food": "white_rice", "expression": "two cups"}],
+        "query": "Evaluate what I should eat for dinner: two cups of rice.",
+    }
+    catalog = {
+        "white_rice": {
+            "name": "Rice, white",
+            "portions": {"cup": 158.0},
+            "aliases": ["rice"],
+            "allergen_tags": [],
+            "nutrients": {"kcal": 130.0, "protein_g": 2.7},
+        },
+        # cam's allergy tag is egg: the carrier the allergy knife needs.
+        "egg": {
+            "name": "Egg, whole",
+            "portions": {"piece": 50.0},
+            "aliases": ["eggs", "egg"],
+            "allergen_tags": ["egg"],
+            "nutrients": {"kcal": 165.0, "protein_g": 31.0},
+        },
+    }
+    result = _run(
+        tmp_path,
+        [rice_plate],
+        judge=_ok_judge,
+        catalog=catalog,
+        family_quotas={"evaluate": 1},
+        family_recipes={
+            "evaluate": {
+                "knife": "allergy",
+                "tier": "single",
+                "person": "roster-cam",
+            },
+        },
+    )
+    assert len(result.accepted) == 1, [
+        (r.reason, r.family) for r in result.rejected
+    ]
+    (task,) = result.accepted
+    assert task.oracle.last_verdict == "reject"
+    assert task.s0.profile.phase == "cut"
+    assert "egg" in task.s0.profile.allergies
+    assert "allergy" in task.oracle.last_reasons
+    assert validate_draft(task) == []
+
+
+def test_recommend_person_recipe_carries_the_allergy(tmp_path: Path) -> None:
+    from nutrienv.bench.quality_gates import recommend_coverage
+
+    fay = _run(
+        tmp_path,
+        None,
+        expander=synthetic_expander,
+        judge=_ok_judge,
+        catalog=_nutrient_catalog(),
+        family_quotas={"recommend": 2},
+        family_recipes={"recommend": {"person": "roster-fay"}},
+        overwrite=True,
+    )
+    assert fay.rejected == []
+    coverage = recommend_coverage(fay.accepted, personas=("everyday",))
+    assert coverage.missing_personas == ()
+    assert "milk" not in coverage.missing_allergens
+
+
+def test_mixed_person_recipes_cover_cut_and_both_allergens(tmp_path: Path) -> None:
+    from nutrienv.bench.quality_gates import recommend_coverage
+
+    cam = _run(
+        tmp_path,
+        None,
+        expander=synthetic_expander,
+        judge=_ok_judge,
+        catalog=_nutrient_catalog(),
+        family_quotas={"recommend": 1},
+        family_recipes={"recommend": {"person": "roster-cam"}},
+    )
+    fay = _run(
+        tmp_path,
+        None,
+        expander=synthetic_expander,
+        judge=_ok_judge,
+        catalog=_nutrient_catalog(),
+        family_quotas={"recommend": 1},
+        family_recipes={"recommend": {"person": "roster-fay"}},
+        overwrite=True,
+    )
+    tasks = [*cam.accepted, *fay.accepted]
+    report = recommend_coverage(tasks, personas=("cut", "everyday"))
+    assert report.missing_personas == ()
+    covered = {
+        tag
+        for task in tasks
+        for lens in _recommend_lens_allergies(task)
+        for tag in lens
+    }
+    assert {"egg", "milk"} <= covered
+
+
+def _recommend_lens_allergies(task):
+    """Allergies of each recommend geometry carrier on the task."""
+    return [task.s0.profile.allergies]
+
+
+def test_unknown_roster_person_is_refused_at_parse(tmp_path: Path) -> None:
+    for bad in ("roster-bogus", "999"):
+        with pytest.raises(ValueError, match="roster"):
+            run_batch(
+                _spec(
+                    tmp_path,
+                    _nutrient_catalog(),
+                    family_quotas={"recommend": 1},
+                    family_recipes={"recommend": {"person": bad}},
+                ),
+                expander=_expander([_RECOMMEND]),
+                judge=_ok_judge,
+                reviewer=pass_through_reviewer,
+                catalog=_nutrient_catalog(),
+            )
+
+
+def test_person_index_recipe_resolves(tmp_path: Path) -> None:
+    # roster index 2 == roster-cam.
+    result = _run(
+        tmp_path,
+        [_RECOMMEND],
+        judge=_ok_judge,
+        catalog=_nutrient_catalog(),
+        family_quotas={"recommend": 1},
+        family_recipes={"recommend": {"person": "2"}},
+    )
+    assert len(result.accepted) == 1
+    (task,) = result.accepted
+    assert task.s0.profile.user_id == "roster-cam"
