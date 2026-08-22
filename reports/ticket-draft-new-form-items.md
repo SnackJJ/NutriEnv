@@ -122,3 +122,14 @@ Note: the ticket says "log 60" earlier — ADR 0016's own table sums to
 recommend 72 + evaluate 48 + update 36 + composite 36 = 192, so log is 48
 (not 60) for a 240 exam. Flag for the main-agent ruling: log 60 would
 exceed 240; correct number is 48.
+
+## Knife bulk-producibility boundary (2026-08-23, probe)
+
+recipe channel `evaluate:knife=allergy` is proven correct by
+tests/test_run_batch.py (custom _knife_catalog, fit input → reject envelope,
+reasons == bind). Against real catalog-v2 + synthetic pools, 20 seeds all
+`unresolvable`: the synthetic expander's 2-food plates rarely bind-fit the
+six-key meal-slot windows, so the fit→knife precondition rejects them. This
+is the expected recipe-design boundary, not a defect: bulk unfit production
+needs intentional pool/occasion selection (issue 15 #3 design). The
+unfitness gate itself (`evaluate_unfits` reading oracle geometry) is proven.
