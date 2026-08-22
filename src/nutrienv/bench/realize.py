@@ -183,6 +183,7 @@ class Material:
     plan_preset: dict | None = None
     ledger: tuple[tuple[str, float, str], ...] = ()
     last_plan: tuple[tuple[str, float], ...] = ()
+    tier: str = ""
 
 
 def iter_realization_rows() -> Iterable[RealizationRow]:
@@ -339,6 +340,7 @@ def material_from_row(
             task_id=f"{tag}-eval-{stem}",
             user_id=f"{tag}-eval-{stem}",
             allergies=allergies,
+            tier=getattr(row, "tier", ""),
         )
     raise TypeError(f"unknown realization row: {type(row)!r}")
 
@@ -422,6 +424,7 @@ def realize_evaluate(
     s0: WorldState,
     occasion: str,
     last_meal: bool = False,
+    tier: str = "",
 ) -> Task:
     """Construct a verdict-aware Evaluate Task. Empty intersections raise."""
     meal = [
@@ -463,7 +466,7 @@ def realize_evaluate(
             bound_labels=labels,
             ledger=tuple(s0.ledger),
         )
-    return Task(task_id, "evaluate", query, s0, oracle)
+    return Task(task_id, "evaluate", query, s0, oracle, (), "everyday", tier)
 
 
 def realize(
@@ -490,6 +493,7 @@ def realize(
         oracle,
         material.situations,
         material.persona,
+        material.tier,
     )
 
 

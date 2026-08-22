@@ -1,8 +1,13 @@
 """Ticket 14: split-agnostic exam quality gates pinned on synthetic splits."""
 
+import json
+from dataclasses import replace
+from pathlib import Path
+
 import pytest
 
 from nutrienv.bench.realize import Oracle, Task
+from nutrienv.bench.split import load_split
 from nutrienv.bench.quality_gates import (
     DEFAULT_EVALUATE_TIER_FLOORS,
     CoverageReport,
@@ -483,3 +488,76 @@ def test_constrained_recommends_cover_remainder_and_judge_plan_windows():
         "rec-impossible-in-plan-windows",
         "rec-leftover-remainder",
     )
+
+
+def test_declared_tiers_survive_realization_freeze_and_reload(tmp_path):
+    from nutrienv.bench.pipeline.freezer import task_to_item
+    from nutrienv.bench.realizations.tables.evaluate import EvaluateRow
+    from nutrienv.bench.realize import material_from_row, realize, realize_evaluate
+    from nutrienv.world.catalog_fixture import demo_catalog, demo_profile
+    from nutrienv.world.daily_windows import derive_daily_windows
+    from nutrienv.world.types import WorldState
+
+    def _full_window_state():
+        return WorldState(
+            profile=replace(
+                demo_profile(),
+                windows=derive_daily_windows(
+                    sex="female",
+                    age_y=34,
+                    height_cm=165.0,
+                    weight_kg=62.0,
+                    activity="light",
+                    phase="maintain",
+                ),
+            ),
+            catalog=demo_catalog(),
+        )
+
+    rows = (
+        EvaluateRow(
+            "ev-tier-pair",
+            "Evaluate this as lunch: 150 g chicken and a cup of rice.",
+            (("chicken_breast", "150 g"), ("white_rice", "a cup")),
+            tier="pair",
+        ),
+        EvaluateRow(
+            "ev-tier-synonym",
+            "Evaluate this as dinner: prawns?",
+            (("shrimp", "150 g"),),
+            tier="synonym",
+        ),
+        EvaluateRow(
+            "ev-tier-default",
+            "Check this snack for me: a piece of banana.",
+            (("banana", "a piece"),),
+        ),
+    )
+    catalog = demo_catalog()
+    tasks = [
+        realize(material_from_row(row, tag="t", catalog=catalog), row.query, catalog=catalog)
+        for row in rows
+    ]
+    assert [task.tier for task in tasks] == ["pair", "synonym", "gold"]
+
+    direct = realize_evaluate(
+        task_id="ev-direct",
+        query="Is this okay?",
+        items=[{"food_id": "egg", "grams": 50.0}],
+        s0=_full_window_state(),
+        occasion="dinner",
+        tier="long",
+    )
+    assert direct.tier == "long"
+
+    path = tmp_path / "tiered.json"
+    path.write_text(
+        json.dumps({"items": [task_to_item(task) for task in tasks + [direct]]}),
+        encoding="utf-8",
+    )
+    reloaded = load_split(path)
+    report = evaluate_tier_coverage(reloaded, floors={"pair": 1, "synonym": 1, "long": 1})
+    assert report.missing == ()
+    assert report.counts["pair"] == 1
+    assert report.counts["synonym"] == 1
+    assert report.counts["long"] == 1
