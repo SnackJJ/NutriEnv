@@ -19,7 +19,7 @@ from .freezer import freeze_tasks
 from .knives import KNIVES
 from .models import assign_model
 from .resolver import (
-    _resolve_roster_person,
+    resolve_roster_person,
     build_food_index,
     match_spoken,
     resolve_candidate,
@@ -433,11 +433,12 @@ _HINTS_NEED_SYNTHETIC = (
     "recipe items/amount_path require the synthetic expander "
     "(--synthetic); the LLM expander cannot honour them yet"
 )
+# ``log`` carries no recipe: it has no person semantics resolver-side (its
+# realize branch is the plain tracer log).
 _RECIPE_KEYS: dict[str, frozenset[str]] = {
     "evaluate": frozenset({"knife", "tier", "items", "amount_path", "person"}),
     "recommend": frozenset({"occasion", "person"}),
     "update": frozenset({"person"}),
-    "log": frozenset({"person"}),
     "composite": frozenset({"person"}),
 }
 # Knobs consumed by the expander when producing the query (the rest stamp the
@@ -508,7 +509,7 @@ def _parse_family_recipes(
             if key == "person":
                 # Fail-closed roster resolution: an unknown id or out-of-range
                 # index never reaches the jobs.
-                _resolve_roster_person(value)
+                resolve_roster_person(value)
             parsed[str(key)] = value
         recipes[str(family)] = parsed
     return recipes

@@ -292,6 +292,14 @@ def _realize(
     food_ids = [food_id for food_id, _expression, _grams in resolved]
     pairs = tuple((food_id, expression) for food_id, expression, _grams in resolved)
     allergies = _log_allergies(catalog, food_ids)
+    persona = candidate.persona
+    if candidate.person:
+        # A chosen roster person owns the profile AND the identity: windows,
+        # allergies, and persona all come from them (recommend_coverage reads
+        # composite children).
+        chosen = resolve_roster_person(candidate.person)
+        allergies = chosen.allergies
+        persona = chosen.persona
     if candidate.family == "recommend":
         return _realize_recommend(candidate, catalog, task_id)
     if candidate.family == "update":
@@ -301,7 +309,7 @@ def _realize(
         # realize() raises when the query does not name every bound food, so
         # a knife candidate can never skip that check before knifing.
         task = _realize_evaluate(
-            candidate, pairs, allergies, catalog, task_id
+            candidate, pairs, allergies, persona, catalog, task_id
         )
         if candidate.knife:
             return _realize_evaluate_knife(candidate, resolved, catalog, task_id, pool)
@@ -312,7 +320,7 @@ def _realize(
         row=row,
         family="log",
         situations=("multi_item_log",),
-        persona=candidate.persona,
+        persona=persona,
         task_id=task_id,
         user_id=task_id,
         allergies=allergies,
@@ -333,7 +341,7 @@ def _realize(
     return replace(task, tier=candidate.tier)
 
 
-def _resolve_roster_person(value: str):
+def resolve_roster_person(value: str):
     """A recipe ``person`` value (roster user_id or index) → RosterPerson.
 
     Fail-closed: an unknown id or out-of-range index raises instead of
@@ -354,14 +362,14 @@ def _person_profile(candidate: Candidate):
     """The profile a resolver draft derives from: the recipe's chosen roster
     person, else ROSTER[0] (the long-standing default, byte-identical)."""
     if candidate.person:
-        return profile_for(_resolve_roster_person(candidate.person))
+        return profile_for(resolve_roster_person(candidate.person))
     return profile_for(ROSTER[0])
 
 
 def _composite_windows(person: str | None = None) -> dict:
     """Full six-key derived windows for synthetic drafts, from the recipe's
     chosen roster person (default ROSTER[0])."""
-    chosen = _resolve_roster_person(person) if person else ROSTER[0]
+    chosen = resolve_roster_person(person) if person else ROSTER[0]
     return dict(profile_for(chosen).windows)
 
 
@@ -446,7 +454,7 @@ def _realize_recommend(candidate: Candidate, catalog, task_id: str) -> Task:
     )
     s0 = WorldState(profile=copy.deepcopy(profile), ledger=[], catalog=catalog)
     persona = (
-        _resolve_roster_person(candidate.person).persona
+        resolve_roster_person(candidate.person).persona
         if candidate.person
         else candidate.persona
     )
@@ -488,7 +496,7 @@ def _realize_update(
     oracle = Oracle(profile=expected, ledger=())
     s0 = WorldState(profile=copy.deepcopy(profile), ledger=[], catalog=catalog)
     persona = (
-        _resolve_roster_person(candidate.person).persona
+        resolve_roster_person(candidate.person).persona
         if candidate.person
         else candidate.persona
     )
@@ -502,6 +510,7 @@ def _realize_evaluate(
     candidate: Candidate,
     pairs: tuple[tuple[str, str], ...],
     allergies: tuple[str, ...],
+    persona: str,
     catalog: Mapping,
     task_id: str,
 ) -> Task:
@@ -510,10 +519,12 @@ def _realize_evaluate(
         row=row,
         family="evaluate",
         situations=(),
-        persona=candidate.persona,
+        persona=persona,
         task_id=task_id,
         user_id=task_id,
         allergies=allergies,
+        # A chosen roster person also owns the evaluated plate's windows.
+        windows=_composite_windows(candidate.person) if candidate.person else None,
     )
     return replace(
         realize(material, candidate.query, catalog=catalog), tier=candidate.tier
@@ -594,7 +605,7 @@ def _realize_evaluate_knife(
     )
     s0 = WorldState(profile=copy.deepcopy(profile), ledger=[], catalog=catalog)
     persona = (
-        _resolve_roster_person(candidate.person).persona
+        resolve_roster_person(candidate.person).persona
         if candidate.person
         else candidate.persona
     )

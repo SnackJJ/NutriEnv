@@ -273,16 +273,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         voter = None
         enable_semantic_vote = True
 
-    result = run_batch(
-        spec,
-        expander=expander,
-        judge=judge,
-        reviewer=reviewer,
-        catalog=catalog,
-        workers=args.workers,
-        voter=voter,
-        enable_semantic_vote=enable_semantic_vote,
-    )
+    try:
+        result = run_batch(
+            spec,
+            expander=expander,
+            judge=judge,
+            reviewer=reviewer,
+            catalog=catalog,
+            workers=args.workers,
+            voter=voter,
+            enable_semantic_vote=enable_semantic_vote,
+        )
+    except ValueError as exc:
+        # Spec validation (recipe keys/values, quotas, sha) exits with a clean
+        # message instead of a traceback.
+        raise SystemExit(f"batch spec rejected: {exc}")
     _print_stats(result)
     if not result.accepted:
         print("no candidates accepted", file=sys.stderr)

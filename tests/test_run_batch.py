@@ -943,18 +943,8 @@ def test_mixed_person_recipes_cover_cut_and_both_allergens(tmp_path: Path) -> No
     tasks = [*cam.accepted, *fay.accepted]
     report = recommend_coverage(tasks, personas=("cut", "everyday"))
     assert report.missing_personas == ()
-    covered = {
-        tag
-        for task in tasks
-        for lens in _recommend_lens_allergies(task)
-        for tag in lens
-    }
-    assert {"egg", "milk"} <= covered
-
-
-def _recommend_lens_allergies(task):
-    """Allergies of each recommend geometry carrier on the task."""
-    return [task.s0.profile.allergies]
+    assert "egg" not in report.missing_allergens
+    assert "milk" not in report.missing_allergens
 
 
 def test_unknown_roster_person_is_refused_at_parse(tmp_path: Path) -> None:
@@ -987,3 +977,91 @@ def test_person_index_recipe_resolves(tmp_path: Path) -> None:
     assert len(result.accepted) == 1
     (task,) = result.accepted
     assert task.s0.profile.user_id == "roster-cam"
+
+
+def test_log_person_recipe_is_refused(tmp_path: Path) -> None:
+    # log has no person semantics resolver-side.
+    with pytest.raises(ValueError, match="not supported for 'log'"):
+        run_batch(
+            _spec(
+                tmp_path,
+                _nutrient_catalog(),
+                family_quotas={"log": 1},
+                family_recipes={"log": {"person": "roster-cam"}},
+            ),
+            expander=_expander([_PASS]),
+            judge=_ok_judge,
+            reviewer=pass_through_reviewer,
+            catalog=_nutrient_catalog(),
+        )
+
+
+def test_evaluate_fit_person_honours_the_roster_profile(tmp_path: Path) -> None:
+    result = _run(
+        tmp_path,
+        [_EVALUATE_FIT],
+        judge=_ok_judge,
+        catalog=_knife_catalog(),
+        family_quotas={"evaluate": 1},
+        family_recipes={"evaluate": {"person": "roster-cam", "tier": "single"}},
+    )
+    assert result.rejected == [], [(r.reason,) for r in result.rejected]
+    (task,) = result.accepted
+    # cam owns the identity: persona and allergies come from her roster
+    # entry (the legacy realize path re-derives meal windows from the gold
+    # table, so those stay put).
+    baseline = _run(
+        tmp_path,
+        [_EVALUATE_FIT],
+        judge=_ok_judge,
+        catalog=_knife_catalog(),
+        family_quotas={"evaluate": 1},
+        output_path=tmp_path / "plain.json",
+    )
+    (baseline_task,) = baseline.accepted
+
+    assert task.persona == "cut"
+    assert task.s0.profile.allergies == ("egg",)
+    assert baseline_task.s0.profile.allergies == ("peanut",)
+    assert baseline_task.persona == "everyday"
+    assert validate_draft(task) == []
+
+
+_COMPOSITE = {
+    "items": [{"food": "milk_whole", "expression": "a cup"}],
+    "query": (
+        "Please log a cup of milk for lunch, then recommend a dinner "
+        "that fits what's left."
+    ),
+    "steps": ["log", "recommend"],
+}
+
+
+def test_composite_person_recipe_feeds_recommend_coverage(tmp_path: Path) -> None:
+    from nutrienv.bench.pipeline.freezer import freeze_tasks
+    from nutrienv.bench.quality_gates import recommend_coverage
+    from nutrienv.bench.split import load_split
+
+    result = _run(
+        tmp_path,
+        [_COMPOSITE],
+        judge=_ok_judge,
+        catalog=_nutrient_catalog(),
+        family_quotas={"composite": 1},
+        family_recipes={"composite": {"person": "roster-cam"}},
+    )
+    assert len(result.accepted) == 1, [
+        (r.reason, r.family) for r in result.rejected
+    ]
+    (task,) = result.accepted
+    child_profile = task.oracle.sub_oracles[1].profile
+    assert child_profile.allergies == ("egg",)
+    report = recommend_coverage([task], personas=("cut",))
+    assert report.missing_personas == ()
+    assert "egg" not in report.missing_allergens
+    _, target = freeze_tasks(
+        [task], catalog=task.s0.catalog, output_path=tmp_path / "comp.json"
+    )
+    (loaded,) = load_split(target, catalog=task.s0.catalog)
+    assert validate_draft(loaded) == []
+    assert loaded.oracle.sub_oracles[1].profile.allergies == ("egg",)
