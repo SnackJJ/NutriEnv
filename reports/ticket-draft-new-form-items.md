@@ -55,3 +55,21 @@ cover, with the recipe clues verified from existing code/tests.
 - Batch size / seed / model routing for the production run (uses real expander+judge+review,
   quota-heavy). Pilot used live multi-model expander; the new-form run likely does too.
 - Whether the new-form set freezes as one 240 (incl. composite 36) or as staged files.
+## Constructibility matrix probe (2026-08-22, synthetic batch path)
+
+`generate_batch --synthetic --family {log,evaluate,recommend,update,composite} --count 2
+--seed 20260822` → pools=10 candidates=10 accepted=9 (1 code_gate honest rejection).
+Output analyzed with modern quality gates:
+
+| shape | produced via batch | validate | notes |
+|---|---|---|---|
+| log | 2/2 | 0 issues | ledger True |
+| evaluate-fit | 2/2 | 0 issues | unfit NOT produced by default synthetic path |
+| recommend | 2/2 | 0 issues | plan_windows pinned |
+| update | 2/2 | 0 issues | |
+| composite log+recommend | 1/1 | 0 issues | **hits leftover AND constrained** (ledger True, sub 2, pinned child) |
+
+- leftover/constrained floor geometry IS producible (composite log+recommend).
+- evaluate-unfit needs the knife=allergy + allergy catalog + rewriter recipe
+  (tests/test_generate_one_evaluate.py:170-192) — not produced by default synthetic.
+- Evaluate tier labels (6) need tier-driven shells — none yet.
