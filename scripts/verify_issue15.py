@@ -91,6 +91,15 @@ def _resolve_repo_path(raw: str | Path) -> Path:
     return path if path.is_absolute() else _ROOT / path
 
 
+def _require_sqlite(catalog_path: Path) -> None:
+    """``load_catalog`` silently falls back to the demo fixture for a missing
+    path, so every caller validates existence and extension first."""
+    if catalog_path.suffix != ".sqlite":
+        raise ValueError(
+            f"catalog must be a .sqlite file, got: {catalog_path}"
+        )
+
+
 def _load_verified(split_path: Path, catalog_override: str | None) -> LoadedSplit:
     """Attach the right catalog to the split and verify its identity.
 
@@ -112,11 +121,19 @@ def _load_verified(split_path: Path, catalog_override: str | None) -> LoadedSpli
     sha = payload.get("catalog_sha256")
 
     if catalog_override is not None:
+        # An override is only verifiable against a recorded digest: without
+        # one there is nothing to compare, so refuse rather than trust it.
+        if not isinstance(sha, str) or not sha:
+            raise ValueError(
+                "split records no catalog_sha256; an explicit --catalog "
+                "override cannot be verified against it"
+            )
         override_path = _resolve_repo_path(catalog_override)
         if not override_path.is_file():
             raise FileNotFoundError(f"--catalog not found: {override_path}")
+        _require_sqlite(override_path)
         digest = hashlib.sha256(override_path.read_bytes()).hexdigest()
-        if isinstance(sha, str) and digest != sha:
+        if digest != sha:
             raise ValueError(
                 f"catalog identity mismatch: --catalog {override_path} "
                 f"sha256 {digest} != split-recorded {sha}"
@@ -135,6 +152,7 @@ def _load_verified(split_path: Path, catalog_override: str | None) -> LoadedSpli
     catalog_path = _resolve_repo_path(field)
     if not catalog_path.is_file():
         raise FileNotFoundError(f"split catalog not found: {catalog_path}")
+    _require_sqlite(catalog_path)
     digest = hashlib.sha256(catalog_path.read_bytes()).hexdigest()
     if digest != sha:
         raise ValueError(
@@ -222,19 +240,21 @@ def gate_freeze_round_trip(tasks, loaded: LoadedSplit) -> GateResult:
                 output_path=target,
                 overwrite=True,
             )
-            # No catalog injection: the frozen manifest must resolve its own.
-            reloaded = load_split(_path)
+            # No catalog injection, full identity verification: the frozen
+            # manifest's recorded sha must match the catalog its own field
+            # points at, or the artifact does not resolve on its own terms.
+            reloaded = _load_verified(_path, None)
         except Exception as exc:  # noqa: BLE001 — report, don't crash the table
             return GateResult(
                 "freeze_round_trip", False, f"{type(exc).__name__}: {str(exc)[:120]}"
             )
     same_content = [task_to_item(t) for t in tasks] == [
-        task_to_item(t) for t in reloaded
+        task_to_item(t) for t in reloaded.tasks
     ]
-    draft_clean = not any(validate_draft(t) for t in reloaded)
+    draft_clean = not any(validate_draft(t) for t in reloaded.tasks)
     evidence = (
-        f"{len(reloaded)}/{len(tasks)} reloaded from own manifest, "
-        f"content identical={same_content}, validate clean={draft_clean}"
+        f"{len(reloaded.tasks)}/{len(tasks)} reloaded from own verified "
+        f"manifest, content identical={same_content}, validate clean={draft_clean}"
     )
     return GateResult(
         "freeze_round_trip", same_content and draft_clean, evidence

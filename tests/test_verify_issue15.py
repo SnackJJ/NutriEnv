@@ -185,3 +185,110 @@ def test_consistent_manifest_round_trip_passes_and_cleans_up(
     assert rc == 1  # tier/unfit/coverage floors fail on a 1-item split
     assert "PASS  validate_draft" in out
     assert "PASS  freeze_round_trip" in out
+
+
+def _v05_payload_copy(tmp_path: Path, *, with_sha: bool) -> Path:
+    payload = json.loads(Path(V05_GOLD).read_text())
+    if not with_sha:
+        payload.pop("catalog_sha256", None)
+    split = tmp_path / "copy.json"
+    split.write_text(json.dumps(payload), encoding="utf-8")
+    return split
+
+
+def test_override_without_recorded_sha_is_refused(tmp_path: Path) -> None:
+    """A no-SHA split cannot be verified against any override: fail closed
+    instead of trusting the file (demo fallback stays out of the picture)."""
+    import contextlib
+    import io
+
+    split = _v05_payload_copy(tmp_path, with_sha=False)
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        rc = vi.main(
+            ["--split", str(split), "--catalog", "data/fdc/catalog-v2.sqlite"]
+        )
+    out = buffer.getvalue()
+    assert rc == 2
+    assert "no catalog_sha256" in out
+    assert "Traceback" not in out
+
+
+def test_non_sqlite_catalog_is_refused(tmp_path: Path) -> None:
+    """Both catalog paths require a .sqlite file: a hash-matching text file
+    must not silently load the demo fixture."""
+    import contextlib
+    import io
+
+    catalog_txt = tmp_path / "catalog.txt"
+    catalog_txt.write_bytes(b"not a sqlite database at all")
+    digest = hashlib.sha256(catalog_txt.read_bytes()).hexdigest()
+    payload = json.loads(Path(V05_GOLD).read_text())
+    payload["catalog"] = str(catalog_txt)
+    payload["catalog_sha256"] = digest
+    split = tmp_path / "txt.json"
+    split.write_text(json.dumps(payload), encoding="utf-8")
+
+    for override in (None, str(catalog_txt)):
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            argv = ["--split", str(split)]
+            if override:
+                argv += ["--catalog", override]
+            rc = vi.main(argv)
+        out = buffer.getvalue()
+        assert rc == 2, (override, out)
+        assert ".sqlite" in out
+        assert "Traceback" not in out
+
+
+def test_tampered_split_manifest_is_refused_at_entry(tmp_path: Path) -> None:
+    """A split whose recorded sha no longer matches its catalog bytes cannot
+    enter the gates at all (rc 2, clean diagnostic) -- the round-trip gate's
+    own FAIL row for this case is pinned above via the direct gate call."""
+    import contextlib
+    import io
+
+    split = _consistent_real_catalog_split(tmp_path)
+    payload = json.loads(split.read_text())
+    tampered_catalog = tmp_path / "tampered.sqlite"
+    raw = Path("data/fdc/catalog-v2.sqlite").read_bytes()
+    tampered_catalog.write_bytes(raw[:-1] + bytes([raw[-1] ^ 0xFF]))
+    payload["catalog"] = str(tampered_catalog)
+    split.write_text(json.dumps(payload), encoding="utf-8")
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        rc = vi.main(["--split", str(split)])
+    out = buffer.getvalue()
+    assert rc == 2
+    assert "sha256 mismatch" in out
+    assert "Traceback" not in out
+
+
+def test_round_trip_fails_when_output_manifest_sha_is_broken(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """A byte-different sqlite copy recorded under the OLD sha must make the
+    round-trip gate FAIL on manifest identity -- never PASS."""
+    split = _consistent_real_catalog_split(tmp_path)
+    loaded = vi._load_verified(split, None)
+    result = vi.gate_freeze_round_trip(loaded.tasks, loaded)
+    assert result.passed, result.evidence
+
+    # Tamper: point the frozen output at a byte-different sqlite copy while
+    # keeping the old recorded sha.
+    tampered_catalog = tmp_path / "tampered.sqlite"
+    raw = Path("data/fdc/catalog-v2.sqlite").read_bytes()
+    tampered_catalog.write_bytes(raw[:-1] + bytes([raw[-1] ^ 0xFF]))
+    payload = json.loads(split.read_text())
+    output_split = tmp_path / "real.json"  # run_batch wrote it here already
+    payload["catalog"] = str(tampered_catalog)
+    output_split.write_text(json.dumps(payload), encoding="utf-8")
+
+    # The strict verifier refuses the tampered manifest outright...
+    with pytest.raises(ValueError, match="sha256 mismatch"):
+        vi._load_verified(output_split, None)
+    # Through main the same tampered artifact cannot even enter the gates:
+    # the entry loader refuses it (rc 2, clean diagnostic) -- fail-closed at
+    # both layers, never a PASS.

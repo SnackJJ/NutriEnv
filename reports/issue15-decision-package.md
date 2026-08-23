@@ -203,3 +203,68 @@ catalog (spurious draft failures gone); evaluate_tiers FAIL, situation_floors
 FAIL honestly (unfit 0/8); leftover_floor PASS 27/24; freeze_round_trip FAILs
 honestly on legacy grams vs the current portion table (reported row, not a
 crash); **rc 1**.
+
+## Re-review (codex)
+
+**Verdict: REV.** Six findings are resolved. The two catalog-identity Highs
+are only partially fixed and still admit false verification paths.
+
+### Standards
+
+No documented-standard violation or new material code smell was found. The two
+prior Low structure/name findings are resolved: `GateResult`, `LoadedSplit`,
+focused `gate_*` functions, `run_gates`, and `render` leave `main` as the CLI
+orchestrator; result variables are descriptive and the test middle-man is gone.
+
+### Spec status
+
+| # | Prior finding | Status | Evidence / remaining fix |
+|---|---|---|---|
+| 1 | High — catalog identity | **Not resolved** | The normal manifest path correctly verifies v0.5's recorded catalog and removes all spurious draft failures. However, `scripts/verify_issue15.py:114-128` accepts an explicit override when `catalog_sha256` is missing/non-string, because comparison is conditional on `isinstance(sha, str)`. Both branches also accept an existing non-`.sqlite` file; `load_catalog` then silently substitutes the 15-food demo catalog. Reproduced: a no-SHA v0.5 copy plus its explicit catalog loaded 240 tasks, and a hash-matched `catalog.txt` manifest loaded 240 tasks against the demo catalog. **Fix:** require a valid recorded SHA for overrides, require `.sqlite` on both paths, and use a strict loader that cannot fall back. |
+| 2 | High — round-trip manifest identity | **Not resolved** | `gate_freeze_round_trip` preserves the input catalog fields and reloads without injection, but `load_split` does not verify `catalog_sha256`. I changed the output catalog field to a byte-different SQLite copy with identical food rows while leaving the old SHA; `scripts/verify_issue15.py:225-240` returned `PASS` with `content identical=True, validate clean=True`. **Fix:** reload the temporary output through `_load_verified(_path, None)` (or an equivalent manifest-identity verifier), then compare its tasks. |
+| 3 | High — malformed input diagnostics | **Resolved** | Invalid JSON and empty items produce one concise `error:` line, rc 2, and no traceback. |
+| 4 | Medium — temporary-file safety | **Resolved** | `TemporaryDirectory` provides an exclusive path and cleanup on success and exception paths; the positive test pins cleanup. |
+| 5 | Medium — content equality | **Resolved** | Ordered normalized `task_to_item` payloads cover IDs, tiers, profiles, and oracles, alongside post-reload validation. This does not replace the still-missing manifest SHA check in finding 2. |
+| 6 | Medium — smoke-test quality | **Resolved** | Seven tests now pin named PASS/FAIL rows, rc 0/1/2 behavior, malformed/schema diagnostics, input-manifest mismatch, positive content round-trip, and temp cleanup. Coverage should additionally pin the two fail-open catalog cases above and a byte-level output-manifest tamper. |
+| 7 | Low — monolithic gate runner | **Resolved** | `GateResult` plus focused gate functions separate policy checks from orchestration and rendering. |
+| 8 | Low — names/test middle-man | **Resolved** | Descriptive report names replaced `rc/tc/lf/sf`; tests call `vi.main` directly. |
+
+No independent new production finding was introduced; the missing negative
+tests are coverage gaps for the two unresolved High findings.
+
+### Evidence
+
+- `tests/test_verify_issue15.py`: **7 passed**; full suite: **1347 passed**.
+- `v0.5-gold.json`: `validate_draft` PASS, tier and unfit floors FAIL honestly,
+  rc 1.
+- Malformed JSON and empty-items probes: concise rc 2, no traceback.
+- Scope remains report + script + test only; no ADR, split, sqlite, scorer,
+  validator, or quality-gates change.
+
+Summary by review axis: **Standards 0 open (worst: none); Spec 2 open Highs
+(catalog identity and round-trip manifest verification).**
+
+## Fix round 2 (codex findings)
+
+- **High 1 — override identity no longer fail-open.** An explicit
+  `--catalog` is only verifiable when the split records a string
+  `catalog_sha256`; without one the override is refused ("split records no
+  catalog_sha256…", rc 2). Both catalog paths (override and manifest) must be
+  `*.sqlite` (`_require_sqlite`), and existence+extension are validated before
+  any `load_catalog` call, so the demo-fixture fallback is unreachable.
+  Tests: `test_override_without_recorded_sha_is_refused`,
+  `test_non_sqlite_catalog_is_refused` (override and manifest branches).
+- **High 2 — round-trip verifies the frozen manifest's identity.**
+  `gate_freeze_round_trip` now reloads the temporary output through the same
+  strict verifier (`_load_verified(_path, None)`): the output's recorded sha
+  must match its recorded catalog file's bytes, or the gate returns FAIL with
+  "sha256 mismatch" in its evidence. Tests:
+  `test_round_trip_fails_when_output_manifest_sha_is_broken`
+  (byte-different sqlite copy + old sha → gate FAIL row / loader refusal),
+  `test_tampered_split_manifest_is_refused_at_entry` (tampered input → rc 2,
+  clean diagnostic — fail-closed at both layers).
+```
+$ .venv/bin/python -m pytest -q
+........................................................................ [100%]
+1351 passed in 52.39s        # 0 failed (was 1347; +4 tests)
+```
