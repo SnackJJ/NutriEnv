@@ -395,8 +395,9 @@ verify_issue15.py admission gate released.
 - `tests/test_split.py:438-441` 断言 `name == "v0.5-gold.json"` 且期望无参 load_split 抛
   FileNotFoundError（fail-closed 设计：默认路径指向不存在的文件，防止静默加载旧 exam）。
   替换后该测试需更新：name 断言 + fail-closed 语义反转（新 exam 存在则 load_split() 成功）。
-- `scripts/qns_gap_audit.py:89` 用 EXAM_SPLIT_PATH 默认（替换后从审计 v0.5 变审计新 exam，
-  语义变化需确认）。
+- `scripts/qns_gap_audit.py` **不随切换而变**：它脚本内硬编码 `EXAM_SPLIT_PATH =
+  data/splits/archive/v0.5-gold.json`（非从 split.py 导入），替换后仍审计 v0.5 归档基线
+  （符合"v0.5 是回归基线"定位，无需改动）。
 - `tests/test_catalog_build_reproducible.py:338` `not EXAM_SPLIT_PATH.is_file()`（若新文件放
   data/splits/ 根则此断言反转，需更新或新文件放 archive）。
 - landing_verify 无需改（通用 --split，见前调查）。
