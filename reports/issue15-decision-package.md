@@ -415,3 +415,10 @@ verify_issue15.py admission gate released.
   全在它上面验证）c) 视配方验证结果决定。
 - 建议：**catalog-v2**（所有 14-assertion 配方/演练/验收工具都基于它验证；用 v1 需重验
   配方）。记录供拍板。
+
+## 裁决 6 补充证据：catalog-v2 冻结路径已验证（2026-08-23）
+
+catalog-v2 全链冻结实测：recommend(fay)+composite(ben) 4 tasks → `freeze_tasks(catalog=cat,
+catalog_field=CATALOG_V2_RELPATH, catalog_sha=catalog_digest(cat))` → manifest 写入
+`catalog:data/fdc/catalog-v2.sqlite` + SHA `eb822b69…`（与 catalog_digest 一致）；load_split
+往返 4 tasks + validate 0 issues。catalog-v2 冻结锚定正确，选 v2 无需额外工作。
