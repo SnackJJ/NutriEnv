@@ -347,3 +347,107 @@ dinner → 4/30; cam dinner items=2 seeds 30..59 → 4/30. **Guidance: items=2 +
 occasion=dinner ≈ 2/30 and never 0 across ranges tried; breakfast was best for
 cam (6/30).** Fit-window sizing remains issue-15 design. The deterministic
 fixture test stays as the mechanism proof. Full suite 1340 passed, 0 failed.
+
+## Final review (claude opus)
+
+**Verdict: ACC.** F-2 is closed properly. I re-ran every number the corrected
+table publishes, using the methodology it states, and **all of them reproduce
+exactly** — eight sweeps plus the four-row diagnostic matrix, no mismatches.
+The cause of the withdrawn 0/30 is now named correctly, and the runbook prose
+matches the table it cites. F-1, F-3 and F-4 remain resolved; the mechanism
+fixture still holds; suite green; docs-only scope, which is right because the
+finding was documentation-only.
+
+### F-2 status: resolved, fully reproduced
+
+Diagnostic matrix (cam/egg, items=2, seeds 0..29) — reproduced exactly:
+
+```
+no pool_allergen, no occasion    unfit=0/30  {'unresolvable': 30}
+pool_allergen,    no occasion    unfit=0/30  {'unresolvable': 30}
+no pool_allergen, occasion       unfit=0/30  {'unresolvable': 30}
+pool_allergen  +  occasion       unfit=2/30  {'unresolvable': 28}
+```
+
+Published sweeps vs. my re-measurement:
+
+| sweep | published | measured |
+|---|---|---|
+| cam/egg items=2, breakfast | 6/30 | **6/30** ✓ |
+| cam/egg items=2, lunch | 2/30 | **2/30** ✓ |
+| cam/egg items=2, dinner | 2/30 | **2/30** ✓ |
+| cam/egg dinner, items=1 | 1/30 | **1/30** ✓ |
+| cam/egg dinner, items=2 | 2/30 | **2/30** ✓ |
+| cam/egg dinner, items=3 | 3/30 | **3/30** ✓ |
+| kim/soy dinner, items=2 | 4/30 | **4/30** ✓ |
+| cam/egg dinner, seeds 30..59 | 4/30 | **4/30** ✓ |
+
+Mismatches: **none**. The table is now a reproducible artifact rather than a
+claim — which is the property that was missing in both previous versions.
+
+The prose is right too. The report states plainly that the earlier run "measured
+a broken harness, not the pipeline", and names the mechanism ("every draw failed
+at … names no meal occasion"), rather than leaving it as an unexplained
+non-reproduction. `reports/issue15-runbook.md` was rewritten to match: the
+"0 unfit / 30 draws per config … not seed sweeps" paragraph is gone, replaced
+by the measured yields and the same fit-window caveat. Table and guidance no
+longer disagree.
+
+### The yield disagreement is settled
+
+My earlier 4/15 and the report's 2/30 were never in conflict about the
+pipeline — only about which seed→pool mapping was being sampled. Both hold on
+this checkout:
+
+```
+report harness (seeds 0..29 -> sample_pools(seed=seed)):
+    cam/egg items=2 dinner  2/30      kim/soy  4/30
+full run_batch (seed -> _family_seed -> pools):
+    cam/egg items=2 dinner  4/30      kim/soy  6/30
+```
+
+Same conclusion from both: the mechanism yields on random pools, never zero,
+and the fit window is the binding gate. The report's figure is the more
+conservative of the two, and it already shows the spread by reporting 4/30 on
+seeds 30..59 — so nothing is being smoothed over.
+
+### Other findings, re-verified
+
+| # | Status | Evidence |
+|---|---|---|
+| F-1 | Resolved | `update:exclude_allergens=milk` → `recipe key 'exclude_allergens' is not supported for 'update'`. |
+| F-3 | Resolved | Recipe-free evaluate query is `"Evaluate this as my plan: a regular serving of …"` — the historical phrasing, no occasion clause. |
+| F-4 | Resolved | `exclude_allergens=bogus_tag` → `names unknown allergen tag(s) ['bogus_tag']`. |
+| Mechanism | Holds | Fixture: `verdict='reject'`, `reasons=('allergy','kcal_hi')` equal to the rebind, `validate_draft == []`, `evaluate_unfits` ✓, freeze→load clean. |
+
+### Note (not a finding)
+
+For operator planning the `generate_batch.py` path is the one that matters, and
+it runs ~4–6 unfit per 30 pools at `items=2 + dinner` rather than 2 — the
+report's harness samples a different pool sequence. Since the published number
+is the conservative one and the qualitative guidance is identical, nothing is
+wrong; a single line in the runbook saying "measured through `run_batch`,
+4–6/30" would make the planning arithmetic directly usable. Likewise
+"yield grows with items over this sample" is correctly hedged — `items=4` falls
+back toward zero on the `run_batch` path, so it should not be extrapolated.
+
+### Evidence
+
+```
+$ .venv/bin/python -m pytest tests/test_run_batch.py -q
+53 passed in 0.64s
+
+$ .venv/bin/python -m pytest -q
+1340 passed in 41.66s          # 0 failed
+```
+
+Commit scope: `1c0e29b` touches `reports/impl-exclude-allergens.md`,
+`reports/issue15-runbook.md`, `reports/spec-exclude-allergens.md` only —
+documentation, no code, which matches the finding it closes. No ADR,
+`data/splits/*`, `*.sqlite`, `scorer.py`, `validator.py`, `review_harness.py`,
+`quality_gates.py`, or `generate_one.py` change.
+
+**RELEASE: exclude_allergens released — unfit producible on the production path
+(~2/30 @ items=2+dinner by the report's harness, 4–6/30 through `run_batch`,
+occasion-tunable to 6/30 at breakfast); fit-window sizing remains issue-15
+design.**
