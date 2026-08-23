@@ -103,3 +103,11 @@ pool_allergen+exclude_allergens, tier=single, dinner occasion) → **14 unfit
 total** (egg 4 + soy 5 + milk 5; every accepted is a genuine reject-envelope
 unfit). The 8-floor is reachable on the synthetic production path with margin;
 parameter combination proven in the decision package's ruling 4.
+
+## Merge-then-freeze verified (2026-08-23)
+
+`freeze_tasks(tasks, ...)` accepts any task sequence → single deterministic
+split. Split-run merge path: per-batch `load_split` → concatenate task lists →
+one `freeze_tasks` call → `load_split` round-trip (4 tasks: recommend+composite,
+validate 0 issues, ids preserved). No merge tool needed; the runbook's merge
+step is `list` concatenation + one freeze. Executed and proven end to end.
