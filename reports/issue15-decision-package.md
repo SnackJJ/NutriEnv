@@ -56,3 +56,11 @@
 3. 缺口扩量（seed 累积/occasion 调优）到 floors 全达标。
 4. freeze → load_split 往返 → landing_verify → 14 断言最终验收。
 5. 更新 EXAM_SPLIT_PATH（如需）与 issue 14 的 4 条 checkbox。
+## 裁决 1 补充调查：landing_verify 落地面无惊
+
+`scripts/landing_verify.py` 已通用化：`main --split <path>` 与
+`verify_published_exam(path)` 都对任意 split 跑 `load_exam` + `validate_draft`
++ oracle-grams。新 exam（240，ADR 0016）落地 = 传新 split 路径，**无代码改动**。
+唯一硬编码：`exam_n == _EXAM_N`（240，新 exam 同数所以不用改）；
+`unexpected_oracle_grams_failures` 引用 `V05_ORACLE_GRAMS_EXEMPT_IDS`（v0.5
+专属豁免，新 exam 无此 ID 天然不触发）。
