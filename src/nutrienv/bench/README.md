@@ -58,7 +58,7 @@ field. It does not assert. `validate_draft` remains the static draft-time
 gate. Ledger replay is append-only (duplicate S0/tail rows still log). A mill
 draft is checked with `load_split` then this function, or
 `python scripts/check_achievable.py --split data/splits/pipeline-draft.json`.
-`load_exam` loads the published issue-15 exam (`data/splits/v2.0-gold.json`) and verifies its catalog identity.
+`load_exam` stays fail-closed until the next exam is frozen.
 
 ## Situations
 
@@ -68,10 +68,9 @@ FNDDS-only, built by `scripts/download_fdc.py` and
 
 The v0.x exam line is archived in `data/splits/archive/` (v0-gold through
 v0.5-gold), bound to the archived legacy catalog `data/fdc/archive/catalog.sqlite`.
-The published exam is `data/splits/v2.0-gold.json` (issue-15, 240 items, bound to
-`data/fdc/catalog-v2.sqlite`); `load_exam()` loads and verifies it. Archived
-v0.x splits can still be loaded through `load_split()` for archaeology;
-`load_exam()` rejects them by version.
+There is currently **no published exam** on the formal path: `load_exam()` fails
+closed until the v1.x mill freezes the next exam. Archived splits can still be
+loaded through `load_split()` for archaeology; `load_exam()` rejects them.
 
 Diversity comes from `realizations.py` tables. Every family the exam scores is table-backed: `FUZZY_ROWS` (24), `LEFTOVER_ROWS` (27), `UPDATE_ROWS` (22), `CONSTRAIN_ROWS` (22, split into `kind="condition"` and `kind="conflict"`), `EVALUATE_ROWS` (55). Gold-shaped rows come first in each table so the factory still covers the calibration shapes.
 
