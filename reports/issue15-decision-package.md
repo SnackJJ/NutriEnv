@@ -74,3 +74,132 @@
 + leftover=32（≫24），validate 0。ADR 0016 的 composite 36 一个 family 就超额满足
 constrained + leftover 两个 floors → bulk 产中这两个靠 composite 配额即可，其余
 family 专注 tier / persona×过敏原 / unfit。
+
+## Review (codex)
+
+**Verdict: REV.** The quality-gate return values are interpreted correctly,
+and the default persona set matches the runbook, but catalog binding and the
+round-trip check can report against a different catalog than the frozen split.
+Malformed existing inputs also escape as raw tracebacks rather than a usage
+failure.
+
+### Standards
+
+No hard AGENTS.md violation was introduced: the commit does not change catalog
+grams, split data, gray-zone logic, `react.py`, or scoring semantics.
+
+- **Low (judgment call — Divergent Change):**
+  `scripts/verify_issue15.py:58` puts argument parsing, all gate policies,
+  freeze/load I/O, rendering, and exit-code aggregation in one `main`; every
+  added admission assertion must modify the same function. **Fix:** introduce a
+  small gate-result type and focused gate functions, leaving `main` to
+  orchestrate and render.
+- **Low (judgment call — Mysterious Name / Middle Man):** report variables
+  `rc`, `tc`, `lf`, and `sf` at `scripts/verify_issue15.py:93-118` obscure four
+  different domain results, while `tests/test_verify_issue15.py:17` merely
+  delegates `_run` to `verify_main`. **Fix:** use descriptive result names and
+  call `verify_main` directly.
+
+### Spec
+
+- **High — catalog identity is neither derived nor verified**
+  (`scripts/verify_issue15.py:61-72`). The default always loads catalog-v2 and
+  passes that object to `load_split`, bypassing the split's recorded `catalog`
+  field and SHA. `load_catalog` also silently falls back to the demo catalog
+  for a missing `--catalog` path. On `v0.5-gold.json`, the default catalog
+  produced 38 draft failures; its declared catalog produced zero, proving the
+  result depends on the unintended override. `allergen_tags=None` correctly
+  derives tags from the attached catalog, but that is the wrong catalog in
+  this path. **Fix:** default to `load_split(split, catalog=None)` so the
+  manifest selects the catalog, validate its recorded path/digest (or use the
+  published-exam loader contract), and make an explicit override fail closed
+  unless its identity matches.
+- **High — freeze round-trip can PASS while the frozen manifest is invalid**
+  (`scripts/verify_issue15.py:130-136`). `freeze_tasks` defaults the output
+  `catalog` field to catalog-v1 while this script defaults the actual object and
+  digest to catalog-v2; reloading with `catalog=catalog` bypasses that bad field
+  again. Consequently the claimed “safe to ship” check never proves the file
+  can resolve and verify its own catalog. **Fix:** preserve the input's verified
+  catalog field and digest, then reload without injecting a catalog and compare
+  the relevant task/oracle content as well as count and validation.
+- **High — malformed inputs crash before the gate table**
+  (`scripts/verify_issue15.py:71-72`). Existing files containing invalid JSON
+  or an empty `items` list raise a raw traceback and return process code 1,
+  conflating malformed usage with an evaluated gate failure. **Fix:** catch
+  catalog/read/JSON/schema errors around initial loading, print one concise
+  diagnostic without a traceback, and return 2.
+- **Medium — the predictable temporary path is collision- and overwrite-prone**
+  (`scripts/verify_issue15.py:133-134`). Two splits with the same stem, parallel
+  runs, or a pre-existing file/symlink share `/tmp/verify-<stem>.gold.json`;
+  `overwrite=True` clobbers it and the artifact is never cleaned up. The source
+  split itself is not modified, and no repo data is written. **Fix:** use
+  `TemporaryDirectory`/an exclusive temporary file and clean it in all paths.
+- **Medium — round-trip equality is reduced to count plus validation**
+  (`scripts/verify_issue15.py:137-139`). IDs, ordering, tiers, profiles, or
+  oracle fields could change during serialization while the same number of
+  individually valid tasks reload, and the gate would still PASS; the runbook's
+  prior round-trip evidence explicitly included preserved IDs. **Fix:** compare
+  ordered normalized task payloads (or all persistence-contract fields) before
+  and after reload.
+- **Medium — the smoke test only proves one aggregate failure code**
+  (`tests/test_verify_issue15.py:21-46`). It never asserts stdout or an
+  individual PASS row, has no rc-0 case, malformed-existing-file case, catalog
+  identity case, or cleanup check. Its “clean composite” description is false
+  under the actual run: captured output shows `validate_draft` and
+  `freeze_round_trip` both FAIL because the script attaches catalog-v2 to the
+  demo-catalog split. Any combination of broken gates can still satisfy
+  `rc == 1`. **Fix:** pin named PASS/FAIL rows with captured output and add
+  focused rc 0, rc 1, rc 2/malformed, manifest-catalog, and temp-cleanup cases.
+
+### Evidence
+
+- `tests/test_verify_issue15.py`: **1 passed**; full suite: **1341 passed**.
+- `v0.5-gold.json` failed honestly on tier and unfit floors, but the default
+  catalog also created spurious draft failures; using its declared catalog
+  removed those draft failures.
+- A synthetic composite run returned 1, but its table exposed draft and
+  round-trip failures that the smoke test does not inspect. Invalid JSON and an
+  empty-items split both emitted raw tracebacks. Missing paths return 2 as
+  intended; argparse also retains usage exit 2.
+- Commit scope is limited to the new script and test; no ADR, split, sqlite,
+  scorer, validator, or quality-gates file changed.
+
+## Fix round (codex findings)
+
+- **High 1 — catalog identity derived + verified.** Default is now
+  `load_split(split)` (manifest-selected); before any gate runs the recorded
+  `catalog` file must exist and hash to the recorded `catalog_sha256`
+  (demo-catalog fallback can never mask a broken manifest). An explicit
+  `--catalog` override fails closed (rc 2) unless its bytes hash to the
+  recorded digest. Verified: v0.5-gold now verifies against its OWN
+  `data/fdc/archive/catalog.sqlite`; `--catalog catalog-v2` → clean rc 2
+  "catalog identity mismatch".
+- **High 2 — freeze round-trip proves the manifest.** The gate freezes with
+  the input's VERIFIED `catalog_field`/`catalog_sha256`, reloads WITHOUT
+  injecting a catalog (the frozen file must resolve its own), and compares
+  ordered `task_to_item` payloads plus per-task validation — not just count.
+- **High 3 — malformed inputs are usage failures.** JSON/schema/catalog errors
+  around initial loading print one "error: cannot load split: …" diagnostic
+  and return 2; no traceback reaches the terminal.
+- **Medium 4** — freeze output goes to a private `TemporaryDirectory`
+  (prefix verify-issue15-); cleaned on all paths; no collision-prone
+  /tmp/verify-<stem> path.
+- **Medium 5** — round-trip equality compares ordered normalized task
+  payloads (`task_to_item`) before/after reload, alongside count and
+  per-task validation.
+- **Medium 6 — tests rebuilt** (tests/test_verify_issue15.py): malformed-json
+  rc 2 without traceback; empty-items rc 2; manifest identity mismatch rc 2;
+  named PASS/FAIL rows with captured stdout on v0.5-gold (validate_draft PASS,
+  evaluate_tiers/situation_floors FAIL, RESULT: FAIL, no Traceback);
+  consistent-manifest positive path (validate + freeze_round_trip PASS rows,
+  temp cleanup asserted); rc-0 rendering via monkeypatched gates.
+- **Low 7** — `GateResult` dataclass + focused `gate_*` functions;
+  `main` parses, loads, orchestrates `run_gates`, renders.
+- **Low 8** — descriptive names (`coverage`, `tier_report`,
+  `leftover_report`, `floors_report`); tests call `vi.main` directly.
+
+**v0.5-gold re-run:** validate_draft **PASS 0 issues** from its own recorded
+catalog (spurious draft failures gone); evaluate_tiers FAIL, situation_floors
+FAIL honestly (unfit 0/8); leftover_floor PASS 27/24; freeze_round_trip FAILs
+honestly on legacy grams vs the current portion table (reported row, not a
+crash); **rc 1**.
