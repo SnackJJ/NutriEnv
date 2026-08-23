@@ -81,3 +81,17 @@ breakfast 6/30 for cam — always with reasons == bind and clean rejections for
 the rest (fit-window sizing remains issue-15 design). The deterministic
 fixture unfit stays pinned by
 `test_exclude_allergens_recipe_produces_the_knife_unfit`.
+
+## End-to-end rehearsal (2026-08-23) — runbook flow validated
+
+Five split batches (evaluate-unfit items=2+dinner ×10, evaluate-triple ×4,
+recommend fay ×6, composite ben ×6, update gus ×6) → merge → full 14-assertion
+run on 24 items: **0 validate issues, window_leaks none, constrained 9/8 达标,
+unfit 3/8 (production-path, occasion+dinner), tier single 3 + triple 4, leftover
+5, persona cut/gym/everyday, allergens egg/milk**.
+
+The runbook flow (split-recipe batches → merge → gate acceptance) works end to
+end; the shortfalls are COUNT (scale pools ×N), not flow. Production-path unfit
+reproduced: 10 pools → 3 unfit (reject, egg, clean). Occasion supplied
+automatically by `_expand_one` when a knife recipe is present (no `:occasion`
+recipe key for evaluate — confirmed by this run).
