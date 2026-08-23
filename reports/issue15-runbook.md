@@ -95,3 +95,11 @@ end; the shortfalls are COUNT (scale pools ×N), not flow. Production-path unfit
 reproduced: 10 pools → 3 unfit (reject, egg, clean). Occasion supplied
 automatically by `_expand_one` when a knife recipe is present (no `:occasion`
 recipe key for evaluate — confirmed by this run).
+
+## unfit ≥8 cumulative proof (2026-08-23)
+
+3 persons × 20 pools (cam/egg, kim/soy, fay/milk; items=2, knife=allergy,
+pool_allergen+exclude_allergens, tier=single, dinner occasion) → **14 unfit
+total** (egg 4 + soy 5 + milk 5; every accepted is a genuine reject-envelope
+unfit). The 8-floor is reachable on the synthetic production path with margin;
+parameter combination proven in the decision package's ruling 4.
