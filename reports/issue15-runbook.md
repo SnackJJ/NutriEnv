@@ -73,11 +73,11 @@ fit-window precondition — both issue-15 recipe design. Details:
 
 `evaluate:exclude_allergens=egg` (comma/space-separated tags) makes the
 synthetic plate skip the person's allergen carriers, so pool_allergen +
-knife=allergy can complete ADR 0017's fit→knife construction. The carrier
-condition and the exclusion are proven (deterministic fixture unfit:
-`test_exclude_allergens_recipe_produces_the_knife_unfit`). **Operator
-guidance:** on random catalog pools the FIT-WINDOW gate dominates — measured
-0 unfit / 30 draws per config (cam/egg and kim/soy, seeds 0..29, items 1..4;
-see the corrected table in `reports/impl-exclude-allergens.md`) — so reliable
-bulk yield needs issue-15 plate/window design (occasion, explicit-gram sizing,
-or person selection matched to drawn plates), not seed sweeps.
+knife=allergy completes ADR 0017's fit→knife construction end to end.
+**Measured production yield** (catalog-v2, `--synthetic`, occasion-supplied,
+seeds 0..29; full matrix in `reports/impl-exclude-allergens.md`):
+cam/egg items=2 + dinner ≈ **2/30** (4/30 on seeds 30..59), kim/soy 4/30,
+breakfast 6/30 for cam — always with reasons == bind and clean rejections for
+the rest (fit-window sizing remains issue-15 design). The deterministic
+fixture unfit stays pinned by
+`test_exclude_allergens_recipe_produces_the_knife_unfit`.

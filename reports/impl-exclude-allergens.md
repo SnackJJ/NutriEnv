@@ -29,35 +29,42 @@ Spec: `reports/spec-exclude-allergens.md`. Commit on main, prefix "pipeline:".
   reasons == bind ('allergy', 'kcal_hi'), `validate_draft == []`,
   `evaluate_unfits` counts it; freeze→load clean.
 
-## Honest probe (real catalog-v2)
+## Honest probe (real catalog-v2, PRODUCTION path — occasion supplied)
 
-**Methodology:** seeds 0..29 (`sample_pools(seed=seed)`, one pool per seed),
-persons roster-cam (exclude egg) and roster-kim (exclude soy), items ∈ {1..4},
-resolve via `resolve_candidate` with `knife=allergy, person=…, tier=single`.
-Measured in this checkout:
+**Methodology (corrected):** the harness mirrors `_expand_one`: knife recipes
+supply `occasion="dinner"` to `synthetic_expander` (the spoken "for <meal>"
+clause feeds `occasion_from_query`). An earlier table ran resolve-only without
+an occasion, so every draw failed at "recommend/knife query names no meal
+occasion" — that table measured a broken harness, not the pipeline. Seeds
+0..29, one pool per seed (`sample_pools(seed=seed)`), persons roster-cam
+(exclude egg) / roster-kim (exclude soy), resolve via `resolve_candidate` with
+`knife=allergy, person=…, tier=single`.
 
-| person (exclude) | items=1 | items=2 | items=3 | items=4 |
-|---|---|---|---|---|
-| roster-cam (egg), unfit / 30 | 0 | 0 | 0 | 0 |
-| roster-kim (soy), unfit / 30 | 0 | 0 | 0 | 0 |
+**Matrix** (cam/egg, items=2, seeds 0..29):
 
-Every non-shortfall draw was rejected by the fit gate (`unresolvable`): the
-pre-knife plate must land inside the chosen person's meal-slot windows (e.g.
-cam dinner kcal [390.24, 520.32]), and random 1–4 unit plates almost never do
-(0/30 per config here). A 100-seed cam/items=2 run also gave 0/100. The
-earlier "≈1 unfit per 15 draws" figure did not reproduce and is withdrawn;
-an external review reported 4/15 at items=2 for seeds 0..14 — not reproduced
-under the methodology above (likely a different resolve configuration).
+| config | unfit / 30 | reasons |
+|---|---|---|
+| no pool_allergen, no occasion | 0 | unresolvable ×30 |
+| pool_allergen, no occasion | 0 | unresolvable ×30 |
+| no pool_allergen, occasion | 0 | unresolvable ×30 |
+| **pool_allergen + occasion** | **2** | unresolvable ×28 |
 
-Where the mechanism IS proven end to end: the deterministic fixture test
-(`test_exclude_allergens_recipe_produces_the_knife_unfit`) produces a genuine
-ADR 0017 unfit — reject, empty last_plan, exactly one knife-added carrier,
-reasons == bind, `validate_draft == []`. Operator guidance: random-pool bulk
-production is gated by the fit window, not by the carrier condition; yielding
-reliably requires issue-15 plate/window design (occasion, explicit-gram sizing,
-or person selection matched to drawn plates). Zero allergen_clash at items≥2
-(exclusion keeps carriers out of the plate); items=1 can draft the swapped-in
-carrier → visible `allergen_clash`.
+**Sweeps on the production path** (pool_allergen + occasion unless noted):
+
+| sweep | unfit / 30 each |
+|---|---|
+| cam/egg items=2 by occasion | breakfast 6 · lunch 2 · dinner 2 |
+| cam/egg dinner by items | items=1 → 1 · items=2 → 2 · items=3 → 3 |
+| kim/soy dinner items=2 | 4 |
+| cam/egg dinner items=2, seeds 30..59 | 4 |
+
+**Current guidance:** `items=2 + occasion=dinner` yields ≈2/30 per seed range
+(never 0 across ranges tried); occasion choice moves the number materially
+(breakfast 6/30 for cam); yield grows with items over this sample. The
+mechanism is proven end to end both here and in the deterministic fixture test
+(`test_exclude_allergens_recipe_produces_the_knife_unfit`): reject envelope,
+empty last_plan, one knife-added carrier, reasons == bind. Fit-window sizing
+(plate energy vs person/slot) remains the dominant residual — issue-15 design.
 
 ## Verification
 

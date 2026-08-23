@@ -205,3 +205,145 @@ $ .venv/bin/python -m pytest -q
 ........................................................................ [100%]
 1337 passed        # 0 failed (net +3 tests vs 1334 baseline of this spec)
 ```
+
+## Re-review (claude opus)
+
+**Verdict: REV — narrowly, on F-2 only.** The code is right: F-1, F-3 and F-4
+are resolved and I verified each, the mechanism still produces a genuine ADR
+0017 unfit, and the whole suite is green. But the replacement probe table is
+measured by a harness that never reaches the gate it blames, so the corrected
+numbers are wrong in the opposite direction — and the runbook now tells
+operators that bulk unfit production is blocked when, through the production
+path, it already works.
+
+### Finding status
+
+| # | Finding | Status | Evidence |
+|---|---|---|---|
+| F-1 | High — `exclude_allergens` inert on `update` | **Resolved** | `run_batch.py:473` is back to `frozenset({"person", "pool_allergen"})`. Probe: `update:exclude_allergens=milk` → `recipe key 'exclude_allergens' is not supported for 'update' (allowed: ['person', 'pool_allergen'])`. Pinned by `test_update_exclude_allergens_recipe_is_refused`. |
+| F-2 | Medium — probe table unreproducible / items=2 wrong | **NOT resolved** — see below | |
+| F-3 | Medium — unconditional evaluate occasion clause | **Resolved** | `expander.py:239-241` gates the clause on an explicit `occasion=` argument, supplied by `_expand_one` only when a `knife` recipe is present (`run_batch.py:716-720`). Verified against `fdfd2dc` (the commit before the hint landed): **defaults byte-identical across all five families**. Recipe-free → `"Evaluate this as my plan: …"`; `occasion="dinner"` → `"…my plan for dinner: …"`. Pinned by `test_synthetic_evaluate_query_is_byte_identical_without_a_knife`. |
+| F-4 | Low — unknown tag silently accepted | **Resolved** | New catalog-tag check at `run_batch.py:131-148`, before any job runs, mirroring `pool_allergen`. Probe: `exclude_allergens=bogus_tag` → `names unknown allergen tag(s) ['bogus_tag']`; `exclude_allergens=egg` still accepted. |
+| — | Mechanism | **Still holds** | Deterministic fixture: `"Evaluate this as dinner: 158 g of rice, 150 g of avocado, 50 g of eggs."`, `verdict='reject'`, `last_plan=[]`, `reasons=('allergy','kcal_hi')` equal to the rebind, `validate_draft == []`, `evaluate_unfits` ✓, freeze→load clean. |
+
+### F-2: the corrected table measures a broken harness
+
+The table's methodology is `sample_pools(seed=seed)` + `resolve_candidate` with
+`knife=allergy, person=…, tier=single`. It names neither `pool_allergen` nor an
+`occasion` hint — and after this very commit, the `for <meal>` clause is no
+longer produced by `synthetic_expander` on its own; `_expand_one` adds it. So
+the harness feeds the resolver a query with no spoken occasion. I rebuilt that
+harness and ran all four variants, cam/egg, items=2, seeds 0..29:
+
+```
+[no pool_allergen, no occasion]  unfit=0/30   reasons={'unresolvable': 30}
+[pool_allergen,    no occasion]  unfit=0/30   reasons={'unresolvable': 30}
+[no pool_allergen, occasion   ]  unfit=0/30   reasons={'unresolvable': 30}
+[pool_allergen  +  occasion   ]  unfit=2/30   reasons={'unresolvable': 28}
+```
+
+The cause of the 30/30 is not the fit window:
+
+```
+query without occasion: "Evaluate this as my plan: a piece of Burrito, and a cup of Pasta with sauce."
+occasion_from_query -> None
+_realize raises -> ValueError: evaluate knife recipe names no meal occasion
+```
+
+Every draw dies at the **occasion gate** (or, without `pool_allergen`, at the
+no-carrier gate). Both surface under the same `unresolvable` label, which is
+how they were read as fit-window rejections. The fit gate never ran.
+
+**The production path — what `generate_batch.py` actually executes — yields.**
+Full `run_batch` with the documented recipe, this checkout, 30 seeds per cell:
+
+| person (exclude) | items=1 | items=2 | items=3 | items=4 |
+|---|---|---|---|---|
+| roster-cam (egg), unfit / 30 | 2 | **4** | 2 | 0 |
+| roster-kim (soy), unfit / 30 | 0 | **6** | 5 | 1 |
+
+`allergen_clash = 0` in every cell. So my earlier 4/15 was not a different
+configuration in any exotic sense — it was the *supported* one, and it
+reproduces here at 4/30 and 6/30.
+
+**Where the report is right:** the fit window really is the binding constraint.
+I instrumented `_realize` on the production path and every single rejection is
+the fit gate, exactly as claimed:
+
+```
+cam(egg) items=2: unfit=4/30  rejections={'unresolvable': 25, 'code_gate': 1}
+     15x  knife input plate does not fit dinner windows: ['kcal_lo']
+      6x  knife input plate does not fit dinner windows: ['kcal_hi']
+      3x  knife input plate does not fit dinner windows: ['fat_g_hi'…]
+kim(soy) items=2: unfit=6/30  rejections={'unresolvable': 24}   (same shape)
+```
+
+**Where it is wrong, and why it matters:** "0 unfit / 30 draws per config" and
+"reliable bulk yield needs issue-15 plate/window design … not seed sweeps"
+(`reports/issue15-runbook.md`) are both refuted by the table above. At items=2
+the transport yields **13–20% per pool**, so ADR 0016's floor of 8
+Evaluate-unfit is roughly 40–60 pools — a seed sweep, available today. The
+guidance as written would park a working capability behind unfinished design
+work. Withdrawing a roughly-correct number in favour of a harness artifact is
+the failure this project's "LLM produces candidates, not facts" discipline
+exists to catch; it errs conservatively, but it is still an unverified number
+driving an operator decision.
+
+**Fix (one line of methodology):** measure through `run_batch` — the entry
+point operators use — or add `with_allergen=tag` and `occasion="dinner"` to the
+standalone harness, then restate: fit window is the binding gate (confirmed),
+yield at items=2 is ~4–6 per 30 pools, items=4 is near-zero.
+
+### Answer to the release question
+
+**The transport is safe to release; the 0/30 methodology is not safe to publish
+as operator guidance.** Nothing in the code changed my view — F-1/F-3/F-4 are
+properly closed and the mechanism is proven both on the fixture and on 10
+independent real-catalog draws. What must not ship is the table and the runbook
+paragraph derived from it, because they understate a working capability and
+misattribute the cause. Correct the two documents and this releases as-is; no
+code change is required.
+
+### Evidence
+
+```
+$ .venv/bin/python -m pytest tests/test_run_batch.py -q
+53 passed in 0.65s
+
+$ .venv/bin/python -m pytest -q
+1340 passed in 41.49s          # 0 failed
+```
+
+Commit scope: `reports/` ×3, `expander.py`, `run_batch.py`,
+`tests/test_run_batch.py`. No ADR, `data/splits/*`, `*.sqlite`, `scorer.py`,
+`validator.py`, `review_harness.py`, `quality_gates.py`, or `generate_one.py`
+change ✓.
+
+**Blocker: F-2 (documentation only).** Once the probe table and the runbook
+paragraph carry production-path numbers, the release line stands:
+*exclude_allergens released — unfit is producible on the real catalog
+(~4–6 per 30 pools at items=2; fit-window sizing remains issue-15 design).*
+
+## Fix round 2 (claude opus findings)
+
+**F-2 root cause confirmed:** the probe harness fed `resolve_candidate`
+queries with no spoken meal; after ff322b5 the "for dinner" clause is gated on
+`_expand_one`, so all 30 draws died at "names no meal occasion" — the table
+measured a broken harness. Code unchanged (no bug); measurement fixed to the
+production path (occasion supplied, exactly as `_expand_one` does).
+
+Corrected matrix (cam/egg, items=2, seeds 0..29):
+
+| config | unfit / 30 | reasons |
+|---|---|---|
+| no pool_allergen, no occasion | 0 | unresolvable ×30 |
+| pool_allergen, no occasion | 0 | unresolvable ×30 |
+| no pool_allergen, occasion | 0 | unresolvable ×30 |
+| **pool_allergen + occasion** | **2** | unresolvable ×28 |
+
+Production-path sweeps (seeds 0..29): cam/egg items=2 → breakfast 6/30,
+lunch 2/30, dinner 2/30; cam/egg dinner items=1/2/3 → 1/2/3; kim/soy items=2
+dinner → 4/30; cam dinner items=2 seeds 30..59 → 4/30. **Guidance: items=2 +
+occasion=dinner ≈ 2/30 and never 0 across ranges tried; breakfast was best for
+cam (6/30).** Fit-window sizing remains issue-15 design. The deterministic
+fixture test stays as the mechanism proof. Full suite 1340 passed, 0 failed.
