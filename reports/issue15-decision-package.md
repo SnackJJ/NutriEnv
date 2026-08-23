@@ -345,3 +345,45 @@ $ .venv/bin/python -m pytest -q
 ........................................................................ [100%]
 1352 passed in 52.65s        # 0 failed (was 1351; +1 test)
 ```
+
+## Final verdict (codex)
+
+**FINAL verdict: ACC.** Both round-3 findings are resolved; no correctness or
+release blocker remains.
+
+### Standards
+
+No documented AGENTS.md violation or production-code smell was introduced.
+The prior misleading tamper test is substantively corrected: it now injects a
+broken catalog reference through a monkeypatched `freeze_tasks` wrapper and
+asserts that `gate_freeze_round_trip` returns failure with SHA-mismatch
+evidence.
+
+Two optional test-cleanup judgments do not affect release: the additional
+`_load_verified` special case for `V05_GOLD` in the CLI portion of that test is
+unnecessary (the valid generated split could be passed directly), and stdout
+capture boilerplate remains duplicated across negative tests. The tamper-test
+docstring also says it pins corrupt-SQLite handling, although the following
+dedicated test owns that assertion.
+
+### Spec
+
+| Finding | Status | Evidence |
+|---|---|---|
+| Medium — corrupt SQLite traceback | **Resolved** | `scripts/verify_issue15.py:312-324` catches `sqlite3.Error` in the initial-load path. A hash-matching corrupt `.sqlite` probe returned rc 2 with `error: cannot load split: file is not a database` and no traceback; the dedicated regression pins it. |
+| Low — tamper test bypassed the gate | **Resolved** | `tests/test_verify_issue15.py:269` monkeypatches `freeze_tasks`, rewrites the gate's temporary manifest to reference a byte-different SQLite catalog while retaining the old SHA, and asserts both a failed `GateResult` with SHA-mismatch evidence and the CLI FAIL row/rc 1. |
+
+No new spec or production finding was found. v0.5-gold remains honest:
+`validate_draft` PASS, evaluate-tier and unfit floors FAIL, rc 1.
+
+### Evidence
+
+- Targeted: **12 passed**.
+- Full suite: **1352 passed**, 0 failed.
+- Commit scope is report + script + test only; no ADR, split, sqlite, scorer,
+  validator, or quality-gates change.
+
+Summary by review axis: **Standards pass (optional test cleanup only); Spec
+pass (0 open findings).**
+
+verify_issue15.py admission gate released.
