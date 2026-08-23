@@ -443,7 +443,8 @@ def parse_spec(batch_spec: Mapping) -> dict:
 # Recipe knobs the resolver actually implements, per family (issue 15
 # transport). A key outside the family's set would be silently dropped or
 # ignored by the realize branch, so the parser refuses it. ``tier`` is
-# evaluate-only authoring data (mirrors generate_one's guard); recommend can
+# evaluate-only authoring data whose value must be a declared
+# EVALUATE_TIERS entry (mirrors generate_one's guard); recommend can
 # only carry an occasion override. ``shell``/``scene`` are generate_one-only
 # until resolver semantics exist; ``occasion`` on evaluate is read only by
 # the knife branch from the spoken query, so it is not an advertised knob
