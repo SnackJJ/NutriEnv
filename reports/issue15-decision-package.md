@@ -403,3 +403,14 @@ verify_issue15.py admission gate released.
 
 结论：裁决 1 选替换时，除生成+冻结外还需 EXAN_SPLIT_PATH 切换 + 2-3 处测试/脚本语义更新
 （一个小 commit 的改动面，已定位精确位置）。
+
+## 新增待裁决点 6：冻结绑定哪个 catalog（v1 vs v2）
+
+- `freeze_tasks` 默认 `CATALOG_V1_RELPATH`（catalog-v1，13224 食物，v1.0-gold/pilot 基底，
+  digest f49e4f90）；本轮所有配方验证用 catalog-v2（5431 食物，digest eb822b69）。
+- 影响：冻结产物 `catalog_sha256` 绑定所选 catalog；跨 catalog 的题（v1 有而 v2 无的食物）
+  可能 validate 失败（克数锚点 ADR 0008）。
+- 选项：a) 用 catalog-v1（与 v1.0-gold 同锚，延续性）b) 用 catalog-v2（新构建，本轮配方
+  全在它上面验证）c) 视配方验证结果决定。
+- 建议：**catalog-v2**（所有 14-assertion 配方/演练/验收工具都基于它验证；用 v1 需重验
+  配方）。记录供拍板。
