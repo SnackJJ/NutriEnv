@@ -64,3 +64,13 @@
 唯一硬编码：`exam_n == _EXAM_N`（240，新 exam 同数所以不用改）；
 `unexpected_oracle_grams_failures` 引用 `V05_ORACLE_GRAMS_EXEMPT_IDS`（v0.5
 专属豁免，新 exam 无此 ID 天然不触发）。
+
+## 裁决 5 补充证据 + 重要简化（2026-08-23）
+
+**合成全量成本**：36-pool composite 批量 **0.67 秒**（32 accepted，4 诚实拒绝）；
+合成 240 全量预计 <5 秒——synthetic 成本可忽略（裁决 5 建议 synthetic 全量的强证据）。
+
+**floors 大幅简化**：仅 composite 配额 36 → 32 项**全部双命中** constrained=32（≫8）
++ leftover=32（≫24），validate 0。ADR 0016 的 composite 36 一个 family 就超额满足
+constrained + leftover 两个 floors → bulk 产中这两个靠 composite 配额即可，其余
+family 专注 tier / persona×过敏原 / unfit。
