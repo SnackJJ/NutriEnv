@@ -469,7 +469,7 @@ can produce a bad exam artifact, both are one-line follow-ups.
 | Low-1 | dead `fit_task` parameter | **Resolved** | Parameter removed from `_realize_evaluate_knife`; the discarded `_realize_evaluate` call is kept with an explicit comment naming what it is for ("Building the fit oracle doubles as the named-foods gate", `resolver.py:300`). The implicit gate is now named, which is what the finding asked for. |
 | Low-2 | `"A, and B, and C"` plate speech | **Resolved** | `', '.join(parts)` (`resolver.py:583`). Emitted: `"Evaluate this as dinner: 316 g of rice, 27 g of olive oil, 16 g of peanut butter."` — plain comma list, gram-exact, covered by the v1 manual line "Grams (\"150 g\") are already grams" (`harness/react.py:75`). No new agent-side convention, so react.py stays untouched (discipline 4 holds). |
 | Low-3 | duplicated `olive_oil` fixture block | **Not resolved** | See R-2. |
-| Low-4 | mill/batch situations asymmetry | **Open follow-up** (as agreed) | `generate_one.py:956` still stamps `("evaluate_unfit", knife)`; `_situations(['evaluate_unfit','allergy'])` still raises `unknown situations`. Correctly scoped out of this diff; should be tracked. |
+| Low-4 | mill/batch situations asymmetry | **Closed** (later commits 22f9231 + 6937177) | Mill unfit and fit items now emit reload-valid situations; see the "Low-4 follow-up closed" and "F-1 follow-up" sections below. |
 
 ### Residual concerns (non-blocking)
 
