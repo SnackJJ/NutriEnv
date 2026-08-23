@@ -153,6 +153,7 @@ def synthetic_expander(
     amount_path: str | None = None,
     exclude_allergens: tuple[str, ...] | None = None,
     occasion: str | None = None,
+    tier: str | None = None,
 ) -> dict[str, object]:
     """Deterministic fake: compose 1–2 pool foods with a table phrase.
 
@@ -166,14 +167,21 @@ def synthetic_expander(
     tags intersect the set (the fit→knife construction needs an allergen-free
     plate so the knife can add the carrier). ``occasion`` adds the spoken
     "for <meal>" clause (knife window derivation); without it evaluate
-    queries stay byte-identical to the pre-hint channel. Defaults keep
-    today's behavior.
+    queries stay byte-identical to the pre-hint channel. ``tier`` only
+    affects evaluate drafts: single/pair/triple supply the default item
+    count (1/2/3) when ``items`` is absent, explicit_grams supplies
+    ``amount_path="explicit_grams"``, long adds a second clause to the
+    query, and synonym picks an alias-backed pool food (rejecting cleanly
+    when the pool has none). Defaults keep today's behavior.
     """
     banned = {str(tag).strip().lower() for tag in (exclude_allergens or ())} - {""}
     chosen: list[tuple[PoolFood, str]] = []
+    eval_amount_path = amount_path
+    if tier == "explicit_grams" and eval_amount_path is None:
+        eval_amount_path = "explicit_grams"
 
     def _phrase_for(food: PoolFood) -> str | None:
-        if amount_path == "explicit_grams":
+        if eval_amount_path == "explicit_grams":
             # Fail-closed like items: a food without a one-portion table
             # value is skipped rather than falling back to a mixed phrase.
             one = next(
@@ -208,8 +216,28 @@ def synthetic_expander(
         chosen = (
             [(lightest, _preferred_phrase(lightest))] if lightest is not None else []
         )
+    elif family == "evaluate" and tier == "synonym":
+        # Synonym items must name a food through a catalog alias rather than
+        # its canonical short name. _spoken_name already prefers aliases,
+        # but a random pool rarely carries one; reject cleanly when it does
+        # not so seeds can be scanned for alias-backed pools.
+        for food in pool.foods:
+            if _excluded(food):
+                continue
+            phrase = _phrase_for(food)
+            if phrase is None:
+                continue
+            alias_names = {str(alias).strip() for alias in food.aliases}
+            if not alias_names:
+                continue
+            chosen.append((food, phrase))
+            break
+        if not chosen:
+            return {"items": [], "query": ""}
     else:
         limit = items if items else 2
+        if items is None:
+            limit = {"single": 1, "pair": 2, "triple": 3}.get(tier, limit)
         for food in pool.foods:
             if _excluded(food):
                 continue
@@ -240,6 +268,12 @@ def synthetic_expander(
         # recipe-free drafts keep the historical phrasing byte-identical.
         clause = f" for {occasion}" if occasion else ""
         query = f"Evaluate this as my plan{clause}: {meal}."
+        if tier == "long":
+            query = (
+                f"Evaluate this as my plan{clause}: {meal}. "
+                "Please walk me through each item and whether the amounts look "
+                "reasonable for my usual routine."
+            )
         return {"items": payload_items, "query": query}
     if family == COMPOSITE_FAMILY:
         query = (

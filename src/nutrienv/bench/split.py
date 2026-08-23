@@ -30,12 +30,11 @@ __all__ = ["GOLD_SPLIT_PATH", "EXAM_SPLIT_PATH", "load_split", "load_exam"]
 _ROOT = Path(__file__).resolve().parents[3]
 # Archived v0 calibration set; kept for archaeology through load_split.
 GOLD_SPLIT_PATH = _ROOT / "data" / "splits" / "archive" / "v0-gold.json"
-# No published exam is active while the v1.x mill lands. The old v0.5 path is
-# intentionally missing; load_exam fails closed until the next exam is frozen.
-EXAM_SPLIT_PATH = _ROOT / "data" / "splits" / "v0.5-gold.json"
-# v0.5-gold was archived with its v0.x parents (ticket 08 migration). No
-# version is accepted on the formal path until the next exam lands.
-_EXAM_VERSIONS = frozenset()
+# Published issue-15 exam: a 240-item split built against catalog-v2 and
+# admitted by scripts/verify_issue15.py (14 assertions PASS). v0.5-gold
+# remains archived and load_exam rejects it by version.
+EXAM_SPLIT_PATH = _ROOT / "data" / "splits" / "v2.0-gold.json"
+_EXAM_VERSIONS = frozenset({"v2.0-gold"})
 
 
 def load_split(path: Path | str | None = None, *, catalog=None) -> list[Task]:

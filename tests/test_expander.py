@@ -445,6 +445,44 @@ def test_synthetic_expander_still_deterministic() -> None:
     )
 
 
+def test_synthetic_expander_long_tier_adds_a_second_clause() -> None:
+    payload = synthetic_expander(
+        _pool(), persona="everyday", family="evaluate", tier="long"
+    )
+    assert payload["items"]
+    assert "Evaluate this as my plan:" in payload["query"]
+    assert payload["query"].endswith(
+        "Please walk me through each item and whether the amounts look "
+        "reasonable for my usual routine."
+    )
+
+
+def test_synthetic_expander_synonym_tier_requires_an_alias_backed_food() -> None:
+    payload = synthetic_expander(
+        _pool(), persona="everyday", family="evaluate", tier="synonym"
+    )
+    assert payload["items"]
+    assert "milk" in payload["query"]
+
+    no_alias_pool = FoodPool(
+        pool_id="evaluate-0000",
+        family="evaluate",
+        foods=(
+            PoolFood(
+                food_id="carrot",
+                name="Carrot, raw",
+                aliases=(),
+                alternatives=(
+                    PortionAlternative("cup", 1.0, "a cup", 122.0),
+                ),
+            ),
+        ),
+    )
+    assert synthetic_expander(
+        no_alias_pool, persona="everyday", family="evaluate", tier="synonym"
+    ) == {"items": [], "query": ""}
+
+
 def test_expander_schema_keeps_items_key_not_foods() -> None:
     parsed = parse_expander_payload(_ok_json())
     assert parsed is not None

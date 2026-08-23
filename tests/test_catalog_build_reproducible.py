@@ -325,7 +325,7 @@ def test_plan_byte_check_detects_sqlite_key_order_drift(
         assert _sha256(path) == digest
 
 
-def test_archived_v0x_stays_pinned_and_load_exam_is_fail_closed() -> None:
+def test_archived_v0x_stays_pinned_and_published_exam_is_v2() -> None:
     payload = json.loads(_SPLIT.read_text(encoding="utf-8"))
     assert payload["catalog"] == "data/fdc/archive/catalog.sqlite"
     assert payload["catalog_sha256"] == _LIVE_SHA256
@@ -333,8 +333,11 @@ def test_archived_v0x_stays_pinned_and_load_exam_is_fail_closed() -> None:
     assert _sha256(_V1) == _V1_SHA256
     tasks = load_split(_SPLIT)
     assert len(tasks) == 240
+    # The archived v0.5 exam is not the published exam: load_exam rejects it
+    # by version, while the issue-15 v2.0-gold exam is on the formal path.
     with pytest.raises(ValueError, match="version"):
         load_exam(_SPLIT)
-    assert not EXAM_SPLIT_PATH.is_file()
-    with pytest.raises(FileNotFoundError):
-        load_exam()
+    assert EXAM_SPLIT_PATH.is_file()
+    exam = load_exam()
+    assert len(exam) == 240
+    assert exam[0].s0.catalog is not None

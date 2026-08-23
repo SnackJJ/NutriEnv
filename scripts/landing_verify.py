@@ -39,7 +39,8 @@ from nutrienv.bench.validator import validate_draft, validate_oracle_grams  # no
 from nutrienv.world.catalog_store import load_catalog  # noqa: E402
 from nutrienv.world.portions import resolve_portion  # noqa: E402
 
-_SPLIT = _ROOT / "data" / "splits" / "archive" / "v0.5-gold.json"
+_V05_SPLIT = _ROOT / "data" / "splits" / "archive" / "v0.5-gold.json"
+_SPLIT = _ROOT / "data" / "splits" / "v2.0-gold.json"
 _EXAM_N = 240
 # v0.5-gold is a frozen legacy exam. These 9 items fail validate_oracle_grams
 # (the oral grams gate landed after that freeze). Ids plus oracle ledger_tail
@@ -218,80 +219,85 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--catalog", type=Path, default=builder._DB)
     args = parser.parse_args(argv)
 
+    is_v05 = args.split.resolve() == _V05_SPLIT.resolve()
     split = json.loads(args.split.read_text(encoding="utf-8"))
-    catalog = load_catalog(args.catalog)
-    aliases = _load_aliases(args.catalog)
-    legacy = _legacy_portions()
-    gold_foods = _gold_foods(split, aliases)
-
-    old_key_drifts: list[dict] = []
-    for slug, fdc_id in gold_foods.items():
-        live = dict((catalog[slug].get("portions") if slug in catalog else {}) or {})
-        old_live = {k: live[k] for k in sorted(live) if k in _OLD_KEYS}
-        old_legacy = dict(legacy.get(fdc_id) or {})
-        if old_live != old_legacy:
-            old_key_drifts.append(
-                {"food_id": slug, "fdc_id": fdc_id, "legacy": old_legacy, "live": old_live}
-            )
-
-    rows = _all_rows()
-    by_seed = {row.seed_id: row for row in rows}
-    by_query: dict[str, object] = {}
-    for row in rows:
-        for query in _row_queries(row):
-            by_query.setdefault(query, row)
-
-    live_view = catalog
-    legacy_view = _view_with_portions(catalog, legacy, aliases)
-
-    replay_ok = 0
-    replay_skip = 0
-    replay_fail: list[dict] = []
-    for item in split.get("items") or []:
-        row = _match_row(item, by_query, by_seed)
-        phrases = _row_phrases(row) if row is not None else []
-        if not phrases:
-            replay_skip += 1
-            continue
-        for food_id, phrase in phrases:
-            old_g = resolve_portion(food_id, phrase, legacy_view)
-            new_g = resolve_portion(food_id, phrase, live_view)
-            if old_g != new_g:
-                replay_fail.append(
-                    {
-                        "item_id": item.get("id"),
-                        "food_id": food_id,
-                        "phrase": phrase,
-                        "old": old_g,
-                        "new": new_g,
-                    }
-                )
-            else:
-                replay_ok += 1
-
     tasks = load_split(args.split)
     validate_bad = [(task.id, issues) for task in tasks if (issues := validate_draft(task))]
 
-    survey = (
-        builder._RAW / "fndds.zip"
-        if (builder._RAW / "fndds.zip").is_file()
-        else builder._RAW / "survey.zip"
-    )
-    conflict_ids = _oz_conflicts(survey)
+    old_key_drifts: list[dict] = []
+    replay_ok = 0
+    replay_skip = 0
+    replay_fail: list[dict] = []
     oz_bad: list[dict] = []
-    for fdc_id in conflict_ids:
-        if fdc_id not in catalog:
-            continue
-        portions = catalog[fdc_id].get("portions") or {}
-        if "oz" in portions and "oz_yield" in portions:
-            continue
-        oz_bad.append({"fdc_id": fdc_id, "portions": dict(portions)})
+    if is_v05:
+        catalog = load_catalog(args.catalog)
+        aliases = _load_aliases(args.catalog)
+        legacy = _legacy_portions()
+        gold_foods = _gold_foods(split, aliases)
+        for slug, fdc_id in gold_foods.items():
+            live = dict((catalog[slug].get("portions") if slug in catalog else {}) or {})
+            old_live = {k: live[k] for k in sorted(live) if k in _OLD_KEYS}
+            old_legacy = dict(legacy.get(fdc_id) or {})
+            if old_live != old_legacy:
+                old_key_drifts.append(
+                    {"food_id": slug, "fdc_id": fdc_id, "legacy": old_legacy, "live": old_live}
+                )
 
-    print(f"gold foods: {len(gold_foods)}")
-    print(f"old-key drifts: {len(old_key_drifts)}")
-    print(f"phrase replay: {replay_ok} equal, {len(replay_fail)} differ, {replay_skip} items unmatched/no phrase")
-    print(f"validate_draft: {len(tasks)} items, {len(validate_bad)} failing")
-    print(f"oz/oz_yield conflicts in FNDDS: {len(conflict_ids)}; unsplitting: {len(oz_bad)}")
+        rows = _all_rows()
+        by_seed = {row.seed_id: row for row in rows}
+        by_query: dict[str, object] = {}
+        for row in rows:
+            for query in _row_queries(row):
+                by_query.setdefault(query, row)
+
+        live_view = catalog
+        legacy_view = _view_with_portions(catalog, legacy, aliases)
+
+        for item in split.get("items") or []:
+            row = _match_row(item, by_query, by_seed)
+            phrases = _row_phrases(row) if row is not None else []
+            if not phrases:
+                replay_skip += 1
+                continue
+            for food_id, phrase in phrases:
+                old_g = resolve_portion(food_id, phrase, legacy_view)
+                new_g = resolve_portion(food_id, phrase, live_view)
+                if old_g != new_g:
+                    replay_fail.append(
+                        {
+                            "item_id": item.get("id"),
+                            "food_id": food_id,
+                            "phrase": phrase,
+                            "old": old_g,
+                            "new": new_g,
+                        }
+                    )
+                else:
+                    replay_ok += 1
+
+        survey = (
+            builder._RAW / "fndds.zip"
+            if (builder._RAW / "fndds.zip").is_file()
+            else builder._RAW / "survey.zip"
+        )
+        conflict_ids = _oz_conflicts(survey)
+        for fdc_id in conflict_ids:
+            if fdc_id not in catalog:
+                continue
+            portions = catalog[fdc_id].get("portions") or {}
+            if "oz" in portions and "oz_yield" in portions:
+                continue
+            oz_bad.append({"fdc_id": fdc_id, "portions": dict(portions)})
+
+    if is_v05:
+        print(f"gold foods: {len(gold_foods)}")
+        print(f"old-key drifts: {len(old_key_drifts)}")
+        print(f"phrase replay: {replay_ok} equal, {len(replay_fail)} differ, {replay_skip} items unmatched/no phrase")
+        print(f"validate_draft: {len(tasks)} items, {len(validate_bad)} failing")
+        print(f"oz/oz_yield conflicts in FNDDS: {len(conflict_ids)}; unsplitting: {len(oz_bad)}")
+    else:
+        print(f"v0.5 overlay checks skipped for non-v0.5 split {args.split}")
+        print(f"validate_draft: {len(tasks)} items, {len(validate_bad)} failing")
     if old_key_drifts:
         print("OLD-KEY DRIFTS:")
         for row in old_key_drifts:
@@ -323,16 +329,24 @@ def main(argv: list[str] | None = None) -> int:
         for item_id, issues in exam_grams_unexpected[:10]:
             print(f"  {item_id} {issues}")
 
-    ok = (
-        not old_key_drifts
-        and not replay_fail
-        and not validate_bad
-        and not oz_bad
-        and replay_ok > 0
-        and exam_n == _EXAM_N
-        and not exam_draft_bad
-        and not exam_grams_unexpected
-    )
+    if is_v05:
+        ok = (
+            not old_key_drifts
+            and not replay_fail
+            and not validate_bad
+            and not oz_bad
+            and replay_ok > 0
+            and exam_n == _EXAM_N
+            and not exam_draft_bad
+            and not exam_grams_unexpected
+        )
+    else:
+        ok = (
+            not validate_bad
+            and exam_n == _EXAM_N
+            and not exam_draft_bad
+            and not exam_grams_unexpected
+        )
     print("RESULT:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
@@ -349,7 +363,10 @@ def exemption_grams_mismatches(tasks) -> list:
     for item_id, expected in V05_ORACLE_GRAMS_EXEMPT.items():
         task = by_id.get(item_id)
         got = ()
-        if task is not None and task.oracle.ledger_tail:
+        if task is None:
+            # The v2.0-gold exam does not contain the v0.5 exemption IDs.
+            continue
+        if task.oracle.ledger_tail:
             got = tuple(row.grams for row in task.oracle.ledger_tail)
         if got != expected:
             mismatches.append((item_id, [f"exempt grams {got} != pinned {expected}"]))

@@ -119,11 +119,11 @@ def test_run_split_rejects_retired_factory() -> None:
         run_split(n=1, seed=0)
 
 
-def test_run_split_default_fails_closed_when_no_exam() -> None:
-    import pytest
-
-    with pytest.raises(FileNotFoundError, match="split not found"):
-        run_split()
+def test_run_split_default_loads_the_published_exam() -> None:
+    result = run_split(task_ids=["v2-log-0001"])
+    assert result["n"] == 1
+    assert result["details"][0]["id"] == "v2-log-0001"
+    assert 0.0 <= result["pass_rate"] <= 1.0
 
 
 def test_run_split_workers_match_serial_results() -> None:

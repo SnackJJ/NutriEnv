@@ -27,3 +27,6 @@ reports/dry-run-drift.json
 
 # local issue tracker scratch space (regenerate from spec/ADRs)
 .scratch/
+
+# issue-15 batch generation scratch space
+.work/

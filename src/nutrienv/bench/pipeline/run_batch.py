@@ -719,6 +719,11 @@ def _expand_one(
         # clause; recipe-free drafts keep the historical phrasing. LLM
         # queries speak occasions naturally (prompt-shell design).
         hints["occasion"] = "dinner"
+    if "tier" in recipe and expander is synthetic_expander:
+        # Tier is authoring data that also steers the synthetic query shape
+        # (single/pair/triple default item counts, long/synonym shells).
+        # It remains a Candidate stamp too, so the frozen row declares it.
+        hints["tier"] = recipe["tier"]
     raw = expander(job.pool, persona=persona, family=job.family, **hints)
     candidates = coerce_candidates(
         raw, family=job.family, persona=persona, pool_id=job.pool.pool_id

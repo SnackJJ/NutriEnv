@@ -46,6 +46,9 @@ ROSTER: tuple[RosterPerson, ...] = (
     RosterPerson("roster-raj", "male", 19, 181.0, 70.0, "very_active", "muscle", (), "gym"),
     RosterPerson("roster-sam", "female", 75, 155.0, 60.0, "sedentary", "maintain", ()),
     RosterPerson("roster-tess", "female", 31, 164.0, 59.0, "active", "maintain", ("peanut",)),
+    RosterPerson("roster-uma", "female", 43, 163.0, 63.0, "light", "maintain", ("fish",)),
+    RosterPerson("roster-van", "male", 36, 177.0, 80.0, "moderate", "maintain", ("gluten",)),
+    RosterPerson("roster-wes", "male", 50, 171.0, 77.0, "sedentary", "maintain", ("wheat",)),
 )
 
 

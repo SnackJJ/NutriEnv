@@ -454,7 +454,7 @@ def test_occasion_helper_is_shared_and_fails_closed() -> None:
 
 def test_composite_uses_roster_people_and_counts_toward_36_admission_slots() -> None:
     assert COMPOSITE_ADMISSION_SLOTS == 36
-    assert len(ROSTER) == 20
+    assert len(ROSTER) == 23
     result = _run()
     assert result.rejected is None
     assert result.accepted.s0.profile.user_id in {person.user_id for person in ROSTER}

@@ -659,9 +659,27 @@ def test_generate_one_mill_expander_uses_amount_path_system_prompt() -> None:
     assert result.accepted.oracle.ledger_tail[0].grams == 244.0
 
 
-def test_roster_is_twenty_adults() -> None:
-    assert len(ROSTER) == 20
+def test_roster_is_twenty_three_adults() -> None:
+    assert len(ROSTER) == 23
     assert all(19 <= person.age_y <= 75 for person in ROSTER)
     sexes = {person.sex for person in ROSTER}
     assert sexes == {"male", "female"}
-    assert len({person.user_id for person in ROSTER}) == 20
+    assert len({person.user_id for person in ROSTER}) == 23
+
+
+def test_roster_covers_catalog_v2_allergen_tags() -> None:
+    from pathlib import Path
+
+    from nutrienv.world.catalog import iter_catalog_entries
+    from nutrienv.world.catalog_store import load_catalog
+
+    catalog = load_catalog(Path("data/fdc/catalog-v2.sqlite"))
+    catalog_tags = {
+        str(tag)
+        for _food_id, entry in iter_catalog_entries(catalog)
+        for tag in entry.get("allergen_tags") or []
+    }
+    roster_tags = {
+        str(tag) for person in ROSTER for tag in person.allergies
+    }
+    assert roster_tags >= catalog_tags
