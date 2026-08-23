@@ -1307,3 +1307,67 @@ def test_exclude_allergens_shortfall_is_fail_closed() -> None:
         exclude_allergens=("egg",),
     )
     assert [item["food"] for item in ok["items"]] == ["milk_whole"]
+
+
+def test_update_exclude_allergens_recipe_is_refused(tmp_path: Path) -> None:
+    # The update branch picks its carrier independently (its oracle REQUIRES
+    # the allergen food), so the knob would be inert there.
+    with pytest.raises(ValueError, match="not supported for 'update'"):
+        run_batch(
+            _spec(
+                tmp_path,
+                _nutrient_catalog(),
+                family_quotas={"update": 1},
+                family_recipes={"update": {"exclude_allergens": "milk"}},
+            ),
+            expander=_expander([_RECOMMEND]),
+            judge=_ok_judge,
+            reviewer=pass_through_reviewer,
+            catalog=_nutrient_catalog(),
+        )
+
+
+def test_exclude_allergens_unknown_tag_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="unknown allergen tag"):
+        run_batch(
+            _spec(
+                tmp_path,
+                _catalog(),
+                family_quotas={"evaluate": 1},
+                family_recipes={"evaluate": {"exclude_allergens": "bogus_tag"}},
+            ),
+            expander=_expander([_EVALUATE_FIT]),
+            judge=_ok_judge,
+            reviewer=pass_through_reviewer,
+            catalog=_catalog(),
+        )
+
+
+def test_synthetic_evaluate_query_is_byte_identical_without_a_knife(
+    tmp_path: Path,
+) -> None:
+    """The spoken "for dinner" clause is knife-gated: recipe-free evaluate
+    drafts keep the historical phrasing."""
+    from nutrienv.bench.pipeline.expander import synthetic_expander
+    from nutrienv.bench.pipeline.types import FoodPool, PoolFood
+
+    pool = FoodPool(
+        pool_id="p",
+        family="evaluate",
+        foods=(
+            PoolFood(
+                "white_rice",
+                "Rice, white",
+                ("rice",),
+                (PortionAlternative("cup", 1.0, "a cup", 158.0),),
+            ),
+        ),
+    )
+    payload = synthetic_expander(pool, persona="everyday", family="evaluate")
+    assert payload["query"] == "Evaluate this as my plan: a cup of rice."
+    knifed = synthetic_expander(
+        pool, persona="everyday", family="evaluate", occasion="dinner"
+    )
+    assert knifed["query"] == (
+        "Evaluate this as my plan for dinner: a cup of rice."
+    )

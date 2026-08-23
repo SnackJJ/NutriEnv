@@ -11,6 +11,7 @@ from nutrienv.bench.grams_gate import plausibility_gate
 from nutrienv.bench.quality_gates import EVALUATE_TIERS
 from nutrienv.bench.realize import Task, scored_oracles
 from nutrienv.bench.validator import validate_draft
+from nutrienv.world.catalog import iter_catalog_entries
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import normalize_tags
@@ -127,6 +128,26 @@ def run_batch(
     # Fail before any job runs: items/amount_path recipes are synthetic-only
     # (same message as the per-job defence-in-depth guard in _expand_one),
     # so a mixed-quota real batch does not waste LLM calls before failing.
+    # Fail closed like pool_allergen: an excluded tag no catalog food carries
+    # would silently exclude nothing (checked before any job runs).
+    known_tags = {
+        tag
+        for _food_id, entry in iter_catalog_entries(catalog)
+        for tag in normalize_tags(list(entry.get("allergen_tags") or []))
+    }
+    for family, recipe in spec["family_recipes"].items():
+        if "exclude_allergens" in recipe:
+            unknown = [
+                tag
+                for tag in recipe["exclude_allergens"].split(",")
+                if tag not in known_tags
+            ]
+            if unknown:
+                raise ValueError(
+                    f"recipe {family}.exclude_allergens names unknown "
+                    f"allergen tag(s) {unknown} (catalog tags: "
+                    f"{sorted(known_tags)})"
+                )
     if any(
         key in _EXPANDER_HINTS
         for recipe in spec["family_recipes"].values()
@@ -449,7 +470,7 @@ _RECIPE_KEYS: dict[str, frozenset[str]] = {
         }
     ),
     "recommend": frozenset({"occasion", "person", "pool_allergen", "exclude_allergens"}),
-    "update": frozenset({"person", "pool_allergen", "exclude_allergens"}),
+    "update": frozenset({"person", "pool_allergen"}),
     "composite": frozenset({"person", "pool_allergen"}),
 }
 # Knobs consumed by the expander when producing the query (the rest stamp the
@@ -692,6 +713,11 @@ def _expand_one(
         # items/amount_path and silently ignore them. LLM prompt shells are
         # issue-15 design; knife/tier recipes keep working everywhere.
         raise ValueError(_HINTS_NEED_SYNTHETIC)
+    if "knife" in recipe and expander is synthetic_expander:
+        # The knife branch derives its windows from the spoken "for <meal>"
+        # clause; recipe-free drafts keep the historical phrasing. LLM
+        # queries speak occasions naturally (prompt-shell design).
+        hints["occasion"] = "dinner"
     raw = expander(job.pool, persona=persona, family=job.family, **hints)
     candidates = coerce_candidates(
         raw, family=job.family, persona=persona, pool_id=job.pool.pool_id

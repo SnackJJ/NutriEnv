@@ -29,23 +29,35 @@ Spec: `reports/spec-exclude-allergens.md`. Commit on main, prefix "pipeline:".
   reasons == bind ('allergy', 'kcal_hi'), `validate_draft == []`,
   `evaluate_unfits` counts it; freeze→load clean.
 
-## Honest probe (real catalog-v2, 15 seeds × items∈{1,2,3})
+## Honest probe (real catalog-v2)
 
-| person (exclude) | items | unfit | allergen_clash | fit-gate/shortfall |
+**Methodology:** seeds 0..29 (`sample_pools(seed=seed)`, one pool per seed),
+persons roster-cam (exclude egg) and roster-kim (exclude soy), items ∈ {1..4},
+resolve via `resolve_candidate` with `knife=allergy, person=…, tier=single`.
+Measured in this checkout:
+
+| person (exclude) | items=1 | items=2 | items=3 | items=4 |
 |---|---|---|---|---|
-| roster-cam (egg) | 1 | 0 | 0 | 15 |
-| roster-cam (egg) | 2 | 0 | 0 | 15 |
-| roster-cam (egg) | 3 | **1** | 0 | 14 |
-| roster-kim (soy) | 3 | **1** | 0 | 14 |
+| roster-cam (egg), unfit / 30 | 0 | 0 | 0 | 0 |
+| roster-kim (soy), unfit / 30 | 0 | 0 | 0 | 0 |
 
-The mechanism claim holds end to end on the real catalog (unfit items ARE
-produced), but the fit-window residual dominates: random plates rarely land
-inside a specific person's meal-slot kcal window (acceptance ~1/15 per draw at
-items=3). Zero allergen_clash at items≥2 (the exclusion keeps the carrier out
-of the plate; only single-food draws that ARE the carrier can clash, and
-pool_allergen's swap-in makes that likely at items=1). Bulk production needs
-issue-15 plate/window tuning (e.g. occasion or explicit-gram sizing) — this
-commit delivers the transport plus a real, reproducible unfit.
+Every non-shortfall draw was rejected by the fit gate (`unresolvable`): the
+pre-knife plate must land inside the chosen person's meal-slot windows (e.g.
+cam dinner kcal [390.24, 520.32]), and random 1–4 unit plates almost never do
+(0/30 per config here). A 100-seed cam/items=2 run also gave 0/100. The
+earlier "≈1 unfit per 15 draws" figure did not reproduce and is withdrawn;
+an external review reported 4/15 at items=2 for seeds 0..14 — not reproduced
+under the methodology above (likely a different resolve configuration).
+
+Where the mechanism IS proven end to end: the deterministic fixture test
+(`test_exclude_allergens_recipe_produces_the_knife_unfit`) produces a genuine
+ADR 0017 unfit — reject, empty last_plan, exactly one knife-added carrier,
+reasons == bind, `validate_draft == []`. Operator guidance: random-pool bulk
+production is gated by the fit window, not by the carrier condition; yielding
+reliably requires issue-15 plate/window design (occasion, explicit-gram sizing,
+or person selection matched to drawn plates). Zero allergen_clash at items≥2
+(exclusion keeps carriers out of the plate); items=1 can draft the swapped-in
+carrier → visible `allergen_clash`.
 
 ## Verification
 

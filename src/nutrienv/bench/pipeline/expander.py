@@ -152,6 +152,7 @@ def synthetic_expander(
     items: int | None = None,
     amount_path: str | None = None,
     exclude_allergens: tuple[str, ...] | None = None,
+    occasion: str | None = None,
 ) -> dict[str, object]:
     """Deterministic fake: compose 1–2 pool foods with a table phrase.
 
@@ -163,7 +164,10 @@ def synthetic_expander(
     speaks the food's one-portion gram amount ("150 g") instead of the table
     phrase. ``exclude_allergens`` skips pool foods whose catalog allergen
     tags intersect the set (the fit→knife construction needs an allergen-free
-    plate so the knife can add the carrier). Defaults keep today's behavior.
+    plate so the knife can add the carrier). ``occasion`` adds the spoken
+    "for <meal>" clause (knife window derivation); without it evaluate
+    queries stay byte-identical to the pre-hint channel. Defaults keep
+    today's behavior.
     """
     banned = {str(tag).strip().lower() for tag in (exclude_allergens or ())} - {""}
     chosen: list[tuple[PoolFood, str]] = []
@@ -232,8 +236,10 @@ def synthetic_expander(
     else:
         meal = ", and ".join(parts)
     if family == "evaluate":
-        # The spoken occasion feeds the knife branch's window derivation.
-        query = f"Evaluate this as my plan for dinner: {meal}."
+        # The spoken occasion feeds the knife branch's window derivation;
+        # recipe-free drafts keep the historical phrasing byte-identical.
+        clause = f" for {occasion}" if occasion else ""
+        query = f"Evaluate this as my plan{clause}: {meal}."
         return {"items": payload_items, "query": query}
     if family == COMPOSITE_FAMILY:
         query = (
