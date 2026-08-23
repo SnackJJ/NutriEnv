@@ -529,22 +529,33 @@ def build_user_prompt(pool: FoodPool, *, family: str = "log") -> str:
         if also:
             header += f" (also called: {', '.join(also)})"
         lines.append(header)
-        per_unit: dict[str, float] = {}
-        for alt in food.alternatives:
-            if alt.quantity <= 0:
-                continue
-            per_unit.setdefault(alt.key, round(alt.grams / alt.quantity, 2))
-        if per_unit:
-            bits = [f"{key}={grams:g}g" for key, grams in per_unit.items()]
-            lines.append("  portions (key → grams per 1 unit): " + ", ".join(bits))
+        unit_phrases = [
+            f"{alt.phrase} = {alt.grams:g}g"
+            for alt in food.alternatives
+            if alt.quantity == 1.0
+        ]
+        if unit_phrases:
+            lines.append(
+                "  portions (spoken unit → grams): " + ", ".join(unit_phrases)
+            )
     lines.append("")
     if family == "evaluate":
         lines.append(
             "The user wants this exact meal assessed as a plan. "
             "Write an evaluate request; do not include kcal numbers."
         )
+    elif family == COMPOSITE_FAMILY:
+        lines.append(
+            "The user already ate this meal AND wants a next meal (dinner) "
+            "that fits the rest of the day. Write ONE request that logs the "
+            "meal, then asks for that recommendation."
+        )
     else:
         lines.append("The user already ate this meal. Write a log request.")
+    lines.append(
+        "Use the exact food names from the pool headers above (or their "
+        "'also called' aliases). Do not rename, combine, or invent foods."
+    )
     lines.append("Compose one meal. Output the JSON object only.")
     return "\n".join(lines)
 
@@ -643,17 +654,46 @@ class LlmExpander:
     ) -> dict[str, object]:
         model_id = assign_model(self._index, self._route, seed=self._seed)
         self._index += 1
-        messages = (
+        messages: list[dict[str, str]] = [
             {"role": "system", "content": build_system_prompt(persona=persona, family=family)},
             {"role": "user", "content": build_user_prompt(pool, family=family)},
-        )
+        ]
         last: dict[str, object] = {"items": [], "query": ""}
-        for _attempt in range(1 + self._parse_retries):
+        for attempt in range(1 + self._parse_retries):
             text = self._complete(model_id, messages)
             parsed = parse_expander_payload(text)
             if parsed is None:
+                if attempt < self._parse_retries:
+                    messages.extend(
+                        [
+                            {"role": "assistant", "content": text},
+                            {
+                                "role": "user",
+                                "content": (
+                                    "That was not a valid JSON object per the "
+                                    "schema. Return only the JSON object, no "
+                                    "markdown."
+                                ),
+                            },
+                        ]
+                    )
                 continue
-            if validate_expander_payload(parsed, pool):
+            issues = validate_expander_payload(parsed, pool)
+            if issues:
+                if attempt < self._parse_retries:
+                    messages.extend(
+                        [
+                            {"role": "assistant", "content": text},
+                            {
+                                "role": "user",
+                                "content": (
+                                    "Rejected: " + "; ".join(issues) + ". "
+                                    "Use exact pool food names, fix the query, "
+                                    "and return only the JSON object."
+                                ),
+                            },
+                        ]
+                    )
                 continue
             return parsed
         return last

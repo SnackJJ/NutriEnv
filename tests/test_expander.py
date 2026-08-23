@@ -10,6 +10,7 @@ import pytest
 from nutrienv.bench.pipeline.expander import (
     HANDBOOK_VOCABULARY,
     build_system_prompt,
+    build_user_prompt,
     coerce_candidates,
     food_in_pool,
     make_llm_expander,
@@ -331,6 +332,28 @@ def test_all_disabled_models_raise_clearly() -> None:
 def test_enabled_route_filters_disabled() -> None:
     assert enabled_route(("a", "b", "c"), {"b"}) == ("a", "c")
     assert enabled_route(("a",), {"a"}) == ()
+
+
+def test_user_prompt_uses_spoken_portion_phrases_not_raw_keys() -> None:
+    pool = FoodPool(
+        pool_id="log-0000",
+        family="log",
+        foods=(
+            PoolFood(
+                food_id="beef_with_gravy",
+                name="Beef with gravy",
+                aliases=("beef",),
+                alternatives=(
+                    PortionAlternative("qns", 1.0, "a serving", 183.0),
+                    PortionAlternative("cup", 1.0, "a cup", 244.0),
+                ),
+            ),
+        ),
+    )
+    prompt = build_user_prompt(pool, family="log")
+    assert "qns" not in prompt
+    assert "a serving = 183g" in prompt
+    assert "a cup = 244g" in prompt
 
 
 def test_prompt_lists_handbook_vocabulary() -> None:
