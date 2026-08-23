@@ -45,6 +45,25 @@ _LOG_SLOT = "today-lunch"
 _WINDOW_LEAK = re.compile(r"\b(?:kcal|protein_g|carb_g|fat_g)\s+\d")
 _SLUG = re.compile(r"\b[a-z]+_[a-z0-9_]+\b")
 
+# Coordinators/adjuncts that end the noun phrase a portion belongs to. When
+# the semantic-vote phrasing band collects candidate portion phrases before
+# a food mention, any candidate whose span crosses one of these belongs to
+# another clause/food and must not be resolved against the target food.
+_PHRASE_BREAK_TOKENS = frozenset({
+    "with", "without", "and", "plus", "alongside", "besides",
+    "after", "before", "for", "at", "on", "during", "then",
+    "but", "or", "as",
+})
+# "one and a half cups" is a quantity, not two clauses: the "and" between
+# quantity words must not split the phrase.
+_QUANTITY_LEFT_TOKENS = frozenset({
+    "one", "two", "three", "four", "five", "six", "seven", "eight",
+    "nine", "ten", "half", "quarter", "quarters",
+})
+_QUANTITY_RIGHT_TOKENS = frozenset({
+    "a", "an", "half", "quarter", "quarters",
+})
+
 
 def resolve_candidate(
     candidate: Candidate,
@@ -194,6 +213,34 @@ def _query_portion_phrases(
             seen.add(text.lower())
             found.append(text)
 
+    def _add_heads(tokens: list[str], needle: str) -> None:
+        for width in range(1, min(6, len(tokens)) + 1):
+            start = len(tokens) - width
+            span = tokens[start:]
+            split = False
+            for offset, token in enumerate(span):
+                if token not in _PHRASE_BREAK_TOKENS:
+                    continue
+                if token == "and":
+                    full_idx = start + offset
+                    prev_ok = (
+                        full_idx > 0
+                        and tokens[full_idx - 1] in _QUANTITY_LEFT_TOKENS
+                    )
+                    next_ok = (
+                        full_idx + 1 < len(tokens)
+                        and tokens[full_idx + 1] in _QUANTITY_RIGHT_TOKENS
+                    )
+                    if prev_ok and next_ok:
+                        continue
+                split = True
+                break
+            if split:
+                continue
+            head = " ".join(span)
+            _add(head)
+            _add(f"{head} {needle}")
+
     if _phrase_in_query(expression, query):
         _add(expression)
     lowered = query.lower()
@@ -204,17 +251,11 @@ def _query_portion_phrases(
         for match in re.finditer(rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered):
             tokens = re.findall(r"[a-z0-9.]+", lowered[: match.start()])
             _add(needle)
-            for width in range(1, min(6, len(tokens)) + 1):
-                head = " ".join(tokens[-width:])
-                _add(head)
-                _add(f"{head} {needle}")
+            _add_heads(tokens, needle)
             trimmed = list(tokens)
             while trimmed and trimmed[-1] in {"of", "in", "the", "a", "an"}:
                 trimmed.pop()
-                for width in range(1, min(6, len(trimmed)) + 1):
-                    head = " ".join(trimmed[-width:])
-                    _add(head)
-                    _add(f"{head} {needle}")
+                _add_heads(trimmed, needle)
     return found
 
 

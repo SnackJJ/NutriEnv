@@ -482,6 +482,13 @@ Forbidden:
 - numeric answers (do not copy gram-table values into the query as the spoken amount, except gym gram phrases)
 - catalog ids, portion-table slugs, or leaking the answer"""
 
+_STYLE_BLOCK = """\
+Style:
+- Write the query the way a person talks about food, in sentence case.
+- Use a meal frame when natural: "For lunch I had...", "Breakfast was...", "I had...".
+- Prefer the simplest spoken portion phrase shown for each food ("a serving of", "a cup of", "two pieces of").
+- Do not title-case foods. Join foods naturally with "with" or "and"."""
+
 
 def build_system_prompt(*, persona: str, family: str) -> str:
     """Persona + family + handbook vocabulary + fixed JSON schema."""
@@ -511,6 +518,8 @@ def build_system_prompt(*, persona: str, family: str) -> str:
             _VOCAB_BLOCK,
             "",
             _FORBID_BLOCK,
+            "",
+            _STYLE_BLOCK,
             "",
             schema,
         ]
