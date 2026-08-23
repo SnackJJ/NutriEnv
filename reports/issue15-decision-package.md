@@ -268,3 +268,80 @@ $ .venv/bin/python -m pytest -q
 ........................................................................ [100%]
 1351 passed in 52.39s        # 0 failed (was 1347; +4 tests)
 ```
+
+## Final re-review (codex)
+
+**FINAL verdict: REV.** Both remaining catalog-identity High findings are
+resolved, but the stricter loader exposes one uncaught malformed-catalog path
+that still violates the tool's rc-2/no-traceback contract.
+
+### Standards
+
+No documented AGENTS.md violation or production-code smell was introduced.
+One non-blocking test-quality judgment remains: the name
+`test_round_trip_fails_when_output_manifest_sha_is_broken`
+(`tests/test_verify_issue15.py:269`) overstates what it asserts. It invokes
+`gate_freeze_round_trip` only before tampering and asserts PASS; after tampering
+it calls `_load_verified` directly, then ends after a comment claiming a
+`main` check that is not present. **Fix:** inject the tampered manifest into the
+gate (for example by monkeypatching `freeze_tasks`) and assert a failed
+`GateResult` with SHA-mismatch evidence, or rename the test to its narrower
+loader contract.
+
+### Spec status
+
+| # | Finding | Final status | Evidence |
+|---|---|---|---|
+| 1 | High — catalog override identity | **Resolved** | A non-empty recorded string SHA is now mandatory for overrides; both manifest and override paths require an existing `.sqlite` before loading. No-SHA override and hash-matched `catalog.txt` probes return concise rc 2. |
+| 2 | High — round-trip manifest SHA | **Resolved** | The temp output reloads through `_load_verified(_path, None)`. A byte-different SQLite copy with identical food rows plus the old SHA returns `GateResult(passed=False)` with a SHA-mismatch diagnostic. |
+| 3 | High — malformed JSON/empty items | **Resolved for the pinned cases** | Invalid JSON and empty items still return concise rc 2 without traceback. See the new malformed-catalog finding below. |
+| 4 | Medium — temp safety | **Resolved** | Private `TemporaryDirectory`, cleanup retained. |
+| 5 | Medium — content equality | **Resolved** | Ordered normalized payload comparison retained after verified reload. |
+| 6 | Medium — smoke coverage | **Resolved, with the Low test nit above** | Eleven tests cover the intended rc and catalog cases; the named gate-tamper test itself should be strengthened. |
+| 7 | Low — gate structure | **Resolved** | Focused gate functions and orchestration remain intact. |
+| 8 | Low — names/middle-man | **Resolved** | Descriptive production names and direct `vi.main` test calls remain intact. |
+
+### New finding
+
+- **Medium — a corrupt `*.sqlite` catalog still crashes with a raw traceback**
+  (`scripts/verify_issue15.py:161`, `scripts/verify_issue15.py:312-316`).
+  `_require_sqlite` verifies only the suffix; a manifest whose SHA correctly
+  matches an invalid SQLite file reaches `load_catalog`, which raises
+  `sqlite3.DatabaseError`. `main` does not catch `sqlite3.Error`, so it emits a
+  traceback/process rc 1 instead of the promised concise usage diagnostic and
+  rc 2. Reproduced with a file containing `not a sqlite database` and its exact
+  recorded SHA. **Fix:** catch `sqlite3.Error` in the initial-load error path
+  (or translate it inside the strict catalog loader) and add a corrupt-SQLite
+  rc-2/no-traceback regression test.
+
+### Evidence
+
+- Targeted: **11 passed**. Full suite: **1351 passed**.
+- v0.5-gold remains honest: `validate_draft` PASS; tier/unfit floors FAIL;
+  rc 1.
+- Commit scope is report + script + test only; no ADR, split, sqlite, scorer,
+  validator, or quality-gates change.
+
+Summary by review axis: **Standards 1 non-blocking Low (test naming/coverage);
+Spec 1 new Medium blocker (corrupt SQLite diagnostic path).**
+
+## Fix round 3
+
+- **Medium — corrupt *.sqlite no longer crashes.** The initial-load error path
+  now also catches `sqlite3.Error`: a manifest whose SHA matches a non-SQLite
+  file produces the concise "error: cannot load split: file is not a database"
+  diagnostic and rc 2, no traceback. Regression:
+  `test_corrupt_sqlite_catalog_returns_2_without_traceback` (hand-built
+  payload + matching SHA over a text body; live probe reproduced: rc 2).
+- **Low — tamper test strengthened.**
+  `test_round_trip_fails_when_output_manifest_sha_is_broken` now injects the
+  broken manifest INTO the gate via a `freeze_tasks` wrapper that rewrites the
+  temp output's catalog field (keeping the old sha) and asserts a failed
+  `GateResult` with "sha256 mismatch" evidence; through `main` it surfaces as
+  the FAIL freeze_round_trip row with rc 1. The narrow `_load_verified`
+  side-door assertion was removed.
+```
+$ .venv/bin/python -m pytest -q
+........................................................................ [100%]
+1352 passed in 52.65s        # 0 failed (was 1351; +1 test)
+```

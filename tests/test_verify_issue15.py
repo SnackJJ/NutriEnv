@@ -267,28 +267,101 @@ def test_tampered_split_manifest_is_refused_at_entry(tmp_path: Path) -> None:
 
 
 def test_round_trip_fails_when_output_manifest_sha_is_broken(
-    tmp_path: Path, capsys: pytest.CaptureFixture
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A byte-different sqlite copy recorded under the OLD sha must make the
-    round-trip gate FAIL on manifest identity -- never PASS."""
+    """A frozen manifest whose catalog field points at a byte-different
+    sqlite copy while keeping the OLD recorded sha must make the round-trip
+    gate itself FAIL with SHA-mismatch evidence -- injected into the gate via
+    a tampering freeze_tasks wrapper, never asserted through a side door.
+
+    Also pins the corrupt-sqlite rc-2/no-traceback contract for the entry
+    loader (fix-round-3 Medium)."""
+    import contextlib
+    import io
+    import sqlite3
+
     split = _consistent_real_catalog_split(tmp_path)
     loaded = vi._load_verified(split, None)
     result = vi.gate_freeze_round_trip(loaded.tasks, loaded)
     assert result.passed, result.evidence
 
-    # Tamper: point the frozen output at a byte-different sqlite copy while
-    # keeping the old recorded sha.
     tampered_catalog = tmp_path / "tampered.sqlite"
     raw = Path("data/fdc/catalog-v2.sqlite").read_bytes()
     tampered_catalog.write_bytes(raw[:-1] + bytes([raw[-1] ^ 0xFF]))
-    payload = json.loads(split.read_text())
-    output_split = tmp_path / "real.json"  # run_batch wrote it here already
-    payload["catalog"] = str(tampered_catalog)
-    output_split.write_text(json.dumps(payload), encoding="utf-8")
 
-    # The strict verifier refuses the tampered manifest outright...
-    with pytest.raises(ValueError, match="sha256 mismatch"):
-        vi._load_verified(output_split, None)
-    # Through main the same tampered artifact cannot even enter the gates:
-    # the entry loader refuses it (rc 2, clean diagnostic) -- fail-closed at
-    # both layers, never a PASS.
+    real_freeze = vi.freeze_tasks
+
+    def _tampering_freeze(tasks, *, catalog, output_path, **kwargs):
+        payload, path = real_freeze(
+            tasks, catalog=catalog, output_path=output_path, **kwargs
+        )
+        doc = json.loads(Path(path).read_text(encoding="utf-8"))
+        doc["catalog"] = str(tampered_catalog)  # old sha kept: identity broken
+        Path(path).write_text(json.dumps(doc), encoding="utf-8")
+        return payload, path
+
+    with monkeypatch.context() as m:
+        m.setattr(vi, "freeze_tasks", _tampering_freeze)
+        tampered = vi.gate_freeze_round_trip(loaded.tasks, loaded)
+    assert not tampered.passed
+    assert "sha256 mismatch" in tampered.evidence
+
+    # And through main: the same tampering surfaces as the FAIL row, rc 1.
+    buffer = io.StringIO()
+    real_load = vi._load_verified
+    with monkeypatch.context() as m:
+        m.setattr(vi, "freeze_tasks", _tampering_freeze)
+        # Entry keeps loading the pristine input split; only the gate's
+        # reload sees the tampered temp manifest.
+        m.setattr(
+            vi,
+            "_load_verified",
+            lambda split_path, override=None: (
+                loaded
+                if str(split_path) == V05_GOLD
+                else real_load(split_path, override)
+            ),
+        )
+        with contextlib.redirect_stdout(buffer):
+            rc = vi.main(["--split", V05_GOLD])
+    out = buffer.getvalue()
+    assert rc == 1
+    assert "FAIL  freeze_round_trip" in out
+    assert "sha256 mismatch" in out
+
+
+def test_corrupt_sqlite_catalog_returns_2_without_traceback(
+    tmp_path: Path,
+) -> None:
+    """A *.sqlite file whose SHA matches but whose content is not a database
+    must produce a concise rc-2 usage diagnostic, never a traceback."""
+    import contextlib
+    import io
+
+    corrupt = tmp_path / "corrupt.sqlite"
+    body = b"not a sqlite database at all"
+    corrupt.write_bytes(body)
+    payload = {
+        "catalog": str(corrupt),
+        "catalog_sha256": hashlib.sha256(body).hexdigest(),
+        "items": [
+            {
+                "id": "x",
+                "family": "log",
+                "query": "I ate rice.",
+                "situations": [],
+                "persona": "everyday",
+                "s0": {"profile": {"user_id": "u"}, "ledger": []},
+                "oracle": {},
+            }
+        ],
+    }
+    split = tmp_path / "split.json"
+    split.write_text(json.dumps(payload), encoding="utf-8")
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        rc = vi.main(["--split", str(split)])
+    out = buffer.getvalue()
+    assert rc == 2
+    assert out.startswith("error:")
+    assert "Traceback" not in out

@@ -36,6 +36,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sqlite3
 import sys
 import tempfile
 from collections import Counter
@@ -311,7 +312,14 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         loaded = _load_verified(args.split, args.catalog)
-    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        json.JSONDecodeError,
+        sqlite3.Error,
+    ) as exc:
         print(f"error: cannot load split: {exc}")
         return 2
 
