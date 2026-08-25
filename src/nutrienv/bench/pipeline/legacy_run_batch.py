@@ -1,4 +1,8 @@
-"""Single entry: Sampler → Expander → Resolver → Judge → validate_draft → Review → Freezer."""
+"""RETIRED v1.0 batch surface: Sampler → Expander → Resolver → Freezer.
+
+Archived 2026-08-25: the ADR 0017 mill (generate_one + {query, foods})
+replaces this entry point. The module stays for reference only.
+"""
 
 from __future__ import annotations
 

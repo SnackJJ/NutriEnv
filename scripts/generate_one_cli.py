@@ -110,8 +110,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--occasion", default="lunch")
     parser.add_argument("--pool-size", type=int, default=12)
     parser.add_argument("--tier", default="", help="evaluate-only tier; empty elsewhere")
-    parser.add_argument("--model", default=None,
-                        help="expander model id (default: first live Qwen leg)")
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="expander model id; default first Qwen leg. With OPENCODE_BASE_URL "
+        "+ OPENCODE_API_KEY in env, any opencode-go model id is sent verbatim.",
+    )
     parser.add_argument("--synthetic", action="store_true",
                         help="offline deterministic tracer (no network)")
     parser.add_argument("--anchor", action="store_true",

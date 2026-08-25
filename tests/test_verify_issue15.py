@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from nutrienv.bench.pipeline.expander import synthetic_expander
-from nutrienv.bench.pipeline.run_batch import run_batch
+from nutrienv.bench.pipeline.legacy_run_batch import run_batch
 from nutrienv.bench.pipeline.types import catalog_digest
 
 import scripts.verify_issue15 as vi

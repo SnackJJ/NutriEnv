@@ -17,6 +17,7 @@ from .dotenv import load_dotenv_keys
 __all__ = [
     "DEEPSEEK_CHAT_URL",
     "DASHSCOPE_CHAT_URL",
+    "OPENCODE_DEFAULT_URL",
     "REACT_RETRY_ON",
     "JUDGE_RETRY_ON",
     "ChatModel",
@@ -31,6 +32,10 @@ DASHSCOPE_CHAT_URL = (
     "https://llm-dhaosul25kqjxu10.cn-beijing.maas.aliyuncs.com"
     "/compatible-mode/v1/chat/completions"
 )
+# opencode-go gateway: the operator configures base URL / key in env
+# (OPENCODE_BASE_URL / OPENCODE_API_KEY). There is no built-in default URL;
+# an unset base URL makes the opencode route unavailable, fail-closed.
+OPENCODE_DEFAULT_URL = ""
 
 # ReAct retries only network-class failures. Judge retries any Exception
 # (including JSON/shape errors). Do not merge the two sets.
@@ -134,10 +139,20 @@ EXPANDER_MODELS: dict[str, ChatModel] = {
 
 
 def lookup_chat_model(model_id: str) -> ChatModel:
-    """Registry hit, or a heuristic route for an unlisted id."""
+    """Registry hit, else the configured opencode gateway, else heuristics.
+
+    The opencode-go gateway is configured only through environment: when both
+    OPENCODE_BASE_URL and OPENCODE_API_KEY are set, any unlisted model id
+    routes there verbatim (the operator owns that catalog). Without both, the
+    route is unavailable and unknown ids fall back to the DashScope/DeepSeek
+    heuristics as before.
+    """
     known = EXPANDER_MODELS.get(model_id)
     if known is not None:
         return known
+    if _opencode_route() is not None:
+        url, key_env = _opencode_route()
+        return ChatModel(model_id=model_id, url=url, api_key_env=key_env)
     lowered = model_id.lower()
     if any(tag in lowered for tag in _DASHSCOPE_HINTS):
         return _dashscope(model_id)
@@ -146,6 +161,15 @@ def lookup_chat_model(model_id: str) -> ChatModel:
         url=DEEPSEEK_CHAT_URL,
         api_key_env="DEEPSEEK_API_KEY",
     )
+
+
+def _opencode_route() -> tuple[str, str] | None:
+    """(base_url, api_key_env) from OPENCODE_* env, or None when unavailable."""
+    base_url = os.environ.get("OPENCODE_BASE_URL", OPENCODE_DEFAULT_URL).strip()
+    if not base_url:
+        return None
+    key_env = "OPENCODE_API_KEY"
+    return base_url, key_env
 
 
 def complete_chat(
@@ -167,7 +191,7 @@ def complete_chat(
     ``attempt`` is ``auto`` (primary then optional ChatModel fallback),
     ``primary``, or ``fallback``.
     """
-    load_dotenv_keys(_ROOT / ".env.local")
+    load_dotenv_keys(_ROOT / ".env", _ROOT / ".env.local")
     spec = lookup_chat_model(model_id)
     if spec.disabled:
         raise RuntimeError(f"expander model disabled: {model_id}")

@@ -40,7 +40,7 @@ from nutrienv.bench.pipeline.expander import (  # noqa: E402
 from nutrienv.bench.pipeline.freezer import freeze_tasks  # noqa: E402
 from nutrienv.bench.pipeline.review_harness import resolved_items  # noqa: E402
 from nutrienv.bench.pipeline.resolver import resolve_candidate  # noqa: E402
-from nutrienv.bench.pipeline.run_batch import (  # noqa: E402
+from nutrienv.bench.pipeline.legacy_run_batch import (  # noqa: E402
     _table_only_judge,
     pass_through_reviewer,
     run_batch,

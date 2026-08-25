@@ -6,7 +6,8 @@ import pytest
 
 from nutrienv.io.chat import DASHSCOPE_CHAT_URL
 
-from nutrienv.bench.pipeline import catalog_digest, pass_through_reviewer, run_batch
+from nutrienv.bench.pipeline import catalog_digest
+from nutrienv.bench.pipeline.legacy_run_batch import pass_through_reviewer, run_batch
 from nutrienv.bench.pipeline.review_harness import (
     _route,
     call_reviewer,

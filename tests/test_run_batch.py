@@ -7,9 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from nutrienv.bench.pipeline import catalog_digest, pass_through_reviewer, run_batch
+from nutrienv.bench.pipeline import catalog_digest
+from nutrienv.bench.pipeline.legacy_run_batch import pass_through_reviewer, run_batch
 from nutrienv.bench.pipeline.expander import synthetic_expander
-from nutrienv.bench.pipeline.run_batch import quota_ledger
+from nutrienv.bench.pipeline.legacy_run_batch import quota_ledger
 from nutrienv.bench.pipeline.types import PortionAlternative
 from nutrienv.bench.realize import Oracle, Task, bind_evaluate_reasons
 from nutrienv.bench.split import load_exam, load_split
@@ -1139,7 +1140,7 @@ def test_pool_allergen_recipe_reaches_the_sampler(
     honest run residual is documented in reports/impl-pool-allergen.md."""
     import sys
 
-    run_batch_module = sys.modules["nutrienv.bench.pipeline.run_batch"]
+    run_batch_module = sys.modules["nutrienv.bench.pipeline.legacy_run_batch"]
 
     seen: dict[str, str | None] = {}
     real = run_batch_module.sample_pools

@@ -30,7 +30,7 @@ from nutrienv.bench.grams_gate import call_judge  # noqa: E402
 from nutrienv.bench.pipeline.expander import make_llm_expander, synthetic_expander  # noqa: E402
 from nutrienv.bench.pipeline.review_harness import make_reviewer  # noqa: E402
 
-from nutrienv.bench.pipeline.run_batch import (  # noqa: E402
+from nutrienv.bench.pipeline.legacy_run_batch import (  # noqa: E402
     _table_only_judge,
     pass_through_reviewer,
     run_batch,
@@ -286,7 +286,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     # failures here are rejections, while later run_batch failures keep their
     # own reporting.
     try:
-        from nutrienv.bench.pipeline.run_batch import parse_spec
+        from nutrienv.bench.pipeline.legacy_run_batch import parse_spec
 
         parse_spec(spec)
     except ValueError as exc:

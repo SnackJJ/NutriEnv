@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from nutrienv.bench.pipeline.freezer import task_to_item
-from nutrienv.bench.pipeline.run_batch import write_composite_sample
+from nutrienv.bench.pipeline.legacy_run_batch import write_composite_sample
 from nutrienv.bench.realize import Oracle, Task, compose_oracles, scored_oracles
 from nutrienv.bench.split import load_exam, load_split
 from nutrienv.world.catalog_fixture import demo_catalog, demo_state

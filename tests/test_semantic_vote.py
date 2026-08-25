@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 
 from nutrienv.bench import Oracle, Scorer
-from nutrienv.bench.pipeline import catalog_digest, pass_through_reviewer, run_batch
+from nutrienv.bench.pipeline import catalog_digest
+from nutrienv.bench.pipeline.legacy_run_batch import pass_through_reviewer, run_batch
 from nutrienv.bench.pipeline.expander import validate_expander_payload
 from nutrienv.bench.pipeline.semantic_vote import (
     DEFAULT_K,

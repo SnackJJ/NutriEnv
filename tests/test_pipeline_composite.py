@@ -4,14 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from nutrienv.bench.pipeline import catalog_digest, pass_through_reviewer, run_batch
+from nutrienv.bench.pipeline import catalog_digest
+from nutrienv.bench.pipeline.legacy_run_batch import pass_through_reviewer, run_batch
 from nutrienv.bench.pipeline.expander import (
     build_system_prompt,
     coerce_candidates,
     parse_expander_payload,
     synthetic_expander,
 )
-from nutrienv.bench.pipeline.run_batch import write_composite_sample
+from nutrienv.bench.pipeline.legacy_run_batch import write_composite_sample
 from nutrienv.bench.pipeline.types import COMPOSITE_STEPS, FoodPool, PoolFood, PortionAlternative
 from nutrienv.bench.realize import GOLD_WINDOWS
 from nutrienv.bench.split import load_split
