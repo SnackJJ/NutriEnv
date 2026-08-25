@@ -4,7 +4,7 @@
 本 session 补上 live anchor seam、colloquial overlay、query-only log expander，
 测试 1361 passed。**
 
-`main` = `9479f79`（前一 commit `032fd1f` 是归档，再前 `39c8001` 是 catalog-v2 重建）。
+`main` = `2adf7a2`（依次：`39c8001` catalog-v2 重建 → `032fd1f` 归档旧脚本 → `9479f79` 新单题通道 → `2adf7a2` opencode 网关 + 旧 batch 退役 + family 覆盖）。
 
 ---
 
@@ -94,6 +94,19 @@ portions.piece 存在"时按 piece 计数，否则 `None`。
 `tests/test_portions.py` colloquial 段（1 段 10 断言）。
 
 ---
+
+## 2b. 本轮追加（`2adf7a2`）
+
+- **opencode-go 网关**：`.env.example` 写好三块模板（DASHSCOPE / DEEPSEEK /
+  OPENCODE），你来填 `OPENCODE_BASE_URL` + `OPENCODE_API_KEY`；`chat.py`
+  同时读 `.env` 和 `.env.local`，任何未注册 model id 走 opencode
+  OpenAI-compatible 端点原样发送。
+- **旧 batch 全面退役**：`pipeline/__init__` 不再导出 `run_batch` /
+  `BatchResult` / `pass_through_reviewer`；`run_batch.py → legacy_run_batch.py`
+  （仅参考）；6 个旧合同测试改走 `legacy_run_batch` 显式导入；
+  `test_legacy_retired.py` 锁死正式路径只剩 `generate_one`。
+- **family 覆盖锁定**：`scripts/family_probe.py` + `tests/test_family_coverage.py`
+  五个 family 全部跑通 Task/Rejected 契约，batch 之前先各 family 验证。
 
 ## 3. 留给下个 session（按优先级）
 
