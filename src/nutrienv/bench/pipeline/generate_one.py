@@ -1259,9 +1259,11 @@ class LogExpander:
         *,
         complete: Callable[[str, Sequence[Mapping[str, str]]], str],
         parse_retries: int = 1,
+        model_id: str | None = None,
     ) -> None:
         self._complete = complete
         self._parse_retries = max(0, int(parse_retries))
+        self._model_id = model_id or "log-expander"
 
     def __call__(
         self,
@@ -1282,7 +1284,7 @@ class LogExpander:
         )
         last: dict[str, object] = {"query": "", "foods": []}
         for _attempt in range(1 + self._parse_retries):
-            parsed = parse_query_foods_payload(self._complete("log-expander", messages))
+            parsed = parse_query_foods_payload(self._complete(self._model_id, messages))
             if parsed is not None:
                 return parsed
         return last
@@ -1292,9 +1294,16 @@ def make_log_expander(
     *,
     complete: Callable[[str, Sequence[Mapping[str, str]]], str],
     parse_retries: int = 1,
+    model_id: str | None = None,
 ) -> LogExpander:
-    """Build the Log mill expander. complete is injected; no live API required."""
-    return LogExpander(complete=complete, parse_retries=parse_retries)
+    """Build the Log mill expander. complete is injected; no live API required.
+
+    ``model_id`` is forwarded to ``complete`` so a live CLI can route the
+    request to a specific model; the default keeps the historical label.
+    """
+    return LogExpander(
+        complete=complete, parse_retries=parse_retries, model_id=model_id
+    )
 
 
 class UnfitRewriter:

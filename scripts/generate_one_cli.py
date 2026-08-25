@@ -158,7 +158,7 @@ def main(argv: list[str] | None = None) -> int:
         expander = synthetic_query_foods_expander
     else:
         model_id = args.model or QWEN_EXPANDER_MODELS[0]
-        expander = make_log_expander(complete=_live_complete)
+        expander = make_log_expander(complete=_live_complete, model_id=model_id)
 
     gram_anchor = None
     if args.anchor:

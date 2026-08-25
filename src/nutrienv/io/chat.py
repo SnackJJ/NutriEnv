@@ -64,6 +64,12 @@ def post_chat_completion(
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {api_key}",
+            # Some OpenAI-compatible gateways (e.g. opencode.ai/zen) sit behind
+            # Cloudflare and reject urllib's default python UA (403/1010).
+            "User-Agent": (
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+            ),
         },
         method="POST",
     )
@@ -150,12 +156,16 @@ def lookup_chat_model(model_id: str) -> ChatModel:
     known = EXPANDER_MODELS.get(model_id)
     if known is not None:
         return known
+    lowered = model_id.lower()
+    if any(tag in lowered for tag in _DASHSCOPE_HINTS):
+        # DashScope-flavoured ids keep their historical route even when an
+        # opencode gateway is configured, so qwen/glm/kimi resolution is
+        # stable across environments. Use an opencode-specific id (e.g.
+        # minimax-m3) to reach the opencode gateway.
+        return _dashscope(model_id)
     if _opencode_route() is not None:
         url, key_env = _opencode_route()
         return ChatModel(model_id=model_id, url=url, api_key_env=key_env)
-    lowered = model_id.lower()
-    if any(tag in lowered for tag in _DASHSCOPE_HINTS):
-        return _dashscope(model_id)
     return ChatModel(
         model_id=model_id,
         url=DEEPSEEK_CHAT_URL,
