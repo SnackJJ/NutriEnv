@@ -499,3 +499,45 @@ def test_beverage_name_is_word_boundary_not_substring() -> None:
     assert resolve_portion("shake", "a glass of milkshake", catalog) == 299.0
     assert resolve_portion("soymilk", "a glass of soymilk", catalog) == 240.0
     assert resolve_portion("milk", "a glass of milk", catalog) == 244.0
+
+
+def test_colloquial_units_bind_food_own_table_values() -> None:
+    """Community units resolve against the food's own portion keys, never
+    hardcoded gram facts. Missing base key fails closed."""
+    catalog = {
+        "almonds": {
+            "name": "Almonds, roasted", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"cup": 144.0, "oz": 28.35},
+        },
+        "rice": {
+            "name": "Rice, white, cooked", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"cup": 158.0, "qns": 118.0},
+        },
+        "chicken": {
+            "name": "Chicken breast, baked", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"cup": 140.0, "oz": 28.35, "piece": 105.0},
+        },
+        "yogurt": {
+            "name": "Yogurt, plain", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"cup": 245.0, "tbsp": 15.3},
+        },
+        "milk": {
+            "name": "Milk, whole", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"cup": 244.0, "fl_oz": 30.5, "tbsp": 15.25},
+        },
+        "syrup": {
+            "name": "Maple syrup", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"tbsp": 20.0, "tsp": 6.7},
+        },
+    }
+    assert resolve_portion("almonds", "a handful of almonds", catalog) == 28.35
+    assert resolve_portion("rice", "a fist-sized portion of rice", catalog) == 158.0
+    assert resolve_portion("rice", "a fist of rice", catalog) == 158.0
+    assert resolve_portion("chicken", "a palm-sized chicken breast", catalog) == 85.05
+    assert resolve_portion("chicken", "a deck of cards of chicken", catalog) == 85.05
+    assert resolve_portion("yogurt", "a dollop of yogurt", catalog) == 30.6
+    assert resolve_portion("milk", "a splash of milk", catalog) == 15.25
+    assert resolve_portion("syrup", "a drizzle of syrup", catalog) == 6.7
+    # no tsp key -> fail closed, no invented gram
+    assert resolve_portion("rice", "a drizzle of rice", catalog) is None
+    assert resolve_portion("almonds", "a dollop of almonds", catalog) is None

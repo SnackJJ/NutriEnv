@@ -31,11 +31,23 @@ The grammar is deliberately small and total: it never raises, and it returns
 
 from __future__ import annotations
 
+import json
 import math
 import re
 from collections.abc import Mapping
+from pathlib import Path
 
-__all__ = ["resolve_portion", "UNIT_SYNONYMS", "GRAM_UNITS", "OUNCE_GRAMS", "OUNCE_UNITS"]
+__all__ = [
+    "COLLOQUIAL_UNIT_SPECS",
+    "resolve_portion",
+    "UNIT_SYNONYMS",
+    "GRAM_UNITS",
+    "OUNCE_GRAMS",
+    "OUNCE_UNITS",
+]
+
+
+_OVERLAY_PATH = Path(__file__).resolve().parents[3] / "data" / "portion" / "colloquial_portion_overlay.json"
 
 #: Unit words that already mean grams, so they need no per-food entry.
 GRAM_UNITS = frozenset({"g", "gram", "grams", "gm"})
@@ -74,6 +86,15 @@ UNIT_SYNONYMS: dict[str, str] = {
     "stick": "stick", "sticks": "stick",
     "fl_oz": "fl_oz",  # after UNIT_BIGRAMS collapse
     "floz": "fl_oz",
+    # Colloquial body-part / gesture units (overlay data, not gram facts).
+    "handful": "handful", "handfuls": "handful",
+    "fist": "fist", "fists": "fist",
+    "palm": "palm", "palms": "palm",
+    "deck_of_cards": "deck_of_cards",
+    "decks_of_cards": "deck_of_cards",
+    "dollop": "dollop", "dollops": "dollop",
+    "splash": "splash", "splashes": "splash",
+    "drizzle": "drizzle", "drizzles": "drizzle",
 }
 
 #: Multi-word spoken units, collapsed before the unit scan so "fl oz" cannot
@@ -81,7 +102,17 @@ UNIT_SYNONYMS: dict[str, str] = {
 UNIT_BIGRAMS: dict[tuple[str, str], str] = {
     ("fl", "oz"): "fl_oz", ("fl", "ozs"): "fl_oz",
     ("fluid", "ounce"): "fl_oz", ("fluid", "ounces"): "fl_oz",
+    ("fist", "sized"): "fist",
+    ("palm", "sized"): "palm",
+    ("deck", "cards"): "deck_of_cards",
+    ("deck", "of"): "deck_of_cards",
 }
+
+#: Colloquial unit → (catalog portion key, fixed multiplier). Loaded from
+#: ``data/portion/colloquial_portion_overlay.json`` so values stay in data,
+#: never in code. Only the KEY presence matters here; the gram arithmetic is
+#: done by ``resolve_portion`` against the food's own portions table.
+COLLOQUIAL_UNIT_SPECS: dict[str, tuple[str, float]] = {}
 
 #: Size words that pick a different FNDDS row of the *same* food-as-unit
 #: reading. Never a household measure: "a thick slice" is refused, because
@@ -157,7 +188,43 @@ _WORD_HYPHEN = re.compile(r"(?<=[a-z])-(?=[a-z])")
 _DIGIT_LETTER = re.compile(r"(?<=\d)(?=[a-z])")
 
 
+def _load_colloquial_unit_specs() -> None:
+    """Read the overlay JSON into COLLOQUIAL_UNIT_SPECS (idempotent).
+
+    The file is versioned data. On a missing/corrupt file the specs stay
+    empty, so colloquial units fail closed (``resolve_portion`` returns
+    None instead of inventing grams).
+    """
+    global COLLOQUIAL_UNIT_SPECS
+    if COLLOQUIAL_UNIT_SPECS:
+        return
+    path = _OVERLAY_PATH
+    if path is None or not path.is_file():
+        return
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        units = data.get("units") if isinstance(data, dict) else None
+        specs: dict[str, tuple[str, float]] = {}
+        if isinstance(units, dict):
+            for unit, item in units.items():
+                if not isinstance(unit, str) or not isinstance(item, dict):
+                    continue
+                base_key = item.get("base_key")
+                multiplier = item.get("multiplier")
+                if not isinstance(base_key, str) or not base_key.strip():
+                    continue
+                if isinstance(multiplier, bool) or not isinstance(multiplier, (int, float)):
+                    continue
+                if float(multiplier) <= 0:
+                    continue
+                specs[unit.strip()] = (base_key.strip(), float(multiplier))
+        COLLOQUIAL_UNIT_SPECS = specs
+    except (OSError, ValueError, json.JSONDecodeError):
+        COLLOQUIAL_UNIT_SPECS = {}
+
+
 def resolve_portion(food_id: str, phrase: str, catalog: dict) -> float | None:
+
     """Grams meant by ``phrase`` for ``food_id``, or ``None`` if unresolvable.
 
     ``resolve_portion("milk_whole", "half a cup", catalog)`` is ``122.0``: the
@@ -179,6 +246,7 @@ def resolve_portion(food_id: str, phrase: str, catalog: dict) -> float | None:
     if not isinstance(portions, dict):
         return None
 
+    _load_colloquial_unit_specs()
     tokens = _collapse_unit_bigrams(_tokenize(phrase))
     if _refuses_modifiers(tokens):
         return None
@@ -204,6 +272,15 @@ def resolve_portion(food_id: str, phrase: str, catalog: dict) -> float | None:
                 if key != "serving":
                     return None
                 grams_per_unit = portions.get(modifier)
+            elif key in COLLOQUIAL_UNIT_SPECS:
+                spec = COLLOQUIAL_UNIT_SPECS.get(key)
+                if spec is None:
+                    continue
+                base_key, multiplier = spec
+                base_value = portions.get(base_key)
+                if isinstance(base_value, bool) or not isinstance(base_value, (int, float)):
+                    continue
+                grams_per_unit = multiplier * float(base_value)
             elif key not in portions:
                 # "a serving of X" is the spoken form of the food's default
                 # portion; it needs no per-food table entry. Catalog does not
@@ -486,6 +563,12 @@ def _collapse_unit_bigrams(tokens: list[str]) -> list[str]:
     collapsed: list[str] = []
     index = 0
     while index < len(tokens):
+        if index + 2 < len(tokens):
+            triple = (tokens[index], tokens[index + 1], tokens[index + 2])
+            if triple == ("deck", "of", "cards"):
+                collapsed.append("deck_of_cards")
+                index += 3
+                continue
         pair = (tokens[index], tokens[index + 1]) if index + 1 < len(tokens) else None
         if pair in UNIT_BIGRAMS:
             collapsed.append(UNIT_BIGRAMS[pair])

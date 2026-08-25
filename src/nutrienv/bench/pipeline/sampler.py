@@ -28,6 +28,16 @@ _COUNTABLE: dict[str, tuple[str, str]] = {
     "slice": ("slice", "slices"),
     "can": ("can", "cans"),
     "serving": ("serving", "servings"),
+    # Food-specific count units (catalog-v2 rebuild, batch 2026-08-25).
+    "wing": ("wing", "wings"),
+    "drummette": ("drummette", "drummettes"),
+    "scoop": ("scoop", "scoops"),
+    "patty": ("patty", "patties"),
+    "pat": ("pat", "pats"),
+    "packet": ("packet", "packets"),
+    "pouch": ("pouch", "pouches"),
+    "bar": ("bar", "bars"),
+    "stick": ("stick", "sticks"),
 }
 _MASS = {"oz": "oz", "fl_oz": "fl oz"}
 _MODIFIERS = frozenset({"thick", "thin", "regular"})

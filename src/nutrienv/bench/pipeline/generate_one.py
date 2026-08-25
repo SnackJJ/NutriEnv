@@ -20,7 +20,7 @@ from nutrienv.world.portions import GRAM_UNITS, OUNCE_UNITS, UNIT_SYNONYMS, reso
 from nutrienv.world.types import MAX_ITEM_GRAMS, LedgerRow, WorldState, ledger_totals, normalize_tags
 
 from .knives import KNIVES, apply_knife
-from .resolver import spoken_grams_from_query
+from .resolver import GramAnchor, spoken_grams_from_query
 from .roster import RosterPerson, profile_for, sample_roster_person
 from .sampler import sample_pools
 from .semantic_vote import GRAM_TOLERANCE
@@ -155,6 +155,7 @@ def generate_one(
     slots: Mapping[str, str] | None = None,
     steps: Sequence[str] | None = None,
     tier: str = "",
+    gram_anchor: GramAnchor | None = None,
 ) -> GenerateOneResult:
     """One mill item: roster person → world windows → pool → expander → speech bind.
 
@@ -286,7 +287,13 @@ def generate_one(
                 accepted=None, rejected=Rejected(query, "steps", family)
             )
     bound, reason = _bind_log_foods(
-        bind_query, foods, pool, catalog, occasion, amount_path=path
+        bind_query,
+        foods,
+        pool,
+        catalog,
+        occasion,
+        amount_path=path,
+        gram_anchor=gram_anchor,
     )
     if reason is not None:
         return GenerateOneResult(
@@ -1172,7 +1179,12 @@ def build_log_system_prompt(
         )
     elif amount_path == AMOUNT_NAMED_MEASURE:
         lines.append(
-            "Amount path is named measures: cup, tbsp, tsp, slice, piece, can, fl_oz."
+            "Amount path is named measures: cup, tbsp, tsp, slice, piece, can, "
+            "fl_oz, wing, drummette, scoop, patty, pat, packet, pouch, bar, stick."
+        )
+        lines.append(
+            "Colloquial units you may also use: handful, fist(-sized), "
+            "palm(-sized), deck of cards, dollop, splash, drizzle."
         )
         lines.append("Solid cup is allowed. Do not hide cup.")
     else:
@@ -1182,23 +1194,59 @@ def build_log_system_prompt(
         )
         lines.append("Do not use serving-of wording.")
     lines.append(f"Persona flavor: {persona}.")
+    lines.extend(
+        [
+            "",
+            "Style:",
+            "- Write a single sentence a real person would type when logging food.",
+            '- Use a natural meal frame: "For lunch I had...", "Breakfast was...", '
+            'or just "Had a...".',
+            '- Integrate portions fluidly: prefer "a bowl of...", "two slices of...", '
+            '"a pat of butter" over robotic serving-of wording.',
+            '- Use "a cup of" only for foods people really measure by the cup '
+            "(soup, rice, beans, vegetables, oatmeal, yogurt, cereal).",
+            '- For plated mixed dishes such as pasta, prefer "a plate of" or "a bowl of".',
+            '- Join foods naturally: "topped with", "along with", "with a side of".',
+            "- Do not title-case foods or leak window numbers.",
+        ]
+    )
     return "\n".join(lines)
 
 
 def build_log_user_prompt(pool: FoodPool, *, family: str = "log") -> str:
-    """Pool table for the Log expander. foods in JSON must be these ids."""
+    """Pool table for the Log expander. foods in JSON must be these ids.
+
+    Each food shows its spoken forms AND the table phrases it can actually
+    say (``phrase = grams``); the LLM composes speech only from these, so the
+    code-side ``resolve_portion`` can always bind grams. Grams never pass
+    through the LLM.
+    """
     lines = [
         f"Food pool {pool.pool_id} (pick 1-3 foods; JSON foods must be pool ids):",
     ]
     for food in pool.foods:
         spoken = food.aliases[0] if food.aliases else food.name.split(",", 1)[0]
-        lines.append(f"- id={food.food_id} spoken={spoken} — {food.name}")
+        also = [a for a in food.aliases if a.strip().lower() != spoken.lower()]
+        header = f'id={food.food_id} spoken="{spoken}" — {food.name}'
+        if also:
+            header += f" (also: {', '.join(also)})"
+        lines.append(header)
+        phrases = []
+        for alt in food.alternatives:
+            phrase = f"{alt.phrase} = {alt.grams:g}g"
+            if phrase not in phrases:
+                phrases.append(phrase)
+        if phrases:
+            lines.append("  speakable portions: " + "; ".join(sorted(set(phrases))))
     lines.append("")
     if family == "composite":
         lines.append("The user already ate this meal and now asks what to eat next.")
         lines.append("foods JSON covers the logged meal only. Output the JSON object only.")
     else:
-        lines.append("The user already ate this meal. Write a log request.")
+        lines.append(
+            "The user already ate this meal. Write a log request speaking only "
+            "the portions shown above."
+        )
         lines.append("Compose one meal. Output the JSON object only.")
     return "\n".join(lines)
 
@@ -1313,6 +1361,7 @@ def _bind_log_foods(
     occasion: str,
     *,
     amount_path: str,
+    gram_anchor: GramAnchor | None = None,
 ) -> tuple[list[LedgerRow] | None, str | None]:
     pool_ids = {food.food_id for food in pool.foods}
     eaten_at = f"today-{occasion}"
@@ -1343,6 +1392,10 @@ def _bind_log_foods(
             grams = spoken_grams_from_query(clause, food_id, catalog)
             if grams is None:
                 grams = resolve_portion(food_id, clause, catalog)
+            if grams is None and gram_anchor is not None:
+                grams = _anchored_bind_grams(
+                    gram_anchor, food_id, clause, query, catalog
+                )
         if grams is None:
             return None, "unresolvable"
         if float(grams) <= GRAM_TOLERANCE:
@@ -1350,9 +1403,40 @@ def _bind_log_foods(
         if float(grams) > MAX_ITEM_GRAMS:
             return None, "over_cap"
         rows.append(LedgerRow(food_id, float(grams), eaten_at))
+
     if not rows:
         return None, "unresolvable"
     return rows, None
+
+
+def _anchored_bind_grams(
+    anchor: GramAnchor,
+    food_id: str,
+    expression: str,
+    query: str,
+    catalog: Mapping,
+) -> float | None:
+    """One authoring-time LLM grams proposal, accepted only on-table.
+
+    ``resolve_portion`` could not parse the clause; the anchor proposes grams
+    and the portion-table whitelist is the deterministic veto. Any anchor
+    failure or off-table proposal degrades to ``unresolvable`` (fail-closed);
+    the natural spoken wording stays on the query.
+    """
+    from nutrienv.bench.portion_table import matches_portion_table
+
+    try:
+        proposed = anchor(food_id, expression, query)
+    except Exception:
+        return None
+    if isinstance(proposed, bool) or not isinstance(proposed, (int, float)):
+        return None
+    grams = round(float(proposed), 2)
+    if not grams > 0:
+        return None
+    if not matches_portion_table(food_id, grams, catalog):
+        return None
+    return grams
 
 
 def _normalize_quantity_english(query: str) -> str:
@@ -1512,7 +1596,7 @@ def _speech_amount_path(text: str) -> str | None:
             classes.add(AMOUNT_NAMED_MEASURE)
             continue
         key = UNIT_SYNONYMS.get(token)
-        if key in _NAMED_PORTION_KEYS:
+        if key is not None and key != "serving":
             classes.add(AMOUNT_NAMED_MEASURE)
         elif key == "serving":
             classes.add(AMOUNT_UNSPECIFIED)

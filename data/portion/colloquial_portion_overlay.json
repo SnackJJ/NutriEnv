@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "comment": "Colloquial units for the portion resolver. Each entry maps one spoken unit to a catalog portion key and a fixed multiplier; grams are computed against the food's own portion table (fail-closed when that key is absent). No gram constants live in code. Review before changing a value.",
+  "units": {
+    "handful":       {"base_key": "oz",   "multiplier": 1, "note": "Community/FMB: nuts, snacks, berries; ~1 oz = 28.35 g"},
+    "fist":          {"base_key": "cup",  "multiplier": 1, "note": "Community: veg/rice/noodles/mashed potato; ~1 cup"},
+    "palm":          {"base_key": "oz",   "multiplier": 3, "note": "Community: cooked meat/poultry/fish; ~3 oz = 85 g"},
+    "deck_of_cards": {"base_key": "oz",   "multiplier": 3, "note": "Community: meat/fish; ~3 oz = 85 g"},
+    "dollop":        {"base_key": "tbsp", "multiplier": 2, "note": "Community: sauces/yogurt/cream; ~2 tbsp = 30 g"},
+    "splash":        {"base_key": "tbsp", "multiplier": 1, "note": "Community: liquids; ~1 tbsp = 15 g"},
+    "drizzle":       {"base_key": "tsp",  "multiplier": 1, "note": "Community: oils/syrups; ~1 tsp = 5 g"}
+  }
+}
