@@ -14,6 +14,7 @@ from nutrienv.world.catalog_store import load_catalog
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts" / "archive"))
 import landing_verify  # noqa: E402
 import run_pilot_20  # noqa: E402
 
