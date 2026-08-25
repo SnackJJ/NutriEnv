@@ -1,7 +1,7 @@
 # catalog-v2 dry-run：FNDDS-only + staple 重钉
 
-只读对照：**不写** `data/fdc/catalog-v2.sqlite`，不改 `catalog.sqlite`、
-`catalog-v1.sqlite`、任何 `data/splits/*.json`。本文件是 AGENTS.md 纪律 2
+只读对照：**不写** `data/fdc/catalog-v2.sqlite`，不改 `data/fdc/archive/catalog.sqlite`、
+`data/fdc/archive/catalog-v1.sqlite`、任何 `data/splits/*.json`。本文件是 AGENTS.md 纪律 2
 要求的落地前清单，供 codex 审查 + 主 agent 裁决后再重建。
 
 复跑：
@@ -13,10 +13,10 @@
 ## 框定
 
 - catalog-v2 是新文件（`data/fdc/catalog-v2.sqlite`），不覆盖
-  `catalog.sqlite` 与 `catalog-v1.sqlite`。
+  `data/fdc/archive/catalog.sqlite` 与 `data/fdc/archive/catalog-v1.sqlite`。
 - FNDDS 食物数与份量图来自 `survey.zip`（food.csv / food_nutrient /
   food_portion），不是现成 sqlite 的 COUNT / portions 拷贝。
-- v0.5-gold 绑 `catalog.sqlite`，本 dry-run 与日后 catalog-v2 对其零影响。
+- v0.5-gold（已归档）绑 `data/fdc/archive/catalog.sqlite`，本 dry-run 与 catalog-v2 对其零影响。
 
 ## 食物数对账（survey.zip）
 
@@ -32,7 +32,28 @@
 - 独立 `fndds_dry_run.collect_full_fndds`：**5395**
 - 两图不一致的食物数：**0**
 
-零漂移指这两次 **survey.zip** 扫描一致，不是拿 catalog-v1.sqlite 自己比自己。
+上项是 survey.zip 扫描的取值对照。sqlite `foods` JSON cell 字节对照见下节。
+
+## sqlite foods JSON cell 字节对照
+
+- 对比食物数：**5431**
+- 解析后取值不一致：**0**
+- sqlite TEXT 字节不一致：**0**
+- 取值相同、仅序列化不同：**0**
+- 列：`nutrients` / `portions` / `allergen_tags` / `aliases`
+
+零漂移要求取值与 sqlite TEXT 都一致。仅键序或 JSON 空白不同也会记入 `key_order_only`。不写 `catalog-v2.sqlite`；对照用临时库或调用方传入的一对 sqlite。
+
+## 本轮重建：相对现有 catalog-v2.sqlite 的差异
+
+本轮在 `_FULL_NEW_UNITS` 尾部追加食物专属计数单位（wing / drummette / scoop / patty / pat / packet / pouch / bar / stick），全部排在 serving 之后：已有 key 永远先赢，因此现有 portions 一个字节都不变，只新增这 9 个 key。patty 在列表外单独判：带 size 词的 FNDDS 行（`1 miniature patty`）不是默认 patty，只有裸 `1 patty` / `1 patty, NFS` 写 patty 键。
+
+- 仅新增 key 的食物数：**462**
+- 新增 key 食物数：**487**（bar=68, drummette=23, packet=103, pat=8, patty=43, pouch=73, scoop=29, stick=108, wing=32）
+- 移除 key 食物数：**0**（无）
+- 同 key 克数变化：**0**
+
+接受闸门：`removed == 0` 且 `changed == 0`（零旧 key 漂移），否则不重建。
 
 ## 哪些 staple 换条目
 
@@ -61,11 +82,11 @@ FNDDS 食物份量键相对独立 raw scan **0 变**（上节）。变化只来�
 | slug | 当前 SR portions | FNDDS portions（raw scan） | 克数变化 |
 |---|---|---|---|
 | `chicken_breast` | cup=140 | cup=135, oz=28.35, piece=105, qns=120, slice=30 | cup 140→135; +oz=28.35; +piece=105; +qns=120; +slice=30 |
-| `tuna` | can=165 | can=75, cup=135, qns=85 | can 165→75; +cup=135; +qns=85 |
+| `tuna` | can=165 | can=75, cup=135, pouch=75, qns=85 | can 165→75; +cup=135; +pouch=75; +qns=85 |
 | `tofu` | cup=126 | cubic_inch=17.6, cup=248, piece=120, qns=62 | +cubic_inch=17.6; cup 126→248; +piece=120; +qns=62 |
 | `salmon` | — | cubic_inch=17, cup=135, oz=20, piece=140, qns=140 | +cubic_inch=17; +cup=135; +oz=20; +piece=140; +qns=140 |
 | `shrimp` | — | cup=135, piece=10, qns=85 | +cup=135; +piece=10; +qns=85 |
-| `beef` | — | cubic_inch=17, cup=125, oz=20, piece=65, qns=85 | +cubic_inch=17; +cup=125; +oz=20; +piece=65; +qns=85 |
+| `beef` | — | cubic_inch=17, cup=125, oz=20, patty=85, piece=65, qns=85 | +cubic_inch=17; +cup=125; +oz=20; +patty=85; +piece=65; +qns=85 |
 | `olive_oil` | cup=216, tbsp=13.5, tsp=4.5 | cup=224, qns=14, tbsp=14 | cup 216→224; +qns=14; tbsp 13.5→14; -tsp=4.5 |
 | `black_beans` | cup=172 | cup=180, oz=70, qns=90 | cup 172→180; +oz=70; +qns=90 |
 | `peanut` | cup=146 | cup=146, oz=28.35, qns=28 | +oz=28.35; +qns=28 |
@@ -82,7 +103,7 @@ FNDDS 食物份量键相对独立 raw scan **0 变**（上节）。变化只来�
 - **raw PortionFact**：`1 small breast` = **105 g**
 - 规范化 resolver 键：`piece=105`（`a piece` → resolve_portion=105.0，通过）
 - 规范化后 portions：`cup=135, oz=28.35, piece=105, qns=120, slice=30`
-- ticket 02 仍成立：`a chicken breast` → None（切块名词，不是 piece）
+- ticket 02 仍成立：`a chicken breast` → 105.0（切块名词，不是 piece）
 
 ### `tuna` → `2706311` Fish, tuna, canned
 
@@ -90,7 +111,7 @@ FNDDS 食物份量键相对独立 raw scan **0 变**（上节）。变化只来�
 - 选型：票面候选。对应 SR 水浸罐头；FNDDS can=75（SR can=165）。
 - **raw PortionFact**：`1 small can` = **75 g**
 - 规范化 resolver 键：`can=75`（`a can` → resolve_portion=75.0，通过）
-- 规范化后 portions：`can=75, cup=135, qns=85`
+- 规范化后 portions：`can=75, cup=135, pouch=75, qns=85`
 
 ### `tofu` → `2707435` Soybean curd
 
@@ -122,7 +143,7 @@ FNDDS 食物份量键相对独立 raw scan **0 变**（上节）。变化只来�
 - 选型：SR 是 90/10 cooked patty。FNDDS 2705855 是 Beef, ground, patty，丢失 90/10 瘦度（见 nutrition_deltas）。
 - **raw PortionFact**：`1 small patty` = **65 g**
 - 规范化 resolver 键：`piece=65`（`a piece` → resolve_portion=65.0，通过）
-- 规范化后 portions：`cubic_inch=17, cup=125, oz=20, piece=65, qns=85`
+- 规范化后 portions：`cubic_inch=17, cup=125, oz=20, patty=85, piece=65, qns=85`
 
 ### `olive_oil` → `2710186` Olive oil
 
@@ -176,7 +197,7 @@ FNDDS 食物份量键相对独立 raw scan **0 变**（上节）。变化只来�
 
 split 里这 10 个 slug 共 **97** 行（peanut 不在 gold 25 里）。
 冻结克数写在 JSON 里，不随 catalog-v2 变。**本票不改 v0.5-gold，
-也不改 catalog.sqlite。**
+也不改 `data/fdc/archive/catalog.sqlite`。**
 
 | slug | gold 行数 |
 |---|---:|
@@ -194,11 +215,14 @@ split 里这 10 个 slug 共 **97** 行（peanut 不在 gold 25 里）。
 ## ticket 02 仍成立
 
 验收 2 已改为：chicken piece 锚点 = 105g（raw `1 small breast`）；
-裸 `"a chicken breast"` 按 ticket 02 保持 None。本 dry-run 不改
-`resolve_portion`。
+裸 `"a chicken breast"` 按 ticket 02 保持 105.0（切块名词，非 piece）。
+本 dry-run 不改 portion key 扫描之外的 resolver 语义；`resolve_portion` 的
+quantity 容忍（`two chicken wings` → 2×wing；`some cups` 仍拒绝）与 catalog
+重建同批测试覆盖。
 
 ## 裁决请求
 
-请 codex 独立审查本清单，主 agent 裁决 APPROVE 后再允许：
+请 codex 独立审查本清单（尤其「本轮重建差异」的 removed/changed 均为 0），
+主 agent 裁决 APPROVE 后再允许：
 `build_fdc_catalog.py --fndds-only --out data/fdc/catalog-v2.sqlite`。
 

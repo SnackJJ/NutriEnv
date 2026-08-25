@@ -410,6 +410,45 @@ def _spoken_name(food: PoolFood) -> str:
     return food.food_id.replace("_", " ")
 
 
+def _natural_portion_hints(food: PoolFood) -> list[str]:
+    """Extra spoken portion phrases that resolve to the food's default serving.
+
+    ``portion_alternatives`` only emits ``a serving`` for FNDDS QNS, but
+    native speakers would often say ``a bowl`` / ``a plate`` / ``a sandwich``
+    instead. All hints share the QNS gram weight already displayed, and all
+    are resolvable by ``resolve_portion`` (bowl/plate/order are serving
+    synonyms; dish nouns resolve via the food's own name).
+    """
+    name = food.name.lower()
+    qns_grams: float | None = None
+    for alt in food.alternatives:
+        if alt.key == "qns" and alt.quantity == 1.0:
+            qns_grams = alt.grams
+            break
+    if qns_grams is None:
+        return []
+    hints: list[str] = []
+
+    def add(phrase: str) -> None:
+        hint = f"{phrase} = {qns_grams:g}g"
+        if hint not in hints:
+            hints.append(hint)
+
+    if any(word in name for word in _NATURAL_BOWL_PLATE_WORDS):
+        add("a bowl")
+        add("a plate")
+    if "sandwich" in name and "cookie" not in name and "oreo" not in name and "ice cream" not in name:
+        add("a sandwich")
+    for noun in _NATURAL_DISH_WORDS:
+        if noun in name:
+            add(f"a {noun}")
+    if "submarine" in name or "hoagie" in name or "grinder" in name:
+        add("a sub")
+    if any(word in name for word in _NATURAL_ORDER_WORDS):
+        add("an order")
+    return hints
+
+
 _PERSONA_FLAVOR = {
     "everyday": (
         "Everyday eater: an ordinary household meal with mixed, believable "
@@ -485,9 +524,60 @@ Forbidden:
 _STYLE_BLOCK = """\
 Style:
 - Write the query the way a person talks about food, in sentence case.
-- Use a meal frame when natural: "For lunch I had...", "Breakfast was...", "I had...".
-- Prefer the simplest spoken portion phrase shown for each food ("a serving of", "a cup of", "two pieces of").
-- Do not title-case foods. Join foods naturally with "with" or "and"."""
+- Sound like a real person logging on MyFitnessPal or Reddit: natural, conversational, and concise.
+- Use a natural meal frame: "For lunch I had...", "Breakfast was...", "I logged...", or just "Had a...".
+- Integrate portion phrases fluidly: prefer "two slices of...", "a bowl of...", or "a plate of..." over robotic "a serving of...". Use "a cup of..." mainly for foods people actually measure by the cup (soup, rice, beans, vegetables, oatmeal, yogurt, cereal); for plated mixed dishes like pasta, prefer "a plate of..." or "a bowl of...".
+- Join foods naturally with culinary phrases like "topped with", "along with", "with a side of", "cooked in", or "and".
+- Do not title-case food names (say "grilled chicken breast", never "Grilled Chicken Breast")."""
+
+
+#: Food-name keywords for which a bowl/plate is the natural spoken unit.
+_NATURAL_BOWL_PLATE_WORDS = (
+    "pasta",
+    "noodle",
+    "spaghetti",
+    "macaroni",
+    "lasagna",
+    "ravioli",
+    "tortellini",
+    "chow mein",
+    "lo mein",
+    "ramen",
+    "pho",
+    "soup",
+    "stew",
+    "chili",
+    "curry",
+    "casserole",
+    "salad",
+    "cereal",
+    "oatmeal",
+    "grits",
+    "porridge",
+    "congee",
+    "stir fry",
+    "stroganoff",
+)
+
+#: Dish nouns that native speakers use as the unit of the dish itself.
+_NATURAL_DISH_WORDS = ("burger", "taco", "burrito", "wrap")
+
+#: Foods where "a cup" is legal but not the natural spoken unit; the prompt
+#: prefers the bowl/plate hints instead. The resolver still accepts cup.
+_PREFER_BOWL_PLATE_OVER_CUP_WORDS = (
+    "pasta",
+    "noodle",
+    "spaghetti",
+    "macaroni",
+    "lasagna",
+    "ravioli",
+    "tortellini",
+    "chow mein",
+    "lo mein",
+)
+
+#: Takeaway sides where "an order" is the natural spoken unit.
+_NATURAL_ORDER_WORDS = ("fries", "onion ring", "nachos", "tater tot", "hash brown")
 
 
 def build_system_prompt(*, persona: str, family: str) -> str:
@@ -543,6 +633,13 @@ def build_user_prompt(pool: FoodPool, *, family: str = "log") -> str:
             for alt in food.alternatives
             if alt.quantity == 1.0
         ]
+        unit_phrases += [
+            hint for hint in _natural_portion_hints(food) if hint not in unit_phrases
+        ]
+        if any(word in food.name.lower() for word in _PREFER_BOWL_PLATE_OVER_CUP_WORDS):
+            no_cup = [phrase for phrase in unit_phrases if not phrase.startswith("a cup =")]
+            if no_cup:
+                unit_phrases = no_cup
         if unit_phrases:
             lines.append(
                 "  portions (spoken unit → grams): " + ", ".join(unit_phrases)

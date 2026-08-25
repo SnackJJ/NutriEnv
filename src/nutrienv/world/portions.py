@@ -60,6 +60,18 @@ UNIT_SYNONYMS: dict[str, str] = {
     "serving": "serving", "servings": "serving",
     "portion": "serving", "portions": "serving",
     "bowl": "serving", "plate": "serving", "order": "serving",
+    "glass": "serving", "glasses": "serving",
+    "mug": "serving", "mugs": "serving",
+    "bottle": "serving", "bottles": "serving",
+    "wing": "wing", "wings": "wing",
+    "drummette": "drummette", "drummettes": "drummette",
+    "scoop": "scoop", "scoops": "scoop",
+    "patty": "patty", "patties": "patty",
+    "pat": "pat", "pats": "pat",
+    "packet": "packet", "packets": "packet",
+    "pouch": "pouch", "pouches": "pouch",
+    "bar": "bar", "bars": "bar",
+    "stick": "stick", "sticks": "stick",
     "fl_oz": "fl_oz",  # after UNIT_BIGRAMS collapse
     "floz": "fl_oz",
 }
@@ -89,6 +101,12 @@ _REFUSED_AFTER_UNIT = frozenset({
     "dry", "dried", "drying",
     "raw",
     "uncooked", "uncook",
+})
+
+#: Container units that only bind for beverage foods. A glass of milk is
+#: natural; a glass of olive oil is a unit error and must stay unresolved.
+_BEVERAGE_CONTAINER_UNITS = frozenset({
+    "glass", "glasses", "mug", "mugs", "bottle", "bottles",
 })
 
 #: Dish nouns people use as the unit of the dish itself: "a sandwich", "two
@@ -179,6 +197,8 @@ def resolve_portion(food_id: str, phrase: str, catalog: dict) -> float | None:
             key = UNIT_SYNONYMS.get(token)
             if key is None:
                 continue
+            if token in _BEVERAGE_CONTAINER_UNITS and not _is_beverage_name(entry):
+                return None
             if modifier is not None:
                 # Serving words bind the modifier; any explicit measure refuses.
                 if key != "serving":
@@ -204,8 +224,18 @@ def resolve_portion(food_id: str, phrase: str, catalog: dict) -> float | None:
         if not math.isfinite(grams_per_unit) or grams_per_unit <= 0:
             return None
 
-        quantity = _parse_quantity(_without_modifiers(span))
+        quantity = _leading_quantity(_without_modifiers(span))
+        if quantity is None and not span:
+            # "a cup" / "cup of soup" have no leading amount run; both read as
+            # one. "two chicken wings" has a leading run of two and a food-name
+            # crumb ("chicken") after it, and the leading run still wins.
+            quantity = 1.0
         if quantity is None or quantity <= 0:
+            return None
+        # Fail closed on crumbs between the amount and the unit: every leftover
+        # token must be a word the food itself is called (name / slug / alias),
+        # so "two chicken wings" parses but "two toxic mystery cups" refuses.
+        if not _span_crumbs_are_food_identity(_without_modifiers(span), food_id, entry):
             return None
         return round(quantity * float(grams_per_unit), 2)
     name = str(entry.get("name") or "").lower()
@@ -269,8 +299,15 @@ def _bare_food_noun_grams(
     chop / fillet in the phrase with no matching portion key refuses so the
     grammar cannot invent grams for a cut.
     """
-    if any(token in _CUT_NOUNS and token not in portions for token in tokens):
-        return None
+    name_nouns = _raw_name_nouns(food_id, entry)
+    for token in tokens:
+        if token in _CUT_NOUNS and token not in portions:
+            # A cut noun may be a bare countable unit only when the food's
+            # own name carries that cut and a piece row exists ("a chicken
+            # breast", "two drumsticks"). Otherwise fail closed so the
+            # grammar never guesses grams for a cut.
+            if "piece" not in portions or not (_noun_candidates(token) & name_nouns):
+                return None
     identity = _food_identity_nouns(food_id, entry)
     if not identity:
         return None
@@ -317,6 +354,65 @@ def _food_identity_nouns(food_id: str, entry: dict) -> set[str]:
     }
 
 
+#: Head-noun beverage words. A food is a beverage only when the LAST token of
+#: its head noun ("Milk, whole" -> "milk"; "Chocolate milkshake" ->
+#: "milkshake"; "Soft drink, root beer" -> "drink") is a beverage word, AND
+#: the food's portions table carries an ``fl_oz`` row. Neither signal alone
+#: is safe: a whole-name word search would make "Coffee cake" / "Bread,
+#: Irish soda" / "Cocktail sauce" / "Candy, lollipop" beverages, and an
+#: fl_oz key alone would make "Frozen fruit juice bar" / "Freezer pop"
+#: drinkable -- both are solid foods FNDDS happens to measure by the fluid
+#: ounce. "pop" is dropped because FNDDS only uses it for "Freezer pop".
+_BEVERAGE_HEAD_WORDS = frozenset({
+    "milk", "juice", "drink", "beverage", "coffee", "tea", "soda",
+    "beer", "ale", "wine", "water", "smoothie", "shake", "cocoa",
+    "eggnog", "lemonade", "punch", "cider", "cocktail", "latte",
+    "espresso", "cappuccino", "cola", "root beer",
+})
+
+#: Compound beverage words that never appear as separate tokens ("Chocolate
+#: milkshake" is one token "milkshake"; "Buttermilk", "Soymilk" likewise).
+_BEVERAGE_COMPOUND_WORDS = frozenset({
+    "milkshake", "milkshakes",
+    "buttermilk", "buttermilks",
+    "soymilk", "soymilks",
+    "smoothies",
+})
+
+
+def _is_beverage_name(entry: Mapping) -> bool:
+    """True when the food's own name marks it as a beverage.
+
+    Anchor: the head noun's final token must be a beverage word (or compound
+    beverage word) AND the FNDDS portions table must carry an ``fl_oz`` row.
+    FNDDS only gives fl_oz to foods it measures by the fluid ounce, and only
+    foods whose *name* says beverage get the word hit, so solids fail every
+    direction: Coffee cake / Irish soda bread / Cocktail sauce / lollipop
+    lack fl_oz; Frozen fruit juice bar / Freezer pop end in "bar"/"pop".
+    """
+    name = str(entry.get("name") or "").lower()
+    head = (name.split(",")[0] or name).strip()
+    tokens = [token for token in _SPLIT.split(head) if token]
+    if not tokens:
+        return False
+    last = tokens[-1]
+    is_word = last in _BEVERAGE_HEAD_WORDS or last in _BEVERAGE_COMPOUND_WORDS
+    if not is_word:
+        return False
+    portions = entry.get("portions") or {}
+    return isinstance(portions, Mapping) and portions.get("fl_oz") is not None
+
+
+def _raw_name_nouns(food_id: str, entry: Mapping) -> set[str]:
+    """Unfiltered noun tokens from the food's name, slug, and aliases."""
+    nouns: set[str] = set()
+    nouns.update(_SPLIT.split(str(entry.get("name") or "").lower()))
+    nouns.update(_SPLIT.split(food_id.replace("_", " ").lower()))
+    for alias in entry.get("aliases") or []:
+        nouns.update(_SPLIT.split(str(alias).lower()))
+    return nouns
+
+
 def _noun_candidates(token: str) -> set[str]:
     """The dish nouns ``token`` could be: "sandwiches" -> {sandwiches, sandwich}."""
     out = {token}
@@ -336,6 +432,14 @@ def _name_nouns(name: str) -> set[str]:
 
 def _leading_quantity(tokens: list[str]) -> float | None:
     """Quantity from the leading run of amount words, ignoring later content."""
+    run = _leading_run(tokens)
+    if not run:
+        return None
+    return _parse_quantity(run)
+
+
+def _leading_run(tokens: list[str]) -> list[str]:
+    """The leading run of amount words; everything after it is food crumb."""
     run: list[str] = []
     for token in tokens:
         if (
@@ -347,9 +451,23 @@ def _leading_quantity(tokens: list[str]) -> float | None:
             run.append(token)
         else:
             break
-    if not run:
-        return None
-    return _parse_quantity(run)
+    return run
+
+
+def _span_crumbs_are_food_identity(tokens: list[str], food_id: str, entry: Mapping) -> bool:
+    """Every token between the amount and the unit names the food itself.
+
+    ``_leading_quantity`` stops at the first non-amount word, so ``two
+    chicken wings`` leaves the crumb ``chicken``. That crumb is only legal
+    when the food's own name / slug / alias contains it; ``two toxic mystery
+    cups`` leaves ``toxic mystery`` and must fail closed.
+    """
+    run = _leading_run(tokens)
+    crumbs = tokens[len(run):]
+    if not crumbs:
+        return True
+    name_nouns = _raw_name_nouns(food_id, entry)
+    return all(token in name_nouns for token in crumbs)
 
 
 def _tokenize(phrase: str) -> list[str]:

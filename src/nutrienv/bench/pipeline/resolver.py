@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import copy
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 
 from nutrienv.bench.occasions import (
@@ -12,6 +12,7 @@ from nutrienv.bench.occasions import (
     occasion_from_query,
     occasion_from_stamp,
 )
+from nutrienv.bench.portion_table import matches_portion_table
 from nutrienv.bench.realize import (
     FUZZY_DISTRACTORS,
     GOLD_WINDOWS,
@@ -33,11 +34,17 @@ from .roster import ROSTER, profile_for
 from .types import COMPOSITE_FAMILY, COMPOSITE_STEPS, Candidate, FoodPool, Rejected
 
 __all__ = [
+    "GramAnchor",
     "match_spoken",
     "query_backresolves_oracle",
     "resolve_candidate",
     "spoken_grams_from_query",
 ]
+
+#: Optional authoring-time fallback: propose grams for one spoken expression
+#: that ``resolve_portion`` cannot parse. The proposed grams are only accepted
+#: when they match the food's portion-table whitelist. Scoring never uses this.
+GramAnchor = Callable[[str, str, str], float | None]
 
 _LOG_SLOT = "today-lunch"
 
@@ -74,6 +81,7 @@ def resolve_candidate(
     food_index: Mapping[str, str] | None = None,
     skip_gram_backresolve: bool = False,
     pool: FoodPool | None = None,
+    gram_anchor: GramAnchor | None = None,
 ) -> tuple[object, Rejected | None]:
     """Build a Task or a rejection. ``seen`` is the resolved-id multiset set.
 
@@ -88,9 +96,18 @@ def resolve_candidate(
         if food_id is None:
             return None, Rejected(candidate.query, "unresolvable", candidate.family)
         grams = resolve_portion(food_id, expression, catalog)
+        anchored = grams is None and gram_anchor is not None
+        if anchored:
+            grams = _anchored_grams(
+                gram_anchor, food_id, expression, candidate.query, catalog
+            )
         if grams is None:
             return None, Rejected(candidate.query, "unresolvable", candidate.family)
-        resolved.append((food_id, expression, float(grams)))
+        # ``_realize`` re-resolves each expression via ``resolve_portion``.
+        # Anchor-derived grams therefore get a canonical gram expression; the
+        # natural spoken wording remains on the query and is never lost.
+        resolved_expression = f"{float(grams):g} g" if anchored else expression
+        resolved.append((food_id, resolved_expression, float(grams)))
 
     if _leaks(candidate.query, catalog):
         return None, Rejected(candidate.query, "leak", candidate.family)
@@ -140,6 +157,28 @@ def resolve_candidate(
     except (RuntimeError, ValueError, TypeError):
         return None, Rejected(candidate.query, "unresolvable", candidate.family)
     return task, None
+
+
+def _anchored_grams(
+    anchor: GramAnchor,
+    food_id: str,
+    expression: str,
+    query: str,
+    catalog: Mapping,
+) -> float | None:
+    """One LLM proposal, accepted only when the portion-table whitelist agrees."""
+    try:
+        proposed = anchor(food_id, expression, query)
+    except Exception:
+        return None
+    if isinstance(proposed, bool) or not isinstance(proposed, (int, float)):
+        return None
+    grams = round(float(proposed), 2)
+    if not grams > 0:
+        return None
+    if not matches_portion_table(food_id, grams, catalog):
+        return None
+    return grams
 
 
 def build_food_index(catalog: Mapping) -> dict[str, str]:

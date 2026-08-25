@@ -21,6 +21,7 @@ from .freezer import freeze_tasks
 from .knives import KNIVES
 from .models import assign_model
 from .resolver import (
+    GramAnchor,
     resolve_roster_person,
     build_food_index,
     match_spoken,
@@ -118,6 +119,7 @@ def run_batch(
     vote_temperature: float = TEMPERATURE,
     vote_max_tokens: int = MAX_TOKENS,
     enable_semantic_vote: bool | None = None,
+    gram_anchor: GramAnchor | None = None,
 ) -> BatchResult:
     """Run the candidate pipeline. LLM roles must be injected; no network."""
     if expander is None or judge is None or reviewer is None:
@@ -181,6 +183,7 @@ def run_batch(
         vote_temperature=vote_temperature,
         vote_max_tokens=vote_max_tokens,
         enable_semantic_vote=enable_semantic_vote,
+        gram_anchor=gram_anchor,
         workers=workers,
     )
 
@@ -749,6 +752,7 @@ def _vote_candidate(
     temperature: float,
     max_tokens: int,
     pool=None,
+    grams_by_food: Mapping[str, float] | None = None,
 ) -> bool:
     """Soft semantic vote plus generation-only phrasing band. Oracle untouched."""
     index = build_food_index(catalog)
@@ -757,6 +761,8 @@ def _vote_candidate(
         if food_id is None:
             return False
         grams = resolve_portion(food_id, expression, catalog)
+        if grams is None and grams_by_food is not None:
+            grams = grams_by_food.get(food_id)
         if grams is None:
             return False
         accepted, _source = semantic_vote(
@@ -778,6 +784,18 @@ def _vote_candidate(
     return True
 
 
+def _task_grams_by_food(task: Task) -> dict[str, float]:
+    """Resolved grams per food id from an accepted task's oracles."""
+    grams: dict[str, float] = {}
+    for oracle in scored_oracles(task.oracle):
+        for row in oracle.ledger_tail:
+            grams[row.food_id] = row.grams
+        for item in oracle.last_plan:
+            if isinstance(item, Mapping):
+                grams[str(item["food_id"])] = float(item["grams"])
+    return grams
+
+
 def _finish_one(
     job: _PoolJob,
     tagged: Sequence[tuple[object, str]],
@@ -793,6 +811,7 @@ def _finish_one(
     vote_temperature: float = TEMPERATURE,
     vote_max_tokens: int = MAX_TOKENS,
     enable_semantic_vote: bool | None = None,
+    gram_anchor: GramAnchor | None = None,
 ) -> _PoolOut:
     if not tagged:
         return _PoolOut(
@@ -817,6 +836,7 @@ def _finish_one(
             food_index=food_index,
             skip_gram_backresolve=skip_gram_backresolve or vote_on,
             pool=job.pool,
+            gram_anchor=gram_anchor,
         )
         occupied = local_seen - before
         key = next(iter(occupied), None)
@@ -834,6 +854,7 @@ def _finish_one(
                 temperature=vote_temperature,
                 max_tokens=vote_max_tokens,
                 pool=job.pool,
+                grams_by_food=_task_grams_by_food(task) if gram_anchor is not None else None,
             ):
                 semantic_fail = True
             elif _implausible(task, catalog, judge):
@@ -959,6 +980,7 @@ def _run_jobs(
     vote_temperature: float = TEMPERATURE,
     vote_max_tokens: int = MAX_TOKENS,
     enable_semantic_vote: bool | None = None,
+    gram_anchor: GramAnchor | None = None,
     workers: int,
 ) -> tuple[list[Task], list[Rejected], dict[str, object]]:
     if workers == 1:
@@ -981,6 +1003,7 @@ def _run_jobs(
                 vote_temperature=vote_temperature,
                 vote_max_tokens=vote_max_tokens,
                 enable_semantic_vote=enable_semantic_vote,
+                gram_anchor=gram_anchor,
             )
             for job, tagged in planned
         ]
@@ -1009,6 +1032,7 @@ def _run_jobs(
                 vote_temperature=vote_temperature,
                 vote_max_tokens=vote_max_tokens,
                 enable_semantic_vote=enable_semantic_vote,
+                gram_anchor=gram_anchor,
             )
             for job, tagged in planned
         ]

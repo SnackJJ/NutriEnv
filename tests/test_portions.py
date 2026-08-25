@@ -351,3 +351,151 @@ def test_hyphenated_compound_quantity_is_in_the_react_manual() -> None:
     manual = react_manual("v1")
     assert "one-and-a-half" in manual
     assert resolve_portion("milk_whole", "one-and-a-half cups", CATALOG) == 366.0
+
+
+@pytest.mark.parametrize(
+    ("food_id", "phrase", "grams"),
+    [
+        ("2705956", "a chicken breast", 105.0),       # name has breast + piece key
+        ("2705956", "two chicken breasts", 210.0),
+        ("2706015", "a chicken drumstick", 45.0),     # name has drumstick + piece key
+        ("2706015", "two chicken drumsticks", 90.0),
+        ("2706056", "two chicken wings", 70.0),       # wing key now in catalog-v2
+        ("2706056", "a chicken wing", 35.0),
+    ],
+)
+def test_cut_noun_reads_piece_when_food_name_matches(
+    live_catalog, food_id, phrase, grams
+):
+    assert resolve_portion(food_id, phrase, live_catalog) == grams
+
+
+@pytest.mark.parametrize(
+    ("food_id", "phrase", "grams"),
+    [
+        ("2705384", "a glass of milk", 244.0),
+        ("2705384", "two glasses of milk", 488.0),
+        ("2710557", "a bottle of root beer", 372.0),
+        ("2710186", "a glass of olive oil", None),    # glass only binds beverages
+        ("2708911", "a bottle of pasta", None),       # pasta is not a beverage
+    ],
+)
+def test_beverage_container_units(live_catalog, food_id, phrase, grams):
+    assert resolve_portion(food_id, phrase, live_catalog) == grams
+
+
+def test_food_specific_unit_keys_resolve() -> None:
+    catalog = {
+        "wing_food": {
+            "name": "Chicken wing, roasted", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"wing": 35.0, "drummette": 22.0, "qns": 70.0},
+        },
+        "scoop_food": {
+            "name": "Protein powder", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"scoop": 30.0},
+        },
+        "pat_food": {
+            "name": "Butter", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"pat": 5.0, "tbsp": 14.0},
+        },
+    }
+    assert resolve_portion("wing_food", "two wings", catalog) == 70.0
+    assert resolve_portion("wing_food", "a drummette", catalog) == 22.0
+    assert resolve_portion("scoop_food", "two scoops", catalog) == 60.0
+    assert resolve_portion("pat_food", "a pat", catalog) == 5.0
+    assert resolve_portion("wing_food", "two drumsticks", catalog) is None
+
+
+def test_unit_phrase_tolerates_food_name_before_unit() -> None:
+    """"two chicken wings" parses 2 × wing; the food-name crumb after the
+    leading amount is not a quantity, so it must not kill the parse. A
+    non-empty span with no leading amount ("some wings", "chicken wings")
+    still fails closed, and an unrecognised crumb ("two toxic mystery cups")
+    fails closed too."""
+    catalog = {
+        "wing_food": {
+            "name": "Chicken wing, roasted", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"wing": 35.0, "qns": 70.0},
+        },
+        "cup_food": {
+            "name": "White rice, cooked", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"cup": 186.0, "qns": 140.0},
+        },
+    }
+    assert resolve_portion("wing_food", "two chicken wings", catalog) == 70.0
+    assert resolve_portion("wing_food", "a chicken wing", catalog) == 35.0
+    assert resolve_portion("cup_food", "two cups of rice", catalog) == 372.0
+    assert resolve_portion("cup_food", "two cups rice", catalog) == 372.0
+    # "cup of soup"-style: unit at token 0 has no span at all -> one.
+    assert resolve_portion("cup_food", "cup of soup", catalog) == 186.0
+    assert resolve_portion("wing_food", "some wings", catalog) is None
+    assert resolve_portion("wing_food", "chicken wings", catalog) is None
+    assert resolve_portion("cup_food", "two toxic mystery cups", catalog) is None
+    assert resolve_portion("cup_food", "half random cup", catalog) is None
+
+
+def test_beverage_name_is_word_boundary_not_substring() -> None:
+    """"a glass of steak" / "a glass of kale" must stay None: "tea" is a
+    substring of "steak" and "ale" of "kale", but neither food is a
+    beverage. A beverage needs BOTH a beverage head noun AND an fl_oz key in
+    the FNDDS table: "Coffee cake", "Irish soda bread", "Cocktail sauce"
+    and "Candy, lollipop" (word hits without fl_oz) and "Frozen fruit juice
+    bar" / "Freezer pop" (fl_oz without a beverage head) all stay None,
+    while "milkshake" / "soymilk" / "buttermilk" bind."""
+    catalog = {
+        "steak": {
+            "name": "Steak, cooked", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"qns": 163.0},
+        },
+        "kale": {
+            "name": "Kale, cooked", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"qns": 130.0},
+        },
+        "lollipop": {
+            "name": "Candy, lollipop", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"qns": 10.0},
+        },
+        "coffee_cake": {
+            "name": "Coffee cake, yeast type", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"qns": 57.0},
+        },
+        "soda_bread": {
+            "name": "Bread, Irish soda", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"qns": 74.0},
+        },
+        "cocktail_sauce": {
+            "name": "Cocktail sauce", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"qns": 34.0},
+        },
+        "shake": {
+            "name": "Chocolate milkshake", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"fl_oz": 28.0, "qns": 299.0},
+        },
+        "soymilk": {
+            "name": "Soymilk", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"fl_oz": 30.5, "qns": 240.0},
+        },
+        "milk": {
+            "name": "Milk, whole", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"fl_oz": 30.5, "qns": 244.0},
+        },
+        "juice_bar": {
+            "name": "Frozen fruit juice bar", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"fl_oz": 30.0, "bar": 80.0, "qns": 80.0},
+        },
+        "freezer_pop": {
+            "name": "Freezer pop", "nutrients": {}, "allergen_tags": [],
+            "aliases": [], "portions": {"fl_oz": 30.0, "piece": 50.0, "qns": 50.0},
+        },
+    }
+    assert resolve_portion("steak", "a glass of steak", catalog) is None
+    assert resolve_portion("kale", "a glass of kale", catalog) is None
+    assert resolve_portion("lollipop", "a glass of lollipop", catalog) is None
+    assert resolve_portion("coffee_cake", "a glass of coffee cake", catalog) is None
+    assert resolve_portion("soda_bread", "a glass of Irish soda bread", catalog) is None
+    assert resolve_portion("cocktail_sauce", "a glass of cocktail sauce", catalog) is None
+    assert resolve_portion("juice_bar", "a glass of fruit juice bar", catalog) is None
+    assert resolve_portion("freezer_pop", "a glass of freezer pop", catalog) is None
+    assert resolve_portion("shake", "a glass of milkshake", catalog) == 299.0
+    assert resolve_portion("soymilk", "a glass of soymilk", catalog) == 240.0
+    assert resolve_portion("milk", "a glass of milk", catalog) == 244.0

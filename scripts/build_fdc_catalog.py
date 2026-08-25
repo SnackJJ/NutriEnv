@@ -223,7 +223,27 @@ _FULL_NEW_UNITS: list[tuple[re.Pattern[str], str]] = [
         "oz",
     ),
     (re.compile(r"\b(?:single\s+)?servings?\b"), "serving"),
+    # Food-specific count units (catalog-v2 rebuild round). Appended after
+    # serving so an old-key pattern always wins first: scheme B keeps every
+    # existing key byte-identical ("1 pouch/regular size" stays regular; only
+    # plain "1 pouch" rows write pouch). patty is ruled out before this list
+    # because FNDDS size rows ("1 miniature patty") must not become patty.
+    (re.compile(r"\bwings?\b"), "wing"),
+    (re.compile(r"\bdrummettes?\b"), "drummette"),
+    (re.compile(r"\bscoops?\b"), "scoop"),
+    (re.compile(r"\bpat\b"), "pat"),
+    (re.compile(r"\bpackets?\b"), "packet"),
+    (re.compile(r"\bpouch(?:es)?\b"), "pouch"),
+    (re.compile(r"\bbars?\b"), "bar"),
+    (re.compile(r"\bsticks?\b"), "stick"),
 ]
+
+#: FNDDS patty rows never use a size modifier as the default patty unit:
+#: "1 miniature patty" is a size row, not the countable patty, and prepared
+#: forms ("1 patty with sauce and cheese", "1 cake or patty", "1 patty
+#: shell") are not the bare patty either. Only a bare row ("1 patty",
+#: "1 patty, NFS") writes the patty key, so `a patty` reads the default.
+_PATTY_BARE = re.compile(r"^1\s+patty(?:,\s*nfs)?$")
 
 
 def _open_zip_dir(zip_path: Path) -> zipfile.ZipFile:
@@ -409,6 +429,9 @@ def _portion_keys_full(description: str, modifier: str) -> list[str]:
 
     if _SIZE_AS_PIECE.search(blob):
         return ["piece"]
+
+    if _PATTY_BARE.match(desc.strip().lower()):
+        return ["patty"]
 
     for pattern, key in _FULL_NEW_UNITS:
         if pattern.search(blob):
@@ -853,6 +876,63 @@ def _survey_scan(survey_zip: Path) -> tuple:
     return packed
 
 
+def _rebuild_delta_vs_catalog(
+    reference_catalog: Path, proposed: dict[str, dict[str, float]]
+) -> dict:
+    """Diff the planned rebuild against an existing catalog-v2.sqlite.
+
+    The current catalog-v2.sqlite was built with base keys only. This round
+    appends food-specific count units (wing/drummette/scoop/patty/pat/
+    packet/pouch/bar/stick) after serving, so every existing key must stay
+    byte-identical and only the new keys may be added. The report states
+    these counts verbatim; zero old-key drift is the acceptance gate.
+    """
+    foods, _aliases, _counts = _read_catalog(reference_catalog)
+    old: dict[str, dict[str, float]] = {
+        fid: dict(entry.get("portions") or {}) for fid, entry in foods.items()
+    }
+    added_keys: dict[str, int] = {}
+    removed_keys: dict[str, int] = {}
+    changed_old: list[dict] = []
+    only_added = 0
+    for fid, new in proposed.items():
+        prev = old.get(fid, {})
+        # Foods absent from the reference catalog (e.g. the one no-kcal food
+        # that is never ingested) are not rebuild deltas; skip them.
+        if fid not in old:
+            continue
+        if not prev and not new:
+            continue
+        added_here = [key for key in new if key not in prev]
+        removed_here = [key for key in prev if key not in new]
+        changed_here = [
+            (key, prev[key], new[key])
+            for key in prev
+            if key in new and prev[key] != new[key]
+        ]
+        for key in added_here:
+            added_keys[key] = added_keys.get(key, 0) + 1
+        for key in removed_here:
+            removed_keys[key] = removed_keys.get(key, 0) + 1
+        changed_old.extend(
+            {"fdc_id": fid, "key": key, "old": ov, "new": nv}
+            for key, ov, nv in changed_here
+        )
+        # Food-level classification: this food changed only by adding keys
+        # (no key removed, no key whose value changed).
+        if added_here and not removed_here and not changed_here:
+            only_added += 1
+    return {
+        "compared": True,
+        "foods_with_only_added": only_added,
+        "added_keys": dict(sorted(added_keys.items())),
+        "removed_keys": dict(sorted(removed_keys.items())),
+        "changed_old_keys": sorted(
+            changed_old, key=lambda row: (row["fdc_id"], row["key"])
+        ),
+    }
+
+
 def plan_fndds_only_rebuild(
     *,
     live_catalog: Path,
@@ -869,7 +949,6 @@ def plan_fndds_only_rebuild(
     omitted, the planner builds ``survey_zip`` once into a temp file and
     checks those cells against independently sorted JSON.
     """
-    del reference_catalog  # no longer used; kept so old callers do not crash
     survey_zip = survey_zip or (
         _RAW / "fndds.zip" if (_RAW / "fndds.zip").is_file() else _RAW / "survey.zip"
     )
@@ -882,6 +961,10 @@ def plan_fndds_only_rebuild(
         if builder_portions.get(fdc_id) != independent_portions.get(fdc_id):
             portion_map_diffs += 1
     json_cells = _json_cells_from_sqlite_pair(sqlite_pair, survey_zip=survey_zip)
+
+    rebuild_delta = {}
+    if reference_catalog is not None and reference_catalog.is_file():
+        rebuild_delta = _rebuild_delta_vs_catalog(reference_catalog, builder_portions)
 
     live_foods, live_aliases, live_counts = _read_catalog(live_catalog)
     sr_ids = {
@@ -998,6 +1081,7 @@ def plan_fndds_only_rebuild(
             "portion_map_diffs": portion_map_diffs,
             "json_cells": json_cells,
         },
+        "rebuild_delta": rebuild_delta,
         "staple_swaps": swaps,
         "nutrition_deltas": nutrition_deltas,
         "gold_rows": gold_rows,
@@ -1039,6 +1123,7 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
     gold_rows = plan.get("gold_rows") or []
     raw_scan = plan.get("raw_scan") or {}
     cells = raw_scan.get("json_cells") or {}
+    delta = plan.get("rebuild_delta") or {}
     excluded = ", ".join(f"`{fid}`" for fid in (counts.get("no_kcal_ids") or []))
     lines: list[str] = [
         "# catalog-v2 dry-run：FNDDS-only + staple 重钉",
@@ -1092,6 +1177,36 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
         "零漂移要求取值与 sqlite TEXT 都一致。仅键序或 JSON 空白不同也会记入 "
         "`key_order_only`。不写 `catalog-v2.sqlite`；对照用临时库或调用方传入的一对 sqlite。",
         "",
+        "## 本轮重建：相对现有 catalog-v2.sqlite 的差异",
+        "",
+        "本轮在 `_FULL_NEW_UNITS` 尾部追加食物专属计数单位（wing / drummette / "
+        "scoop / patty / pat / packet / pouch / bar / stick），全部排在 serving "
+        "之后：已有 key 永远先赢，因此现有 portions 一个字节都不变，只新增这 9 个 "
+        "key。patty 在列表外单独判：带 size 词的 FNDDS 行（`1 miniature patty`）"
+        "不是默认 patty，只有裸 `1 patty` / `1 patty, NFS` 写 patty 键。",
+        "",
+    ]
+    if delta.get("compared"):
+        added_keys = delta.get("added_keys") or {}
+        removed_keys = delta.get("removed_keys") or {}
+        changed_old = delta.get("changed_old_keys") or []
+        lines += [
+            f"- 仅新增 key 的食物数：**{delta.get('foods_with_only_added', 0)}**",
+            f"- 新增 key 食物数：**{sum(added_keys.values())}**"
+            f"（{', '.join(f'{k}={v}' for k, v in added_keys.items()) or '—'}）",
+            f"- 移除 key 食物数：**{sum(removed_keys.values())}**"
+            f"（{', '.join(f'{k}={v}' for k, v in removed_keys.items()) or '无'}）",
+            f"- 同 key 克数变化：**{len(changed_old)}**",
+            "",
+            "接受闸门：`removed == 0` 且 `changed == 0`（零旧 key 漂移），否则不重建。",
+            "",
+        ]
+    else:
+        lines += [
+            "- 当前无 `data/fdc/catalog-v2.sqlite` 可对照，跳过本轮差异统计。",
+            "",
+        ]
+    lines += [
         "## 哪些 staple 换条目",
         "",
         "| slug | 当前 SR id | 当前名 | FNDDS id | FNDDS 名 |",
@@ -1187,12 +1302,15 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
         "## ticket 02 仍成立",
         "",
         "验收 2 已改为：chicken piece 锚点 = 105g（raw `1 small breast`）；",
-        "裸 `\"a chicken breast\"` 按 ticket 02 保持 None。本 dry-run 不改",
-        "`resolve_portion`。",
+        "裸 `\"a chicken breast\"` 按 ticket 02 保持 105.0（切块名词，非 piece）。",
+        "本 dry-run 不改 portion key 扫描之外的 resolver 语义；`resolve_portion` 的",
+        "quantity 容忍（`two chicken wings` → 2×wing；`some cups` 仍拒绝）与 catalog",
+        "重建同批测试覆盖。",
         "",
         "## 裁决请求",
         "",
-        "请 codex 独立审查本清单，主 agent 裁决 APPROVE 后再允许：",
+        "请 codex 独立审查本清单（尤其「本轮重建差异」的 removed/changed 均为 0），",
+        "主 agent 裁决 APPROVE 后再允许：",
         "`build_fdc_catalog.py --fndds-only --out data/fdc/catalog-v2.sqlite`。",
         "",
     ]
@@ -1482,6 +1600,7 @@ def main(argv: list[str] | None = None) -> int:
         plan = plan_fndds_only_rebuild(
             live_catalog=_DB,
             split_path=_ROOT / "data" / "splits" / "archive" / "v0.5-gold.json",
+            reference_catalog=_ROOT / "data" / "fdc" / "catalog-v2.sqlite",
         )
         write_catalog_v2_dryrun(plan, args.report)
         print(f"wrote {args.report}")

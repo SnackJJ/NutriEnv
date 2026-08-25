@@ -251,6 +251,10 @@ def test_handbook_matches_resolve_portion_on_catalog_v2(catalog_v2) -> None:
         "portions.piece",
         "portions.qns",
         "do not log it, finish without logging that food",
+        "two chicken wings",
+        "portions.wing",
+        "drummette",
+        "a pat of butter",
     ):
         assert phrase in manual
     assert "ask for grams" not in manual
@@ -258,8 +262,15 @@ def test_handbook_matches_resolve_portion_on_catalog_v2(catalog_v2) -> None:
     assert resolve_portion("chicken_breast", "150 g of chicken", catalog_v2) == 150.0
     assert resolve_portion("apple", "one apple", catalog_v2) == 165.0
     assert resolve_portion("milk_whole", "half a cup of milk", catalog_v2) == 122.0
-    assert resolve_portion("chicken_breast", "a chicken breast", catalog_v2) is None
+    assert resolve_portion("chicken_breast", "a chicken breast", catalog_v2) == 105.0
     assert resolve_portion("tuna", "a can", catalog_v2) == 75.0
+    assert resolve_portion("2706056", "two chicken wings", catalog_v2) == 70.0
+    assert resolve_portion("2706056", "a chicken wing", catalog_v2) == 35.0
+    assert resolve_portion("2706056", "two drummettes", catalog_v2) == 44.0
+    assert resolve_portion("2705855", "a patty", catalog_v2) == 85.0
+    assert (
+        resolve_portion("2706056", "some chicken wings", catalog_v2) is None
+    )
 
 
 def test_gray_zone_portion_pairs_hold_on_catalog_v2(catalog_v2) -> None:

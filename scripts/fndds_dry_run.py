@@ -61,7 +61,27 @@ _NEW_UNITS: list[tuple[re.Pattern[str], str]] = [
         "oz",
     ),
     (re.compile(r"\b(?:single\s+)?servings?\b"), "serving"),
+    # Food-specific count units (catalog-v2 rebuild round). Appended after
+    # serving so an old-key pattern always wins first: scheme B keeps every
+    # existing key byte-identical ("1 pouch/regular size" stays regular; only
+    # plain "1 pouch" rows write pouch). patty is ruled out in _portion_keys
+    # before this list because FNDDS size rows must not become patty.
+    (re.compile(r"\bwings?\b"), "wing"),
+    (re.compile(r"\bdrummettes?\b"), "drummette"),
+    (re.compile(r"\bscoops?\b"), "scoop"),
+    (re.compile(r"\bpat\b"), "pat"),
+    (re.compile(r"\bpackets?\b"), "packet"),
+    (re.compile(r"\bpouch(?:es)?\b"), "pouch"),
+    (re.compile(r"\bbars?\b"), "bar"),
+    (re.compile(r"\bsticks?\b"), "stick"),
 ]
+
+#: FNDDS patty rows never use a size modifier as the default patty unit:
+#: "1 miniature patty" is a size row, not the countable patty, and prepared
+#: forms ("1 patty with sauce and cheese", "1 cake or patty", "1 patty
+#: shell") are not the bare patty either. Only a bare row ("1 patty",
+#: "1 patty, NFS") writes the patty key, so `a patty` reads the default.
+_PATTY_BARE = re.compile(r"^1\s+patty(?:,\s*nfs)?$")
 
 # Factors used to attribute a frozen gold gram value back to a portion key.
 _FACTORS = (0.25, 1.0 / 3.0, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0)
@@ -160,6 +180,9 @@ def _portion_keys(description: str, modifier: str) -> list[str]:
 
     if _SIZE_AS_PIECE.search(blob):
         return ["piece"]
+
+    if _PATTY_BARE.match(desc.strip().lower()):
+        return ["patty"]
 
     for pattern, key in _NEW_UNITS:
         if pattern.search(blob):

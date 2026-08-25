@@ -246,7 +246,7 @@ def test_plan_confirms_raw_portion_facts_then_resolver_keys() -> None:
     assert chicken["raw_grams"] == 105.0
     assert chicken["resolver_key"] == "piece"
     assert chicken["resolved_g"] == 105.0
-    assert chicken["cut_noun_resolved_g"] is None
+    assert chicken["cut_noun_resolved_g"] == 105.0
     assert facts["tuna"]["portion_fact"]["raw_description"] == "1 small can"
     assert facts["tuna"]["portion_fact"]["raw_grams"] == 75.0
     assert facts["salmon"]["portion_fact"]["raw_description"] == "1 small/regular fillet"
@@ -340,4 +340,4 @@ def test_catalog_v2_is_fndds_only_with_approved_staple_pins() -> None:
     assert resolve_portion("black_beans", "a cup", catalog) == 180.0
     assert resolve_portion("peanut", "a cup", catalog) == 146.0
     assert resolve_portion("almond", "a cup", catalog) == 141.0
-    assert resolve_portion("chicken_breast", "a chicken breast", catalog) is None
+    assert resolve_portion("chicken_breast", "a chicken breast", catalog) == 105.0
