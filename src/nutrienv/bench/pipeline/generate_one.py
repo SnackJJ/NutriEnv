@@ -1282,18 +1282,29 @@ def build_unfit_rewrite_prompt(
         "Rewrite one user query that names this exact plate as a meal to evaluate.",
         f"Intent: {intent}. Occasion: {occasion}.",
         "Speak the code-chosen foods and amounts. JSON foods must match this id list.",
+        "Use natural colloquial portion phrasing (e.g. 'a piece of...', 'a slice of...', 'a patty', 'a plate of...', 'a tablespoon of...').",
+        "Use 'a cup of' ONLY for volume items (soup, rice, beans, cereal, beverages). Never use 'a cup' for patties, burgers, or sandwiches.",
         "Do not mention remaining budget, nutrient targets, or allergy codes.",
         "Return exactly {\"query\":\"...\",\"foods\":[\"<id>\", ...]} and nothing else.",
         "Plate:",
     ]
     ids: list[str] = []
+    from nutrienv.bench.pipeline.sampler import portion_alternatives
+
     for item in items:
         food_id = str(item["food_id"])
         grams = float(item["grams"])
         ids.append(food_id)
         spoken = _spoken_names(food_id, foods)
         name = spoken[1] if len(spoken) > 1 else spoken[0]
-        lines.append(f"- id={food_id} spoken={name} amount={grams:g} g")
+        entry = foods.get(food_id) or {}
+        matching_phrase = None
+        for alt in portion_alternatives(entry):
+            if alt.quantity == 1.0 and abs(alt.grams - grams) < 1e-9:
+                matching_phrase = alt.phrase
+                break
+        amount_desc = f"{matching_phrase} ({grams:g} g)" if matching_phrase else f"{grams:g} g"
+        lines.append(f"- id={food_id} spoken={name} amount={amount_desc}")
     lines.append("foods: " + ", ".join(ids))
     return "\n".join(lines)
 
@@ -1380,14 +1391,13 @@ def build_log_system_prompt(
         )
     elif amount_path == AMOUNT_NAMED_MEASURE:
         lines.append(
-            "Amount path is named measures: cup, tbsp, tsp, slice, piece, can, "
-            "fl_oz, wing, drummette, scoop, patty, pat, packet, pouch, bar, stick."
+            "Amount path is named measures: piece, slice, patty, can, packet, pouch, bar, "
+            "stick, wing, drummette, tbsp, tsp, scoop, bowl, plate, cup, fl_oz."
         )
         lines.append(
             "Colloquial units you may also use: handful, fist(-sized), "
             "palm(-sized), deck of cards, dollop, splash, drizzle."
         )
-        lines.append("Solid cup is allowed. Do not hide cup.")
         lines.append("Do not write grams next to a named measure.")
     else:
         lines.append(
@@ -1399,15 +1409,17 @@ def build_log_system_prompt(
     lines.extend(
         [
             "",
-            "Style:",
+            "Portion and Colloquial Style Rules:",
             "- Write a single sentence a real person would type when logging food.",
             '- Use a natural meal frame: "For lunch I had...", "Breakfast was...", '
             'or just "Had a...".',
-            '- Integrate portions fluidly: prefer "a bowl of...", "two slices of...", '
-            '"a pat of butter" over robotic serving-of wording.',
-            '- Use "a cup of" only for foods people really measure by the cup '
-            "(soup, rice, beans, vegetables, oatmeal, yogurt, cereal).",
-            '- For plated mixed dishes such as pasta, prefer "a plate of" or "a bowl of".',
+            '- ALWAYS choose colloquial, human-natural portion units that fit the food:',
+            '  * For solid/discrete items (burgers, patties, sandwiches, burritos, rolls, pastries, snacks) -> use "a piece of", "a slice of", "a patty", "a bar of", "a packet of", or dish nouns.',
+            '  * For plated mixed dishes, stir fries, pastas -> use "a plate of" or "a bowl of".',
+            '  * For soups, cereals, oatmeal, salads, yogurt -> use "a bowl of" or "a cup of".',
+            '  * For condiments, dressings, sauces, dips, oils -> use "a tablespoon of", "a teaspoon of", or "a pat of".',
+            '  * "a cup of" is ONLY for items truly measured by cup volume (soup, rice, beans, grains, yogurt, cereal, beverages).',
+            '  * NEVER use "a cup of" for burger patties, sandwiches, burritos, bread rolls, or sliced meats.',
             '- Join foods naturally: "topped with", "along with", "with a side of".',
             "- Do not title-case foods or leak window numbers.",
             "",
@@ -1441,12 +1453,15 @@ def build_log_user_prompt(pool: FoodPool, *, family: str = "log") -> str:
             header += f" (also: {', '.join(also)})"
         lines.append(header)
         phrases = []
-        for alt in food.alternatives:
+        for alt in sorted(
+            food.alternatives,
+            key=lambda a: (unit_naturalness_rank(a.key), a.grams, a.phrase),
+        ):
             phrase = f"{alt.phrase} = {alt.grams:g}g"
             if phrase not in phrases:
                 phrases.append(phrase)
         if phrases:
-            lines.append("  speakable portions: " + "; ".join(sorted(set(phrases))))
+            lines.append("  speakable portions: " + "; ".join(phrases))
     lines.append("")
     if family == "composite":
         lines.append("The user already ate this meal and now asks what to eat next.")
@@ -1526,10 +1541,12 @@ class UnfitRewriter:
         *,
         complete: Callable[[str, Sequence[Mapping[str, str]]], str],
         catalog: Mapping,
+        model_id: str = "qwen3.8-max",
         parse_retries: int = 1,
     ) -> None:
         self._complete = complete
         self._catalog = catalog
+        self._model_id = model_id
         self._parse_retries = max(0, int(parse_retries))
 
     def __call__(
@@ -1555,7 +1572,7 @@ class UnfitRewriter:
         last: dict[str, object] = {"query": "", "foods": []}
         for _attempt in range(1 + self._parse_retries):
             parsed = parse_query_foods_payload(
-                self._complete("evaluate-rewrite", messages)
+                self._complete(self._model_id, messages)
             )
             if parsed is not None:
                 return parsed
@@ -1566,11 +1583,15 @@ def make_unfit_rewriter(
     *,
     complete: Callable[[str, Sequence[Mapping[str, str]]], str],
     catalog: Mapping,
+    model_id: str = "qwen3.8-max",
     parse_retries: int = 1,
 ) -> UnfitRewriter:
     """Build the unfit speech rewriter. complete is injected; no live API required."""
     return UnfitRewriter(
-        complete=complete, catalog=catalog, parse_retries=parse_retries
+        complete=complete,
+        catalog=catalog,
+        model_id=model_id,
+        parse_retries=parse_retries,
     )
 
 

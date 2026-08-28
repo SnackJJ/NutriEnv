@@ -128,9 +128,11 @@ def _join_natural(parts: list[str]) -> str:
     return ", ".join(parts[:-1]) + " and " + parts[-1]
 
 
-def _rewriter_for(catalog, *, live: bool):
+def _rewriter_for(catalog, *, live: bool, model_id: str = "qwen3.8-max"):
     if live:
-        return make_unfit_rewriter(complete=complete_chat, catalog=catalog)
+        return make_unfit_rewriter(
+            complete=complete_chat, catalog=catalog, model_id=model_id
+        )
     return lambda items, *, intent, occasion, amount_path=None: synthetic_rewriter(
         catalog, items, intent=intent, occasion=occasion, amount_path=amount_path
     )
@@ -344,7 +346,11 @@ def run_family(
                 rejected.append({"status": "rejected", "family": "evaluate", "seed": seed, "reason": "no_fit_plate"})
                 seed += 1
                 continue
-            rewriter = _rewriter_for(catalog, live=live)
+            rewriter = _rewriter_for(
+                catalog,
+                live=live,
+                model_id=models[n % len(models)] if models else "qwen3.8-max",
+            )
             knife = None
             if n >= 1:
                 # Alternate unfit knives after the first fit sample.
