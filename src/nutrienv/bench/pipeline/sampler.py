@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+import re
 from collections.abc import Mapping
 
 from nutrienv.world.catalog import canonical_food_id
@@ -16,7 +17,12 @@ from .types import (
     PortionAlternative,
 )
 
-__all__ = ["sample_pools", "portion_alternatives"]
+__all__ = [
+    "sample_pools",
+    "portion_alternatives",
+    "speakable_tracer_food",
+    "spoken_display_name",
+]
 
 # Spoken forms resolve_portion can actually parse. Catalog-v1 also stores
 # cubic_inch; that key has no grammar, so the sampler drops it.
@@ -139,6 +145,125 @@ def portion_alternatives(entry: Mapping) -> tuple[PortionAlternative, ...]:
                 )
             )
     return tuple(out)
+
+
+def spoken_display_name(catalog: Mapping, food_id: str) -> str:
+    """Natural, search-pinning display name for a catalog food.
+
+    The synthetic/live speech writers should name a food with this when the
+    catalog has no curated aliases. FNDDS ``name`` is a comma-separated
+    descriptor tree ("Burrito, pork, cheese"); taking only the first segment
+    yields a common noun that ``FoodCatalog.search`` cannot pin back to the
+    Oracle's ``food_id`` (cc-review-v2-samples §2). This helper instead keeps
+    every descriptor token, drops "with"/"and" fillers, and moves the head to
+    the end ("pork cheese burrito", "roast beef"). ``search(display_name)``
+    then ranks the Oracle #1, and the spoken form contains no clause-splitting
+    coordinators ("with"/"and"/"plus"/"&"), so the mill's clause binder is safe.
+    """
+    entry = catalog.get(food_id) or {}
+    aliases = entry.get("aliases") or []
+    if aliases:
+        return str(aliases[0])
+    name = str(entry.get("name") or food_id)
+    lowered = name.lower().replace("/", " ")
+    chunks = [chunk.strip() for chunk in lowered.split(",")]
+    drop = {"with", "and"}
+
+    def _words(text: str) -> list[str]:
+        return [
+            token
+            for token in re.sub(r"\s+", " ", text.strip()).split()
+            if token not in drop
+        ]
+
+    head_words = _words(chunks[0])
+    tail_words: list[str] = []
+    for chunk in chunks[1:]:
+        tail_words.extend(_words(chunk))
+    display = " ".join(tail_words + head_words).strip() or food_id
+    return display
+
+
+def speakable_tracer_food(
+    pool: FoodPool,
+    catalog: Mapping,
+    *,
+    amount_path: str,
+) -> tuple[PoolFood, str, str] | None:
+    """Pick the first collision-free, gram-resolvable pool food for a tracer.
+
+    Synthetic tracers write ``"{phrase} of {spoken}"`` into the query; the mill
+    then re-binds the speech. Picking the first pool food blindly breaks in two
+    ways: (a) its spoken name may mention another pool food (the ambiguity /
+    omitted-food gates fail closed), and (b) its phrase may not resolve to a
+    portion fact for this amount path (unresolvable / small_grams / amount_path
+    rejections). This helper mirrors the mill's bind requirements so tracers
+    (synthetic CLI + sample runner) produce an item the first time.
+
+    Returns ``(food, phrase, spoken)`` or ``None`` when no pool food fits.
+    """
+    from nutrienv.bench.pipeline.resolver import spoken_grams_from_query
+    from nutrienv.world.portions import resolve_portion
+
+    for food in pool.foods:
+        phrase = _tracer_phrase(food, amount_path)
+        if phrase is None:
+            continue
+        # The binder finds a food through its comma-head phrase. A head that
+        # contains a clause-splitting coordinator ("with"/"and"/"plus"/"&")
+        # cannot stay contiguous inside one query clause, so the tracer skips
+        # it rather than emit an unresolvable meal.
+        head = str(food.name).split(",", 1)[0].strip() if food.name else ""
+        if any(token in head.lower().split() for token in ("with", "and", "plus", "&")):
+            continue
+        spoken = spoken_display_name(catalog, food.food_id)
+        if _display_collides(pool, catalog, food.food_id, spoken):
+            continue
+        clause = f"{phrase} of {spoken}"
+        grams = spoken_grams_from_query(clause, food.food_id, catalog)
+        if grams is None:
+            grams = resolve_portion(food.food_id, clause, catalog)
+        if grams is None:
+            continue
+        return food, phrase, spoken
+    return None
+
+
+def _tracer_phrase(food: PoolFood, amount_path: str) -> str | None:
+    if amount_path == "explicit_grams":
+        for alt in food.alternatives:
+            if alt.quantity == 1.0 and alt.key != "qns":
+                return f"{alt.grams:g} g"
+        return None
+    if amount_path == "unspecified":
+        for alt in food.alternatives:
+            if alt.key == "qns" and alt.quantity == 1.0:
+                return "a bowl"
+        return None
+    for alt in food.alternatives:
+        if alt.quantity == 1.0 and alt.key != "qns":
+            return alt.phrase
+    return None
+
+
+_WORD = re.compile(r"[a-z0-9]+")
+
+
+def _display_collides(
+    pool: FoodPool, catalog: Mapping, food_id: str, spoken: str
+) -> bool:
+    own = _word_set(spoken)
+    for other in pool.foods:
+        if other.food_id == food_id:
+            continue
+        other_words = _word_set(spoken_display_name(catalog, other.food_id))
+        if own & other_words:
+            return True
+    return False
+
+
+def _word_set(text: str) -> set[str]:
+    return {token for token in _WORD.findall(text.lower()) if len(token) >= 3}
 
 
 def _cup_only(catalog: Mapping, food_id: str) -> bool:

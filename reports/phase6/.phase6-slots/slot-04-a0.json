@@ -1,0 +1,82 @@
+{
+  "catalog": "data/fdc/catalog-v2.sqlite",
+  "catalog_sha256": "57184b2bbce4519076b4238a8d64861950db46fdc793d0e43055f07f43c28b5f",
+  "items": [
+    {
+      "family": "log",
+      "id": "p6-log-0008",
+      "oracle": {
+        "ledger": "s0_plus_tail",
+        "ledger_tail": [
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2706811",
+            "grams": 90.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2707156",
+            "grams": 50.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2710465",
+            "grams": 240.0
+          }
+        ],
+        "profile": "s0"
+      },
+      "persona": "everyday",
+      "query": "Please log that I had 1 cup of chicken or turkey garden salad, 1 piece of egg, and 1 cup of coffee.",
+      "s0": {
+        "ledger": [
+          {
+            "eaten_at": "yesterday-snack",
+            "food_id": "2709215",
+            "grams": 182.0
+          },
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709171",
+            "grams": 131.0
+          }
+        ],
+        "profile": {
+          "allergies": [
+            "peanut"
+          ],
+          "user_id": "p6-log-0008",
+          "windows": {
+            "kcal": [
+              1800.0,
+              2200.0
+            ],
+            "protein_g": [
+              90.0,
+              140.0
+            ]
+          }
+        }
+      },
+      "situations": [
+        "multi_item_log"
+      ]
+    }
+  ],
+  "notes": "pipeline-draft tracer-bullet freeze from run_batch (sampler sampler-v1, seed 20264855).",
+  "persona": "everyday",
+  "quota_ledger": {
+    "base_accepted": {
+      "log": 1
+    },
+    "base_quota": 240,
+    "composite_accepted": 0,
+    "composite_extra_quota": 24,
+    "requested": {
+      "log": 1
+    }
+  },
+  "sampler_rule_version": "sampler-v1",
+  "seed": 20264855,
+  "version": "pipeline-draft"
+}

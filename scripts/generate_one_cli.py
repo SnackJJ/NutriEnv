@@ -27,12 +27,15 @@ if str(_SRC) not in sys.path:
 
 from nutrienv.bench.pipeline.generate_one import (  # noqa: E402
     AMOUNT_PATHS,
-    make_log_expander,
+    KNIVES,
     generate_one,
+    make_log_expander,
+    make_unfit_rewriter,
 )
 from nutrienv.bench.pipeline.gram_anchor import make_llm_gram_anchor  # noqa: E402
 from nutrienv.bench.pipeline.models import QWEN_EXPANDER_MODELS  # noqa: E402
 from nutrienv.bench.pipeline.roster import ROSTER, profile_for  # noqa: E402
+from nutrienv.bench.pipeline.sampler import speakable_tracer_food  # noqa: E402
 from nutrienv.bench.pipeline.types import FoodPool  # noqa: E402
 from nutrienv.io.chat import complete_chat  # noqa: E402
 from nutrienv.world.catalog_store import load_catalog  # noqa: E402
@@ -44,46 +47,33 @@ def _live_complete(model_id: str, messages: Sequence[Mapping[str, str]]) -> str:
     return complete_chat(model_id, messages)
 
 
-def synthetic_query_foods_expander(
-    pool: FoodPool, *, persona: str, family: str, amount_path: str | None = None
-) -> dict[str, object]:
-    """Deterministic tracer for the {query, foods} contract. No network.
+def make_synthetic_query_foods_expander(catalog):
+    """Deterministic tracer with search-pinning food names. No network.
 
-    Picks the first pool food with a speakable 1-quantity alternative and
-    writes a phrase that matches the requested amount path (grams never pass
-    through this function: ``generate_one`` binds them in code).
+    Picks a collision-free, gram-resolvable pool food and writes a phrase that
+    matches the requested amount path. Grams never pass through this function:
+    ``generate_one`` binds them in code.
     """
-    path = amount_path or "named_measure"
-    for food in pool.foods:
-        phrase = _tracer_phrase(food, path)
-        if phrase is None:
-            continue
-        spoken = food.aliases[0] if food.aliases else food.name.split(",", 1)[0].strip()
-        if not spoken:
-            spoken = food.food_id
-        query = f"Please log {phrase} of {spoken} for lunch."
-        if family in {"evaluate", "composite"}:
+    def _tracer(
+        pool: FoodPool, *, persona: str, family: str, amount_path: str | None = None
+    ) -> dict[str, object]:
+        path = amount_path or "named_measure"
+        picked = speakable_tracer_food(pool, catalog, amount_path=path)
+        if picked is None:
+            return {"query": "", "foods": []}
+        food, phrase, spoken = picked
+        if family == "evaluate":
             query = f"Evaluate this as my plan for lunch: {phrase} of {spoken}."
+        elif family == "composite":
+            query = (
+                f"I had {phrase} of {spoken} for lunch. "
+                "What should I eat for dinner?"
+            )
+        else:
+            query = f"For lunch I had {phrase} of {spoken}."
         return {"query": query, "foods": [food.food_id]}
-    return {"query": "", "foods": []}
 
-
-def _tracer_phrase(food, path: str) -> str | None:
-    if path == "explicit_grams":
-        for alt in food.alternatives:
-            if alt.quantity == 1.0 and alt.key not in {"qns"}:
-                return f"{alt.grams:g} g"
-        return None
-    if path == "unspecified":
-        # QNS-backed foods speak bowl/plate/order (qns grams resolve).
-        for alt in food.alternatives:
-            if alt.key == "qns" and alt.quantity == 1.0:
-                return "a bowl"
-        return None
-    for alt in food.alternatives:
-        if alt.quantity == 1.0 and alt.key not in {"qns"}:
-            return alt.phrase
-    return None
+    return _tracer
 
 
 def _person_for(person_id: str | None) -> str | None:
@@ -120,6 +110,17 @@ def build_parser() -> argparse.ArgumentParser:
                         help="offline deterministic tracer (no network)")
     parser.add_argument("--anchor", action="store_true",
                         help="propose grams via an LLM anchor when resolve_portion fails (live only)")
+    parser.add_argument("--shell", default=None,
+                        help="recommend/update template shell id (e.g. rec-dinner, upd-weight)")
+    parser.add_argument("--slots", default=None,
+                        help="template slots, JSON object (e.g. '{\"allergen\":\"milk\",\"n\":\"71\"}')")
+    parser.add_argument("--scene", default="empty", choices=("empty", "leftover"))
+    parser.add_argument("--steps", default=None,
+                        help="composite steps, comma-separated (e.g. log,recommend)")
+    parser.add_argument("--knife", default=None, choices=KNIVES,
+                        help="evaluate knife: allergy/over_slot/under_slot/swap")
+    parser.add_argument("--last-meal", action="store_true",
+                        help="evaluate last_meal flag (remainder floors bind)")
     parser.add_argument("--output", default=None, help="write the task/rejection JSON here")
     parser.add_argument("--pretty", action="store_true")
     return parser
@@ -155,7 +156,7 @@ def main(argv: list[str] | None = None) -> int:
     catalog = load_catalog(Path(args.catalog))
 
     if args.synthetic:
-        expander = synthetic_query_foods_expander
+        expander = make_synthetic_query_foods_expander(catalog)
     else:
         model_id = args.model or QWEN_EXPANDER_MODELS[0]
         expander = make_log_expander(complete=_live_complete, model_id=model_id)
@@ -165,6 +166,23 @@ def main(argv: list[str] | None = None) -> int:
         if args.synthetic:
             raise SystemExit("--anchor requires a live model (drop --synthetic)")
         gram_anchor = make_llm_gram_anchor(catalog=catalog)
+
+    slots: dict[str, str] = {}
+    if args.slots is not None:
+        parsed_slots = json.loads(args.slots)
+        if not isinstance(parsed_slots, dict):
+            raise SystemExit("--slots must be a JSON object")
+        slots = {str(key): str(value) for key, value in parsed_slots.items()}
+
+    steps = None
+    if args.steps is not None:
+        steps = tuple(part.strip() for part in args.steps.split(",") if part.strip())
+
+    rewriter = None
+    if args.knife is not None:
+        if args.synthetic:
+            raise SystemExit("--knife requires a live rewriter (drop --synthetic)")
+        rewriter = make_unfit_rewriter(complete=_live_complete, catalog=catalog)
 
     kwargs: dict = dict(
         catalog=catalog,
@@ -176,9 +194,15 @@ def main(argv: list[str] | None = None) -> int:
         expander=expander,
         tier=args.tier,
         gram_anchor=gram_anchor,
+        shell=args.shell,
+        slots=slots,
+        scene=args.scene,
+        steps=steps,
+        knife=args.knife,
+        rewriter=rewriter,
+        last_meal=args.last_meal,
     )
     if args.person is not None:
-        from nutrienv.bench.pipeline.roster import profile_for
         person = next(p for p in ROSTER if p.user_id == args.person)
         kwargs["person"] = person
 

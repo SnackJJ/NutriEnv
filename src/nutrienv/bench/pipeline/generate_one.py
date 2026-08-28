@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import itertools
 import json
 import random
 import re
@@ -10,14 +11,27 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 
 from nutrienv.bench.quality_gates import EVALUATE_TIERS
-from nutrienv.bench.realize import Oracle, Task, compose_oracles, realize_evaluate
+from nutrienv.bench.realize import (
+    Oracle,
+    Task,
+    bind_evaluate_reasons,
+    compose_oracles,
+    realize_evaluate,
+)
 from nutrienv.world.daily_windows import (
     derive_profile_windows,
     estimated_energy_requirement,
     plan_windows_for_meal,
 )
 from nutrienv.world.portions import GRAM_UNITS, OUNCE_UNITS, UNIT_SYNONYMS, resolve_portion
-from nutrienv.world.types import MAX_ITEM_GRAMS, LedgerRow, WorldState, ledger_totals, normalize_tags
+from nutrienv.world.types import (
+    MAX_ITEM_GRAMS,
+    LedgerRow,
+    Profile,
+    WorldState,
+    ledger_totals,
+    normalize_tags,
+)
 
 from .knives import KNIVES, apply_knife
 from .resolver import GramAnchor, spoken_grams_from_query
@@ -49,6 +63,7 @@ __all__ = [
     "make_log_expander",
     "make_unfit_rewriter",
     "parse_query_foods_payload",
+    "search_fit_plate",
 ]
 
 AMOUNT_EXPLICIT_GRAMS = "explicit_grams"
@@ -156,11 +171,17 @@ def generate_one(
     steps: Sequence[str] | None = None,
     tier: str = "",
     gram_anchor: GramAnchor | None = None,
+    items: Sequence[Mapping[str, object]] | None = None,
 ) -> GenerateOneResult:
     """One mill item: roster person → world windows → pool → expander → speech bind.
 
     Recommend items are template-filled (``shell``/``slots``) with no expander.
     Composite log-then-recommend remainder is computed after the log tail.
+
+    ``items`` is evaluate-only authoring data: a code-chosen plate
+    (``[{"food_id": ..., "grams": ...}, ...]``). When given, the pool expander
+    is skipped and speech comes from ``rewriter`` (required, even when ``knife``
+    is None: the fit plate is spoken by the same speech writer).
 
     ``tier`` is evaluate-only authoring data (ADR 0016 difficulty tiers): it
     must be empty for every other family and a declared ``EVALUATE_TIERS``
@@ -198,6 +219,25 @@ def generate_one(
     rng = random.Random(seed)
     chosen = person if person is not None else sample_roster_person(seed)
     profile = profile_for(chosen)
+
+    if items is not None:
+        if family != "evaluate":
+            raise ValueError("items are evaluate-only authoring data")
+        if scene != "empty":
+            raise ValueError("items take no leftover scene")
+        return _evaluate_from_items(
+            catalog,
+            chosen=chosen,
+            profile=profile,
+            seed=seed,
+            occasion=occasion,
+            knife=knife,
+            rewriter=rewriter,
+            amount_path=amount_path,
+            tier=tier,
+            items=items,
+            pool_size=pool_size,
+        )
 
     if family == "recommend":
         return _recommend_from_template(
@@ -870,6 +910,162 @@ def _spoken_name(food_id: str, entry: Mapping) -> str:
     return name.split(",", 1)[0] if "," in name else name or food_id
 
 
+def search_fit_plate(
+    pool: FoodPool,
+    *,
+    profile: Profile,
+    catalog: Mapping,
+    occasion: str,
+    last_meal: bool = False,
+    max_foods: int = 3,
+) -> list[dict[str, object]] | None:
+    """Search a pool for an allergen-safe plate that fits the meal windows.
+
+    Code-only authoring helper for Evaluate: grams are the pool's own
+    quantity-1.0 PortionFacts (QNS included as a gram fact), and all six
+    windows must bind with an empty ``bind_evaluate_reasons`` set. Speech for
+    the returned plate is written later by the unfit/speech rewriter; this
+    function never invents grams or disallowed combinations.
+
+    ``profile`` must carry the derived daily windows for the S0 person.
+    """
+    eaten: dict[str, float] = {}
+    windows = plan_windows_for_meal(
+        profile.windows, eaten, occasion, last_meal=last_meal
+    )
+    if windows is None:
+        return None
+    # Deterministic candidate list: (food_id, grams) from quantity-1.0
+    # alternatives. Candidate grams are table values, never interpolations.
+    options: list[tuple[str, float]] = []
+    for food in pool.foods:
+        entry = catalog.get(food.food_id) or {}
+        tags = set(normalize_tags(list(entry.get("allergen_tags") or [])))
+        if tags & set(normalize_tags(list(profile.allergies))):
+            continue
+        for alt in sorted(
+            food.alternatives, key=lambda row: (row.grams, row.key)
+        ):
+            if alt.quantity != 1.0:
+                continue
+            grams = float(alt.grams)
+            if grams <= GRAM_TOLERANCE or grams > MAX_ITEM_GRAMS:
+                continue
+            pair = (food.food_id, grams)
+            if pair not in options:
+                options.append(pair)
+
+    def _fits(items: Sequence[tuple[str, float]]) -> bool:
+        plate = [{"food_id": fid, "grams": grams} for fid, grams in items]
+        return not bind_evaluate_reasons(plate, dict(windows), catalog, profile.allergies)
+
+    for size in range(1, max_foods + 1):
+        for combo in itertools.combinations(options, size):
+            fids = [fid for fid, _grams in combo]
+            if len(set(fids)) != len(fids):
+                continue
+            if _fits(combo):
+                return [{"food_id": fid, "grams": grams} for fid, grams in combo]
+    return None
+
+
+def _evaluate_from_items(
+    catalog: Mapping,
+    *,
+    chosen: RosterPerson,
+    profile: Profile,
+    seed: int,
+    occasion: str,
+    knife: str | None,
+    rewriter: Callable[..., object] | None,
+    amount_path: str | None,
+    tier: str,
+    items: Sequence[Mapping[str, object]],
+    pool_size: int = DEFAULT_GENERATE_POOL_SIZE,
+) -> GenerateOneResult:
+    """Author an Evaluate item from a code-chosen plate (fit, then knife)."""
+    plate: list[dict[str, object]] = []
+    for item in items:
+        if not isinstance(item, Mapping):
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected("", "bad_items", "evaluate")
+            )
+        food_id = str(item.get("food_id") or "")
+        grams = item.get("grams")
+        if not food_id or food_id not in catalog:
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected("", "bad_items", "evaluate")
+            )
+        if isinstance(grams, bool) or not isinstance(grams, (int, float)):
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected("", "bad_items", "evaluate")
+            )
+        grams = round(float(grams), 2)
+        if grams <= GRAM_TOLERANCE or grams > MAX_ITEM_GRAMS:
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected("", "bad_items", "evaluate")
+            )
+        plate.append({"food_id": food_id, "grams": grams})
+    if not plate:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "empty_pool", "evaluate")
+        )
+    eaten_at = f"today-{occasion}"
+    bound = [LedgerRow(row["food_id"], float(row["grams"]), eaten_at) for row in plate]
+    s0 = WorldState(profile=profile, ledger=[], catalog=catalog)
+
+    # The pool is reseeded the same way the caller authored the plate, so the
+    # knife's neighbor search sees the full pool (allergy knife needs more than
+    # the plate's foods). Plate membership is enforced instead of re-sampling
+    # risks: same seed + pool_size reproduce the caller's pool.
+    pools = sample_pools(
+        catalog,
+        seed=seed,
+        family="evaluate",
+        n_pools=1,
+        pool_size=pool_size,
+    )
+    pool = pools[0] if pools else None
+    if pool is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "empty_pool", "evaluate")
+        )
+    pool_ids = {food.food_id for food in pool.foods}
+    if any(row.food_id not in pool_ids for row in bound):
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "not_in_pool", "evaluate")
+        )
+
+    spoken_list = [
+        {"food_id": row.food_id, "grams": float(row.grams)} for row in bound
+    ]
+    query = _rewrite_unfit(
+        spoken_list,
+        rewriter,
+        intent="evaluate the meal",
+        occasion=occasion,
+        amount_path=amount_path or AMOUNT_NAMED_MEASURE,
+    )
+    if query is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "rewrite", "evaluate")
+        )
+    return _evaluate_from_bound(
+        query,
+        bound,
+        s0,
+        seed=seed,
+        occasion=occasion,
+        persona=chosen.persona,
+        knife=knife,
+        rewriter=rewriter,
+        pool=pool,
+        amount_path=amount_path or AMOUNT_NAMED_MEASURE,
+        last_meal=False,
+        tier=tier,
+    )
+
+
 def _evaluate_from_bound(
     query: str,
     bound: Sequence,
@@ -1187,6 +1383,7 @@ def build_log_system_prompt(
             "palm(-sized), deck of cards, dollop, splash, drizzle."
         )
         lines.append("Solid cup is allowed. Do not hide cup.")
+        lines.append("Do not write grams next to a named measure.")
     else:
         lines.append(
             "Amount path is unspecified quantity: bind will use FNDDS QNS "
@@ -1208,6 +1405,13 @@ def build_log_system_prompt(
             '- For plated mixed dishes such as pasta, prefer "a plate of" or "a bowl of".',
             '- Join foods naturally: "topped with", "along with", "with a side of".',
             "- Do not title-case foods or leak window numbers.",
+            "",
+            "Binding rules (fail-closed; the meal is rejected when violated):",
+            "- Speak every chosen food's amount with exactly one phrase from the "
+            "pool's own \u201cspeakable portions\u201d list, verbatim, no kitchen gloss.",
+            "- Do not rename the food (no dish suffixes like \"with gravy\" or "
+            "\"on a pancake\") and do not double an amount (no \"a cup, 195 g\").",
+            "- When two foods share a name, use the more specific \"spoken\" alias.",
         ]
     )
     return "\n".join(lines)
@@ -1247,7 +1451,10 @@ def build_log_user_prompt(pool: FoodPool, *, family: str = "log") -> str:
             "The user already ate this meal. Write a log request speaking only "
             "the portions shown above."
         )
-        lines.append("Compose one meal. Output the JSON object only.")
+        lines.append(
+            "Use each chosen food's exact speakable portions verbatim. "
+            "Compose one meal. Output the JSON object only."
+        )
     return "\n".join(lines)
 
 
