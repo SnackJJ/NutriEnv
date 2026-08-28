@@ -107,12 +107,17 @@ def _phrase_for_grams(catalog, food_id: str, grams: float) -> str | None:
     portions = entry.get("portions") or {}
     if not isinstance(portions, dict):
         return None
-    from nutrienv.bench.pipeline.sampler import portion_alternatives
+    from nutrienv.bench.pipeline.sampler import portion_alternatives, unit_naturalness_rank
 
-    for alt in portion_alternatives(entry):
-        if alt.quantity == 1.0 and abs(alt.grams - grams) < 1e-9:
-            return alt.phrase
-    return None
+    matching = [
+        alt
+        for alt in portion_alternatives(entry)
+        if alt.quantity == 1.0 and abs(alt.grams - grams) < 1e-9
+    ]
+    if not matching:
+        return None
+    matching.sort(key=lambda alt: (unit_naturalness_rank(alt.key), alt.phrase))
+    return matching[0].phrase
 
 
 def _join_natural(parts: list[str]) -> str:

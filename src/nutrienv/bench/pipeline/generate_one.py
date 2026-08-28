@@ -36,7 +36,7 @@ from nutrienv.world.types import (
 from .knives import KNIVES, apply_knife
 from .resolver import GramAnchor, spoken_grams_from_query
 from .roster import RosterPerson, profile_for, sample_roster_person
-from .sampler import sample_pools
+from .sampler import sample_pools, unit_naturalness_rank
 from .semantic_vote import GRAM_TOLERANCE
 from .templates import recommend_query, update_query
 from .types import (
@@ -944,7 +944,12 @@ def search_fit_plate(
         if tags & set(normalize_tags(list(profile.allergies))):
             continue
         for alt in sorted(
-            food.alternatives, key=lambda row: (row.grams, row.key)
+            food.alternatives,
+            key=lambda row: (
+                unit_naturalness_rank(row.key),
+                row.grams,
+                row.key,
+            ),
         ):
             if alt.quantity != 1.0:
                 continue

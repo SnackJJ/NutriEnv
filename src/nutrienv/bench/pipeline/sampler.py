@@ -22,6 +22,7 @@ __all__ = [
     "portion_alternatives",
     "speakable_tracer_food",
     "spoken_display_name",
+    "unit_naturalness_rank",
 ]
 
 # Spoken forms resolve_portion can actually parse. Catalog-v1 also stores
@@ -229,20 +230,144 @@ def speakable_tracer_food(
     return None
 
 
+def unit_naturalness_rank(key: str) -> int:
+    """Naturalness preference rank for portion units (lower = more preferred).
+
+    Discrete / food-shaped units (slice, piece, patty, etc.) rank ahead of
+    cooking measures (tbsp/tsp), which rank ahead of volume containers (cup/fl_oz),
+    which rank ahead of generic servings (serving/qns).
+    """
+    k = str(key).lower()
+    if k in (
+        "piece",
+        "slice",
+        "patty",
+        "can",
+        "bar",
+        "stick",
+        "wing",
+        "drummette",
+        "packet",
+        "pouch",
+        "pat",
+        "sandwich",
+        "burrito",
+        "muffin",
+    ):
+        return 10
+    if k in ("tbsp", "tablespoon", "tsp", "teaspoon", "scoop"):
+        return 20
+    if k in ("cup", "fl_oz"):
+        return 30
+    if k in ("serving", "qns"):
+        return 40
+    return 50
+
+
+def _is_liquid_or_condiment(name: str) -> bool:
+    lowered = name.lower()
+    return any(
+        w in lowered
+        for w in (
+            "sauce",
+            "dressing",
+            "oil",
+            "syrup",
+            "ketchup",
+            "mustard",
+            "mayo",
+            "mayonnaise",
+            "vinegar",
+            "dip",
+            "gravy",
+            "beverage",
+            "water",
+            "juice",
+            "coffee",
+            "tea",
+            "soda",
+            "cola",
+        )
+    )
+
+
+def _unspecified_phrase(food: PoolFood) -> str:
+    name = food.name.lower()
+    if any(
+        w in name
+        for w in (
+            "soup",
+            "cereal",
+            "oatmeal",
+            "grits",
+            "porridge",
+            "congee",
+            "chili",
+            "stew",
+            "curry",
+            "ramen",
+            "pho",
+            "salad",
+        )
+    ):
+        return "a bowl"
+    if any(
+        w in name
+        for w in (
+            "pasta",
+            "noodle",
+            "spaghetti",
+            "macaroni",
+            "lasagna",
+            "ravioli",
+            "tortellini",
+            "casserole",
+            "stir fry",
+            "stroganoff",
+            "steak",
+            "roast",
+            "chicken",
+            "fish",
+            "pork",
+            "beef",
+        )
+    ):
+        return "a plate"
+    if any(w in name for w in ("fries", "onion ring", "nachos", "tater tot", "hash brown")):
+        return "an order"
+    return "a serving"
+
+
 def _tracer_phrase(food: PoolFood, amount_path: str) -> str | None:
     if amount_path == "explicit_grams":
-        for alt in food.alternatives:
-            if alt.quantity == 1.0 and alt.key != "qns":
-                return f"{alt.grams:g} g"
+        if _is_liquid_or_condiment(food.name):
+            return None
+        alts = sorted(
+            [
+                alt
+                for alt in food.alternatives
+                if alt.quantity == 1.0 and alt.key != "qns"
+            ],
+            key=lambda a: (unit_naturalness_rank(a.key), a.grams, a.phrase),
+        )
+        if alts:
+            return f"{alts[0].grams:g} g"
         return None
     if amount_path == "unspecified":
         for alt in food.alternatives:
             if alt.key == "qns" and alt.quantity == 1.0:
-                return "a bowl"
+                return _unspecified_phrase(food)
         return None
-    for alt in food.alternatives:
-        if alt.quantity == 1.0 and alt.key != "qns":
-            return alt.phrase
+    alts = sorted(
+        [
+            alt
+            for alt in food.alternatives
+            if alt.quantity == 1.0 and alt.key != "qns"
+        ],
+        key=lambda a: (unit_naturalness_rank(a.key), a.grams, a.phrase),
+    )
+    if alts:
+        return alts[0].phrase
     return None
 
 

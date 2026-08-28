@@ -796,6 +796,9 @@ def _evaluate_food_names(food_id: str, catalog) -> list[str]:
     if "," in name:
         names.append(name.split(",", 1)[0])
     names.extend(str(alias) for alias in (entry.get("aliases") or []))
+    from nutrienv.bench.pipeline.sampler import spoken_display_name
+
+    names.append(spoken_display_name(catalog, food_id))
     return names
 
 

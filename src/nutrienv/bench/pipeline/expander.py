@@ -14,6 +14,7 @@ from .models import (
     enabled_route,
     parse_model_route,
 )
+from .sampler import unit_naturalness_rank
 from .types import COMPOSITE_FAMILY, COMPOSITE_STEPS, MAX_PER_POOL, Candidate, FoodPool, PoolFood
 
 __all__ = [
@@ -391,9 +392,10 @@ def _steps_from_payload(payload: Mapping, *, family: str) -> tuple[str, ...] | N
 
 
 def _preferred_phrase(food: PoolFood) -> str | None:
-    for alt in food.alternatives:
-        if alt.quantity == 1.0:
-            return alt.phrase
+    alts_one = [alt for alt in food.alternatives if alt.quantity == 1.0]
+    if alts_one:
+        alts_one.sort(key=lambda a: (unit_naturalness_rank(a.key), a.grams, a.phrase))
+        return alts_one[0].phrase
     if food.alternatives:
         return food.alternatives[0].phrase
     return None
