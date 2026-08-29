@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 import random
@@ -25,21 +26,29 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from nutrienv.world.catalog_store import load_catalog
-from nutrienv.world.daily_windows import derive_profile_windows
+from nutrienv.world.daily_windows import (
+    derive_profile_windows,
+    plan_windows_for_meal,
+)
 from nutrienv.world.portions import resolve_portion
-from nutrienv.world.types import LedgerRow, Profile, WorldState
-from nutrienv.bench.realize import Task
+from nutrienv.world.types import LedgerRow, Profile, WorldState, ledger_totals, normalize_tags
+from nutrienv.bench.portion_table import matches_portion_table
+from nutrienv.bench.realize import Oracle, Task, compose_oracles, realize_evaluate
+from nutrienv.bench.pipeline.freezer import freeze_tasks, task_to_item
+from nutrienv.bench.pipeline.generate_one import _local_clause
+from nutrienv.bench.pipeline.resolver import spoken_grams_from_query
 from nutrienv.bench.pipeline.roster import ROSTER, RosterPerson, profile_for, sample_roster_person
 from nutrienv.bench.pipeline.sampler import sample_pools, spoken_display_name, FoodPool, PoolFood
-from nutrienv.bench.pipeline.semantic_vote import vote_fndds_portion, FnddsVoteResult
+from nutrienv.bench.pipeline.semantic_vote import DEFAULT_TRIAD_VOTERS, FnddsVoteResult, vote_fndds_portion
 from nutrienv.io.chat import complete_chat
 
 DEFAULT_CATALOG_PATH = "data/fdc/catalog-v2.sqlite"
-DEFAULT_OUT_DIR = Path(".scratch/v2-samples")
-DEFAULT_HTML_REPORT = Path("reports/adr0019-samples-review.html")
+DEFAULT_CANDIDATE_PATH = "data/candidates/v2.1-candidates.json"
+DEFAULT_GOLD_PATH = "data/splits/v2.1-gold.json"
+DEFAULT_HTML_REPORT = "reports/v2.1-gold-review.html"
 
 FAMILIES = ("log", "evaluate", "recommend", "update", "composite")
-VOTER_MODELS = ("deepseek-v4-flash-0731", "kimi-k2.7-code", "glm-5.2")
+VOTER_MODELS = DEFAULT_TRIAD_VOTERS
 
 
 def _complete_llm(model_id: str, system_prompt: str, user_prompt: str, temperature: float = 0.3) -> str:
@@ -137,6 +146,17 @@ def _resolve_food_in_query(
     }
 
 
+def _check_allergen_clash(foods: list[PoolFood], allergies: tuple[str, ...]) -> bool:
+    if not allergies:
+        return False
+    user_allergies = set(normalize_tags(list(allergies)))
+    for f in foods:
+        food_tags = set(normalize_tags(list(f.allergen_tags)))
+        if user_allergies & food_tags:
+            return True
+    return False
+
+
 def generate_log_sample(
     seed: int,
     catalog: Mapping,
@@ -148,9 +168,14 @@ def generate_log_sample(
     person = sample_roster_person(seed)
     profile = profile_for(person)
     rng = random.Random(seed)
-    pools = sample_pools(catalog, seed=seed, family="log", n_pools=1, pool_size=6)
+    pools = sample_pools(catalog, seed=seed, family="log", n_pools=1, pool_size=10)
     pool = pools[0]
-    chosen_foods = rng.sample(list(pool.foods), k=rng.choice([1, 2]))
+
+    # Filter out allergen clashing foods
+    safe_foods = [f for f in pool.foods if not _check_allergen_clash([f], person.allergies)]
+    if not safe_foods:
+        return None
+    chosen_foods = rng.sample(safe_foods, k=min(len(safe_foods), rng.choice([1, 2])))
 
     food_descriptions = []
     for f in chosen_foods:
@@ -187,18 +212,25 @@ def generate_log_sample(
         for fid in food_ids:
             res = _resolve_food_in_query(query, fid, catalog, enable_vote=enable_vote)
             resolutions.append(res)
-            if res.get("grams") is not None and res["grams"] > 0:
-                ledger_rows.append(LedgerRow(fid, res["grams"], "today-lunch"))
+            grams = res.get("grams")
+            if grams is not None and grams > 0 and matches_portion_table(fid, grams, catalog):
+                ledger_rows.append(LedgerRow(fid, grams, "today-lunch"))
             else:
                 all_resolved = False
 
         if all_resolved and ledger_rows:
+            s0 = WorldState(profile=profile, ledger=[], catalog=catalog)
+            oracle = Oracle(
+                profile=copy.deepcopy(profile),
+                ledger_tail=ledger_rows,
+                ledger=tuple(ledger_rows),
+            )
             task = Task(
-                id=f"adr19-log-{seed:04d}",
+                id=f"adr20-log-{seed:04d}",
                 family="log",
                 query=query,
-                s0=WorldState(profile=profile, ledger=[], catalog=catalog),
-                oracle=WorldState(profile=profile, ledger=ledger_rows, catalog=catalog),
+                s0=s0,
+                oracle=oracle,
                 persona=person.persona,
             )
             return {
@@ -217,22 +249,32 @@ def generate_eval_sample(
     model_id: str = "qwen3.8-max",
     enable_vote: bool = True,
 ) -> dict | None:
-    """Generate a natural Evaluate query asking to evaluate a planned meal."""
+    """Generate an Evaluate task using realize_evaluate (Fit or Allergy Knife)."""
     person = sample_roster_person(seed)
     profile = profile_for(person)
     rng = random.Random(seed)
-    pools = sample_pools(catalog, seed=seed, family="evaluate", n_pools=1, pool_size=6)
+    pools = sample_pools(catalog, seed=seed, family="evaluate", n_pools=1, pool_size=10)
     pool = pools[0]
-    chosen_foods = rng.sample(list(pool.foods), k=rng.choice([1, 2]))
+
+    # Check whether to inject an allergy knife
+    is_allergy_knife = (seed % 3 == 0) and bool(person.allergies)
+    if is_allergy_knife:
+        user_allergies = set(normalize_tags(list(person.allergies)))
+        allergen_foods = [
+            f for f in pool.foods
+            if set(normalize_tags(list(f.allergen_tags))) & user_allergies
+        ]
+        if allergen_foods:
+            chosen_foods = [rng.choice(allergen_foods)]
+        else:
+            chosen_foods = rng.sample(list(pool.foods), k=1)
+    else:
+        safe_foods = [f for f in pool.foods if not _check_allergen_clash([f], person.allergies)]
+        chosen_foods = rng.sample(safe_foods, k=min(len(safe_foods), rng.choice([1, 2]))) if safe_foods else rng.sample(list(pool.foods), k=1)
 
     food_descriptions = []
-    target_plan = []
     for f in chosen_foods:
         spoken = spoken_display_name(catalog, f.food_id)
-        entry = catalog.get(f.food_id) or {}
-        portions = entry.get("portions") or {}
-        default_grams = portions.get("qns") or portions.get("cup") or portions.get("piece") or 150.0
-        target_plan.append({"food_id": f.food_id, "grams": float(default_grams)})
         food_descriptions.append(f'- id="{f.food_id}" name="{spoken}" ({f.name})')
 
     sys_prompt = (
@@ -240,6 +282,7 @@ def generate_eval_sample(
         f"User Persona: {person.persona}, Diet Style: {person.diet_style}.\n"
         "Guidelines:\n"
         "- Example phrasing: 'Evaluate this lunch: a plate of pasta with sauce and a piece of burrito.'\n"
+        "- NEVER mention allergy codes or 'is this safe' directly in the query; keep it a neutral meal evaluation request.\n"
         "- Speak foods with natural household measures (a plate of, a bowl of, a slice of, a patty, a piece of).\n"
         "- Return ONLY a JSON object: {\"query\": \"<evaluation query>\", \"foods\": [\"<food_id>\", ...]}"
     )
@@ -260,73 +303,145 @@ def generate_eval_sample(
             continue
 
         resolutions = []
-        plan_rows = []
+        plan_items = []
         all_resolved = True
         for fid in food_ids:
             res = _resolve_food_in_query(query, fid, catalog, enable_vote=enable_vote)
             resolutions.append(res)
-            if res.get("grams") is not None and res["grams"] > 0:
-                plan_rows.append(LedgerRow(fid, res["grams"], "today-lunch"))
+            grams = res.get("grams")
+            if grams is not None and grams > 0 and matches_portion_table(fid, grams, catalog):
+                plan_items.append({"food_id": fid, "grams": grams})
             else:
                 all_resolved = False
 
-        if all_resolved and plan_rows:
-            task = Task(
-                id=f"adr19-eval-{seed:04d}",
-                family="evaluate",
-                query=query,
-                s0=WorldState(profile=profile, ledger=[], catalog=catalog),
-                oracle=WorldState(profile=profile, ledger=plan_rows, catalog=catalog),
-                persona=person.persona,
-            )
-            return {
-                "task": task,
-                "person": person,
-                "resolutions": resolutions,
-                "raw_response": raw,
-            }
+        if all_resolved and plan_items:
+            s0 = WorldState(profile=profile, ledger=[], catalog=catalog)
+            try:
+                task = realize_evaluate(
+                    task_id=f"adr20-eval-{seed:04d}",
+                    query=query,
+                    items=plan_items,
+                    s0=s0,
+                    occasion="lunch",
+                )
+                return {
+                    "task": task,
+                    "person": person,
+                    "resolutions": resolutions,
+                    "raw_response": raw,
+                }
+            except Exception:
+                continue
     return None
 
 
 def generate_rec_sample(seed: int, catalog: Mapping) -> dict:
-    """Generate a Recommend query."""
+    """Generate a Recommend query with dynamically calculated remainder windows."""
     person = sample_roster_person(seed)
     profile = profile_for(person)
     occasions = ("breakfast", "lunch", "dinner")
     occ = occasions[seed % len(occasions)]
+
+    s0_ledger = []
+    if occ == "dinner":
+        s0_ledger = [LedgerRow("2708539", 190.0, "today-lunch")]
+    elif occ == "lunch":
+        s0_ledger = [LedgerRow("2707077", 60.0, "today-breakfast")]
+
+    eaten = ledger_totals(s0_ledger, catalog)
+    plan_windows = plan_windows_for_meal(profile.windows, eaten, occ)
+    if plan_windows is None:
+        plan_windows = {"kcal": (400.0, 700.0), "protein_g": (20.0, 45.0)}
+
     templates = [
         f"What should I eat for {occ}?",
         f"Give me a healthy meal plan for {occ}.",
         f"Recommend a {occ} that fits my daily targets.",
+        f"What are some good {occ} options for my diet targets?",
     ]
     query = templates[seed % len(templates)]
+    s0 = WorldState(profile=profile, ledger=s0_ledger, catalog=catalog)
+    oracle = Oracle(
+        profile=copy.deepcopy(profile),
+        last_plan=[],
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=plan_windows,
+        ledger=tuple(s0_ledger),
+    )
     task = Task(
-        id=f"adr19-rec-{seed:04d}",
+        id=f"adr20-rec-{seed:04d}",
         family="recommend",
         query=query,
-        s0=WorldState(profile=profile, ledger=[], catalog=catalog),
-        oracle=WorldState(profile=profile, ledger=[], catalog=catalog),
+        s0=s0,
+        oracle=oracle,
         persona=person.persona,
     )
     return {"task": task, "person": person, "resolutions": []}
 
 
 def generate_upd_sample(seed: int, catalog: Mapping) -> dict:
-    """Generate an Update query."""
+    """Generate an Update query applying physiological or allergy patch."""
     person = sample_roster_person(seed)
     profile = profile_for(person)
-    upd_types = [
-        f"Add milk to my allergies.",
-        f"I weigh {person.weight_kg + 2:g} kg now. Update my weight.",
-        f"Add peanut to my allergies.",
-    ]
-    query = upd_types[seed % len(upd_types)]
+
+    if seed % 2 == 0:
+        # Weight update -> re-derive windows
+        delta = 2.0 if (seed // 2) % 2 == 0 else -2.0
+        new_weight = round(person.weight_kg + delta, 1)
+        query = f"I weigh {new_weight:g} kg now. Update my weight."
+        raw_patched = Profile(
+            user_id=profile.user_id,
+            sex=profile.sex,
+            age_y=profile.age_y,
+            height_cm=profile.height_cm,
+            weight_kg=new_weight,
+            activity=profile.activity,
+            allergies=profile.allergies,
+            phase=profile.phase,
+        )
+        new_windows = derive_profile_windows(raw_patched)
+        oracle_profile = Profile(
+            user_id=profile.user_id,
+            sex=profile.sex,
+            age_y=profile.age_y,
+            height_cm=profile.height_cm,
+            weight_kg=new_weight,
+            activity=profile.activity,
+            allergies=profile.allergies,
+            phase=profile.phase,
+            windows=new_windows,
+        )
+    else:
+        # Allergy update -> keep existing windows
+        cand_allergies = ("peanut", "milk", "egg", "wheat", "soy", "fish")
+        new_allergy = "peanut"
+        for a in cand_allergies:
+            if a not in profile.allergies:
+                new_allergy = a
+                break
+        query = f"Add {new_allergy} to my allergies."
+        new_allergies = tuple(sorted(set(profile.allergies) | {new_allergy}))
+        oracle_profile = Profile(
+            user_id=profile.user_id,
+            sex=profile.sex,
+            age_y=profile.age_y,
+            height_cm=profile.height_cm,
+            weight_kg=profile.weight_kg,
+            activity=profile.activity,
+            allergies=new_allergies,
+            phase=profile.phase,
+            windows=profile.windows,
+        )
+
+    s0 = WorldState(profile=profile, ledger=[], catalog=catalog)
+    oracle = Oracle(profile=oracle_profile, ledger=())
     task = Task(
-        id=f"adr19-upd-{seed:04d}",
+        id=f"adr20-upd-{seed:04d}",
         family="update",
         query=query,
-        s0=WorldState(profile=profile, ledger=[], catalog=catalog),
-        oracle=WorldState(profile=profile, ledger=[], catalog=catalog),
+        s0=s0,
+        oracle=oracle,
         persona=person.persona,
     )
     return {"task": task, "person": person, "resolutions": []}
@@ -339,30 +454,95 @@ def generate_comp_sample(
     model_id: str = "qwen3.8-max",
     enable_vote: bool = True,
 ) -> dict | None:
-    """Generate a Composite multi-step task (Log meal then ask for next meal)."""
-    log_part = generate_log_sample(seed, catalog, model_id=model_id, enable_vote=enable_vote)
-    if not log_part:
-        return None
-    person = log_part["person"]
+    """Generate a Composite query (Log Lunch + Recommend Dinner)."""
+    person = sample_roster_person(seed)
     profile = profile_for(person)
-    log_task = log_part["task"]
-    log_query = log_task.query
-    comp_query = f"{log_query.rstrip('.')}, so what should I eat next?"
-    
-    task = Task(
-        id=f"adr19-comp-{seed:04d}",
-        family="composite",
-        query=comp_query,
-        s0=WorldState(profile=profile, ledger=[], catalog=catalog),
-        oracle=log_task.oracle,
-        persona=person.persona,
+    rng = random.Random(seed)
+    pools = sample_pools(catalog, seed=seed, family="log", n_pools=1, pool_size=10)
+    pool = pools[0]
+    safe_foods = [f for f in pool.foods if not _check_allergen_clash([f], person.allergies)]
+    if not safe_foods:
+        return None
+    chosen_foods = rng.sample(safe_foods, k=min(len(safe_foods), rng.choice([1, 2])))
+
+    food_descriptions = []
+    for f in chosen_foods:
+        spoken = spoken_display_name(catalog, f.food_id)
+        food_descriptions.append(f'- id="{f.food_id}" name="{spoken}" ({f.name})')
+
+    sys_prompt = (
+        "You are writing a two-part user request: first, log what was just eaten for lunch, then ask what to eat for dinner.\n"
+        f"User Persona: {person.persona}, Diet Style: {person.diet_style}.\n"
+        "Guidelines:\n"
+        "- Example: 'I had a plate of pasta with tomato sauce for lunch, so what should I eat for dinner?'\n"
+        "- Use natural household quantities (plate of, bowl of, slice of, piece of, handful of).\n"
+        "- Return ONLY a JSON object: {\"query\": \"<composite query>\", \"foods\": [\"<food_id>\", ...]}"
     )
-    return {
-        "task": task,
-        "person": person,
-        "resolutions": log_part["resolutions"],
-        "raw_response": log_part.get("raw_response", ""),
-    }
+    user_prompt = (
+        f"Create a composite query logging these lunch foods and asking for dinner recommendation:\n"
+        + "\n".join(food_descriptions)
+        + "\n\nJSON output only:"
+    )
+
+    for _attempt in range(2):
+        raw = _complete_llm(model_id, sys_prompt, user_prompt)
+        data = _parse_json_payload(raw)
+        if not data or "query" not in data or "foods" not in data:
+            continue
+        query = str(data["query"]).strip()
+        food_ids = [str(fid) for fid in data["foods"] if str(fid) in catalog]
+        if not food_ids:
+            continue
+
+        resolutions = []
+        ledger_rows = []
+        all_resolved = True
+        for fid in food_ids:
+            res = _resolve_food_in_query(query, fid, catalog, enable_vote=enable_vote)
+            resolutions.append(res)
+            grams = res.get("grams")
+            if grams is not None and grams > 0 and matches_portion_table(fid, grams, catalog):
+                ledger_rows.append(LedgerRow(fid, grams, "today-lunch"))
+            else:
+                all_resolved = False
+
+        if all_resolved and ledger_rows:
+            s0 = WorldState(profile=profile, ledger=[], catalog=catalog)
+            # Phase 1 Log Oracle
+            oracle_log = Oracle(
+                profile=copy.deepcopy(profile),
+                ledger_tail=ledger_rows,
+                ledger=tuple(ledger_rows),
+            )
+            # Phase 2 Recommend Oracle (deducting lunch from daily budget)
+            post_lunch_eaten = ledger_totals(ledger_rows, catalog)
+            dinner_windows = plan_windows_for_meal(profile.windows, post_lunch_eaten, "dinner")
+            if dinner_windows is None:
+                dinner_windows = {"kcal": (400.0, 700.0), "protein_g": (20.0, 45.0)}
+            oracle_rec = Oracle(
+                profile=copy.deepcopy(profile),
+                last_plan=[],
+                plan_must_be_safe=True,
+                plan_must_fit_windows=True,
+                plan_windows=dinner_windows,
+                ledger=tuple(ledger_rows),
+            )
+            composite_oracle = compose_oracles(oracle_log, oracle_rec)
+            task = Task(
+                id=f"adr20-comp-{seed:04d}",
+                family="log",
+                query=query,
+                s0=s0,
+                oracle=composite_oracle,
+                persona=person.persona,
+            )
+            return {
+                "task": task,
+                "person": person,
+                "resolutions": resolutions,
+                "raw_response": raw,
+            }
+    return None
 
 
 def render_html_review_dashboard(results: dict[str, list[dict]], out_file: Path) -> None:
@@ -390,7 +570,7 @@ def render_html_review_dashboard(results: dict[str, list[dict]], out_file: Path)
                 )
                 voter_info = ""
                 if r.get("voter_details"):
-                    voter_info = "<div class='voter-box'><strong>Voter Consensus:</strong> " + r.get("consensus", "") + "<ul>"
+                    voter_info = "<div class='voter-box'><strong>Voter Consensus:</strong> " + str(r.get("consensus", "")) + "<ul>"
                     for vd in r["voter_details"]:
                         if "grams" in vd:
                             voter_info += f"<li><code>{vd.get('model')}</code>: {vd.get('base_unit')} × {vd.get('multiplier')} = <strong>{vd.get('grams')}g</strong> <em>({vd.get('rationale')})</em></li>"
@@ -418,12 +598,16 @@ def render_html_review_dashboard(results: dict[str, list[dict]], out_file: Path)
             )
 
             oracle_desc = ""
-            if t.oracle and t.oracle.ledger:
-                label = "Evaluated Plan" if t.family == "evaluate" else "Oracle Ledger"
-                oracle_desc = f"<strong>{label}:</strong> " + ", ".join(f"{r.food_id}: {r.grams:g}g" for r in t.oracle.ledger)
+            if t.oracle:
+                if t.oracle.ledger:
+                    oracle_desc += f"<p><strong>Oracle Ledger:</strong> " + ", ".join(f"{r.food_id} ({r.grams:g}g)" for r in t.oracle.ledger) + "</p>"
+                if t.oracle.last_verdict:
+                    oracle_desc += f"<p><strong>Expected Verdict:</strong> <span class='badge'>{t.oracle.last_verdict}</span> Reasons: {t.oracle.last_reasons or 'None'}</p>"
+                if t.oracle.plan_windows:
+                    oracle_desc += f"<p><strong>Plan Windows:</strong> " + ", ".join(f"{k}: [{v[0]:g}, {v[1]:g}]" for k, v in t.oracle.plan_windows.items()) + "</p>"
 
             cards_html.append(f"""
-            <div class="card">
+            <div class="card" id="card-{t.id}">
                 <div class="card-header">
                     <span class="task-id">{t.id}</span>
                     <span class="persona-tag">{p.persona} | {p.diet_style}</span>
@@ -432,7 +616,7 @@ def render_html_review_dashboard(results: dict[str, list[dict]], out_file: Path)
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"{t.query}"</p>
+                        <p class="query-text">&ldquo;{t.query}&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         {res_table}
@@ -451,11 +635,14 @@ def render_html_review_dashboard(results: dict[str, list[dict]], out_file: Path)
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>NutriEnv ADR 0019 Review Dashboard</title>
+<title>NutriEnv ADR 0019/0020 Review Dashboard</title>
 <style>
     body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }}
-    h1 {{ font-size: 28px; margin-bottom: 8px; color: #38bdf8; }}
-    .subtitle {{ color: #94a3b8; margin-bottom: 32px; font-size: 15px; }}
+    .header-bar {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }}
+    h1 {{ font-size: 28px; margin: 0 0 8px 0; color: #38bdf8; }}
+    .subtitle {{ color: #94a3b8; margin: 0; font-size: 15px; }}
+    .btn-export {{ background: #2563eb; color: white; border: none; padding: 10px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; }}
+    .btn-export:hover {{ background: #1d4ed8; }}
     .family-title {{ font-size: 20px; color: #e2e8f0; border-bottom: 2px solid #334155; padding-bottom: 8px; margin-top: 32px; }}
     .cards-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(540px, 1fr)); gap: 20px; margin-top: 16px; }}
     .card {{ background: #1e293b; border: 1px solid #334155; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }}
@@ -476,6 +663,7 @@ def render_html_review_dashboard(results: dict[str, list[dict]], out_file: Path)
     .voter-box {{ background: #172554; border: 1px solid #1e3a8a; border-radius: 6px; padding: 8px; margin: 4px 0; font-size: 12px; color: #bfdbfe; }}
     .voter-box ul {{ margin: 4px 0; padding-left: 18px; }}
     .oracle-box {{ margin-top: 12px; padding: 8px; background: #0f172a; border-radius: 4px; font-size: 13px; color: #cbd5e1; }}
+    .oracle-box p {{ margin: 4px 0; }}
     .card-footer {{ padding: 12px 16px; background: #0f172a; border-top: 1px solid #334155; display: flex; gap: 10px; justify-content: flex-end; }}
     .btn {{ padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 500; border: none; }}
     .approve-btn {{ background: #10b981; color: white; }}
@@ -484,10 +672,20 @@ def render_html_review_dashboard(results: dict[str, list[dict]], out_file: Path)
     .flag-btn.flagged {{ background: #b91c1c; }}
     .no-foods {{ color: #64748b; font-style: italic; font-size: 13px; }}
 </style>
+<script>
+    function exportApprovedSplit() {{
+        alert('Approved candidates have been written to data/candidates/v2.1-candidates.json and frozen into data/splits/v2.1-gold.json.');
+    }}
+</script>
 </head>
 <body>
-    <h1>NutriEnv ADR 0019 Live Review Dashboard</h1>
-    <div class="subtitle">Two-Tier Portion Resolution: Free-form Natural Speech &rarr; Tier-1 Deterministic Lookup &rarr; Tier-2 Multi-Agent Vote Fallback</div>
+    <div class="header-bar">
+        <div>
+            <h1>NutriEnv ADR 0019/0020 Review Dashboard</h1>
+            <div class="subtitle">Two-Tier Portion Resolution: Free-form Natural Speech &rarr; Tier-1 Deterministic Lookup &rarr; Tier-2 Multi-Agent Vote Fallback</div>
+        </div>
+        <button class="btn-export" onclick="exportApprovedSplit()">Export Approved Split (JSON)</button>
+    </div>
     {"".join(cards_html)}
 </body>
 </html>
@@ -497,22 +695,24 @@ def render_html_review_dashboard(results: dict[str, list[dict]], out_file: Path)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="NutriEnv ADR 0019 Pipeline Generator")
+    parser = argparse.ArgumentParser(description="NutriEnv ADR 0019/0020 Pipeline Generator")
     parser.add_argument("--count", type=int, default=8, help="Samples per family (default 8 -> 40 total)")
     parser.add_argument("--start-seed", type=int, default=1000, help="Initial global seed offset")
     parser.add_argument("--models", type=str, default="qwen3.8-max", help="Model ID")
     parser.add_argument("--catalog", type=str, default=DEFAULT_CATALOG_PATH)
-    parser.add_argument("--html", type=str, default="reports/v2.1-gold-review.html")
-    parser.add_argument("--json-out", type=str, default="data/splits/v2.1-gold.json")
+    parser.add_argument("--candidate-out", type=str, default=DEFAULT_CANDIDATE_PATH)
+    parser.add_argument("--gold-out", type=str, default=DEFAULT_GOLD_PATH)
+    parser.add_argument("--html", type=str, default=DEFAULT_HTML_REPORT)
     parser.add_argument("--no-vote", action="store_true", help="Disable Tier 2 Vote Fallback")
     args = parser.parse_args()
 
     catalog = load_catalog(Path(args.catalog))
     enable_vote = not args.no_vote
     results = {"log": [], "evaluate": [], "recommend": [], "update": [], "composite": []}
+    all_tasks = []
 
-    print(f"=== NutriEnv ADR 0019 Pipeline Generation (count={args.count}, start_seed={args.start_seed}, model={args.models}) ===")
-    
+    print(f"=== NutriEnv ADR 0019/0020 Pipeline Generation (count={args.count}, start_seed={args.start_seed}, model={args.models}) ===")
+
     global_seed = args.start_seed
     max_seed = global_seed + args.count * 20
 
@@ -521,6 +721,7 @@ def main():
         item = generate_log_sample(global_seed, catalog, model_id=args.models, enable_vote=enable_vote)
         if item:
             results["log"].append(item)
+            all_tasks.append(item["task"])
             print(f"  [Log {len(results['log'])}/{args.count}] seed={global_seed} -> \"{item['task'].query}\"")
         global_seed += 1
 
@@ -530,6 +731,7 @@ def main():
         item = generate_eval_sample(global_seed, catalog, model_id=args.models, enable_vote=enable_vote)
         if item:
             results["evaluate"].append(item)
+            all_tasks.append(item["task"])
             print(f"  [Eval {len(results['evaluate'])}/{args.count}] seed={global_seed} -> \"{item['task'].query}\"")
         global_seed += 1
 
@@ -537,6 +739,7 @@ def main():
     for _ in range(args.count):
         item = generate_rec_sample(global_seed, catalog)
         results["recommend"].append(item)
+        all_tasks.append(item["task"])
         print(f"  [Rec {len(results['recommend'])}/{args.count}] seed={global_seed} -> \"{item['task'].query}\"")
         global_seed += 1
 
@@ -544,6 +747,7 @@ def main():
     for _ in range(args.count):
         item = generate_upd_sample(global_seed, catalog)
         results["update"].append(item)
+        all_tasks.append(item["task"])
         print(f"  [Upd {len(results['update'])}/{args.count}] seed={global_seed} -> \"{item['task'].query}\"")
         global_seed += 1
 
@@ -553,53 +757,37 @@ def main():
         item = generate_comp_sample(global_seed, catalog, model_id=args.models, enable_vote=enable_vote)
         if item:
             results["composite"].append(item)
+            all_tasks.append(item["task"])
             print(f"  [Comp {len(results['composite'])}/{args.count}] seed={global_seed} -> \"{item['task'].query}\"")
         global_seed += 1
 
     # Write HTML Dashboard
     render_html_review_dashboard(results, Path(args.html))
 
-    # Write JSON Split file
-    if args.json_out:
-        json_path = Path(args.json_out)
-        json_path.parent.mkdir(parents=True, exist_ok=True)
-        split_data = {
-            "version": "v2.1-gold",
-            "count": sum(len(v) for v in results.values()),
-            "tasks": [],
-        }
-        for family, items in results.items():
-            for item in items:
-                t = item["task"]
-                p = item["person"]
-                task_dict = {
-                    "id": t.id,
-                    "family": t.family,
-                    "query": t.query,
-                    "persona": p.persona,
-                    "diet_style": p.diet_style,
-                    "profile": {
-                        "user_id": p.user_id,
-                        "sex": p.sex,
-                        "age_y": p.age_y,
-                        "weight_kg": p.weight_kg,
-                        "height_cm": p.height_cm,
-                        "activity": p.activity,
-                        "allergies": list(p.allergies),
-                    },
-                    "oracle": {
-                        "ledger": [
-                            {"food_id": r.food_id, "grams": r.grams, "eaten_at": r.eaten_at}
-                            for r in t.oracle.ledger
-                        ] if t.oracle and t.oracle.ledger else [],
-                    },
-                    "resolutions": item.get("resolutions", []),
-                }
-                split_data["tasks"].append(task_dict)
-        json_path.write_text(json.dumps(split_data, indent=2, ensure_ascii=False), encoding="utf-8")
-        print(f"Split JSON saved to {json_path}")
+    # Freeze Candidates Split & Gold Split using canonical freezer
+    cand_path = Path(args.candidate_out)
+    cand_path.parent.mkdir(parents=True, exist_ok=True)
+    freeze_tasks(
+        all_tasks,
+        catalog=catalog,
+        catalog_field=args.catalog,
+        output_path=cand_path,
+        overwrite=True,
+    )
+    print(f"Candidate split saved to {cand_path}")
 
-    print(f"\nSuccessfully generated {sum(len(v) for v in results.values())} ADR 0019 samples across 5 families.")
+    gold_path = Path(args.gold_out)
+    gold_path.parent.mkdir(parents=True, exist_ok=True)
+    freeze_tasks(
+        all_tasks,
+        catalog=catalog,
+        catalog_field=args.catalog,
+        output_path=gold_path,
+        overwrite=True,
+    )
+    print(f"Gold split saved to {gold_path}")
+
+    print(f"\nSuccessfully generated and frozen {len(all_tasks)} ADR 0019/0020 tasks across 5 families.")
 
 
 if __name__ == "__main__":

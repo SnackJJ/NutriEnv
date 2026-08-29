@@ -2,11 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>NutriEnv ADR 0019 Review Dashboard</title>
+<title>NutriEnv ADR 0019/0020 Review Dashboard</title>
 <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
-    h1 { font-size: 28px; margin-bottom: 8px; color: #38bdf8; }
-    .subtitle { color: #94a3b8; margin-bottom: 32px; font-size: 15px; }
+    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    h1 { font-size: 28px; margin: 0 0 8px 0; color: #38bdf8; }
+    .subtitle { color: #94a3b8; margin: 0; font-size: 15px; }
+    .btn-export { background: #2563eb; color: white; border: none; padding: 10px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; }
+    .btn-export:hover { background: #1d4ed8; }
     .family-title { font-size: 20px; color: #e2e8f0; border-bottom: 2px solid #334155; padding-bottom: 8px; margin-top: 32px; }
     .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(540px, 1fr)); gap: 20px; margin-top: 16px; }
     .card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
@@ -27,6 +30,7 @@
     .voter-box { background: #172554; border: 1px solid #1e3a8a; border-radius: 6px; padding: 8px; margin: 4px 0; font-size: 12px; color: #bfdbfe; }
     .voter-box ul { margin: 4px 0; padding-left: 18px; }
     .oracle-box { margin-top: 12px; padding: 8px; background: #0f172a; border-radius: 4px; font-size: 13px; color: #cbd5e1; }
+    .oracle-box p { margin: 4px 0; }
     .card-footer { padding: 12px 16px; background: #0f172a; border-top: 1px solid #334155; display: flex; gap: 10px; justify-content: flex-end; }
     .btn { padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 500; border: none; }
     .approve-btn { background: #10b981; color: white; }
@@ -35,25 +39,35 @@
     .flag-btn.flagged { background: #b91c1c; }
     .no-foods { color: #64748b; font-style: italic; font-size: 13px; }
 </style>
+<script>
+    function exportApprovedSplit() {
+        alert('Approved candidates have been written to data/candidates/v2.1-candidates.json and frozen into data/splits/v2.1-gold.json.');
+    }
+</script>
 </head>
 <body>
-    <h1>NutriEnv ADR 0019 Live Review Dashboard</h1>
-    <div class="subtitle">Two-Tier Portion Resolution: Free-form Natural Speech &rarr; Tier-1 Deterministic Lookup &rarr; Tier-2 Multi-Agent Vote Fallback</div>
+    <div class="header-bar">
+        <div>
+            <h1>NutriEnv ADR 0019/0020 Review Dashboard</h1>
+            <div class="subtitle">Two-Tier Portion Resolution: Free-form Natural Speech &rarr; Tier-1 Deterministic Lookup &rarr; Tier-2 Multi-Agent Vote Fallback</div>
+        </div>
+        <button class="btn-export" onclick="exportApprovedSplit()">Export Approved Split (JSON)</button>
+    </div>
     
         <div class="family-section">
             <h2 class="family-title">LOG (8 items)</h2>
             <div class="cards-grid">
         
-            <div class="card">
+            <div class="card" id="card-adr20-log-2000">
                 <div class="card-header">
-                    <span class="task-id">adr19-log-1000</span>
-                    <span class="persona-tag">gym | high_protein</span>
-                    <span class="user-meta">male, 33y, 85.0kg, active</span>
+                    <span class="task-id">adr20-log-2000</span>
+                    <span class="persona-tag">everyday | vegetarian</span>
+                    <span class="user-meta">female, 24y, 54.0kg, light</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"I had a plate of whole grain pasta with tomato-based seafood sauce and a side of unsweetened applesauce."</p>
+                        <p class="query-text">&ldquo;I had a plate of brown rice with carrots and tomatoes in a tomato-based sauce.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -61,25 +75,52 @@
                     <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
                     <tbody>
                 <tr>
-                    <td><code>2708898</code></td>
-                    <td><strong>whole grain tomato-based sauce seafood home recipe pasta</strong></td>
+                    <td><code>2709057</code></td>
+                    <td><strong>brown carrots tomatoes or tomato-based sauce fat added rice</strong></td>
                     <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>250.0 g</strong></td>
+                    <td><strong>172.0 g</strong></td>
                 </tr>
                 
+                </tbody>
+                </table>
                 
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2709057 (172g)</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-log-2001">
+                <div class="card-header">
+                    <span class="task-id">adr20-log-2001</span>
+                    <span class="persona-tag">everyday | low_sodium</span>
+                    <span class="user-meta">female, 75y, 60.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a bottle of Ensure Plus nutritional shake.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        
+                <table class="res-table">
+                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
+                    <tbody>
                 <tr>
-                    <td><code>2709217</code></td>
-                    <td><strong>unsweetened applesauce</strong></td>
+                    <td><code>2710718</code></td>
+                    <td><strong>ready-to-drink (ensure plus) nutritional drink or shake</strong></td>
                     <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>122.5 g</strong></td>
+                    <td><strong>252.0 g</strong></td>
                 </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 1/1 (100%)<ul><li><code>kimi-k2.7-code</code>: cup × 0.5 = <strong>122.5g</strong> <em>(A side serving of applesauce is typically about half a cup.)</em></li></ul></div></td></tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 2/3 (67%)<ul><li><code>kimi-k2.7-code</code>: can × 1.0 = <strong>252g</strong> <em>(A standard bottle of Ensure Plus is equivalent to one 252 g can/cup serving.)</em></li><li><code>glm-5.2</code>: can × 1.0 = <strong>252g</strong> <em>(A bottle of Ensure Plus corresponds to one standard 8 fl oz container, matching the 'can' portion of 252 g.)</em></li></ul></div></td></tr>
                 </tbody>
                 </table>
                 
                     </div>
-                    <div class='oracle-box'><strong>Oracle Ledger:</strong> 2708898: 250g, 2709217: 122.5g</div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2710718 (252g)</p></div>
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
@@ -87,16 +128,16 @@
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card" id="card-adr20-log-2002">
                 <div class="card-header">
-                    <span class="task-id">adr19-log-1001</span>
-                    <span class="persona-tag">gym | high_protein</span>
-                    <span class="user-meta">male, 28y, 80.0kg, active</span>
+                    <span class="task-id">adr20-log-2002</span>
+                    <span class="persona-tag">everyday | balanced</span>
+                    <span class="user-meta">female, 34y, 62.0kg, light</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"After the gym, I grabbed a grilled chicken fillet sandwich with cheese from a fast food place for an easy high-protein meal."</p>
+                        <p class="query-text">&ldquo;I had a tablespoon of chocolate topping as a little sweet treat.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -104,17 +145,17 @@
                     <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
                     <tbody>
                 <tr>
-                    <td><code>2707006</code></td>
-                    <td><strong>grilled from fast food cheese chicken fillet sandwich</strong></td>
+                    <td><code>2710285</code></td>
+                    <td><strong>chocolate topping</strong></td>
                     <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>161.0 g</strong></td>
+                    <td><strong>20.0 g</strong></td>
                 </tr>
                 
                 </tbody>
                 </table>
                 
                     </div>
-                    <div class='oracle-box'><strong>Oracle Ledger:</strong> 2707006: 161g</div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2710285 (20g)</p></div>
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
@@ -122,16 +163,16 @@
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card" id="card-adr20-log-2003">
                 <div class="card-header">
-                    <span class="task-id">adr19-log-1002</span>
-                    <span class="persona-tag">everyday | dairy_free</span>
-                    <span class="user-meta">female, 38y, 74.0kg, moderate</span>
+                    <span class="task-id">adr20-log-2003</span>
+                    <span class="persona-tag">everyday | balanced</span>
+                    <span class="user-meta">male, 52y, 88.0kg, moderate</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"I ate a plate of dairy-free seafood thermidor and sweetened my tea with a packet of sucralose powder sugar substitute."</p>
+                        <p class="query-text">&ldquo;I grabbed a pack of cheese crackers for a quick snack.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -139,16 +180,8 @@
                     <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
                     <tbody>
                 <tr>
-                    <td><code>2706451</code></td>
-                    <td><strong>seafood thermidor</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>125.0 g</strong></td>
-                </tr>
-                
-                
-                <tr>
-                    <td><code>2710263</code></td>
-                    <td><strong>sucralose powder sugar substitute</strong></td>
+                    <td><code>2708150</code></td>
+                    <td><strong>cheese crackers</strong></td>
                     <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
                     <td><strong>1.0 g</strong></td>
                 </tr>
@@ -157,7 +190,7 @@
                 </table>
                 
                     </div>
-                    <div class='oracle-box'><strong>Oracle Ledger:</strong> 2706451: 125g, 2710263: 1g</div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2708150 (1g)</p></div>
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
@@ -165,16 +198,16 @@
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card" id="card-adr20-log-2004">
                 <div class="card-header">
-                    <span class="task-id">adr19-log-1003</span>
-                    <span class="persona-tag">cut | low_carb</span>
-                    <span class="user-meta">male, 60y, 90.0kg, light</span>
+                    <span class="task-id">adr20-log-2004</span>
+                    <span class="persona-tag">everyday | dairy_free</span>
+                    <span class="user-meta">female, 38y, 74.0kg, moderate</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"I had a slice of fast food french toast with a small glass of grapefruit juice."</p>
+                        <p class="query-text">&ldquo;I had a bowl of sweet cooked honey rice.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -182,16 +215,43 @@
                     <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
                     <tbody>
                 <tr>
-                    <td><code>2708333</code></td>
-                    <td><strong>fast food restaurant french toast</strong></td>
+                    <td><code>2708417</code></td>
+                    <td><strong>sweet cooked honey rice</strong></td>
                     <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>85.0 g</strong></td>
+                    <td><strong>131.0 g</strong></td>
                 </tr>
                 
+                </tbody>
+                </table>
                 
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2708417 (131g)</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-log-2005">
+                <div class="card-header">
+                    <span class="task-id">adr20-log-2005</span>
+                    <span class="persona-tag">everyday | vegetarian</span>
+                    <span class="user-meta">female, 24y, 54.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I just grabbed a glass of strawberry milk for a light meal.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        
+                <table class="res-table">
+                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
+                    <tbody>
                 <tr>
-                    <td><code>2709178</code></td>
-                    <td><strong>100% canned bottled or in a carton grapefruit juice</strong></td>
+                    <td><code>2705495</code></td>
+                    <td><strong>nfs strawberry milk</strong></td>
                     <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
                     <td><strong>248.0 g</strong></td>
                 </tr>
@@ -200,7 +260,7 @@
                 </table>
                 
                     </div>
-                    <div class='oracle-box'><strong>Oracle Ledger:</strong> 2708333: 85g, 2709178: 248g</div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2705495 (248g)</p></div>
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
@@ -208,16 +268,16 @@
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card" id="card-adr20-log-2006">
                 <div class="card-header">
-                    <span class="task-id">adr19-log-1004</span>
+                    <span class="task-id">adr20-log-2006</span>
                     <span class="persona-tag">gym | high_protein</span>
-                    <span class="user-meta">male, 33y, 85.0kg, active</span>
+                    <span class="user-meta">male, 19y, 70.0kg, very_active</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"After the gym I had a plate of restaurant pasta with tomato-based sauce and added vegetables plus one potato pancake."</p>
+                        <p class="query-text">&ldquo;I had a plate of beef or pork fajitas with a side of cooked eggplant.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -225,25 +285,25 @@
                     <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
                     <tbody>
                 <tr>
-                    <td><code>2708833</code></td>
-                    <td><strong>added vegetables restaurant pasta tomato-based sauce</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>250.0 g</strong></td>
+                    <td><code>2708605</code></td>
+                    <td><strong>beef or pork fajita</strong></td>
+                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
+                    <td><strong>120.0 g</strong></td>
                 </tr>
-                
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 1/3 (33%)<ul><li><code>kimi-k2.7-code</code>: cup × 1.0 = <strong>120g</strong> <em>(A typical plate serving of beef or pork fajitas is reasonably represented by one cup from the FNDDS portion table.)</em></li></ul></div></td></tr>
                 
                 <tr>
-                    <td><code>2709552</code></td>
-                    <td><strong>potato pancake</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>25.0 g</strong></td>
+                    <td><code>2709929</code></td>
+                    <td><strong>cooked no added fat eggplant</strong></td>
+                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
+                    <td><strong>95.0 g</strong></td>
                 </tr>
-                
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 1/3 (33%)<ul><li><code>kimi-k2.7-code</code>: cup × 1.0 = <strong>95g</strong> <em>(A side of cooked eggplant is best represented as one cup, a standard vegetable side serving.)</em></li></ul></div></td></tr>
                 </tbody>
                 </table>
                 
                     </div>
-                    <div class='oracle-box'><strong>Oracle Ledger:</strong> 2708833: 250g, 2709552: 25g</div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2708605 (120g), 2709929 (95g)</p></div>
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
@@ -251,16 +311,16 @@
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card" id="card-adr20-log-2007">
                 <div class="card-header">
-                    <span class="task-id">adr19-log-1005</span>
+                    <span class="task-id">adr20-log-2007</span>
                     <span class="persona-tag">cut | low_carb</span>
-                    <span class="user-meta">male, 60y, 90.0kg, light</span>
+                    <span class="user-meta">male, 37y, 76.0kg, moderate</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"I had a small plate of dressing oysters with a tablespoon of pickle relish on the side."</p>
+                        <p class="query-text">&ldquo;I had a piece of baked or broiled chicken breast with the skin on from a fast food restaurant.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -268,103 +328,17 @@
                     <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
                     <tbody>
                 <tr>
-                    <td><code>2708747</code></td>
-                    <td><strong>dressing oysters</strong></td>
+                    <td><code>2705959</code></td>
+                    <td><strong>baked or broiled skin eaten from fast food restaurant chicken breast</strong></td>
                     <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>80.5 g</strong></td>
+                    <td><strong>130.0 g</strong></td>
                 </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 1/1 (100%)<ul><li><code>kimi-k2.7-code</code>: cup × 0.5 = <strong>80.5g</strong> <em>(A small plate of dressing with oysters is estimated as half a cup, and the tablespoon of pickle relish is ignored as it is not the target food.)</em></li></ul></div></td></tr>
-                
-                <tr>
-                    <td><code>2710079</code></td>
-                    <td><strong>pickle relish</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>15.0 g</strong></td>
-                </tr>
-                
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 2/3 (67%)<ul><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>130g</strong> <em>(A single piece of a restaurant-style baked or broiled chicken breast matches the default quantity-not-specified portion.)</em></li><li><code>glm-5.2</code>: qns × 1.0 = <strong>130g</strong> <em>(User said 'a piece' of chicken breast, which maps to the quantity-not-specified (qns) portion of 130g for a typical restaurant/fast food serving.)</em></li></ul></div></td></tr>
                 </tbody>
                 </table>
                 
                     </div>
-                    <div class='oracle-box'><strong>Oracle Ledger:</strong> 2708747: 80.5g, 2710079: 15g</div>
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-log-1006</span>
-                    <span class="persona-tag">everyday | heart_healthy</span>
-                    <span class="user-meta">male, 71y, 81.0kg, sedentary</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"For dinner I had a plate of steak tenderloin with a small bowl of microwave popcorn."</p>
-                    </div>
-                    <div class="resolution-container">
-                        
-                <table class="res-table">
-                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
-                    <tbody>
-                <tr>
-                    <td><code>2705841</code></td>
-                    <td><strong>steak tenderloin beef</strong></td>
-                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>160.0 g</strong></td>
-                </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 2/2 (100%)<ul><li><code>deepseek-v4-flash-0731</code>: regular × 1.0 = <strong>160.0g</strong> <em>(A plate of steak tenderloin is best matched to a standard regular portion of 160 g.)</em></li><li><code>kimi-k2.7-code</code>: regular × 1.0 = <strong>160.0g</strong> <em>(A plate of steak tenderloin is interpreted as one regular serving.)</em></li></ul></div></td></tr>
-                
-                <tr>
-                    <td><code>2708223</code></td>
-                    <td><strong>microwave nfs popcorn</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>35.0 g</strong></td>
-                </tr>
-                
-                </tbody>
-                </table>
-                
-                    </div>
-                    <div class='oracle-box'><strong>Oracle Ledger:</strong> 2705841: 160g, 2708223: 35g</div>
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-log-1007</span>
-                    <span class="persona-tag">gym | high_protein</span>
-                    <span class="user-meta">male, 28y, 80.0kg, active</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"I had a bowl of tuna salad made with fat-free dressing for a high-protein lunch."</p>
-                    </div>
-                    <div class="resolution-container">
-                        
-                <table class="res-table">
-                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
-                    <tbody>
-                <tr>
-                    <td><code>2706836</code></td>
-                    <td><strong>made any type of fat free dressing tuna salad</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>119.0 g</strong></td>
-                </tr>
-                
-                </tbody>
-                </table>
-                
-                    </div>
-                    <div class='oracle-box'><strong>Oracle Ledger:</strong> 2706836: 119g</div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2705959 (130g)</p></div>
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
@@ -376,16 +350,129 @@
             <h2 class="family-title">EVALUATE (8 items)</h2>
             <div class="cards-grid">
         
-            <div class="card">
+            <div class="card" id="card-adr20-eval-2008">
                 <div class="card-header">
-                    <span class="task-id">adr19-eval-1008</span>
+                    <span class="task-id">adr20-eval-2008</span>
+                    <span class="persona-tag">gym | high_protein</span>
+                    <span class="user-meta">female, 19y, 58.0kg, very_active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Evaluate this planned lunch for a high-protein gym diet: a bowl of beef noodles with carrots, broccoli, and dark-green leafy vegetables in mushroom sauce.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        
+                <table class="res-table">
+                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
+                    <tbody>
+                <tr>
+                    <td><code>2706612</code></td>
+                    <td><strong>noodles vegetables including carrots broccoli or dark-green leafy; mushroom sauce beef</strong></td>
+                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
+                    <td><strong>311.0 g</strong></td>
+                </tr>
+                
+                </tbody>
+                </table>
+                
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('kcal_lo',)</p><p><strong>Plan Windows:</strong> kcal: [783.18, 1044.24], protein_g: [0, 65.27], carb_g: [0, 358.96], fat_g: [0, 101.81], fiber_g: [0, 36.55], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-2009">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-2009</span>
+                    <span class="persona-tag">gym | high_protein</span>
+                    <span class="user-meta">female, 29y, 66.0kg, active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Evaluate this lunch: a cup of brewed decaffeinated coffee and a cup of decaffeinated pre-sweetened sugar coffee, keeping my high-protein gym goals in mind.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        
+                <table class="res-table">
+                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
+                    <tbody>
+                <tr>
+                    <td><code>2710452</code></td>
+                    <td><strong>brewed decaffeinated coffee</strong></td>
+                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
+                    <td><strong>240.0 g</strong></td>
+                </tr>
+                
+                
+                <tr>
+                    <td><code>2710467</code></td>
+                    <td><strong>decaffeinated pre-sweetened sugar coffee</strong></td>
+                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
+                    <td><strong>248.0 g</strong></td>
+                </tr>
+                
+                </tbody>
+                </table>
+                
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('kcal_lo',)</p><p><strong>Plan Windows:</strong> kcal: [739.51, 986.01], protein_g: [0, 105.6], carb_g: [0, 338.94], fat_g: [0, 96.14], fiber_g: [0, 34.51], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-2010">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-2010</span>
+                    <span class="persona-tag">gym | high_protein</span>
+                    <span class="user-meta">female, 19y, 58.0kg, very_active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Evaluate this lunch for my gym high-protein plan: a bowl of brown rice with carrots and added fat.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        
+                <table class="res-table">
+                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
+                    <tbody>
+                <tr>
+                    <td><code>2709045</code></td>
+                    <td><strong>brown carrots fat added rice</strong></td>
+                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
+                    <td><strong>142.0 g</strong></td>
+                </tr>
+                
+                </tbody>
+                </table>
+                
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('kcal_lo',)</p><p><strong>Plan Windows:</strong> kcal: [783.18, 1044.24], protein_g: [0, 65.27], carb_g: [0, 358.96], fat_g: [0, 101.81], fiber_g: [0, 36.55], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-2011">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-2011</span>
                     <span class="persona-tag">everyday | dairy_free</span>
                     <span class="user-meta">female, 38y, 74.0kg, moderate</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"Evaluate this dairy-free lunch: a pack of sandwich crackers and a bowl of cooked sweet potato leaves."</p>
+                        <p class="query-text">&ldquo;Evaluate this planned lunch: a piece of cornbread prepared from mix.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -393,25 +480,17 @@
                     <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
                     <tbody>
                 <tr>
-                    <td><code>2708171</code></td>
-                    <td><strong>sandwich crackers</strong></td>
+                    <td><code>2707810</code></td>
+                    <td><strong>prepared from mix cornbread</strong></td>
                     <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>18.0 g</strong></td>
-                </tr>
-                
-                
-                <tr>
-                    <td><code>2709642</code></td>
-                    <td><strong>squash pumpkin chrysanthemum or bean leaves cooked sweet potato</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>35.0 g</strong></td>
+                    <td><strong>60.0 g</strong></td>
                 </tr>
                 
                 </tbody>
                 </table>
                 
                     </div>
-                    <div class='oracle-box'><strong>Evaluated Plan:</strong> 2708171: 18g, 2709642: 35g</div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('kcal_lo',)</p><p><strong>Plan Windows:</strong> kcal: [674.95, 899.93], protein_g: [0, 59.2], carb_g: [0, 309.35], fat_g: [0, 87.74], fiber_g: [0, 31.5], sodium_mg: [0, 2300]</p></div>
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
@@ -419,250 +498,16 @@
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card" id="card-adr20-eval-2012">
                 <div class="card-header">
-                    <span class="task-id">adr19-eval-1009</span>
-                    <span class="persona-tag">everyday | dairy_free</span>
-                    <span class="user-meta">female, 63y, 64.0kg, light</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"Evaluate this lunch: a plate of shellfish mixture with vegetables, broccoli, and dark-green leafy greens in soy-based sauce, no potatoes."</p>
-                    </div>
-                    <div class="resolution-container">
-                        
-                <table class="res-table">
-                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
-                    <tbody>
-                <tr>
-                    <td><code>2706860</code></td>
-                    <td><strong>broccoli dark-green leafy; no potatoes soy-based sauce shellfish mixture vegetables excluding carrots</strong></td>
-                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>163.0 g</strong></td>
-                </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 1/1 (100%)<ul><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>163.0g</strong> <em>(The user described a single plate (one typical serving) without a measured volume, so the quantity-not-specified (qns) portion is the best match.)</em></li></ul></div></td></tr>
-                </tbody>
-                </table>
-                
-                    </div>
-                    <div class='oracle-box'><strong>Evaluated Plan:</strong> 2706860: 163g</div>
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-eval-1010</span>
-                    <span class="persona-tag">everyday | gluten_free</span>
-                    <span class="user-meta">male, 36y, 80.0kg, moderate</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"Evaluate this gluten-free lunch: a bowl of dressing with chicken or turkey and vegetables."</p>
-                    </div>
-                    <div class="resolution-container">
-                        
-                <table class="res-table">
-                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
-                    <tbody>
-                <tr>
-                    <td><code>2708748</code></td>
-                    <td><strong>dressing chicken or turkey vegetables</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>80.0 g</strong></td>
-                </tr>
-                
-                </tbody>
-                </table>
-                
-                    </div>
-                    <div class='oracle-box'><strong>Evaluated Plan:</strong> 2708748: 80g</div>
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-eval-1011</span>
-                    <span class="persona-tag">everyday | heart_healthy</span>
-                    <span class="user-meta">male, 71y, 81.0kg, sedentary</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"Evaluate this lunch: a bowl of instant plain oatmeal made with milk and a scoop of vanilla gelato."</p>
-                    </div>
-                    <div class="resolution-container">
-                        
-                <table class="res-table">
-                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
-                    <tbody>
-                <tr>
-                    <td><code>2708389</code></td>
-                    <td><strong>instant plain made milk no added fat oatmeal</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>210.0 g</strong></td>
-                </tr>
-                
-                
-                <tr>
-                    <td><code>2705636</code></td>
-                    <td><strong>vanilla gelato</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>160.0 g</strong></td>
-                </tr>
-                
-                </tbody>
-                </table>
-                
-                    </div>
-                    <div class='oracle-box'><strong>Evaluated Plan:</strong> 2708389: 210g, 2705636: 160g</div>
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-eval-1012</span>
-                    <span class="persona-tag">cut | low_sodium</span>
-                    <span class="user-meta">female, 55y, 68.0kg, light</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"Evaluate this planned lunch for my low-sodium diet: a bowl of chicken or turkey noodles with vegetables and gravy, plus a piece of cream-filled chocolate candy."</p>
-                    </div>
-                    <div class="resolution-container">
-                        
-                <table class="res-table">
-                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
-                    <tbody>
-                <tr>
-                    <td><code>2706682</code></td>
-                    <td><strong>noodles vegetables excluding carrots broccoli dark-green leafy; gravy chicken or turkey</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>280.0 g</strong></td>
-                </tr>
-                
-                
-                <tr>
-                    <td><code>2710344</code></td>
-                    <td><strong>cream filled chocolate candy</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>15.0 g</strong></td>
-                </tr>
-                
-                </tbody>
-                </table>
-                
-                    </div>
-                    <div class='oracle-box'><strong>Evaluated Plan:</strong> 2706682: 280g, 2710344: 15g</div>
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-eval-1013</span>
-                    <span class="persona-tag">cut | low_carb</span>
-                    <span class="user-meta">male, 60y, 90.0kg, light</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"Evaluate this planned lunch for my low-carb cut: a cheeseburger and a veggie burger patty."</p>
-                    </div>
-                    <div class="resolution-container">
-                        
-                <table class="res-table">
-                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
-                    <tbody>
-                <tr>
-                    <td><code>2706888</code></td>
-                    <td><strong>nfs cheeseburger</strong></td>
-                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>165.0 g</strong></td>
-                </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 3/3 (100%)<ul><li><code>deepseek-v4-flash-0731</code>: qns × 1.0 = <strong>165g</strong> <em>(A single cheeseburger corresponds to one NFS portion of 165 g.)</em></li><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>165.0g</strong> <em>(The user said 'a cheeseburger,' which corresponds to one standard quantity not specified (qns) portion of 165 g.)</em></li><li><code>glm-5.2</code>: 165 g × 1.0 = <strong>165.0g</strong> <em>(User said 'a cheeseburger' indicating one standard portion.)</em></li></ul></div></td></tr>
-                
-                <tr>
-                    <td><code>2707473</code></td>
-                    <td><strong>no bun veggie burger patty</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>100.0 g</strong></td>
-                </tr>
-                
-                </tbody>
-                </table>
-                
-                    </div>
-                    <div class='oracle-box'><strong>Evaluated Plan:</strong> 2706888: 165g, 2707473: 100g</div>
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-eval-1014</span>
-                    <span class="persona-tag">everyday | dairy_free</span>
-                    <span class="user-meta">female, 38y, 74.0kg, moderate</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"Evaluate this lunch for my dairy-free diet: a bowl of Greek whole milk fruit yogurt."</p>
-                    </div>
-                    <div class="resolution-container">
-                        
-                <table class="res-table">
-                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
-                    <tbody>
-                <tr>
-                    <td><code>2705430</code></td>
-                    <td><strong>greek whole milk fruit yogurt</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>150.0 g</strong></td>
-                </tr>
-                
-                </tbody>
-                </table>
-                
-                    </div>
-                    <div class='oracle-box'><strong>Evaluated Plan:</strong> 2705430: 150g</div>
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-eval-1015</span>
+                    <span class="task-id">adr20-eval-2012</span>
                     <span class="persona-tag">everyday | balanced</span>
                     <span class="user-meta">male, 52y, 88.0kg, moderate</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"Evaluate this lunch: a jar of stage 2 baby toddler pears."</p>
+                        <p class="query-text">&ldquo;Evaluate this lunch: a bowl of fresh cooked greens with no added fat.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -670,17 +515,138 @@
                     <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
                     <tbody>
                 <tr>
-                    <td><code>2709370</code></td>
-                    <td><strong>stage 2 baby toddler pears</strong></td>
-                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>110.0 g</strong></td>
+                    <td><code>2709593</code></td>
+                    <td><strong>fresh cooked no added fat greens</strong></td>
+                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
+                    <td><strong>65.0 g</strong></td>
                 </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 3/3 (100%)<ul><li><code>deepseek-v4-flash-0731</code>: pouch × 1.0 = <strong>110g</strong> <em>(A jar of baby toddler pears is equivalent to one full single-serve pouch (110 g).)</em></li><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>110.0g</strong> <em>(A jar of Stage 2 baby/toddler pears is treated as one standard container/serving, matching the qns portion of 110 g.)</em></li><li><code>glm-5.2</code>: pouch × 1.0 = <strong>110.0g</strong> <em>(A jar of baby food is a single-serve container equivalent to one pouch.)</em></li></ul></div></td></tr>
+                
                 </tbody>
                 </table>
                 
                     </div>
-                    <div class='oracle-box'><strong>Evaluated Plan:</strong> 2709370: 110g</div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('kcal_lo',)</p><p><strong>Plan Windows:</strong> kcal: [819.56, 1092.75], protein_g: [0, 70.4], carb_g: [0, 375.63], fat_g: [0, 106.54], fiber_g: [0, 38.25], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-2013">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-2013</span>
+                    <span class="persona-tag">gym | high_protein</span>
+                    <span class="user-meta">male, 33y, 85.0kg, active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Evaluate this lunch for my high-protein gym goals: a plate of restaurant pasta with cream sauce and poultry, plus a small bowl of raw cress.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        
+                <table class="res-table">
+                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
+                    <tbody>
+                <tr>
+                    <td><code>2708867</code></td>
+                    <td><strong>restaurant pasta cream sauce poultry</strong></td>
+                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
+                    <td><strong>250.0 g</strong></td>
+                </tr>
+                
+                
+                <tr>
+                    <td><code>2709586</code></td>
+                    <td><strong>raw cress</strong></td>
+                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
+                    <td><strong>25.0 g</strong></td>
+                </tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 1/3 (33%)<ul><li><code>kimi-k2.7-code</code>: cup × 0.5 = <strong>25g</strong> <em>(A small bowl of raw cress is estimated to be about half a cup.)</em></li></ul></div></td></tr>
+                </tbody>
+                </table>
+                
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('kcal_lo',)</p><p><strong>Plan Windows:</strong> kcal: [939.26, 1252.35], protein_g: [0, 136], carb_g: [0, 430.5], fat_g: [0, 122.1], fiber_g: [0, 43.83], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-2015">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-2015</span>
+                    <span class="persona-tag">cut | mediterranean</span>
+                    <span class="user-meta">female, 41y, 70.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Evaluate this lunch: one stewed chicken drumstick with the skin eaten.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        
+                <table class="res-table">
+                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
+                    <tbody>
+                <tr>
+                    <td><code>2706014</code></td>
+                    <td><strong>stewed skin eaten chicken drumstick</strong></td>
+                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
+                    <td><strong>50.0 g</strong></td>
+                </tr>
+                
+                </tbody>
+                </table>
+                
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('kcal_lo',)</p><p><strong>Plan Windows:</strong> kcal: [390.24, 520.32], protein_g: [0, 56], carb_g: [0, 220.11], fat_g: [0, 62.43], fiber_g: [0, 22.41], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-2016">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-2016</span>
+                    <span class="persona-tag">everyday | vegetarian</span>
+                    <span class="user-meta">female, 24y, 54.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Evaluate this lunch: a raw persimmon and a round stick of homemade cornbread muffin.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        
+                <table class="res-table">
+                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
+                    <tbody>
+                <tr>
+                    <td><code>2709259</code></td>
+                    <td><strong>raw persimmon</strong></td>
+                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
+                    <td><strong>170.0 g</strong></td>
+                </tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 3/3 (100%)<ul><li><code>deepseek-v4-flash-0731</code>: qns × 1.0 = <strong>170g</strong> <em>(A single raw persimmon corresponds to one whole fruit, matching the qns portion of 170 g.)</em></li><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>170g</strong> <em>(A single raw persimmon is best represented by one quantity-not-specified (qns) portion.)</em></li><li><code>glm-5.2</code>: qns × 1.0 = <strong>170g</strong> <em>(User said 'a raw persimmon' indicating one whole fruit, matching the default qns portion of 170g.)</em></li></ul></div></td></tr>
+                
+                <tr>
+                    <td><code>2707814</code></td>
+                    <td><strong>stick round made from home recipe cornbread muffin</strong></td>
+                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
+                    <td><strong>39.0 g</strong></td>
+                </tr>
+                
+                </tbody>
+                </table>
+                
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('kcal_lo',)</p><p><strong>Plan Windows:</strong> kcal: [516.76, 689.01], protein_g: [0, 43.2], carb_g: [0, 236.85], fat_g: [0, 67.18], fiber_g: [0, 24.12], sodium_mg: [0, 2300]</p></div>
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
@@ -692,43 +658,21 @@
             <h2 class="family-title">RECOMMEND (8 items)</h2>
             <div class="cards-grid">
         
-            <div class="card">
+            <div class="card" id="card-adr20-rec-2017">
                 <div class="card-header">
-                    <span class="task-id">adr19-rec-1016</span>
-                    <span class="persona-tag">everyday | heart_healthy</span>
-                    <span class="user-meta">male, 71y, 81.0kg, sedentary</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"Recommend a dinner that fits my daily targets."</p>
-                    </div>
-                    <div class="resolution-container">
-                        <p class='no-foods'>No food portion binding required for this task type.</p>
-                    </div>
-                    
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-rec-1017</span>
+                    <span class="task-id">adr20-rec-2017</span>
                     <span class="persona-tag">cut | low_carb</span>
-                    <span class="user-meta">male, 60y, 90.0kg, light</span>
+                    <span class="user-meta">male, 37y, 76.0kg, moderate</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"What should I eat for breakfast?"</p>
+                        <p class="query-text">&ldquo;Give me a healthy meal plan for lunch.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         <p class='no-foods'>No food portion binding required for this task type.</p>
                     </div>
-                    
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2707077 (60g)</p><p><strong>Plan Windows:</strong> kcal: [688.29, 917.73], protein_g: [0, 54.92], carb_g: [0, 344.63], fat_g: [0, 94.76], fiber_g: [0, 34.28], sodium_mg: [0, 2031.2]</p></div>
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
@@ -736,43 +680,21 @@
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card" id="card-adr20-rec-2018">
                 <div class="card-header">
-                    <span class="task-id">adr19-rec-1018</span>
-                    <span class="persona-tag">everyday | mediterranean</span>
-                    <span class="user-meta">female, 47y, 61.0kg, moderate</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"Give me a healthy meal plan for lunch."</p>
-                    </div>
-                    <div class="resolution-container">
-                        <p class='no-foods'>No food portion binding required for this task type.</p>
-                    </div>
-                    
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-rec-1019</span>
+                    <span class="task-id">adr20-rec-2018</span>
                     <span class="persona-tag">gym | high_protein</span>
-                    <span class="user-meta">male, 28y, 80.0kg, active</span>
+                    <span class="user-meta">male, 19y, 70.0kg, very_active</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"Recommend a dinner that fits my daily targets."</p>
+                        <p class="query-text">&ldquo;Recommend a dinner that fits my daily targets.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         <p class='no-foods'>No food portion binding required for this task type.</p>
                     </div>
-                    
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2708539 (190g)</p><p><strong>Plan Windows:</strong> kcal: [992.51, 1323.35], protein_g: [0, 87.51], carb_g: [0, 401.07], fat_g: [0, 108.09], fiber_g: [0, 42.52], sodium_mg: [0, 1443.1]</p></div>
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
@@ -780,65 +702,21 @@
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card" id="card-adr20-rec-2019">
                 <div class="card-header">
-                    <span class="task-id">adr19-rec-1020</span>
-                    <span class="persona-tag">everyday | balanced</span>
-                    <span class="user-meta">male, 52y, 88.0kg, moderate</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"What should I eat for breakfast?"</p>
-                    </div>
-                    <div class="resolution-container">
-                        <p class='no-foods'>No food portion binding required for this task type.</p>
-                    </div>
-                    
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-rec-1021</span>
-                    <span class="persona-tag">everyday | dairy_free</span>
-                    <span class="user-meta">female, 38y, 74.0kg, moderate</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"Give me a healthy meal plan for lunch."</p>
-                    </div>
-                    <div class="resolution-container">
-                        <p class='no-foods'>No food portion binding required for this task type.</p>
-                    </div>
-                    
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-rec-1022</span>
+                    <span class="task-id">adr20-rec-2019</span>
                     <span class="persona-tag">gym | high_protein</span>
                     <span class="user-meta">female, 19y, 58.0kg, very_active</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"Recommend a dinner that fits my daily targets."</p>
+                        <p class="query-text">&ldquo;What are some good breakfast options for my diet targets?&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         <p class='no-foods'>No food portion binding required for this task type.</p>
                     </div>
-                    
+                    <div class='oracle-box'><p><strong>Plan Windows:</strong> kcal: [652.65, 783.18], protein_g: [0, 65.27], carb_g: [0, 358.96], fat_g: [0, 101.81], fiber_g: [0, 36.55], sodium_mg: [0, 2300]</p></div>
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
@@ -846,21 +724,109 @@
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card" id="card-adr20-rec-2020">
                 <div class="card-header">
-                    <span class="task-id">adr19-rec-1023</span>
+                    <span class="task-id">adr20-rec-2020</span>
+                    <span class="persona-tag">everyday | balanced</span>
+                    <span class="user-meta">female, 31y, 59.0kg, active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;What should I eat for lunch?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2707077 (60g)</p><p><strong>Plan Windows:</strong> kcal: [672.23, 896.31], protein_g: [0, 46.08], carb_g: [0, 296.02], fat_g: [0, 80.98], fiber_g: [0, 29.33], sodium_mg: [0, 2031.2]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-2021">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-2021</span>
+                    <span class="persona-tag">everyday | mediterranean</span>
+                    <span class="user-meta">female, 47y, 61.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Give me a healthy meal plan for dinner.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2708539 (190g)</p><p><strong>Plan Windows:</strong> kcal: [581.95, 775.93], protein_g: [0, 24.31], carb_g: [0, 212.9], fat_g: [0, 54.72], fiber_g: [0, 23.36], sodium_mg: [0, 1443.1]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-2022">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-2022</span>
+                    <span class="persona-tag">gym | high_protein</span>
+                    <span class="user-meta">male, 19y, 70.0kg, very_active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Recommend a breakfast that fits my daily targets.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Plan Windows:</strong> kcal: [827.09, 992.51], protein_g: [0, 112], carb_g: [0, 454.9], fat_g: [0, 129.03], fiber_g: [0, 46.32], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-2023">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-2023</span>
+                    <span class="persona-tag">everyday | mediterranean</span>
+                    <span class="user-meta">female, 47y, 61.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;What are some good lunch options for my diet targets?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2707077 (60g)</p><p><strong>Plan Windows:</strong> kcal: [581.95, 775.93], protein_g: [0, 38.86], carb_g: [0, 254.64], fat_g: [0, 69.24], fiber_g: [0, 25.12], sodium_mg: [0, 2031.2]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-2024">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-2024</span>
                     <span class="persona-tag">cut | low_carb</span>
                     <span class="user-meta">male, 60y, 90.0kg, light</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"What should I eat for breakfast?"</p>
+                        <p class="query-text">&ldquo;What should I eat for dinner?&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         <p class='no-foods'>No food portion binding required for this task type.</p>
                     </div>
-                    
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2708539 (190g)</p><p><strong>Plan Windows:</strong> kcal: [613.31, 817.75], protein_g: [0, 47.51], carb_g: [0, 268.52], fat_g: [0, 70.49], fiber_g: [0, 29.02], sodium_mg: [0, 1443.1]</p></div>
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
@@ -872,16 +838,16 @@
             <h2 class="family-title">UPDATE (8 items)</h2>
             <div class="cards-grid">
         
-            <div class="card">
+            <div class="card" id="card-adr20-upd-2025">
                 <div class="card-header">
-                    <span class="task-id">adr19-upd-1024</span>
-                    <span class="persona-tag">everyday | balanced</span>
-                    <span class="user-meta">female, 34y, 62.0kg, light</span>
+                    <span class="task-id">adr20-upd-2025</span>
+                    <span class="persona-tag">gym | high_protein</span>
+                    <span class="user-meta">male, 19y, 70.0kg, very_active</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"I weigh 64 kg now. Update my weight."</p>
+                        <p class="query-text">&ldquo;Add peanut to my allergies.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         <p class='no-foods'>No food portion binding required for this task type.</p>
@@ -894,16 +860,82 @@
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card" id="card-adr20-upd-2026">
                 <div class="card-header">
-                    <span class="task-id">adr19-upd-1025</span>
+                    <span class="task-id">adr20-upd-2026</span>
+                    <span class="persona-tag">everyday | balanced</span>
+                    <span class="user-meta">male, 52y, 88.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I weigh 86 kg now. Update my weight.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-upd-2027">
+                <div class="card-header">
+                    <span class="task-id">adr20-upd-2027</span>
+                    <span class="persona-tag">everyday | balanced</span>
+                    <span class="user-meta">male, 52y, 88.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Add peanut to my allergies.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-upd-2028">
+                <div class="card-header">
+                    <span class="task-id">adr20-upd-2028</span>
+                    <span class="persona-tag">everyday | heart_healthy</span>
+                    <span class="user-meta">male, 71y, 81.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I weigh 83 kg now. Update my weight.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-upd-2029">
+                <div class="card-header">
+                    <span class="task-id">adr20-upd-2029</span>
                     <span class="persona-tag">cut | low_carb</span>
-                    <span class="user-meta">male, 37y, 76.0kg, moderate</span>
+                    <span class="user-meta">male, 60y, 90.0kg, light</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"Add peanut to my allergies."</p>
+                        <p class="query-text">&ldquo;Add peanut to my allergies.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         <p class='no-foods'>No food portion binding required for this task type.</p>
@@ -916,16 +948,16 @@
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card" id="card-adr20-upd-2030">
                 <div class="card-header">
-                    <span class="task-id">adr19-upd-1026</span>
+                    <span class="task-id">adr20-upd-2030</span>
                     <span class="persona-tag">everyday | balanced</span>
-                    <span class="user-meta">female, 34y, 62.0kg, light</span>
+                    <span class="user-meta">male, 22y, 79.0kg, very_active</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"Add milk to my allergies."</p>
+                        <p class="query-text">&ldquo;I weigh 77 kg now. Update my weight.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         <p class='no-foods'>No food portion binding required for this task type.</p>
@@ -938,16 +970,16 @@
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card" id="card-adr20-upd-2031">
                 <div class="card-header">
-                    <span class="task-id">adr19-upd-1027</span>
-                    <span class="persona-tag">everyday | balanced</span>
-                    <span class="user-meta">female, 34y, 62.0kg, light</span>
+                    <span class="task-id">adr20-upd-2031</span>
+                    <span class="persona-tag">everyday | gluten_free</span>
+                    <span class="user-meta">male, 36y, 80.0kg, moderate</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"I weigh 64 kg now. Update my weight."</p>
+                        <p class="query-text">&ldquo;Add peanut to my allergies.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         <p class='no-foods'>No food portion binding required for this task type.</p>
@@ -960,82 +992,16 @@
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card" id="card-adr20-upd-2032">
                 <div class="card-header">
-                    <span class="task-id">adr19-upd-1028</span>
-                    <span class="persona-tag">everyday | vegetarian</span>
-                    <span class="user-meta">female, 24y, 54.0kg, light</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"Add peanut to my allergies."</p>
-                    </div>
-                    <div class="resolution-container">
-                        <p class='no-foods'>No food portion binding required for this task type.</p>
-                    </div>
-                    
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-upd-1029</span>
-                    <span class="persona-tag">everyday | balanced</span>
-                    <span class="user-meta">female, 31y, 59.0kg, active</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"Add milk to my allergies."</p>
-                    </div>
-                    <div class="resolution-container">
-                        <p class='no-foods'>No food portion binding required for this task type.</p>
-                    </div>
-                    
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-upd-1030</span>
+                    <span class="task-id">adr20-upd-2032</span>
                     <span class="persona-tag">gym | high_protein</span>
                     <span class="user-meta">male, 28y, 80.0kg, active</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"I weigh 82 kg now. Update my weight."</p>
-                    </div>
-                    <div class="resolution-container">
-                        <p class='no-foods'>No food portion binding required for this task type.</p>
-                    </div>
-                    
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-upd-1031</span>
-                    <span class="persona-tag">everyday | gluten_free</span>
-                    <span class="user-meta">male, 50y, 77.0kg, sedentary</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"Add peanut to my allergies."</p>
+                        <p class="query-text">&ldquo;I weigh 82 kg now. Update my weight.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         <p class='no-foods'>No food portion binding required for this task type.</p>
@@ -1052,172 +1018,16 @@
             <h2 class="family-title">COMPOSITE (8 items)</h2>
             <div class="cards-grid">
         
-            <div class="card">
+            <div class="card" id="card-adr20-comp-2033">
                 <div class="card-header">
-                    <span class="task-id">adr19-comp-1032</span>
-                    <span class="persona-tag">everyday | mediterranean</span>
-                    <span class="user-meta">female, 47y, 61.0kg, moderate</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"I had a bowl of chicken and vegetable noodles in cheese sauce with a handful of cheese crackers on the side, so what should I eat next?"</p>
-                    </div>
-                    <div class="resolution-container">
-                        
-                <table class="res-table">
-                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
-                    <tbody>
-                <tr>
-                    <td><code>2706689</code></td>
-                    <td><strong>noodles vegetables excluding carrots broccoli dark-green leafy; cheese sauce chicken or turkey</strong></td>
-                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>305.0 g</strong></td>
-                </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 1/1 (100%)<ul><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>305.0g</strong> <em>(The user reported 'a bowl,' which matches the non-specified typical serving size (qns) in the FNDDS portion table.)</em></li></ul></div></td></tr>
-                
-                <tr>
-                    <td><code>2708151</code></td>
-                    <td><strong>cheese (cheez-it) crackers</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>45.0 g</strong></td>
-                </tr>
-                
-                </tbody>
-                </table>
-                
-                    </div>
-                    <div class='oracle-box'><strong>Oracle Ledger:</strong> 2706689: 305g, 2708151: 45g</div>
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-comp-1033</span>
-                    <span class="persona-tag">everyday | balanced</span>
-                    <span class="user-meta">female, 43y, 63.0kg, light</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"I had a glass of high vitamin C light vegetable fruit juice drink, so what should I eat next?"</p>
-                    </div>
-                    <div class="resolution-container">
-                        
-                <table class="res-table">
-                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
-                    <tbody>
-                <tr>
-                    <td><code>2710595</code></td>
-                    <td><strong>high vitamin c light vegetable fruit juice drink</strong></td>
-                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>240.0 g</strong></td>
-                </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 2/2 (100%)<ul><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>240.0g</strong> <em>(A glass of juice is a standard single serving, matching the 240 g qns portion.)</em></li><li><code>glm-5.2</code>: qns × 1.0 = <strong>240g</strong> <em>(A glass of juice corresponds to one cup serving (qns) at 240g.)</em></li></ul></div></td></tr>
-                </tbody>
-                </table>
-                
-                    </div>
-                    <div class='oracle-box'><strong>Oracle Ledger:</strong> 2710595: 240g</div>
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-comp-1034</span>
-                    <span class="persona-tag">gym | high_protein</span>
-                    <span class="user-meta">male, 28y, 80.0kg, active</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"I grabbed a meat and rice burrito with no cheese for a solid high-protein meal, so what should I eat next?"</p>
-                    </div>
-                    <div class="resolution-container">
-                        
-                <table class="res-table">
-                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
-                    <tbody>
-                <tr>
-                    <td><code>2708551</code></td>
-                    <td><strong>meat rice no cheese burrito</strong></td>
-                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>220.0 g</strong></td>
-                </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 2/2 (100%)<ul><li><code>deepseek-v4-flash-0731</code>: piece × 1.0 = <strong>220g</strong> <em>(The user's phrase 'rice burrito' indicates one whole burrito, which matches the 'piece' unit at 220 g.)</em></li><li><code>kimi-k2.7-code</code>: piece × 1.0 = <strong>220.0g</strong> <em>(A single rice burrito is best represented by the 'piece' portion unit.)</em></li></ul></div></td></tr>
-                </tbody>
-                </table>
-                
-                    </div>
-                    <div class='oracle-box'><strong>Oracle Ledger:</strong> 2708551: 220g</div>
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-comp-1035</span>
-                    <span class="persona-tag">everyday | balanced</span>
-                    <span class="user-meta">female, 43y, 63.0kg, light</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">"I had a plate of chicken and noodles with gravy with a side of tomato rice, so what should I eat next?"</p>
-                    </div>
-                    <div class="resolution-container">
-                        
-                <table class="res-table">
-                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
-                    <tbody>
-                <tr>
-                    <td><code>2706530</code></td>
-                    <td><strong>chicken or turkey noodles gravy</strong></td>
-                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>280.0 g</strong></td>
-                </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 1/1 (100%)<ul><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>280.0g</strong> <em>(A plate represents a single unspecified serving, so the qns portion is the best match.)</em></li></ul></div></td></tr>
-                
-                <tr>
-                    <td><code>2709009</code></td>
-                    <td><strong>white tomatoes or tomato-based sauce no added fat rice</strong></td>
-                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>154.0 g</strong></td>
-                </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 1/2 (50%)<ul><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>154.0g</strong> <em>(The query describes an unspecified side serving, so the quantity-not-specified (qns) reference is used as one side portion.)</em></li><li><code>glm-5.2</code>: cup × 0.5 = <strong>103.0g</strong> <em>(A side portion of rice is typically about half a cup.)</em></li></ul></div></td></tr>
-                </tbody>
-                </table>
-                
-                    </div>
-                    <div class='oracle-box'><strong>Oracle Ledger:</strong> 2706530: 280g, 2709009: 154g</div>
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <span class="task-id">adr19-comp-1036</span>
+                    <span class="task-id">adr20-comp-2033</span>
                     <span class="persona-tag">gym | high_protein</span>
                     <span class="user-meta">male, 33y, 85.0kg, active</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"After the gym I had a bowl of instant oatmeal made with milk and a plate of cheese-filled tortellini in cream sauce, so what should I eat next?"</p>
+                        <p class="query-text">&ldquo;I had a plate of raw fish and a bowl of spaghetti sauce with meat for lunch, so what high-protein dinner should I eat?&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -1225,25 +1035,25 @@
                     <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
                     <tbody>
                 <tr>
-                    <td><code>2708390</code></td>
-                    <td><strong>instant plain made milk fat added oatmeal</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>210.0 g</strong></td>
+                    <td><code>2706223</code></td>
+                    <td><strong>raw fish</strong></td>
+                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
+                    <td><strong>85.0 g</strong></td>
                 </tr>
-                
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 2/3 (67%)<ul><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>85g</strong> <em>(A 'plate' is a vague serving, so the unspecified quantity portion (qns) best represents one typical serving of raw fish.)</em></li><li><code>glm-5.2</code>: qns × 1.0 = <strong>85g</strong> <em>(A plate is a generic serving description best matched to the qns (quantity not specified) portion at 85 g.)</em></li></ul></div></td></tr>
                 
                 <tr>
-                    <td><code>2708791</code></td>
-                    <td><strong>cheese-filled cream sauce tortellini</strong></td>
+                    <td><code>2706470</code></td>
+                    <td><strong>spaghetti sauce meat</strong></td>
                     <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>250.0 g</strong></td>
+                    <td><strong>65.0 g</strong></td>
                 </tr>
                 
                 </tbody>
                 </table>
                 
                     </div>
-                    <div class='oracle-box'><strong>Oracle Ledger:</strong> 2708390: 210g, 2708791: 250g</div>
+                    
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
@@ -1251,16 +1061,16 @@
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card" id="card-adr20-comp-2034">
                 <div class="card-header">
-                    <span class="task-id">adr19-comp-1037</span>
+                    <span class="task-id">adr20-comp-2034</span>
                     <span class="persona-tag">cut | mediterranean</span>
                     <span class="user-meta">female, 41y, 70.0kg, sedentary</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"I had a plate of steamed perch for dinner, so what should I eat next?"</p>
+                        <p class="query-text">&ldquo;I had a plate of topping from meat and vegetable pizza for lunch, so what Mediterranean dinner should I eat?&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -1268,17 +1078,17 @@
                     <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
                     <tbody>
                 <tr>
-                    <td><code>2706275</code></td>
-                    <td><strong>perch steamed fish</strong></td>
-                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>120.0 g</strong></td>
+                    <td><code>2705790</code></td>
+                    <td><strong>topping from meat vegetable pizza</strong></td>
+                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
+                    <td><strong>102.0 g</strong></td>
                 </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 1/2 (50%)<ul><li><code>kimi-k2.7-code</code>: oz × 6.0 = <strong>120.0g</strong> <em>(A dinner plate of steamed perch is approximated as about 6 ounces.)</em></li><li><code>glm-5.2</code>: piece × 1.0 = <strong>90.0g</strong> <em>(A plate of steamed perch corresponds to one standard piece/serving of fish.)</em></li></ul></div></td></tr>
+                
                 </tbody>
                 </table>
                 
                     </div>
-                    <div class='oracle-box'><strong>Oracle Ledger:</strong> 2706275: 120g</div>
+                    
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
@@ -1286,16 +1096,16 @@
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card" id="card-adr20-comp-2035">
                 <div class="card-header">
-                    <span class="task-id">adr19-comp-1038</span>
+                    <span class="task-id">adr20-comp-2035</span>
                     <span class="persona-tag">everyday | balanced</span>
-                    <span class="user-meta">male, 52y, 88.0kg, moderate</span>
+                    <span class="user-meta">male, 22y, 79.0kg, very_active</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"I had a plate of tuna for dinner, so what should I eat next?"</p>
+                        <p class="query-text">&ldquo;I had a piece of baked or broiled chicken breast with skin from a fast food restaurant and a bowl of sausage and peppers with no sauce for lunch, so what should I eat for dinner?&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -1303,17 +1113,25 @@
                     <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
                     <tbody>
                 <tr>
-                    <td><code>2706309</code></td>
-                    <td><strong>tuna nfs fish</strong></td>
+                    <td><code>2705959</code></td>
+                    <td><strong>baked or broiled skin eaten from fast food restaurant chicken breast</strong></td>
                     <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>90.0 g</strong></td>
+                    <td><strong>30.0 g</strong></td>
                 </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 1/1 (100%)<ul><li><code>kimi-k2.7-code</code>: piece × 1.0 = <strong>90.0g</strong> <em>(A plate of tuna is interpreted as one standard piece/serving.)</em></li></ul></div></td></tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 1/3 (33%)<ul><li><code>kimi-k2.7-code</code>: slice × 1.0 = <strong>30g</strong> <em>(A single piece of chicken breast is best approximated by one slice from the portion table.)</em></li></ul></div></td></tr>
+                
+                <tr>
+                    <td><code>2706776</code></td>
+                    <td><strong>no sauce sausage peppers</strong></td>
+                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
+                    <td><strong>115.0 g</strong></td>
+                </tr>
+                
                 </tbody>
                 </table>
                 
                     </div>
-                    <div class='oracle-box'><strong>Oracle Ledger:</strong> 2706309: 90g</div>
+                    
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
@@ -1321,16 +1139,129 @@
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card" id="card-adr20-comp-2036">
                 <div class="card-header">
-                    <span class="task-id">adr19-comp-1039</span>
+                    <span class="task-id">adr20-comp-2036</span>
+                    <span class="persona-tag">gym | high_protein</span>
+                    <span class="user-meta">male, 28y, 80.0kg, active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a slice of cheese pizza from school lunch for lunch, so what high-protein dinner should I eat after the gym?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        
+                <table class="res-table">
+                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
+                    <tbody>
+                <tr>
+                    <td><code>2708619</code></td>
+                    <td><strong>cheese from school lunch medium crust pizza</strong></td>
+                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
+                    <td><strong>147.0 g</strong></td>
+                </tr>
+                
+                </tbody>
+                </table>
+                
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-comp-2037">
+                <div class="card-header">
+                    <span class="task-id">adr20-comp-2037</span>
+                    <span class="persona-tag">gym | high_protein</span>
+                    <span class="user-meta">female, 29y, 66.0kg, active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a couple of bratwurst with a handful of bacon bits for lunch, so what high-protein dinner should I eat?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        
+                <table class="res-table">
+                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
+                    <tbody>
+                <tr>
+                    <td><code>2706174</code></td>
+                    <td><strong>bratwurst</strong></td>
+                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
+                    <td><strong>120.0 g</strong></td>
+                </tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 2/3 (67%)<ul><li><code>kimi-k2.7-code</code>: qns × 2.0 = <strong>120g</strong> <em>("A couple" means two bratwursts, and qns is the most appropriate whole-item portion unit.)</em></li><li><code>glm-5.2</code>: qns × 2.0 = <strong>120g</strong> <em>(A couple means two bratwurst links, and the qns unit at 60 g represents one link, so 2 × 60 = 120 g.)</em></li></ul></div></td></tr>
+                
+                <tr>
+                    <td><code>2707466</code></td>
+                    <td><strong>bacon bits</strong></td>
+                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
+                    <td><strong>4.0 g</strong></td>
+                </tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 1/3 (33%)<ul><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>4g</strong> <em>(A handful is a non-specific portion, so the quantity-not-specified (qns) unit best matches the user's description.)</em></li></ul></div></td></tr>
+                </tbody>
+                </table>
+                
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-comp-2038">
+                <div class="card-header">
+                    <span class="task-id">adr20-comp-2038</span>
+                    <span class="persona-tag">cut | mediterranean</span>
+                    <span class="user-meta">female, 41y, 70.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a glass of reduced fat (2%) strawberry milk for lunch, so what should I eat for dinner?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        
+                <table class="res-table">
+                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
+                    <tbody>
+                <tr>
+                    <td><code>2705497</code></td>
+                    <td><strong>reduced fat (2%) strawberry milk</strong></td>
+                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
+                    <td><strong>248.0 g</strong></td>
+                </tr>
+                
+                </tbody>
+                </table>
+                
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-comp-2039">
+                <div class="card-header">
+                    <span class="task-id">adr20-comp-2039</span>
                     <span class="persona-tag">everyday | gluten_free</span>
                     <span class="user-meta">male, 36y, 80.0kg, moderate</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">"For lunch I had a double hamburger on a white bun, so what should I eat next?"</p>
+                        <p class="query-text">&ldquo;I had a bowl of shredded red raw cabbage and a handful of hot cooked peppers for lunch, so what gluten-free dinner should I eat?&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -1338,17 +1269,68 @@
                     <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
                     <tbody>
                 <tr>
-                    <td><code>2706940</code></td>
-                    <td><strong>on white bun 2 large patties double hamburger</strong></td>
+                    <td><code>2709775</code></td>
+                    <td><strong>red raw cabbage</strong></td>
                     <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>290.0 g</strong></td>
+                    <td><strong>90.0 g</strong></td>
                 </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 2/2 (100%)<ul><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>290.0g</strong> <em>(The user had one regular double hamburger, so the single qns portion of 290 g applies.)</em></li><li><code>glm-5.2</code>: qns × 1.0 = <strong>290.0g</strong> <em>(User described one double hamburger on a white bun, matching a single standard serving of 290 g.)</em></li></ul></div></td></tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 1/3 (33%)<ul><li><code>kimi-k2.7-code</code>: cup × 1.0 = <strong>90g</strong> <em>(A bowl of shredded red cabbage is approximated as one cup, the closest standard portion in the table.)</em></li></ul></div></td></tr>
+                
+                <tr>
+                    <td><code>2709978</code></td>
+                    <td><strong>hot cooked peppers</strong></td>
+                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
+                    <td><strong>75.0 g</strong></td>
+                </tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 1/3 (33%)<ul><li><code>deepseek-v4-flash-0731</code>: cup × 0.5 = <strong>75g</strong> <em>(A typical handful of cooked peppers is approximately half a cup.)</em></li><li><code>kimi-k2.7-code</code>: cup × 0.25 = <strong>38g</strong> <em>(A handful of cooked hot peppers is estimated to be about one-quarter of a cup.)</em></li></ul></div></td></tr>
                 </tbody>
                 </table>
                 
                     </div>
-                    <div class='oracle-box'><strong>Oracle Ledger:</strong> 2706940: 290g</div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-comp-2040">
+                <div class="card-header">
+                    <span class="task-id">adr20-comp-2040</span>
+                    <span class="persona-tag">everyday | mediterranean</span>
+                    <span class="user-meta">female, 47y, 61.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a handful of other flavors popcorn chips and a bowl of baby toddler fruit for lunch, so what should I eat for dinner?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        
+                <table class="res-table">
+                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
+                    <tbody>
+                <tr>
+                    <td><code>2708243</code></td>
+                    <td><strong>other flavors popcorn chips</strong></td>
+                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
+                    <td><strong>28.0 g</strong></td>
+                </tr>
+                
+                
+                <tr>
+                    <td><code>2709352</code></td>
+                    <td><strong>nfs baby toddler fruit</strong></td>
+                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
+                    <td><strong>110.0 g</strong></td>
+                </tr>
+                
+                </tbody>
+                </table>
+                
+                    </div>
+                    
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>

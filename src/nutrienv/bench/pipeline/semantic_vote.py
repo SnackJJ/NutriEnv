@@ -378,9 +378,35 @@ def vote_fndds_portion(
         )
         votes.append(vote)
 
-    valid_votes = [
-        v for v in votes if "grams" in v and isinstance(v["grams"], (int, float))
-    ]
+    valid_votes = []
+    for v in votes:
+        if not isinstance(v, Mapping):
+            continue
+        base_unit = str(v.get("base_unit") or "").strip().lower()
+        raw_mult = v.get("multiplier")
+        try:
+            multiplier = float(raw_mult) if raw_mult is not None else 1.0
+        except (ValueError, TypeError):
+            multiplier = 1.0
+
+        # Code-side FNDDS Table Recalculation
+        matched_unit = None
+        for u in portions.keys():
+            if str(u).lower() == base_unit:
+                matched_unit = u
+                break
+
+        if matched_unit is not None:
+            base_grams = float(portions[matched_unit])
+            computed_grams = round(base_grams * multiplier)
+            v["grams"] = computed_grams
+            v["base_unit"] = matched_unit
+            v["multiplier"] = multiplier
+            valid_votes.append(v)
+        elif "grams" in v and isinstance(v["grams"], (int, float)):
+            v["grams"] = round(float(v["grams"]))
+            valid_votes.append(v)
+
     if not valid_votes:
         return FnddsVoteResult(
             query=query,
@@ -394,19 +420,22 @@ def vote_fndds_portion(
             voter_details=tuple(votes),
         )
 
-    gram_counts = Counter(round(float(v["grams"]), 1) for v in valid_votes)
+    gram_counts = Counter(int(v["grams"]) for v in valid_votes)
     top_grams, count = gram_counts.most_common(1)[0]
-    agreement_ratio = count / len(valid_votes)
-    consensus_tag = f"{count}/{len(valid_votes)} ({agreement_ratio:.0%})"
+    total_voters = len(voter_models)
+    agreement_ratio = count / total_voters
+    consensus_tag = f"{count}/{total_voters} ({agreement_ratio:.0%})"
+    # High confidence requires at least 2 agreeing votes and >= 66% consensus
+    is_high_confidence = (count >= 2) and (agreement_ratio >= 0.66)
 
     return FnddsVoteResult(
         query=query,
         food_id=food_id,
         food_name=food_name,
         status="estimated_by_vote",
-        recommended_grams=top_grams,
+        recommended_grams=float(top_grams),
         consensus=consensus_tag,
-        high_confidence=agreement_ratio >= 0.66,
+        high_confidence=is_high_confidence,
         needs_human_review=True,
         voter_details=tuple(votes),
     )
