@@ -318,15 +318,25 @@ def _vote_single_agent(
             max_tokens=max_tokens,
         )
         cleaned = raw.strip()
+        if "</think>" in cleaned:
+            cleaned = cleaned.split("</think>", 1)[1].strip()
         if cleaned.startswith("```"):
             cleaned = cleaned.split("\n", 1)[1].rsplit("```", 1)[0].strip()
         import json
 
-        data = json.loads(cleaned)
+        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        data = json.loads(match.group(0)) if match else json.loads(cleaned)
         data["model"] = model_id
         return data
     except Exception as exc:
         return {"model": model_id, "error": str(exc)}
+
+
+DEFAULT_TRIAD_VOTERS: tuple[str, ...] = (
+    "deepseek-v4-flash-0731",
+    "kimi-k2.7-code",
+    "glm-5.2",
+)
 
 
 def vote_fndds_portion(
@@ -334,7 +344,7 @@ def vote_fndds_portion(
     food_id: str,
     catalog: Mapping,
     *,
-    voter_models: tuple[str, ...] = ("qwen3.8-max", "qwen3.8-2.4t-a95b"),
+    voter_models: tuple[str, ...] = DEFAULT_TRIAD_VOTERS,
     temperature: float = 0.1,
     max_tokens: int = 256,
 ) -> FnddsVoteResult:

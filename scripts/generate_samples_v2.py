@@ -39,7 +39,7 @@ DEFAULT_OUT_DIR = Path(".scratch/v2-samples")
 DEFAULT_HTML_REPORT = Path("reports/adr0019-samples-review.html")
 
 FAMILIES = ("log", "evaluate", "recommend", "update", "composite")
-VOTER_MODELS = ("qwen3.8-max", "qwen3.8-2.4t-a95b")
+VOTER_MODELS = ("deepseek-v4-flash-0731", "kimi-k2.7-code", "glm-5.2")
 
 
 def _complete_llm(model_id: str, system_prompt: str, user_prompt: str, temperature: float = 0.3) -> str:
@@ -86,8 +86,15 @@ def _resolve_food_in_query(
     food_name = entry.get("name") or food_id
     spoken_name = spoken_display_name(catalog, food_id)
 
+    from nutrienv.bench.pipeline.generate_one import _local_clause
+    from nutrienv.bench.pipeline.resolver import spoken_grams_from_query
+
+    clause = _local_clause(query, food_id, catalog) or query
+
     # Tier 1: Deterministic resolution
-    grams = resolve_portion(food_id, query, catalog)
+    grams = spoken_grams_from_query(clause, food_id, catalog)
+    if grams is None:
+        grams = resolve_portion(food_id, clause, catalog)
     if grams is not None:
         return {
             "tier": "Tier-1 (Deterministic Rule)",
@@ -104,7 +111,7 @@ def _resolve_food_in_query(
 
     # Tier 2: Multi-Agent Vote Fallback
     if enable_vote:
-        voted = vote_fndds_portion(query, food_id, catalog, voter_models=voter_models)
+        voted = vote_fndds_portion(clause, food_id, catalog, voter_models=voter_models)
         if voted.status == "estimated_by_vote" and voted.recommended_grams is not None:
             return {
                 "tier": "Tier-2 (Multi-Agent Vote)",
@@ -504,44 +511,44 @@ def main():
 
     print(f"=== NutriEnv ADR 0019 Pipeline Generation (count={args.count}, model={args.models}) ===")
     
+    global_seed = 0
     # 1. Log
-    seed = 0
-    while len(results["log"]) < args.count and seed < 20:
-        item = generate_log_sample(seed, catalog, model_id=args.models, enable_vote=enable_vote)
+    while len(results["log"]) < args.count and global_seed < 50:
+        item = generate_log_sample(global_seed, catalog, model_id=args.models, enable_vote=enable_vote)
         if item:
             results["log"].append(item)
-            print(f"  [Log {len(results['log'])}/{args.count}] seed={seed} -> \"{item['task'].query}\"")
-        seed += 1
+            print(f"  [Log {len(results['log'])}/{args.count}] seed={global_seed} -> \"{item['task'].query}\"")
+        global_seed += 1
 
     # 2. Evaluate
-    seed = 0
-    while len(results["evaluate"]) < args.count and seed < 20:
-        item = generate_eval_sample(seed, catalog, model_id=args.models, enable_vote=enable_vote)
+    while len(results["evaluate"]) < args.count and global_seed < 100:
+        item = generate_eval_sample(global_seed, catalog, model_id=args.models, enable_vote=enable_vote)
         if item:
             results["evaluate"].append(item)
-            print(f"  [Eval {len(results['evaluate'])}/{args.count}] seed={seed} -> \"{item['task'].query}\"")
-        seed += 1
+            print(f"  [Eval {len(results['evaluate'])}/{args.count}] seed={global_seed} -> \"{item['task'].query}\"")
+        global_seed += 1
 
     # 3. Recommend
-    for i in range(args.count):
-        item = generate_rec_sample(i, catalog)
+    for _ in range(args.count):
+        item = generate_rec_sample(global_seed, catalog)
         results["recommend"].append(item)
-        print(f"  [Rec {len(results['recommend'])}/{args.count}] seed={i} -> \"{item['task'].query}\"")
+        print(f"  [Rec {len(results['recommend'])}/{args.count}] seed={global_seed} -> \"{item['task'].query}\"")
+        global_seed += 1
 
     # 4. Update
-    for i in range(args.count):
-        item = generate_upd_sample(i, catalog)
+    for _ in range(args.count):
+        item = generate_upd_sample(global_seed, catalog)
         results["update"].append(item)
-        print(f"  [Upd {len(results['update'])}/{args.count}] seed={i} -> \"{item['task'].query}\"")
+        print(f"  [Upd {len(results['update'])}/{args.count}] seed={global_seed} -> \"{item['task'].query}\"")
+        global_seed += 1
 
     # 5. Composite
-    seed = 0
-    while len(results["composite"]) < args.count and seed < 20:
-        item = generate_comp_sample(seed, catalog, model_id=args.models, enable_vote=enable_vote)
+    while len(results["composite"]) < args.count and global_seed < 150:
+        item = generate_comp_sample(global_seed, catalog, model_id=args.models, enable_vote=enable_vote)
         if item:
             results["composite"].append(item)
-            print(f"  [Comp {len(results['composite'])}/{args.count}] seed={seed} -> \"{item['task'].query}\"")
-        seed += 1
+            print(f"  [Comp {len(results['composite'])}/{args.count}] seed={global_seed} -> \"{item['task'].query}\"")
+        global_seed += 1
 
     # Write HTML Dashboard
     render_html_review_dashboard(results, Path(args.html))

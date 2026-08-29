@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from collections import Counter
@@ -26,7 +27,7 @@ from nutrienv.world.portions import resolve_portion
 from nutrienv.io.chat import complete_chat
 
 DEFAULT_CATALOG = "data/fdc/catalog-v2.sqlite"
-VOTER_MODELS = ("qwen3.8-max", "qwen3.8-2.4t-a95b")
+VOTER_MODELS = ("deepseek-v4-flash-0731", "kimi-k2.7-code", "glm-5.2")
 
 
 def vote_single_agent(
@@ -62,9 +63,12 @@ def vote_single_agent(
     try:
         raw = complete_chat(model_id, messages, temperature=0.1, max_tokens=256)
         cleaned = raw.strip()
+        if "</think>" in cleaned:
+            cleaned = cleaned.split("</think>", 1)[1].strip()
         if cleaned.startswith("```"):
             cleaned = cleaned.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-        data = json.loads(cleaned)
+        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        data = json.loads(match.group(0)) if match else json.loads(cleaned)
         data["model"] = model_id
         return data
     except Exception as exc:
