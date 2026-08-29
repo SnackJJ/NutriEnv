@@ -235,6 +235,8 @@ def complete_chat(
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+        if any(h in url for h in ("dashscope", "aliyuncs")):
+            payload["extra_body"] = {"enable_thinking": False}
         try:
             text = post_chat_completion(
                 url,

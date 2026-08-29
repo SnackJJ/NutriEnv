@@ -336,9 +336,9 @@ def _vote_single_agent(
 
 
 DEFAULT_TRIAD_VOTERS: tuple[str, ...] = (
-    "deepseek-v4-flash-0731",
+    "qwen3.8-max",
     "kimi-k2.7-code",
-    "glm-5.2",
+    "qwen3.7-flash-2026-07-15",
 )
 
 
@@ -349,7 +349,7 @@ def vote_fndds_portion(
     *,
     voter_models: tuple[str, ...] = DEFAULT_TRIAD_VOTERS,
     temperature: float = 0.1,
-    max_tokens: int = 256,
+    max_tokens: int = 512,
 ) -> FnddsVoteResult:
     """ADR 0019 Multi-Agent Vote: estimate (base_unit, multiplier) on FNDDS portion table."""
     entry = catalog.get(food_id) or {}

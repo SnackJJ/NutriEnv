@@ -22,7 +22,7 @@
         "profile": "s0"
       },
       "persona": "gym",
-      "query": "I had a coated granola bar and a bowl of white rice for a quick carb-heavy meal.",
+      "query": "After the gym I had a granola bar and a bowl of white rice.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -84,7 +84,7 @@
         "profile": "s0"
       },
       "persona": "gym",
-      "query": "Post-gym plate of beef with rice and veggies in gravy plus an oatmeal roll.",
+      "query": "I had a plate of beef with rice and veggies in gravy plus an oatmeal roll.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -146,7 +146,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "I grabbed a cup of sweet coffee and a small bowl of pickled cauliflower.",
+      "query": "I had a cup of sweet coffee with a small bowl of pickled cauliflower.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -204,7 +204,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "I had a glass of caffeine-free diet iced tea.",
+      "query": "I had a tall glass of iced black tea sweetened with a low-calorie sweetener.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -378,13 +378,13 @@
           {
             "eaten_at": "today-lunch",
             "food_id": "2706765",
-            "grams": 256.0
+            "grams": 192.0
           }
         ],
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "I had a plate of pork and onions in a savory soy sauce for dinner.",
+      "query": "I had a plate of pork and onions in soy sauce.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -442,7 +442,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "I had a small bowl of raw radicchio leaves as a light snack.",
+      "query": "I had a bowl of raw radicchio as a light salad.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -623,7 +623,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Evaluate this lunch: a glass of light cranberry juice drink with vitamin C and a glass of milk.",
+      "query": "Evaluate this lunch: a glass of light cranberry juice drink with extra vitamin C and a glass of milk.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -795,7 +795,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Evaluate this lunch for a high-protein gym diet: a plate of sausage with potatoes, vegetables, and gravy.",
+      "query": "Evaluate this lunch for my high-protein gym diet: a plate of sausage with potatoes, gravy, and mixed vegetables without carrots, broccoli, or dark leafy greens.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -970,7 +970,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "I'm following a gluten-free diet. Evaluate this lunch: a handful of sour cream and onion potato chips.",
+      "query": "Evaluate this lunch: a small bowl of sour cream and onion potato chips.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -1020,7 +1020,7 @@
         "evaluated_plan": [
           {
             "food_id": "2706127",
-            "grams": 85.0
+            "grams": 115.0
           }
         ],
         "last_plan": [],
@@ -1058,7 +1058,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Evaluate this lunch: a serving of turkey neck.",
+      "query": "Evaluate this lunch: a piece of turkey neck.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -1112,7 +1112,7 @@
           },
           {
             "food_id": "2705452",
-            "grams": 160.0
+            "grams": 175.0
           }
         ],
         "last_plan": [],
@@ -1150,7 +1150,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Can you evaluate this lunch: a slice of Spanish coffee bread and a scoop of vanilla frozen yogurt?",
+      "query": "Evaluate this planned lunch: a slice of Spanish coffee bread and a small cup of vanilla frozen yogurt.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -2434,7 +2434,7 @@
         ]
       },
       "persona": "everyday",
-      "query": "I had some fried perch for lunch, so what should I eat for dinner?",
+      "query": "I had fried perch for lunch, so what should I eat for dinner?",
       "s0": {
         "ledger": [],
         "profile": {
@@ -2656,7 +2656,7 @@
         ]
       },
       "persona": "cut",
-      "query": "I had a baked banana and some stewed potatoes for lunch. What low-sodium dinner should I eat?",
+      "query": "I had a baked banana and some stewed potatoes for lunch, so what should I eat for dinner that's low in sodium?",
       "s0": {
         "ledger": [],
         "profile": {
@@ -2768,7 +2768,7 @@
         ]
       },
       "persona": "everyday",
-      "query": "I had a light vanilla ice cream bar with a chocolate coating and a scoop of chocolate ice cream for lunch, so what should I eat for dinner?",
+      "query": "I had a chocolate-coated vanilla light ice cream bar and a scoop of chocolate ice cream for lunch, so what should I eat for dinner?",
       "s0": {
         "ledger": [],
         "profile": {
@@ -2977,7 +2977,7 @@
         ]
       },
       "persona": "everyday",
-      "query": "I had a handful of trail mix with pretzels and granola, plus a bowl of reheated whole-grain pasta in a creamy sauce with meat and vegetables for lunch. What should I eat for dinner that fits a low-sodium plan?",
+      "query": "I had a handful of trail mix with pretzels and granola and a bowl of whole grain pasta with creamy meat sauce and veggies for lunch, so what low-sodium dinner should I have?",
       "s0": {
         "ledger": [],
         "profile": {
@@ -3186,7 +3186,7 @@
         ]
       },
       "persona": "cut",
-      "query": "I had a plate of pork with potatoes, some mixed vegetables, and gravy for lunch, so what should I eat for dinner that fits a low-carb cutting plan?",
+      "query": "I had a plate of pork with potatoes and vegetables in gravy for lunch, so what low-carb dinner should I eat?",
       "s0": {
         "ledger": [],
         "profile": {
