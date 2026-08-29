@@ -22,7 +22,7 @@
         "profile": "s0"
       },
       "persona": "gym",
-      "query": "After the gym I had a granola bar and a bowl of white rice.",
+      "query": "After the gym I grabbed a granola bar and a bowl of white rice for quick carbs.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -84,7 +84,7 @@
         "profile": "s0"
       },
       "persona": "gym",
-      "query": "I had a plate of beef with rice and veggies in gravy plus an oatmeal roll.",
+      "query": "For dinner I had a plate of beef with rice and vegetables in gravy plus an oatmeal roll.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -135,7 +135,7 @@
           {
             "eaten_at": "today-lunch",
             "food_id": "2710466",
-            "grams": 248.0
+            "grams": 372.0
           },
           {
             "eaten_at": "today-lunch",
@@ -146,7 +146,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "I had a cup of sweet coffee with a small bowl of pickled cauliflower.",
+      "query": "I had a mug of sweet coffee with a small bowl of pickled cauliflower.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -204,7 +204,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "I had a tall glass of iced black tea sweetened with a low-calorie sweetener.",
+      "query": "I logged a glass of sweet decaf iced black tea.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -237,70 +237,6 @@
             "protein_g": [
               64.0,
               67.0859375
-            ],
-            "sodium_mg": [
-              0.0,
-              2300.0
-            ]
-          }
-        }
-      },
-      "situations": []
-    },
-    {
-      "family": "log",
-      "id": "adr20-log-4004",
-      "oracle": {
-        "ledger": "s0_plus_tail",
-        "ledger_tail": [
-          {
-            "eaten_at": "today-lunch",
-            "food_id": "2708359",
-            "grams": 140.0
-          },
-          {
-            "eaten_at": "today-lunch",
-            "food_id": "2707687",
-            "grams": 10.0
-          }
-        ],
-        "profile": "s0"
-      },
-      "persona": "cut",
-      "query": "I had a small bowl of gluten-free pasta with a spoonful of bread stuffing on the side.",
-      "s0": {
-        "ledger": [],
-        "profile": {
-          "activity": "light",
-          "age_y": 60,
-          "allergies": [
-            "egg"
-          ],
-          "height_cm": 176.0,
-          "phase": "cut",
-          "sex": "male",
-          "user_id": "roster-pj",
-          "weight_kg": 90.0,
-          "windows": {
-            "carb_g": [
-              322.3515625,
-              322.3515625
-            ],
-            "fat_g": [
-              91.43062499999999,
-              91.43062499999999
-            ],
-            "fiber_g": [
-              32.82125,
-              32.82125
-            ],
-            "kcal": [
-              2044.375,
-              2044.375
-            ],
-            "protein_g": [
-              72.0,
-              72.0
             ],
             "sodium_mg": [
               0.0,
@@ -384,7 +320,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "I had a plate of pork and onions in soy sauce.",
+      "query": "I had a plate of pork and onions cooked in soy sauce for dinner.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -442,7 +378,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "I had a bowl of raw radicchio as a light salad.",
+      "query": "I had a simple salad of raw radicchio.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -486,52 +422,21 @@
       "situations": []
     },
     {
-      "family": "evaluate",
-      "id": "adr20-eval-4008",
+      "family": "log",
+      "id": "adr20-log-4008",
       "oracle": {
-        "evaluated_plan": [
+        "ledger": "s0_plus_tail",
+        "ledger_tail": [
           {
-            "food_id": "2707249",
-            "grams": 85.0
+            "eaten_at": "today-lunch",
+            "food_id": "2709313",
+            "grams": 80.0
           }
         ],
-        "last_plan": [],
-        "last_reasons": [
-          "allergy",
-          "kcal_lo"
-        ],
-        "last_verdict": "reject",
-        "ledger": "s0",
-        "plan_windows": {
-          "carb_g": [
-            0.0,
-            309.35
-          ],
-          "fat_g": [
-            0.0,
-            87.74
-          ],
-          "fiber_g": [
-            0.0,
-            31.5
-          ],
-          "kcal": [
-            674.95,
-            899.93
-          ],
-          "protein_g": [
-            0.0,
-            59.2
-          ],
-          "sodium_mg": [
-            0.0,
-            2300.0
-          ]
-        },
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Evaluate this lunch: an omelet with cheese, tomatoes, and spinach.",
+      "query": "I had a frozen fruit juice bar as a light snack.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -709,7 +614,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Evaluate this lunch for my high-protein gym goals: a wrap filled with several meats.",
+      "query": "Evaluate this lunch for my high-protein gym goals: a wrap stuffed with a mix of meats.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -795,7 +700,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Evaluate this lunch for my high-protein gym diet: a plate of sausage with potatoes, gravy, and mixed vegetables without carrots, broccoli, or dark leafy greens.",
+      "query": "Evaluate this lunch for my high-protein gym goals: a plate of sausage with potatoes, mixed vegetables, and gravy.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -970,7 +875,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Evaluate this lunch: a small bowl of sour cream and onion potato chips.",
+      "query": "Evaluate this lunch: a small bag of sour cream and onion potato chips.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -1112,7 +1017,7 @@
           },
           {
             "food_id": "2705452",
-            "grams": 175.0
+            "grams": 160.0
           }
         ],
         "last_plan": [],
@@ -1150,7 +1055,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Evaluate this planned lunch: a slice of Spanish coffee bread and a small cup of vanilla frozen yogurt.",
+      "query": "Evaluate this planned lunch: a slice of Spanish coffee bread and a scoop of vanilla frozen yogurt.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -1194,25 +1099,33 @@
       "situations": []
     },
     {
-      "family": "recommend",
-      "id": "adr20-rec-4016",
+      "family": "evaluate",
+      "id": "adr20-eval-4016",
       "oracle": {
+        "evaluated_plan": [
+          {
+            "food_id": "2706758",
+            "grams": 121.0
+          }
+        ],
         "last_plan": [],
+        "last_reasons": [
+          "kcal_lo"
+        ],
+        "last_verdict": "reject",
         "ledger": "s0",
-        "plan_must_be_safe": true,
-        "plan_must_fit_windows": true,
         "plan_windows": {
           "carb_g": [
             0.0,
-            203.99
+            257.81
           ],
           "fat_g": [
             0.0,
-            52.19
+            73.12
           ],
           "fiber_g": [
             0.0,
-            22.45
+            26.25
           ],
           "kcal": [
             562.5,
@@ -1220,25 +1133,19 @@
           ],
           "protein_g": [
             0.0,
-            33.11
+            57.6
           ],
           "sodium_mg": [
             0.0,
-            1443.1
+            2300.0
           ]
         },
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "What should I eat for dinner?",
+      "query": "Evaluate this lunch: a plate of pork with carrots and broccoli.",
       "s0": {
-        "ledger": [
-          {
-            "eaten_at": "today-lunch",
-            "food_id": "2708539",
-            "grams": 190.0
-          }
-        ],
+        "ledger": [],
         "profile": {
           "activity": "sedentary",
           "age_y": 45,
@@ -1860,40 +1767,51 @@
       "situations": []
     },
     {
-      "family": "update",
-      "id": "adr20-upd-4024",
+      "family": "recommend",
+      "id": "adr20-rec-4024",
       "oracle": {
+        "last_plan": [],
         "ledger": "s0",
-        "profile": {
-          "weight_kg": 83.0,
-          "windows": {
-            "carb_g": [
-              258.6375,
-              258.6375
-            ],
-            "fat_g": [
-              73.359,
-              73.359
-            ],
-            "fiber_g": [
-              26.334,
-              26.334
-            ],
-            "kcal": [
-              1881.0,
-              1881.0
-            ],
-            "protein_g": [
-              66.4,
-              66.4
-            ]
-          }
-        }
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "carb_g": [
+            0.0,
+            243.25
+          ],
+          "fat_g": [
+            0.0,
+            66.01
+          ],
+          "fiber_g": [
+            0.0,
+            23.96
+          ],
+          "kcal": [
+            557.1,
+            742.8
+          ],
+          "protein_g": [
+            0.0,
+            54.86
+          ],
+          "sodium_mg": [
+            0.0,
+            2031.2
+          ]
+        },
+        "profile": "s0"
       },
       "persona": "everyday",
-      "query": "I weigh 83 kg now. Update my weight.",
+      "query": "What should I eat for lunch?",
       "s0": {
-        "ledger": [],
+        "ledger": [
+          {
+            "eaten_at": "today-breakfast",
+            "food_id": "2707077",
+            "grams": 60.0
+          }
+        ],
         "profile": {
           "activity": "sedentary",
           "age_y": 71,
@@ -2377,64 +2295,38 @@
       "situations": []
     },
     {
-      "family": "log",
-      "id": "adr20-comp-4032",
+      "family": "update",
+      "id": "adr20-upd-4032",
       "oracle": {
-        "sub_oracles": [
-          {
-            "ledger": "s0_plus_tail",
-            "ledger_tail": [
-              {
-                "eaten_at": "today-lunch",
-                "food_id": "2706274",
-                "grams": 90.0
-              }
+        "ledger": "s0",
+        "profile": {
+          "weight_kg": 61.0,
+          "windows": {
+            "carb_g": [
+              312.85031250000003,
+              312.85031250000003
             ],
-            "profile": "s0"
-          },
-          {
-            "last_plan": [],
-            "ledger": [
-              {
-                "eaten_at": "today-lunch",
-                "food_id": "2706274",
-                "grams": 90.0
-              }
+            "fat_g": [
+              88.735725,
+              88.735725
             ],
-            "plan_must_be_safe": true,
-            "plan_must_fit_windows": true,
-            "plan_windows": {
-              "carb_g": [
-                0.0,
-                297.56
-              ],
-              "fat_g": [
-                0.0,
-                75.38
-              ],
-              "fiber_g": [
-                0.0,
-                30.92
-              ],
-              "kcal": [
-                672.23,
-                896.31
-              ],
-              "protein_g": [
-                0.0,
-                43.82
-              ],
-              "sodium_mg": [
-                0.0,
-                1940.0
-              ]
-            },
-            "profile": "s0"
+            "fiber_g": [
+              31.85385,
+              31.85385
+            ],
+            "kcal": [
+              2275.275,
+              2275.275
+            ],
+            "protein_g": [
+              48.800000000000004,
+              56.881875
+            ]
           }
-        ]
+        }
       },
       "persona": "everyday",
-      "query": "I had fried perch for lunch, so what should I eat for dinner?",
+      "query": "I weigh 61 kg now. Update my weight.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -2656,7 +2548,7 @@
         ]
       },
       "persona": "cut",
-      "query": "I had a baked banana and some stewed potatoes for lunch, so what should I eat for dinner that's low in sodium?",
+      "query": "I had a baked banana and some stewed potatoes for lunch, so what low-sodium dinner should I eat?",
       "s0": {
         "ledger": [],
         "profile": {
@@ -2716,7 +2608,7 @@
               {
                 "eaten_at": "today-lunch",
                 "food_id": "2705632",
-                "grams": 120.0
+                "grams": 135.0
               }
             ],
             "profile": "s0"
@@ -2732,7 +2624,7 @@
               {
                 "eaten_at": "today-lunch",
                 "food_id": "2705632",
-                "grams": 120.0
+                "grams": 135.0
               }
             ],
             "plan_must_be_safe": true,
@@ -2740,15 +2632,15 @@
             "plan_windows": {
               "carb_g": [
                 0.0,
-                432.82
+                428.59
               ],
               "fat_g": [
                 0.0,
-                110.77
+                109.12
               ],
               "fiber_g": [
                 0.0,
-                47.16
+                46.98
               ],
               "kcal": [
                 1049.51,
@@ -2756,11 +2648,11 @@
               ],
               "protein_g": [
                 0.0,
-                80.36
+                79.79
               ],
               "sodium_mg": [
                 0.0,
-                2161.55
+                2150.15
               ]
             },
             "profile": "s0"
@@ -2768,7 +2660,7 @@
         ]
       },
       "persona": "everyday",
-      "query": "I had a chocolate-coated vanilla light ice cream bar and a scoop of chocolate ice cream for lunch, so what should I eat for dinner?",
+      "query": "I had a chocolate-coated vanilla ice cream bar and some chocolate ice cream for lunch, so what should I eat for dinner?",
       "s0": {
         "ledger": [],
         "profile": {
@@ -2867,7 +2759,7 @@
         ]
       },
       "persona": "gym",
-      "query": "I had a plate of whole grain pasta with tomato sauce and veggies for lunch, so what high-protein dinner should I eat?",
+      "query": "I had a plate of whole grain pasta with tomato sauce and vegetables from a restaurant for lunch, so what high-protein dinner should I eat?",
       "s0": {
         "ledger": [],
         "profile": {
@@ -2977,7 +2869,7 @@
         ]
       },
       "persona": "everyday",
-      "query": "I had a handful of trail mix with pretzels and granola and a bowl of whole grain pasta with creamy meat sauce and veggies for lunch, so what low-sodium dinner should I have?",
+      "query": "I had a handful of trail mix with pretzels and granola and a bowl of whole-grain pasta with creamy meat and vegetable sauce for lunch, so what should I eat for dinner that is low in sodium?",
       "s0": {
         "ledger": [],
         "profile": {
@@ -3086,7 +2978,7 @@
         ]
       },
       "persona": "gym",
-      "query": "I had a plate of stuffed cabbage rolls with beef and rice and a bowl of chicken salad with fat-free dressing for lunch, so what high-protein dinner should I eat?",
+      "query": "I had a plate of stuffed cabbage rolls with beef and rice and a bowl of chicken salad with fat-free dressing for lunch, so what should I eat for a high-protein dinner?",
       "s0": {
         "ledger": [],
         "profile": {
@@ -3186,7 +3078,7 @@
         ]
       },
       "persona": "cut",
-      "query": "I had a plate of pork with potatoes and vegetables in gravy for lunch, so what low-carb dinner should I eat?",
+      "query": "I had a plate of pork with potatoes and mixed vegetables in gravy for lunch, so what low-carb dinner should I eat?",
       "s0": {
         "ledger": [],
         "profile": {
@@ -3218,6 +3110,108 @@
             "protein_g": [
               60.800000000000004,
               64.8578125
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          }
+        }
+      },
+      "situations": []
+    },
+    {
+      "family": "log",
+      "id": "adr20-comp-4040",
+      "oracle": {
+        "sub_oracles": [
+          {
+            "ledger": "s0_plus_tail",
+            "ledger_tail": [
+              {
+                "eaten_at": "today-lunch",
+                "food_id": "2710187",
+                "grams": 14.0
+              }
+            ],
+            "profile": "s0"
+          },
+          {
+            "last_plan": [],
+            "ledger": [
+              {
+                "eaten_at": "today-lunch",
+                "food_id": "2710187",
+                "grams": 14.0
+              }
+            ],
+            "plan_must_be_safe": true,
+            "plan_must_fit_windows": true,
+            "plan_windows": {
+              "carb_g": [
+                0.0,
+                220.11
+              ],
+              "fat_g": [
+                0.0,
+                48.43
+              ],
+              "fiber_g": [
+                0.0,
+                22.41
+              ],
+              "kcal": [
+                390.24,
+                520.32
+              ],
+              "protein_g": [
+                0.0,
+                56.0
+              ],
+              "sodium_mg": [
+                0.0,
+                2300.0
+              ]
+            },
+            "profile": "s0"
+          }
+        ]
+      },
+      "persona": "cut",
+      "query": "I had a tablespoon of peanut oil for lunch, so what should I eat for dinner that fits a Mediterranean diet?",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "activity": "sedentary",
+          "age_y": 41,
+          "allergies": [
+            "egg"
+          ],
+          "height_cm": 160.0,
+          "phase": "cut",
+          "sex": "female",
+          "user_id": "roster-cam",
+          "weight_kg": 70.0,
+          "windows": {
+            "carb_g": [
+              220.11,
+              220.11
+            ],
+            "fat_g": [
+              62.4312,
+              62.4312
+            ],
+            "fiber_g": [
+              22.4112,
+              22.4112
+            ],
+            "kcal": [
+              1300.8,
+              1300.8
+            ],
+            "protein_g": [
+              56.0,
+              56.0
             ],
             "sodium_mg": [
               0.0,

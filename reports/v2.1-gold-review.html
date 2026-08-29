@@ -67,7 +67,7 @@
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;After the gym I had a granola bar and a bowl of white rice.&rdquo;</p>
+                        <p class="query-text">&ldquo;After the gym I grabbed a granola bar and a bowl of white rice for quick carbs.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -80,7 +80,7 @@
                     <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
                     <td><strong>28.0 g</strong></td>
                 </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 3/3 (100%)<ul><li><code>qwen3.8-max</code>: bar × 1.0 = <strong>28g</strong> <em>(The user said they had a granola bar, indicating one standard bar.)</em></li><li><code>kimi-k2.7-code</code>: bar × 1.0 = <strong>28g</strong> <em>(The user reports eating one granola bar, and 'bar' is the matching 28 g portion unit.)</em></li><li><code>qwen3.7-flash-2026-07-15</code>: bar × 1.0 = <strong>28g</strong> <em>(The user mentioned 'a granola bar', which corresponds to a single unit of the base unit 'bar'.)</em></li></ul></div></td></tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 3/3 (100%)<ul><li><code>deepseek-v4-flash-0731</code>: bar × 1.0 = <strong>28g</strong> <em>(The user explicitly says 'a granola bar', meaning one single bar.)</em></li><li><code>kimi-k2.7-code</code>: bar × 1.0 = <strong>28g</strong> <em>(The user explicitly ate one granola bar, matching the 'bar' portion of 28 g.)</em></li><li><code>glm-5.2</code>: bar × 1.0 = <strong>28g</strong> <em>(User said 'a granola bar' indicating a single bar portion, matching the 'bar' unit directly.)</em></li></ul></div></td></tr>
                 
                 <tr>
                     <td><code>2708408</code></td>
@@ -110,7 +110,7 @@
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;I had a plate of beef with rice and veggies in gravy plus an oatmeal roll.&rdquo;</p>
+                        <p class="query-text">&ldquo;For dinner I had a plate of beef with rice and vegetables in gravy plus an oatmeal roll.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -153,7 +153,7 @@
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;I had a cup of sweet coffee with a small bowl of pickled cauliflower.&rdquo;</p>
+                        <p class="query-text">&ldquo;I had a mug of sweet coffee with a small bowl of pickled cauliflower.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -164,7 +164,7 @@
                     <td><code>2710466</code></td>
                     <td><strong>Coffee, pre-sweetened with sugar</strong></td>
                     <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>248.0 g</strong></td>
+                    <td><strong>372.0 g</strong></td>
                 </tr>
                 
                 
@@ -179,7 +179,7 @@
                 </table>
                 
                     </div>
-                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2710466 (248g), 2710074 (30g)</p></div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2710466 (372g), 2710074 (30g)</p></div>
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
@@ -196,7 +196,7 @@
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;I had a tall glass of iced black tea sweetened with a low-calorie sweetener.&rdquo;</p>
+                        <p class="query-text">&ldquo;I logged a glass of sweet decaf iced black tea.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -215,49 +215,6 @@
                 
                     </div>
                     <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2710497 (360g)</p></div>
-                </div>
-                <div class="card-footer">
-                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
-                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
-                </div>
-            </div>
-            
-            <div class="card" id="card-adr20-log-4004">
-                <div class="card-header">
-                    <span class="task-id">adr20-log-4004</span>
-                    <span class="persona-tag">cut | low_carb</span>
-                    <span class="user-meta">male, 60y, 90.0kg, light</span>
-                </div>
-                <div class="card-body">
-                    <div class="query-box">
-                        <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;I had a small bowl of gluten-free pasta with a spoonful of bread stuffing on the side.&rdquo;</p>
-                    </div>
-                    <div class="resolution-container">
-                        
-                <table class="res-table">
-                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
-                    <tbody>
-                <tr>
-                    <td><code>2708359</code></td>
-                    <td><strong>Pasta, gluten free</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>140.0 g</strong></td>
-                </tr>
-                
-                
-                <tr>
-                    <td><code>2707687</code></td>
-                    <td><strong>Bread stuffing</strong></td>
-                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>10.0 g</strong></td>
-                </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 2/3 (67%)<ul><li><code>qwen3.8-max</code>: cubic_inch × 1.0 = <strong>10g</strong> <em>(A spoonful of stuffing is approximately one cubic inch portion.)</em></li><li><code>kimi-k2.7-code</code>: cubic_inch × 1.5 = <strong>15g</strong> <em>(A spoonful is a small volume best approximated by the cubic inch unit, estimated at about 1.5 cubic inches.)</em></li><li><code>qwen3.7-flash-2026-07-15</code>: cubic_inch × 1.0 = <strong>10g</strong> <em>(A standard spoonful closely approximates the volume of one cubic inch.)</em></li></ul></div></td></tr>
-                </tbody>
-                </table>
-                
-                    </div>
-                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2708359 (140g), 2707687 (10g)</p></div>
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
@@ -309,7 +266,7 @@
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;I had a plate of pork and onions in soy sauce.&rdquo;</p>
+                        <p class="query-text">&ldquo;I had a plate of pork and onions cooked in soy sauce for dinner.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -322,7 +279,7 @@
                     <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
                     <td><strong>192.0 g</strong></td>
                 </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 2/3 (67%)<ul><li><code>qwen3.8-max</code>: qns × 1.0 = <strong>192g</strong> <em>(The user described one plate, which best maps to one qns portion in the FNDDS table.)</em></li><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>192g</strong> <em>(A plate is treated as one standard serving, so the qns (quantity not specified) portion with a 1.0 multiplier is the best match.)</em></li><li><code>qwen3.7-flash-2026-07-15</code>: cup × 1.0 = <strong>256g</strong> <em>(A standard plate serving of a prepared dish typically corresponds to one cup.)</em></li></ul></div></td></tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 3/3 (100%)<ul><li><code>deepseek-v4-flash-0731</code>: qns × 1.0 = <strong>192g</strong> <em>(A plate of this dish corresponds to one unspecified serving (qns) in the FNDDS table.)</em></li><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>192g</strong> <em>(A plate is an unspecified serving, so the quantity-not-specified portion (192 g) is the best match.)</em></li><li><code>glm-5.2</code>: qns × 1.0 = <strong>192g</strong> <em>(A plate corresponds to one standard serving (qns) of the dish.)</em></li></ul></div></td></tr>
                 </tbody>
                 </table>
                 
@@ -344,7 +301,7 @@
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;I had a bowl of raw radicchio as a light salad.&rdquo;</p>
+                        <p class="query-text">&ldquo;I had a simple salad of raw radicchio.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -357,7 +314,7 @@
                     <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
                     <td><strong>40.0 g</strong></td>
                 </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 3/3 (100%)<ul><li><code>qwen3.8-max</code>: cup × 1.0 = <strong>40g</strong> <em>(A light bowl of raw radicchio is best estimated as one cup portion.)</em></li><li><code>kimi-k2.7-code</code>: cup × 1.0 = <strong>40g</strong> <em>(A bowl of raw radicchio as a light salad is best approximated by one cup (40 g).)</em></li><li><code>qwen3.7-flash-2026-07-15</code>: cup × 1.0 = <strong>40g</strong> <em>(A standard bowl of salad typically equates to approximately one cup.)</em></li></ul></div></td></tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 2/3 (67%)<ul><li><code>deepseek-v4-flash-0731</code>: qns × 1.0 = <strong>20g</strong> <em>(The user did not specify a measured amount, so the generic 'quantity not specified' serving of 20 g is most appropriate.)</em></li><li><code>kimi-k2.7-code</code>: cup × 1.0 = <strong>40g</strong> <em>(A simple raw radicchio salad is reasonably estimated as one cup.)</em></li><li><code>glm-5.2</code>: cup × 1.0 = <strong>40g</strong> <em>(A simple salad implies a standard single serving of approximately 1 cup of raw radicchio.)</em></li></ul></div></td></tr>
                 </tbody>
                 </table>
                 
@@ -369,21 +326,17 @@
                     <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
                 </div>
             </div>
-            </div></div>
-        <div class="family-section">
-            <h2 class="family-title">EVALUATE (8 items)</h2>
-            <div class="cards-grid">
-        
-            <div class="card" id="card-adr20-eval-4008">
+            
+            <div class="card" id="card-adr20-log-4008">
                 <div class="card-header">
-                    <span class="task-id">adr20-eval-4008</span>
+                    <span class="task-id">adr20-log-4008</span>
                     <span class="persona-tag">everyday | dairy_free</span>
                     <span class="user-meta">female, 38y, 74.0kg, moderate</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;Evaluate this lunch: an omelet with cheese, tomatoes, and spinach.&rdquo;</p>
+                        <p class="query-text">&ldquo;I had a frozen fruit juice bar as a light snack.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -391,24 +344,28 @@
                     <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
                     <tbody>
                 <tr>
-                    <td><code>2707249</code></td>
-                    <td><strong>Egg omelet or scrambled egg, with cheese, tomatoes, and dark-green vegetables, NS as to fat</strong></td>
-                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>85.0 g</strong></td>
+                    <td><code>2709313</code></td>
+                    <td><strong>Frozen fruit juice bar, no sugar added</strong></td>
+                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
+                    <td><strong>80.0 g</strong></td>
                 </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 3/3 (100%)<ul><li><code>qwen3.8-max</code>: piece × 1.0 = <strong>85g</strong> <em>(The user describes one omelet, so one piece is the most appropriate reference portion.)</em></li><li><code>kimi-k2.7-code</code>: piece × 1.0 = <strong>85g</strong> <em>(A single omelet is best represented as one piece from the FNDDS portion table.)</em></li><li><code>qwen3.7-flash-2026-07-15</code>: piece × 1.0 = <strong>85g</strong> <em>(The user specifies 'an omelet,' which corresponds to a single serving or piece in the portion table.)</em></li></ul></div></td></tr>
+                
                 </tbody>
                 </table>
                 
                     </div>
-                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('allergy', 'kcal_lo')</p><p><strong>Plan Windows:</strong> kcal: [674.95, 899.93], protein_g: [0, 59.2], carb_g: [0, 309.35], fat_g: [0, 87.74], fiber_g: [0, 31.5], sodium_mg: [0, 2300]</p></div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2709313 (80g)</p></div>
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
                     <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
                 </div>
             </div>
-            
+            </div></div>
+        <div class="family-section">
+            <h2 class="family-title">EVALUATE (8 items)</h2>
+            <div class="cards-grid">
+        
             <div class="card" id="card-adr20-eval-4009">
                 <div class="card-header">
                     <span class="task-id">adr20-eval-4009</span>
@@ -461,7 +418,7 @@
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;Evaluate this lunch for my high-protein gym goals: a wrap filled with several meats.&rdquo;</p>
+                        <p class="query-text">&ldquo;Evaluate this lunch for my high-protein gym goals: a wrap stuffed with a mix of meats.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -474,7 +431,7 @@
                     <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
                     <td><strong>165.0 g</strong></td>
                 </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 3/3 (100%)<ul><li><code>qwen3.8-max</code>: qns × 1.0 = <strong>165g</strong> <em>(The user described one wrap, which corresponds to one standard FNDDS quantity portion.)</em></li><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>165g</strong> <em>(The user describes a single regular wrap, matching one standard portion.)</em></li><li><code>qwen3.7-flash-2026-07-15</code>: qns × 1.0 = <strong>165g</strong> <em>(The user specified 'a wrap', indicating a single unit of the reference food.)</em></li></ul></div></td></tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 3/3 (100%)<ul><li><code>deepseek-v4-flash-0731</code>: qns × 1.0 = <strong>165g</strong> <em>(The user describes a single wrap as their lunch with no quantity modifier, so one 165 g serving is the best fit.)</em></li><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>165g</strong> <em>(A single wrap matches one regular qns portion of 165 g.)</em></li><li><code>glm-5.2</code>: qns × 1.0 = <strong>165g</strong> <em>(User refers to 'a wrap' indicating a single serving, matching the default FNDDS portion of 165 g.)</em></li></ul></div></td></tr>
                 </tbody>
                 </table>
                 
@@ -496,7 +453,7 @@
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;Evaluate this lunch for my high-protein gym diet: a plate of sausage with potatoes, gravy, and mixed vegetables without carrots, broccoli, or dark leafy greens.&rdquo;</p>
+                        <p class="query-text">&ldquo;Evaluate this lunch for my high-protein gym goals: a plate of sausage with potatoes, mixed vegetables, and gravy.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -566,7 +523,7 @@
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;Evaluate this lunch: a small bowl of sour cream and onion potato chips.&rdquo;</p>
+                        <p class="query-text">&ldquo;Evaluate this lunch: a small bag of sour cream and onion potato chips.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -579,7 +536,7 @@
                     <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
                     <td><strong>28.0 g</strong></td>
                 </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 3/3 (100%)<ul><li><code>qwen3.8-max</code>: qns × 1.0 = <strong>28g</strong> <em>(No explicit quantity was given, so use the default quantity-not-specified portion for onion potato chips.)</em></li><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>28g</strong> <em>(The query names the food without a quantity, so the FNDDS 'quantity not specified' portion is the best match.)</em></li><li><code>qwen3.7-flash-2026-07-15</code>: piece × 1.0 = <strong>28g</strong> <em>(A single piece is assumed as no specific quantity was mentioned.)</em></li></ul></div></td></tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 3/3 (100%)<ul><li><code>deepseek-v4-flash-0731</code>: qns × 1.0 = <strong>28g</strong> <em>(The user did not specify a quantity, so a standard serving (quantity not specified) of 28g is used.)</em></li><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>28g</strong> <em>(The user only named the food without specifying an amount, so the 'quantity not specified' portion is the best fit.)</em></li><li><code>glm-5.2</code>: qns × 1.0 = <strong>28g</strong> <em>(User did not specify a portion size, so qns (quantity not specified) with a default multiplier of 1.0 is the most appropriate choice.)</em></li></ul></div></td></tr>
                 </tbody>
                 </table>
                 
@@ -636,7 +593,7 @@
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;Evaluate this planned lunch: a slice of Spanish coffee bread and a small cup of vanilla frozen yogurt.&rdquo;</p>
+                        <p class="query-text">&ldquo;Evaluate this planned lunch: a slice of Spanish coffee bread and a scoop of vanilla frozen yogurt.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -655,7 +612,7 @@
                     <td><code>2705452</code></td>
                     <td><strong>Frozen yogurt, vanilla</strong></td>
                     <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
-                    <td><strong>175.0 g</strong></td>
+                    <td><strong>160.0 g</strong></td>
                 </tr>
                 
                 </tbody>
@@ -669,33 +626,46 @@
                     <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
                 </div>
             </div>
-            </div></div>
-        <div class="family-section">
-            <h2 class="family-title">RECOMMEND (8 items)</h2>
-            <div class="cards-grid">
-        
-            <div class="card" id="card-adr20-rec-4016">
+            
+            <div class="card" id="card-adr20-eval-4016">
                 <div class="card-header">
-                    <span class="task-id">adr20-rec-4016</span>
+                    <span class="task-id">adr20-eval-4016</span>
                     <span class="persona-tag">everyday | balanced</span>
                     <span class="user-meta">male, 45y, 72.0kg, sedentary</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;What should I eat for dinner?&rdquo;</p>
+                        <p class="query-text">&ldquo;Evaluate this lunch: a plate of pork with carrots and broccoli.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
-                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                        
+                <table class="res-table">
+                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
+                    <tbody>
+                <tr>
+                    <td><code>2706758</code></td>
+                    <td><strong>Pork and vegetables including carrots, broccoli, and/or dark-green leafy; no potatoes, no sauce</strong></td>
+                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
+                    <td><strong>121.0 g</strong></td>
+                </tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 3/3 (100%)<ul><li><code>deepseek-v4-flash-0731</code>: qns × 1.0 = <strong>121g</strong> <em>(A 'plate' is an unspecified single serving, so the qns unit with a multiplier of 1.0 best matches the user's description.)</em></li><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>121g</strong> <em>(A plate is an unspecified serving, so the FNDDS quantity-not-specified unit (121 g) with a 1.0 multiplier best matches the user's description.)</em></li><li><code>glm-5.2</code>: qns × 1.0 = <strong>121g</strong> <em>(User describes a plate serving without specifying cup volume, so qns (quantity not specified) at 1.0 multiplier is the best match.)</em></li></ul></div></td></tr>
+                </tbody>
+                </table>
+                
                     </div>
-                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2708539 (190g)</p><p><strong>Plan Windows:</strong> kcal: [562.5, 750], protein_g: [0, 33.11], carb_g: [0, 203.99], fat_g: [0, 52.19], fiber_g: [0, 22.45], sodium_mg: [0, 1443.1]</p></div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('kcal_lo',)</p><p><strong>Plan Windows:</strong> kcal: [562.5, 750], protein_g: [0, 57.6], carb_g: [0, 257.81], fat_g: [0, 73.12], fiber_g: [0, 26.25], sodium_mg: [0, 2300]</p></div>
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
                     <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
                 </div>
             </div>
-            
+            </div></div>
+        <div class="family-section">
+            <h2 class="family-title">RECOMMEND (8 items)</h2>
+            <div class="cards-grid">
+        
             <div class="card" id="card-adr20-rec-4017">
                 <div class="card-header">
                     <span class="task-id">adr20-rec-4017</span>
@@ -849,33 +819,33 @@
                     <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
                 </div>
             </div>
-            </div></div>
-        <div class="family-section">
-            <h2 class="family-title">UPDATE (8 items)</h2>
-            <div class="cards-grid">
-        
-            <div class="card" id="card-adr20-upd-4024">
+            
+            <div class="card" id="card-adr20-rec-4024">
                 <div class="card-header">
-                    <span class="task-id">adr20-upd-4024</span>
+                    <span class="task-id">adr20-rec-4024</span>
                     <span class="persona-tag">everyday | heart_healthy</span>
                     <span class="user-meta">male, 71y, 81.0kg, sedentary</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;I weigh 83 kg now. Update my weight.&rdquo;</p>
+                        <p class="query-text">&ldquo;What should I eat for lunch?&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         <p class='no-foods'>No food portion binding required for this task type.</p>
                     </div>
-                    
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2707077 (60g)</p><p><strong>Plan Windows:</strong> kcal: [557.1, 742.8], protein_g: [0, 54.86], carb_g: [0, 243.25], fat_g: [0, 66.01], fiber_g: [0, 23.96], sodium_mg: [0, 2031.2]</p></div>
                 </div>
                 <div class="card-footer">
                     <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
                     <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
                 </div>
             </div>
-            
+            </div></div>
+        <div class="family-section">
+            <h2 class="family-title">UPDATE (8 items)</h2>
+            <div class="cards-grid">
+        
             <div class="card" id="card-adr20-upd-4025">
                 <div class="card-header">
                     <span class="task-id">adr20-upd-4025</span>
@@ -1029,37 +999,20 @@
                     <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
                 </div>
             </div>
-            </div></div>
-        <div class="family-section">
-            <h2 class="family-title">COMPOSITE (8 items)</h2>
-            <div class="cards-grid">
-        
-            <div class="card" id="card-adr20-comp-4032">
+            
+            <div class="card" id="card-adr20-upd-4032">
                 <div class="card-header">
-                    <span class="task-id">adr20-comp-4032</span>
+                    <span class="task-id">adr20-upd-4032</span>
                     <span class="persona-tag">everyday | balanced</span>
                     <span class="user-meta">female, 31y, 59.0kg, active</span>
                 </div>
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;I had fried perch for lunch, so what should I eat for dinner?&rdquo;</p>
+                        <p class="query-text">&ldquo;I weigh 61 kg now. Update my weight.&rdquo;</p>
                     </div>
                     <div class="resolution-container">
-                        
-                <table class="res-table">
-                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
-                    <tbody>
-                <tr>
-                    <td><code>2706274</code></td>
-                    <td><strong>Fish, perch, fried</strong></td>
-                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>90.0 g</strong></td>
-                </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 3/3 (100%)<ul><li><code>qwen3.8-max</code>: piece × 1.0 = <strong>90g</strong> <em>(No specific quantity was mentioned, so assume one regular piece of fried perch.)</em></li><li><code>kimi-k2.7-code</code>: piece × 1.0 = <strong>90g</strong> <em>(A typical serving of fried perch is one piece.)</em></li><li><code>qwen3.7-flash-2026-07-15</code>: piece × 1.0 = <strong>90g</strong> <em>(No specific quantity was mentioned, so a standard single serving (1 piece) is assumed.)</em></li></ul></div></td></tr>
-                </tbody>
-                </table>
-                
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
                     </div>
                     
                 </div>
@@ -1068,7 +1021,11 @@
                     <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
                 </div>
             </div>
-            
+            </div></div>
+        <div class="family-section">
+            <h2 class="family-title">COMPOSITE (8 items)</h2>
+            <div class="cards-grid">
+        
             <div class="card" id="card-adr20-comp-4033">
                 <div class="card-header">
                     <span class="task-id">adr20-comp-4033</span>
@@ -1121,7 +1078,7 @@
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;I had a baked banana and some stewed potatoes for lunch, so what should I eat for dinner that's low in sodium?&rdquo;</p>
+                        <p class="query-text">&ldquo;I had a baked banana and some stewed potatoes for lunch, so what low-sodium dinner should I eat?&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -1142,7 +1099,7 @@
                     <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
                     <td><strong>250.0 g</strong></td>
                 </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 2/3 (67%)<ul><li><code>qwen3.8-max</code>: cup × 1.0 = <strong>250g</strong> <em>(A typical lunch portion of stewed potatoes is reasonably estimated as one cup.)</em></li><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>125g</strong> <em>("Some" indicates an unspecified modest serving, best matched by the default qns portion.)</em></li><li><code>qwen3.7-flash-2026-07-15</code>: cup × 1.0 = <strong>250g</strong> <em>("Some" implies a standard single serving, which corresponds to 1 cup for potatoes.)</em></li></ul></div></td></tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 2/3 (67%)<ul><li><code>deepseek-v4-flash-0731</code>: qns × 1.0 = <strong>125g</strong> <em>(The user's vague 'some' matches the 'quantity not specified' portion in the FNDDS table.)</em></li><li><code>kimi-k2.7-code</code>: cup × 1.0 = <strong>250g</strong> <em>("Some" suggests a moderate lunch serving, best approximated by one cup.)</em></li><li><code>glm-5.2</code>: cup × 1.0 = <strong>250g</strong> <em>(The vague term 'some' suggests a typical single serving, best matched to one cup of stewed potatoes.)</em></li></ul></div></td></tr>
                 </tbody>
                 </table>
                 
@@ -1164,7 +1121,7 @@
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;I had a chocolate-coated vanilla light ice cream bar and a scoop of chocolate ice cream for lunch, so what should I eat for dinner?&rdquo;</p>
+                        <p class="query-text">&ldquo;I had a chocolate-coated vanilla ice cream bar and some chocolate ice cream for lunch, so what should I eat for dinner?&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -1174,18 +1131,18 @@
                 <tr>
                     <td><code>2705671</code></td>
                     <td><strong>Light ice cream bar, vanilla, chocolate coated</strong></td>
-                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
+                    <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
                     <td><strong>75.0 g</strong></td>
                 </tr>
-                
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 3/3 (100%)<ul><li><code>deepseek-v4-flash-0731</code>: bar × 1.0 = <strong>75g</strong> <em>(The user said they had 'a chocolate-coated vanilla ice cream bar', which matches one 75 g bar unit from the portion table.)</em></li><li><code>kimi-k2.7-code</code>: bar × 1.0 = <strong>75g</strong> <em>(The user reports eating one chocolate-coated vanilla ice cream bar, matching the 'bar' portion.)</em></li><li><code>glm-5.2</code>: bar × 1.0 = <strong>75g</strong> <em>(User said 'a' chocolate-coated vanilla ice cream bar, indicating one bar portion at 75g.)</em></li></ul></div></td></tr>
                 
                 <tr>
                     <td><code>2705632</code></td>
                     <td><strong>Ice cream, chocolate</strong></td>
                     <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
-                    <td><strong>120.0 g</strong></td>
+                    <td><strong>135.0 g</strong></td>
                 </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 2/3 (67%)<ul><li><code>qwen3.8-max</code>: qns × 1.0 = <strong>135g</strong> <em>(The user reported one bar, and qns is the closest available single-item quantity unit in the table.)</em></li><li><code>kimi-k2.7-code</code>: scoop × 1.0 = <strong>120g</strong> <em>(A single chocolate-coated ice cream bar is approximately equivalent to one standard scoop serving.)</em></li><li><code>qwen3.7-flash-2026-07-15</code>: scoop × 1.0 = <strong>120g</strong> <em>(The user consumed one ice cream bar, which aligns with a single serving size best represented by the 'scoop' unit in the provided FNDDS table.)</em></li></ul></div></td></tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 2/3 (67%)<ul><li><code>deepseek-v4-flash-0731</code>: cup × 1.0 = <strong>135g</strong> <em>(The described single ice cream bar is approximated as one standard cup serving of ice cream, yielding 135 g.)</em></li><li><code>kimi-k2.7-code</code>: scoop × 1.0 = <strong>120g</strong> <em>(A single chocolate-coated ice cream bar corresponds to one standard scoop serving.)</em></li><li><code>glm-5.2</code>: qns × 1.0 = <strong>135g</strong> <em>(A single ice cream bar corresponds to one standard serving (qns) at 135 g.)</em></li></ul></div></td></tr>
                 </tbody>
                 </table>
                 
@@ -1207,7 +1164,7 @@
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;I had a plate of whole grain pasta with tomato sauce and veggies for lunch, so what high-protein dinner should I eat?&rdquo;</p>
+                        <p class="query-text">&ldquo;I had a plate of whole grain pasta with tomato sauce and vegetables from a restaurant for lunch, so what high-protein dinner should I eat?&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -1242,7 +1199,7 @@
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;I had a handful of trail mix with pretzels and granola and a bowl of whole grain pasta with creamy meat sauce and veggies for lunch, so what low-sodium dinner should I have?&rdquo;</p>
+                        <p class="query-text">&ldquo;I had a handful of trail mix with pretzels and granola and a bowl of whole-grain pasta with creamy meat and vegetable sauce for lunch, so what should I eat for dinner that is low in sodium?&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -1255,7 +1212,7 @@
                     <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
                     <td><strong>28.0 g</strong></td>
                 </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 3/3 (100%)<ul><li><code>qwen3.8-max</code>: qns × 1.0 = <strong>28g</strong> <em>(A handful of trail mix is best represented by one 28 g quantity portion.)</em></li><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>28g</strong> <em>(A handful of trail mix is approximately one quantity-not-specified portion weighing about 28 g.)</em></li><li><code>qwen3.7-flash-2026-07-15</code>: qns × 1.0 = <strong>28g</strong> <em>(A 'handful' of trail mix is commonly estimated as a standard serving size of one ounce.)</em></li></ul></div></td></tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 2/3 (67%)<ul><li><code>deepseek-v4-flash-0731</code>: qns × 1.0 = <strong>28g</strong> <em>(A handful of trail mix is best matched to the approximate 28 g 'quantity not specified' serving size.)</em></li><li><code>kimi-k2.7-code</code>: qns × 1.0 = <strong>28g</strong> <em>(A handful is a small, single serving, matching the 28 g 'qns' portion.)</em></li><li><code>glm-5.2</code>: cup × 0.25 = <strong>35g</strong> <em>(A handful of trail mix is approximately one-quarter of a cup, so 0.25 x 140g = 35g.)</em></li></ul></div></td></tr>
                 
                 <tr>
                     <td><code>2708914</code></td>
@@ -1285,7 +1242,7 @@
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;I had a plate of stuffed cabbage rolls with beef and rice and a bowl of chicken salad with fat-free dressing for lunch, so what high-protein dinner should I eat?&rdquo;</p>
+                        <p class="query-text">&ldquo;I had a plate of stuffed cabbage rolls with beef and rice and a bowl of chicken salad with fat-free dressing for lunch, so what should I eat for a high-protein dinner?&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -1306,7 +1263,7 @@
                     <td><span class="badge tier-2">🟡 Tier-2 Vote</span></td>
                     <td><strong>226.0 g</strong></td>
                 </tr>
-                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 3/3 (100%)<ul><li><code>qwen3.8-max</code>: cup × 1.0 = <strong>226g</strong> <em>(A bowl of chicken salad is best interpreted as one standard cup portion.)</em></li><li><code>kimi-k2.7-code</code>: cup × 1.0 = <strong>226g</strong> <em>(User mentioned a bowl of chicken salad, approximated as one cup.)</em></li><li><code>qwen3.7-flash-2026-07-15</code>: cup × 1.0 = <strong>226g</strong> <em>(A standard bowl of salad typically corresponds to a 1-cup serving size.)</em></li></ul></div></td></tr>
+                <tr><td colspan='4'><div class='voter-box'><strong>Voter Consensus:</strong> 2/3 (67%)<ul><li><code>kimi-k2.7-code</code>: cup × 1.0 = <strong>226g</strong> <em>(User reported a single bowl of chicken salad with fat-free dressing, which corresponds to one cup.)</em></li><li><code>glm-5.2</code>: cup × 1.0 = <strong>226g</strong> <em>(User mentioned 'a bowl' of chicken salad, which corresponds to approximately one cup serving.)</em></li></ul></div></td></tr>
                 </tbody>
                 </table>
                 
@@ -1328,7 +1285,7 @@
                 <div class="card-body">
                     <div class="query-box">
                         <span class="query-label">User Query:</span>
-                        <p class="query-text">&ldquo;I had a plate of pork with potatoes and vegetables in gravy for lunch, so what low-carb dinner should I eat?&rdquo;</p>
+                        <p class="query-text">&ldquo;I had a plate of pork with potatoes and mixed vegetables in gravy for lunch, so what low-carb dinner should I eat?&rdquo;</p>
                     </div>
                     <div class="resolution-container">
                         
@@ -1340,6 +1297,41 @@
                     <td><strong>Pork, potatoes, and vegetables excluding carrots, broccoli, and dark-green leafy; gravy</strong></td>
                     <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
                     <td><strong>189.0 g</strong></td>
+                </tr>
+                
+                </tbody>
+                </table>
+                
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-comp-4040">
+                <div class="card-header">
+                    <span class="task-id">adr20-comp-4040</span>
+                    <span class="persona-tag">cut | mediterranean</span>
+                    <span class="user-meta">female, 41y, 70.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a tablespoon of peanut oil for lunch, so what should I eat for dinner that fits a Mediterranean diet?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        
+                <table class="res-table">
+                    <thead><tr><th>Food ID</th><th>Food Name</th><th>Resolution Tier</th><th>Resolved Grams</th></tr></thead>
+                    <tbody>
+                <tr>
+                    <td><code>2710187</code></td>
+                    <td><strong>Peanut oil</strong></td>
+                    <td><span class="badge tier-1">🟢 Tier-1 Rule</span></td>
+                    <td><strong>14.0 g</strong></td>
                 </tr>
                 
                 </tbody>

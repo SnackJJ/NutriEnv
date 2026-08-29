@@ -288,7 +288,7 @@ def _vote_single_agent(
     portion_table: Mapping[str, float],
     *,
     temperature: float = 0.1,
-    max_tokens: int = 256,
+    max_tokens: int = 2048,
 ) -> dict:
     """Prompt one LLM subagent to estimate (base_unit, multiplier) against FNDDS table."""
     table_str = "\n".join(f"  - {k}: {v:g} g" for k, v in portion_table.items())
@@ -296,7 +296,7 @@ def _vote_single_agent(
         "You are an expert nutritional measurement judge. Your task is to ground a user's "
         "spoken portion query into an official FNDDS reference portion table by picking a base unit "
         "and a multiplier/fraction.\n\n"
-        "Return ONLY a JSON object with this exact schema:\n"
+        "After your reasoning, end your response with ONLY a valid JSON object with this exact schema:\n"
         '{"base_unit": "<unit from table>", "multiplier": <float>, "grams": <float>, "rationale": "<short 1-sentence reasoning>"}'
     )
     user_prompt = (
@@ -307,7 +307,7 @@ def _vote_single_agent(
         "1. Identify the most fitting base unit from the table.\n"
         "2. Estimate the multiplier/quantity based on the user's speech (e.g. 0.5 for half, 1.0 for one/regular, 1.5 for a portion and a half / generous, 2.0 for two).\n"
         "3. Compute final grams = base_unit_grams * multiplier.\n"
-        "Output the JSON object only."
+        "End with the JSON object."
     )
     messages = [
         {"role": "system", "content": system_prompt},
@@ -323,12 +323,25 @@ def _vote_single_agent(
         cleaned = raw.strip()
         if "</think>" in cleaned:
             cleaned = cleaned.split("</think>", 1)[1].strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[1].rsplit("```", 1)[0].strip()
         import json
 
-        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
-        data = json.loads(match.group(0)) if match else json.loads(cleaned)
+        # Robustly extract JSON object containing base_unit
+        matches = list(re.finditer(r"\{[^{}]*\}", cleaned, re.DOTALL))
+        data = None
+        for m in reversed(matches):
+            try:
+                candidate = json.loads(m.group(0))
+                if isinstance(candidate, dict) and "base_unit" in candidate:
+                    data = candidate
+                    break
+            except Exception:
+                continue
+        if data is None:
+            # Fallback to direct json.loads
+            if cleaned.startswith("```"):
+                cleaned = cleaned.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+            data = json.loads(cleaned)
+
         data["model"] = model_id
         return data
     except Exception as exc:
@@ -336,9 +349,9 @@ def _vote_single_agent(
 
 
 DEFAULT_TRIAD_VOTERS: tuple[str, ...] = (
-    "qwen3.8-max",
+    "deepseek-v4-flash-0731",
     "kimi-k2.7-code",
-    "qwen3.7-flash-2026-07-15",
+    "glm-5.2",
 )
 
 
@@ -349,7 +362,7 @@ def vote_fndds_portion(
     *,
     voter_models: tuple[str, ...] = DEFAULT_TRIAD_VOTERS,
     temperature: float = 0.1,
-    max_tokens: int = 512,
+    max_tokens: int = 2048,
 ) -> FnddsVoteResult:
     """ADR 0019 Multi-Agent Vote: estimate (base_unit, multiplier) on FNDDS portion table."""
     entry = catalog.get(food_id) or {}
