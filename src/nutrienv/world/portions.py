@@ -81,6 +81,9 @@ UNIT_SYNONYMS: dict[str, str] = {
     "patty": "patty", "patties": "patty",
     "pat": "pat", "pats": "pat",
     "packet": "packet", "packets": "packet",
+    "pack": "serving", "packs": "serving",
+    "package": "serving", "packages": "serving",
+    "bag": "serving", "bags": "serving",
     "pouch": "pouch", "pouches": "pouch",
     "bar": "bar", "bars": "bar",
     "stick": "stick", "sticks": "stick",
@@ -403,8 +406,11 @@ def _bare_food_noun_grams(
             or token in MODIFIER_KEYS
         ):
             continue
-        quantity = _leading_quantity(_without_modifiers(tokens[:index]))
+        span = _without_modifiers(tokens[:index])
+        quantity = _leading_quantity(span)
         if quantity is None or quantity <= 0:
+            return None
+        if not _span_crumbs_are_food_identity(span, food_id, entry):
             return None
         return round(quantity * float(grams_per_unit), 2)
     return None

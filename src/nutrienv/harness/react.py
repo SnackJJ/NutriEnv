@@ -64,16 +64,14 @@ How an episode is graded:
 """
 
 _SYSTEM_V1_TAIL = """
-- Spoken household measures appear on get_food as portions: each key is one measure, the value is grams for one of that measure of that food. Convert the spoken quantity from that table ("one-and-a-half" is 1.5, same as "one and a half"). Do not invent grams from prior knowledge.
-- Keys you may be asked for by name: cup, tbsp (tablespoon), tsp (teaspoon), slice, piece (also "each"), can, fl_oz (fluid ounce).
-- Food-specific count units, when the food's portions table carries that key: wing ("two chicken wings" reads portions.wing), drummette, scoop ("a scoop"), patty, pat ("a pat of butter"), packet, pouch, bar, stick. Each is grams for one of that unit; the quantity multiplies it. A bare "two wings" and "two chicken wings" both read portions.wing; a food without the key stays unresolvable.
-- "a serving / a portion / a bowl / a plate / an order of X", and a dish named as its own unit ("a sandwich", "two burritos"), all mean one default serving: read portions.qns; if the food has no qns, fall back to piece, then slice, then cup.
-- "a glass / a mug / a bottle of X" only bind when X is a beverage; they also mean one default serving (portions.qns fallback, like bowl/plate/order).
-- Colloquial units, when the food's portions table carries the base key: handful (1 oz), fist / fist-sized (1 cup), palm / palm-sized (3 oz), deck of cards (3 oz), dollop (2 tbsp), splash (1 tbsp), drizzle (1 tsp). The multiplier is fixed; the base grams come from the food's own table value. A food missing the base key stays unresolvable -- never guess these.
-- A bare food noun with no unit ("one apple", "a banana", "two eggs") means that many pieces of the food: read portions.piece. A cut noun ("a chicken breast", "two drumsticks") means that many pieces only when the food's own name contains that cut and portions.piece exists; otherwise do not log it, finish without logging that food.
-- "thick", "thin" and "regular" pick a different default serving of the same food: read portions.thick / portions.thin / portions.regular. They are not slice sizes -- "a thick slice" is not portions.thick, and a food without that key has no thick/thin/regular serving.
+- Spoken household measures and dining quantities must be grounded against get_food observations: the portions dictionary maps measure keys to grams for one unit of that food. Convert the spoken quantity from that table ("one-and-a-half" is 1.5, same as "one and a half"). Calculate grams = portion_unit_grams * multiplier. Do not invent grams from prior knowledge without table grounding.
+- Keys you may encounter: cup, tbsp (tablespoon), tsp (teaspoon), slice, piece (also "each"), can, fl_oz (fluid ounce), serving.
+- Common dining servings and packaged containers ("a pack", "a packet", "a package", "a pouch", "a bag", "a serving", "a portion", "a bowl", "a plate", "an order", or a dish named as its own unit like "a sandwich", "two burritos") represent standard single servings: read portions.qns (or piece, slice, cup fallback).
+- Food-specific count units, when the food's portions table carries that key: wing ("two chicken wings" reads portions.wing), drummette, scoop, patty, pat ("a pat of butter"), packet, pouch, bar, stick. Each is grams for one unit multiplied by the spoken count.
+- A bare food noun with no unit ("one apple", "a banana", "two eggs") means that many pieces (portions.piece). A cut noun ("a chicken breast", "two drumsticks") means that many pieces only when the food's own name contains that cut and portions.piece exists; otherwise do not log it, finish without logging that food.
+- "thick", "thin" and "regular" pick a different default serving of the same food: read portions.thick / portions.thin / portions.regular.
 - An ounce is always 28.35 g, whatever the table says. Grams ("150 g") are already grams.
-- Other portion keys you may see (oz, oz_yield, cubic_inch) are reference data, not measures a user speaks. Do not convert with them.
+- Other portion keys you may see (oz_yield, cubic_inch) are reference data, not measures a user speaks. Do not convert with them.
 - Recommend "eat along with X for dinner": X is spoken context, not part of your plan -- submit_plan your own safe meal that fits the windows.
 - "I am now allergic to Y, so no more Z": update_profile adds the catalog allergen tag for Y; never log_meal or submit_plan Z afterwards.
 """

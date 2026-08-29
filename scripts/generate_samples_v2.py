@@ -579,7 +579,7 @@ def render_html_review_dashboard(results: dict[str, list[dict]], out_file: Path)
                 res_rows.append(f"""
                 <tr>
                     <td><code>{r.get('food_id')}</code></td>
-                    <td><strong>{r.get('spoken_name')}</strong></td>
+                    <td><strong>{r.get('food_name')}</strong></td>
                     <td>{tier_badge}</td>
                     <td><strong>{r.get('grams')} g</strong></td>
                 </tr>

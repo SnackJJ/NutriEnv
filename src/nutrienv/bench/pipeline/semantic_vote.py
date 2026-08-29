@@ -6,9 +6,12 @@ Generation-time only. Oracle grams stay exact PortionFact table values;
 
 from __future__ import annotations
 
+import math
 import os
 import re
+from collections import Counter
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 from nutrienv.bench.grams_gate import judge_model
@@ -378,6 +381,7 @@ def vote_fndds_portion(
         )
         votes.append(vote)
 
+    ALLOWED_MULTIPLIERS = (0.25, 0.33, 0.5, 0.67, 0.75, 1.0, 1.5, 2.0, 3.0)
     valid_votes = []
     for v in votes:
         if not isinstance(v, Mapping):
@@ -387,9 +391,18 @@ def vote_fndds_portion(
         try:
             multiplier = float(raw_mult) if raw_mult is not None else 1.0
         except (ValueError, TypeError):
-            multiplier = 1.0
+            continue
 
-        # Code-side FNDDS Table Recalculation
+        if not math.isfinite(multiplier) or multiplier <= 0 or multiplier > 4.0:
+            continue
+
+        # Snap to closest standard multiplier if within 0.05
+        for m in ALLOWED_MULTIPLIERS:
+            if abs(multiplier - m) < 0.05:
+                multiplier = m
+                break
+
+        # Code-side FNDDS Table Recalculation (Strict: unit must exist in table)
         matched_unit = None
         for u in portions.keys():
             if str(u).lower() == base_unit:
@@ -403,9 +416,7 @@ def vote_fndds_portion(
             v["base_unit"] = matched_unit
             v["multiplier"] = multiplier
             valid_votes.append(v)
-        elif "grams" in v and isinstance(v["grams"], (int, float)):
-            v["grams"] = round(float(v["grams"]))
-            valid_votes.append(v)
+        # Note: No fallback to raw LLM-reported grams; strictly anchored to FNDDS!
 
     if not valid_votes:
         return FnddsVoteResult(
