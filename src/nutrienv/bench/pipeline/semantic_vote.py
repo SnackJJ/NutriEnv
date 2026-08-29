@@ -25,6 +25,7 @@ __all__ = [
     "DEFAULT_K",
     "DEFAULT_MODEL_IDS",
     "DEFAULT_THRESHOLD",
+    "FnddsVoteResult",
     "GRAM_TOLERANCE",
     "MAX_TOKENS",
     "TEMPERATURE",
@@ -35,6 +36,7 @@ __all__ = [
     "parse_vote",
     "sample_votes",
     "semantic_vote",
+    "vote_fndds_portion",
 ]
 
 _ROOT = Path(__file__).resolve().parents[4]
@@ -255,3 +257,147 @@ def semantic_vote(
         max_tokens=max_tokens,
     )
     return accept_from_votes(votes, threshold), "vote"
+
+
+from collections import Counter
+from dataclasses import dataclass
+from nutrienv.io.chat import complete_chat
+
+
+@dataclass(frozen=True)
+class FnddsVoteResult:
+    query: str
+    food_id: str
+    food_name: str
+    status: str
+    recommended_grams: float | None
+    consensus: str
+    high_confidence: bool
+    needs_human_review: bool
+    voter_details: tuple[dict, ...]
+
+
+def _vote_single_agent(
+    model_id: str,
+    query: str,
+    food_id: str,
+    food_name: str,
+    portion_table: Mapping[str, float],
+    *,
+    temperature: float = 0.1,
+    max_tokens: int = 256,
+) -> dict:
+    """Prompt one LLM subagent to estimate (base_unit, multiplier) against FNDDS table."""
+    table_str = "\n".join(f"  - {k}: {v:g} g" for k, v in portion_table.items())
+    system_prompt = (
+        "You are an expert nutritional measurement judge. Your task is to ground a user's "
+        "spoken portion query into an official FNDDS reference portion table by picking a base unit "
+        "and a multiplier/fraction.\n\n"
+        "Return ONLY a JSON object with this exact schema:\n"
+        '{"base_unit": "<unit from table>", "multiplier": <float>, "grams": <float>, "rationale": "<short 1-sentence reasoning>"}'
+    )
+    user_prompt = (
+        f'User Query: "{query}"\n'
+        f'Target Food: {food_name} (id: {food_id})\n'
+        f"FNDDS Official Portion Table:\n{table_str}\n\n"
+        "Instructions:\n"
+        "1. Identify the most fitting base unit from the table.\n"
+        "2. Estimate the multiplier/quantity based on the user's speech (e.g. 0.5 for half, 1.0 for one/regular, 1.5 for a portion and a half / generous, 2.0 for two).\n"
+        "3. Compute final grams = base_unit_grams * multiplier.\n"
+        "Output the JSON object only."
+    )
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+    try:
+        raw = complete_chat(
+            model_id,
+            messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        cleaned = raw.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        import json
+
+        data = json.loads(cleaned)
+        data["model"] = model_id
+        return data
+    except Exception as exc:
+        return {"model": model_id, "error": str(exc)}
+
+
+def vote_fndds_portion(
+    query: str,
+    food_id: str,
+    catalog: Mapping,
+    *,
+    voter_models: tuple[str, ...] = ("qwen3.8-max", "qwen3.8-2.4t-a95b"),
+    temperature: float = 0.1,
+    max_tokens: int = 256,
+) -> FnddsVoteResult:
+    """ADR 0019 Multi-Agent Vote: estimate (base_unit, multiplier) on FNDDS portion table."""
+    entry = catalog.get(food_id) or {}
+    food_name = str(entry.get("name") or food_id)
+    portions = entry.get("portions") or {}
+    if not isinstance(portions, Mapping) or not portions:
+        return FnddsVoteResult(
+            query=query,
+            food_id=food_id,
+            food_name=food_name,
+            status="no_portions",
+            recommended_grams=None,
+            consensus="0/0",
+            high_confidence=False,
+            needs_human_review=True,
+            voter_details=(),
+        )
+
+    votes = []
+    for model_id in voter_models:
+        vote = _vote_single_agent(
+            model_id,
+            query,
+            food_id,
+            food_name,
+            portions,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        votes.append(vote)
+
+    valid_votes = [
+        v for v in votes if "grams" in v and isinstance(v["grams"], (int, float))
+    ]
+    if not valid_votes:
+        return FnddsVoteResult(
+            query=query,
+            food_id=food_id,
+            food_name=food_name,
+            status="failed",
+            recommended_grams=None,
+            consensus="0/0",
+            high_confidence=False,
+            needs_human_review=True,
+            voter_details=tuple(votes),
+        )
+
+    gram_counts = Counter(round(float(v["grams"]), 1) for v in valid_votes)
+    top_grams, count = gram_counts.most_common(1)[0]
+    agreement_ratio = count / len(valid_votes)
+    consensus_tag = f"{count}/{len(valid_votes)} ({agreement_ratio:.0%})"
+
+    return FnddsVoteResult(
+        query=query,
+        food_id=food_id,
+        food_name=food_name,
+        status="estimated_by_vote",
+        recommended_grams=top_grams,
+        consensus=consensus_tag,
+        high_confidence=agreement_ratio >= 0.66,
+        needs_human_review=True,
+        voter_details=tuple(votes),
+    )
+

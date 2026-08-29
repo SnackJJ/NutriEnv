@@ -22,6 +22,7 @@ class RosterPerson:
     phase: str = "maintain"
     allergies: tuple[str, ...] = ()
     persona: str = "everyday"
+    diet_style: str = "standard"
 
 
 # ~20 adults, ages 19–75. Children, pregnancy, and 80+ stay out (ADR 0014).

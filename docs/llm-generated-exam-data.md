@@ -170,3 +170,16 @@ Freezer（代码）  冻结 v1.0-gold.json（绑定 catalog-v1 sha），EXAM_SPL
    sandwich 1.5× / lasagna 1.2× / omelet 2.0× 三对重跑
 5. **试点 20 题**：全链（含 LLM review harness）→ 人审 → 冻结 v1.0-gold.json
 6. **扩量 + 复合题配额**（ADR 0012）
+
+## 8. 自然口语与 Multi-Agent Vote 兜底机制（ADR 0019）
+
+为解决 LLM 造题过程中机械照抄 FNDDS 数据库列名（产生 `a cup of burger patty` / `a cup of roast beef` 等生硬表达）的问题，确立以下规则：
+
+1. **松绑逐字照抄（Verbatim）约束**：LLM 提示词不再强制要求“必须逐字使用列表词汇”，让 LLM 专注于写地道餐桌口语（piece/slice/patty/bowl/plate/tbsp 等）。
+2. **两级解析架构（Two-Tier Portion Resolution）**：
+   - **Tier 1（确定性查表）**：优先由 `resolve_portion` 规则解析器进行零漂移查表；
+   - **Tier 2（Multi-Agent 投票兜底）**：当遇到未在规则中的生僻口语量词或分数表达（如 "a slice and a half", "a generous portion"），启动多 Agent 投票，将食物的 FNDDS 参考表输入给模型，由模型判断 `(base_unit, multiplier)` 并计算 `grams = base_unit_grams * multiplier`。
+3. **人工审核辅助（Human-in-the-loop）**：
+   - 投票结果产出置信度与共识比例（Consensus），呈现在 Review 看板中辅助人工高效裁决；
+   - 审核通过的表达同步沉淀进 `portions.py` 和 `react.py` 手册，形成闭环。
+
