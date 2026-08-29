@@ -1291,7 +1291,12 @@ def build_unfit_rewrite_prompt(
         "Plate:",
     ]
     ids: list[str] = []
-    from nutrienv.bench.pipeline.sampler import portion_alternatives
+    from nutrienv.bench.pipeline.sampler import (
+        portion_alternatives,
+        unit_naturalness_rank,
+        _unspecified_phrase,
+    )
+    from nutrienv.bench.pipeline.types import PoolFood
 
     for item in items:
         food_id = str(item["food_id"])
@@ -1301,10 +1306,23 @@ def build_unfit_rewrite_prompt(
         name = spoken[1] if len(spoken) > 1 else spoken[0]
         entry = foods.get(food_id) or {}
         matching_phrase = None
-        for alt in portion_alternatives(entry):
+        for alt in sorted(
+            portion_alternatives(entry),
+            key=lambda a: (unit_naturalness_rank(a.key), a.grams),
+        ):
             if alt.quantity == 1.0 and abs(alt.grams - grams) < 1e-9:
                 matching_phrase = alt.phrase
                 break
+        if matching_phrase in ("a cup", "a serving"):
+            dummy_food = PoolFood(
+                food_id=food_id,
+                name=str(entry.get("name") or ""),
+                alternatives=(),
+                aliases=(),
+            )
+            natural_unit = _unspecified_phrase(dummy_food)
+            if natural_unit in ("a bowl", "a plate", "an order"):
+                matching_phrase = natural_unit
         amount_desc = f"{matching_phrase} ({grams:g} g)" if matching_phrase else f"{grams:g} g"
         lines.append(f"- id={food_id} spoken={name} amount={amount_desc}")
     lines.append("foods: " + ", ".join(ids))
