@@ -498,10 +498,12 @@ def render_html_review_dashboard(results: dict[str, list[dict]], out_file: Path)
 
 def main():
     parser = argparse.ArgumentParser(description="NutriEnv ADR 0019 Pipeline Generator")
-    parser.add_argument("--count", type=int, default=2, help="Samples per family")
+    parser.add_argument("--count", type=int, default=8, help="Samples per family (default 8 -> 40 total)")
+    parser.add_argument("--start-seed", type=int, default=1000, help="Initial global seed offset")
     parser.add_argument("--models", type=str, default="qwen3.8-max", help="Model ID")
     parser.add_argument("--catalog", type=str, default=DEFAULT_CATALOG_PATH)
-    parser.add_argument("--html", type=str, default=str(DEFAULT_HTML_REPORT))
+    parser.add_argument("--html", type=str, default="reports/v2.1-gold-review.html")
+    parser.add_argument("--json-out", type=str, default="data/splits/v2.1-gold.json")
     parser.add_argument("--no-vote", action="store_true", help="Disable Tier 2 Vote Fallback")
     args = parser.parse_args()
 
@@ -509,11 +511,13 @@ def main():
     enable_vote = not args.no_vote
     results = {"log": [], "evaluate": [], "recommend": [], "update": [], "composite": []}
 
-    print(f"=== NutriEnv ADR 0019 Pipeline Generation (count={args.count}, model={args.models}) ===")
+    print(f"=== NutriEnv ADR 0019 Pipeline Generation (count={args.count}, start_seed={args.start_seed}, model={args.models}) ===")
     
-    global_seed = 0
+    global_seed = args.start_seed
+    max_seed = global_seed + args.count * 20
+
     # 1. Log
-    while len(results["log"]) < args.count and global_seed < 50:
+    while len(results["log"]) < args.count and global_seed < max_seed:
         item = generate_log_sample(global_seed, catalog, model_id=args.models, enable_vote=enable_vote)
         if item:
             results["log"].append(item)
@@ -521,7 +525,8 @@ def main():
         global_seed += 1
 
     # 2. Evaluate
-    while len(results["evaluate"]) < args.count and global_seed < 100:
+    max_seed = global_seed + args.count * 20
+    while len(results["evaluate"]) < args.count and global_seed < max_seed:
         item = generate_eval_sample(global_seed, catalog, model_id=args.models, enable_vote=enable_vote)
         if item:
             results["evaluate"].append(item)
@@ -543,7 +548,8 @@ def main():
         global_seed += 1
 
     # 5. Composite
-    while len(results["composite"]) < args.count and global_seed < 150:
+    max_seed = global_seed + args.count * 20
+    while len(results["composite"]) < args.count and global_seed < max_seed:
         item = generate_comp_sample(global_seed, catalog, model_id=args.models, enable_vote=enable_vote)
         if item:
             results["composite"].append(item)
@@ -552,6 +558,47 @@ def main():
 
     # Write HTML Dashboard
     render_html_review_dashboard(results, Path(args.html))
+
+    # Write JSON Split file
+    if args.json_out:
+        json_path = Path(args.json_out)
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        split_data = {
+            "version": "v2.1-gold",
+            "count": sum(len(v) for v in results.values()),
+            "tasks": [],
+        }
+        for family, items in results.items():
+            for item in items:
+                t = item["task"]
+                p = item["person"]
+                task_dict = {
+                    "id": t.id,
+                    "family": t.family,
+                    "query": t.query,
+                    "persona": p.persona,
+                    "diet_style": p.diet_style,
+                    "profile": {
+                        "user_id": p.user_id,
+                        "sex": p.sex,
+                        "age_y": p.age_y,
+                        "weight_kg": p.weight_kg,
+                        "height_cm": p.height_cm,
+                        "activity": p.activity,
+                        "allergies": list(p.allergies),
+                    },
+                    "oracle": {
+                        "ledger": [
+                            {"food_id": r.food_id, "grams": r.grams, "eaten_at": r.eaten_at}
+                            for r in t.oracle.ledger
+                        ] if t.oracle and t.oracle.ledger else [],
+                    },
+                    "resolutions": item.get("resolutions", []),
+                }
+                split_data["tasks"].append(task_dict)
+        json_path.write_text(json.dumps(split_data, indent=2, ensure_ascii=False), encoding="utf-8")
+        print(f"Split JSON saved to {json_path}")
+
     print(f"\nSuccessfully generated {sum(len(v) for v in results.values())} ADR 0019 samples across 5 families.")
 
 

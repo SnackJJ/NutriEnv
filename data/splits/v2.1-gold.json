@@ -1,0 +1,1783 @@
+{
+  "version": "v2.1-gold",
+  "count": 40,
+  "tasks": [
+    {
+      "id": "adr19-log-1000",
+      "family": "log",
+      "query": "I had a plate of whole grain pasta with tomato-based seafood sauce and a side of unsweetened applesauce.",
+      "persona": "gym",
+      "diet_style": "high_protein",
+      "profile": {
+        "user_id": "roster-ned",
+        "sex": "male",
+        "age_y": 33,
+        "weight_kg": 85.0,
+        "height_cm": 180.0,
+        "activity": "active",
+        "allergies": []
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2708898",
+            "grams": 250.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2709217",
+            "grams": 122.5,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2708898",
+          "food_name": "Pasta, whole grain, with tomato-based sauce and seafood, home recipe",
+          "spoken_name": "whole grain tomato-based sauce seafood home recipe pasta",
+          "grams": 250.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        },
+        {
+          "tier": "Tier-2 (Multi-Agent Vote)",
+          "food_id": "2709217",
+          "food_name": "Applesauce, unsweetened",
+          "spoken_name": "unsweetened applesauce",
+          "grams": 122.5,
+          "method": "vote_estimated",
+          "consensus": "1/1 (100%)",
+          "high_confidence": true,
+          "needs_review": true,
+          "voter_details": [
+            {
+              "model": "deepseek-v4-flash-0731",
+              "error": "Expecting value: line 1 column 1 (char 0)"
+            },
+            {
+              "base_unit": "cup",
+              "multiplier": 0.5,
+              "grams": 122.5,
+              "rationale": "A side serving of applesauce is typically about half a cup.",
+              "model": "kimi-k2.7-code"
+            },
+            {
+              "model": "glm-5.2",
+              "error": "Expecting value: line 1 column 1 (char 0)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "adr19-log-1001",
+      "family": "log",
+      "query": "After the gym, I grabbed a grilled chicken fillet sandwich with cheese from a fast food place for an easy high-protein meal.",
+      "persona": "gym",
+      "diet_style": "high_protein",
+      "profile": {
+        "user_id": "roster-ben",
+        "sex": "male",
+        "age_y": 28,
+        "weight_kg": 80.0,
+        "height_cm": 178.0,
+        "activity": "active",
+        "allergies": []
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2707006",
+            "grams": 161.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2707006",
+          "food_name": "Chicken fillet sandwich, grilled, from fast food, with cheese",
+          "spoken_name": "grilled from fast food cheese chicken fillet sandwich",
+          "grams": 161.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        }
+      ]
+    },
+    {
+      "id": "adr19-log-1002",
+      "family": "log",
+      "query": "I ate a plate of dairy-free seafood thermidor and sweetened my tea with a packet of sucralose powder sugar substitute.",
+      "persona": "everyday",
+      "diet_style": "dairy_free",
+      "profile": {
+        "user_id": "roster-quin",
+        "sex": "female",
+        "age_y": 38,
+        "weight_kg": 74.0,
+        "height_cm": 170.0,
+        "activity": "moderate",
+        "allergies": [
+          "milk"
+        ]
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2706451",
+            "grams": 125.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2710263",
+            "grams": 1.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2706451",
+          "food_name": "Seafood thermidor",
+          "spoken_name": "seafood thermidor",
+          "grams": 125.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        },
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2710263",
+          "food_name": "Sugar substitute, sucralose, powder",
+          "spoken_name": "sucralose powder sugar substitute",
+          "grams": 1.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        }
+      ]
+    },
+    {
+      "id": "adr19-log-1003",
+      "family": "log",
+      "query": "I had a slice of fast food french toast with a small glass of grapefruit juice.",
+      "persona": "cut",
+      "diet_style": "low_carb",
+      "profile": {
+        "user_id": "roster-pj",
+        "sex": "male",
+        "age_y": 60,
+        "weight_kg": 90.0,
+        "height_cm": 176.0,
+        "activity": "light",
+        "allergies": [
+          "egg"
+        ]
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2708333",
+            "grams": 85.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2709178",
+            "grams": 248.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2708333",
+          "food_name": "French toast, fast food / restaurant",
+          "spoken_name": "fast food restaurant french toast",
+          "grams": 85.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        },
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2709178",
+          "food_name": "Grapefruit juice, 100%, canned, bottled or in a carton",
+          "spoken_name": "100% canned bottled or in a carton grapefruit juice",
+          "grams": 248.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        }
+      ]
+    },
+    {
+      "id": "adr19-log-1004",
+      "family": "log",
+      "query": "After the gym I had a plate of restaurant pasta with tomato-based sauce and added vegetables plus one potato pancake.",
+      "persona": "gym",
+      "diet_style": "high_protein",
+      "profile": {
+        "user_id": "roster-ned",
+        "sex": "male",
+        "age_y": 33,
+        "weight_kg": 85.0,
+        "height_cm": 180.0,
+        "activity": "active",
+        "allergies": []
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2708833",
+            "grams": 250.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2709552",
+            "grams": 25.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2708833",
+          "food_name": "Pasta with tomato-based sauce, and added vegetables, restaurant",
+          "spoken_name": "added vegetables restaurant pasta tomato-based sauce",
+          "grams": 250.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        },
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2709552",
+          "food_name": "Potato pancake",
+          "spoken_name": "potato pancake",
+          "grams": 25.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        }
+      ]
+    },
+    {
+      "id": "adr19-log-1005",
+      "family": "log",
+      "query": "I had a small plate of dressing oysters with a tablespoon of pickle relish on the side.",
+      "persona": "cut",
+      "diet_style": "low_carb",
+      "profile": {
+        "user_id": "roster-pj",
+        "sex": "male",
+        "age_y": 60,
+        "weight_kg": 90.0,
+        "height_cm": 176.0,
+        "activity": "light",
+        "allergies": [
+          "egg"
+        ]
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2708747",
+            "grams": 80.5,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2710079",
+            "grams": 15.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-2 (Multi-Agent Vote)",
+          "food_id": "2708747",
+          "food_name": "Dressing with oysters",
+          "spoken_name": "dressing oysters",
+          "grams": 80.5,
+          "method": "vote_estimated",
+          "consensus": "1/1 (100%)",
+          "high_confidence": true,
+          "needs_review": true,
+          "voter_details": [
+            {
+              "model": "deepseek-v4-flash-0731",
+              "error": "Expecting value: line 1 column 1 (char 0)"
+            },
+            {
+              "base_unit": "cup",
+              "multiplier": 0.5,
+              "grams": 80.5,
+              "rationale": "A small plate of dressing with oysters is estimated as half a cup, and the tablespoon of pickle relish is ignored as it is not the target food.",
+              "model": "kimi-k2.7-code"
+            },
+            {
+              "model": "glm-5.2",
+              "error": "Expecting value: line 1 column 1 (char 0)"
+            }
+          ]
+        },
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2710079",
+          "food_name": "Relish, pickle",
+          "spoken_name": "pickle relish",
+          "grams": 15.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        }
+      ]
+    },
+    {
+      "id": "adr19-log-1006",
+      "family": "log",
+      "query": "For dinner I had a plate of steak tenderloin with a small bowl of microwave popcorn.",
+      "persona": "everyday",
+      "diet_style": "heart_healthy",
+      "profile": {
+        "user_id": "roster-leo",
+        "sex": "male",
+        "age_y": 71,
+        "weight_kg": 81.0,
+        "height_cm": 174.0,
+        "activity": "sedentary",
+        "allergies": []
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2705841",
+            "grams": 160.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2708223",
+            "grams": 35.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-2 (Multi-Agent Vote)",
+          "food_id": "2705841",
+          "food_name": "Beef, steak, tenderloin",
+          "spoken_name": "steak tenderloin beef",
+          "grams": 160.0,
+          "method": "vote_estimated",
+          "consensus": "2/2 (100%)",
+          "high_confidence": true,
+          "needs_review": true,
+          "voter_details": [
+            {
+              "base_unit": "regular",
+              "multiplier": 1.0,
+              "grams": 160.0,
+              "rationale": "A plate of steak tenderloin is best matched to a standard regular portion of 160 g.",
+              "model": "deepseek-v4-flash-0731"
+            },
+            {
+              "base_unit": "regular",
+              "multiplier": 1.0,
+              "grams": 160.0,
+              "rationale": "A plate of steak tenderloin is interpreted as one regular serving.",
+              "model": "kimi-k2.7-code"
+            },
+            {
+              "model": "glm-5.2",
+              "error": "Extra data: line 1 column 2 (char 1)"
+            }
+          ]
+        },
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2708223",
+          "food_name": "Popcorn, microwave, NFS",
+          "spoken_name": "microwave nfs popcorn",
+          "grams": 35.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        }
+      ]
+    },
+    {
+      "id": "adr19-log-1007",
+      "family": "log",
+      "query": "I had a bowl of tuna salad made with fat-free dressing for a high-protein lunch.",
+      "persona": "gym",
+      "diet_style": "high_protein",
+      "profile": {
+        "user_id": "roster-ben",
+        "sex": "male",
+        "age_y": 28,
+        "weight_kg": 80.0,
+        "height_cm": 178.0,
+        "activity": "active",
+        "allergies": []
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2706836",
+            "grams": 119.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2706836",
+          "food_name": "Tuna salad, made with any type of fat free dressing",
+          "spoken_name": "made any type of fat free dressing tuna salad",
+          "grams": 119.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        }
+      ]
+    },
+    {
+      "id": "adr19-eval-1008",
+      "family": "evaluate",
+      "query": "Evaluate this dairy-free lunch: a pack of sandwich crackers and a bowl of cooked sweet potato leaves.",
+      "persona": "everyday",
+      "diet_style": "dairy_free",
+      "profile": {
+        "user_id": "roster-quin",
+        "sex": "female",
+        "age_y": 38,
+        "weight_kg": 74.0,
+        "height_cm": 170.0,
+        "activity": "moderate",
+        "allergies": [
+          "milk"
+        ]
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2708171",
+            "grams": 18.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2709642",
+            "grams": 35.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2708171",
+          "food_name": "Crackers, sandwich",
+          "spoken_name": "sandwich crackers",
+          "grams": 18.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        },
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2709642",
+          "food_name": "Sweet potato, squash, pumpkin, chrysanthemum, or bean leaves, cooked",
+          "spoken_name": "squash pumpkin chrysanthemum or bean leaves cooked sweet potato",
+          "grams": 35.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        }
+      ]
+    },
+    {
+      "id": "adr19-eval-1009",
+      "family": "evaluate",
+      "query": "Evaluate this lunch: a plate of shellfish mixture with vegetables, broccoli, and dark-green leafy greens in soy-based sauce, no potatoes.",
+      "persona": "everyday",
+      "diet_style": "dairy_free",
+      "profile": {
+        "user_id": "roster-fay",
+        "sex": "female",
+        "age_y": 63,
+        "weight_kg": 64.0,
+        "height_cm": 158.0,
+        "activity": "light",
+        "allergies": [
+          "milk"
+        ]
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2706860",
+            "grams": 163.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-2 (Multi-Agent Vote)",
+          "food_id": "2706860",
+          "food_name": "Shellfish mixture and vegetables excluding carrots, broccoli, and dark-green leafy; no potatoes, soy-based sauce",
+          "spoken_name": "broccoli dark-green leafy; no potatoes soy-based sauce shellfish mixture vegetables excluding carrots",
+          "grams": 163.0,
+          "method": "vote_estimated",
+          "consensus": "1/1 (100%)",
+          "high_confidence": true,
+          "needs_review": true,
+          "voter_details": [
+            {
+              "model": "deepseek-v4-flash-0731",
+              "error": "Expecting value: line 1 column 1 (char 0)"
+            },
+            {
+              "base_unit": "qns",
+              "multiplier": 1.0,
+              "grams": 163.0,
+              "rationale": "The user described a single plate (one typical serving) without a measured volume, so the quantity-not-specified (qns) portion is the best match.",
+              "model": "kimi-k2.7-code"
+            },
+            {
+              "model": "glm-5.2",
+              "error": "Expecting value: line 1 column 1 (char 0)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "adr19-eval-1010",
+      "family": "evaluate",
+      "query": "Evaluate this gluten-free lunch: a bowl of dressing with chicken or turkey and vegetables.",
+      "persona": "everyday",
+      "diet_style": "gluten_free",
+      "profile": {
+        "user_id": "roster-van",
+        "sex": "male",
+        "age_y": 36,
+        "weight_kg": 80.0,
+        "height_cm": 177.0,
+        "activity": "moderate",
+        "allergies": [
+          "gluten"
+        ]
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2708748",
+            "grams": 80.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2708748",
+          "food_name": "Dressing with chicken or turkey and vegetables",
+          "spoken_name": "dressing chicken or turkey vegetables",
+          "grams": 80.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        }
+      ]
+    },
+    {
+      "id": "adr19-eval-1011",
+      "family": "evaluate",
+      "query": "Evaluate this lunch: a bowl of instant plain oatmeal made with milk and a scoop of vanilla gelato.",
+      "persona": "everyday",
+      "diet_style": "heart_healthy",
+      "profile": {
+        "user_id": "roster-leo",
+        "sex": "male",
+        "age_y": 71,
+        "weight_kg": 81.0,
+        "height_cm": 174.0,
+        "activity": "sedentary",
+        "allergies": []
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2708389",
+            "grams": 210.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2705636",
+            "grams": 160.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2708389",
+          "food_name": "Oatmeal, instant, plain, made with milk, no added fat",
+          "spoken_name": "instant plain made milk no added fat oatmeal",
+          "grams": 210.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        },
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2705636",
+          "food_name": "Gelato, vanilla",
+          "spoken_name": "vanilla gelato",
+          "grams": 160.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        }
+      ]
+    },
+    {
+      "id": "adr19-eval-1012",
+      "family": "evaluate",
+      "query": "Evaluate this planned lunch for my low-sodium diet: a bowl of chicken or turkey noodles with vegetables and gravy, plus a piece of cream-filled chocolate candy.",
+      "persona": "cut",
+      "diet_style": "low_sodium",
+      "profile": {
+        "user_id": "roster-kim",
+        "sex": "female",
+        "age_y": 55,
+        "weight_kg": 68.0,
+        "height_cm": 162.0,
+        "activity": "light",
+        "allergies": [
+          "soy"
+        ]
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2706682",
+            "grams": 280.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2710344",
+            "grams": 15.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2706682",
+          "food_name": "Chicken or turkey, noodles, and vegetables excluding carrots, broccoli, and dark-green leafy; gravy",
+          "spoken_name": "noodles vegetables excluding carrots broccoli dark-green leafy; gravy chicken or turkey",
+          "grams": 280.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        },
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2710344",
+          "food_name": "Chocolate candy, cream filled",
+          "spoken_name": "cream filled chocolate candy",
+          "grams": 15.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        }
+      ]
+    },
+    {
+      "id": "adr19-eval-1013",
+      "family": "evaluate",
+      "query": "Evaluate this planned lunch for my low-carb cut: a cheeseburger and a veggie burger patty.",
+      "persona": "cut",
+      "diet_style": "low_carb",
+      "profile": {
+        "user_id": "roster-pj",
+        "sex": "male",
+        "age_y": 60,
+        "weight_kg": 90.0,
+        "height_cm": 176.0,
+        "activity": "light",
+        "allergies": [
+          "egg"
+        ]
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2706888",
+            "grams": 165.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2707473",
+            "grams": 100.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-2 (Multi-Agent Vote)",
+          "food_id": "2706888",
+          "food_name": "Cheeseburger, NFS",
+          "spoken_name": "nfs cheeseburger",
+          "grams": 165.0,
+          "method": "vote_estimated",
+          "consensus": "3/3 (100%)",
+          "high_confidence": true,
+          "needs_review": true,
+          "voter_details": [
+            {
+              "base_unit": "qns",
+              "multiplier": 1.0,
+              "grams": 165,
+              "rationale": "A single cheeseburger corresponds to one NFS portion of 165 g.",
+              "model": "deepseek-v4-flash-0731"
+            },
+            {
+              "base_unit": "qns",
+              "multiplier": 1.0,
+              "grams": 165.0,
+              "rationale": "The user said 'a cheeseburger,' which corresponds to one standard quantity not specified (qns) portion of 165 g.",
+              "model": "kimi-k2.7-code"
+            },
+            {
+              "base_unit": "165 g",
+              "multiplier": 1.0,
+              "grams": 165.0,
+              "rationale": "User said 'a cheeseburger' indicating one standard portion.",
+              "model": "glm-5.2"
+            }
+          ]
+        },
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2707473",
+          "food_name": "Veggie burger patty, no bun",
+          "spoken_name": "no bun veggie burger patty",
+          "grams": 100.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        }
+      ]
+    },
+    {
+      "id": "adr19-eval-1014",
+      "family": "evaluate",
+      "query": "Evaluate this lunch for my dairy-free diet: a bowl of Greek whole milk fruit yogurt.",
+      "persona": "everyday",
+      "diet_style": "dairy_free",
+      "profile": {
+        "user_id": "roster-quin",
+        "sex": "female",
+        "age_y": 38,
+        "weight_kg": 74.0,
+        "height_cm": 170.0,
+        "activity": "moderate",
+        "allergies": [
+          "milk"
+        ]
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2705430",
+            "grams": 150.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2705430",
+          "food_name": "Yogurt, Greek, whole milk, fruit",
+          "spoken_name": "greek whole milk fruit yogurt",
+          "grams": 150.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        }
+      ]
+    },
+    {
+      "id": "adr19-eval-1015",
+      "family": "evaluate",
+      "query": "Evaluate this lunch: a jar of stage 2 baby toddler pears.",
+      "persona": "everyday",
+      "diet_style": "balanced",
+      "profile": {
+        "user_id": "roster-drew",
+        "sex": "male",
+        "age_y": 52,
+        "weight_kg": 88.0,
+        "height_cm": 182.0,
+        "activity": "moderate",
+        "allergies": []
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2709370",
+            "grams": 110.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-2 (Multi-Agent Vote)",
+          "food_id": "2709370",
+          "food_name": "Baby Toddler pears, Stage 2",
+          "spoken_name": "stage 2 baby toddler pears",
+          "grams": 110.0,
+          "method": "vote_estimated",
+          "consensus": "3/3 (100%)",
+          "high_confidence": true,
+          "needs_review": true,
+          "voter_details": [
+            {
+              "base_unit": "pouch",
+              "multiplier": 1.0,
+              "grams": 110,
+              "rationale": "A jar of baby toddler pears is equivalent to one full single-serve pouch (110 g).",
+              "model": "deepseek-v4-flash-0731"
+            },
+            {
+              "base_unit": "qns",
+              "multiplier": 1.0,
+              "grams": 110.0,
+              "rationale": "A jar of Stage 2 baby/toddler pears is treated as one standard container/serving, matching the qns portion of 110 g.",
+              "model": "kimi-k2.7-code"
+            },
+            {
+              "base_unit": "pouch",
+              "multiplier": 1.0,
+              "grams": 110.0,
+              "rationale": "A jar of baby food is a single-serve container equivalent to one pouch.",
+              "model": "glm-5.2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "adr19-rec-1016",
+      "family": "recommend",
+      "query": "Recommend a dinner that fits my daily targets.",
+      "persona": "everyday",
+      "diet_style": "heart_healthy",
+      "profile": {
+        "user_id": "roster-leo",
+        "sex": "male",
+        "age_y": 71,
+        "weight_kg": 81.0,
+        "height_cm": 174.0,
+        "activity": "sedentary",
+        "allergies": []
+      },
+      "oracle": {
+        "ledger": []
+      },
+      "resolutions": []
+    },
+    {
+      "id": "adr19-rec-1017",
+      "family": "recommend",
+      "query": "What should I eat for breakfast?",
+      "persona": "cut",
+      "diet_style": "low_carb",
+      "profile": {
+        "user_id": "roster-pj",
+        "sex": "male",
+        "age_y": 60,
+        "weight_kg": 90.0,
+        "height_cm": 176.0,
+        "activity": "light",
+        "allergies": [
+          "egg"
+        ]
+      },
+      "oracle": {
+        "ledger": []
+      },
+      "resolutions": []
+    },
+    {
+      "id": "adr19-rec-1018",
+      "family": "recommend",
+      "query": "Give me a healthy meal plan for lunch.",
+      "persona": "everyday",
+      "diet_style": "mediterranean",
+      "profile": {
+        "user_id": "roster-mia",
+        "sex": "female",
+        "age_y": 47,
+        "weight_kg": 61.0,
+        "height_cm": 166.0,
+        "activity": "moderate",
+        "allergies": [
+          "tree_nut"
+        ]
+      },
+      "oracle": {
+        "ledger": []
+      },
+      "resolutions": []
+    },
+    {
+      "id": "adr19-rec-1019",
+      "family": "recommend",
+      "query": "Recommend a dinner that fits my daily targets.",
+      "persona": "gym",
+      "diet_style": "high_protein",
+      "profile": {
+        "user_id": "roster-ben",
+        "sex": "male",
+        "age_y": 28,
+        "weight_kg": 80.0,
+        "height_cm": 178.0,
+        "activity": "active",
+        "allergies": []
+      },
+      "oracle": {
+        "ledger": []
+      },
+      "resolutions": []
+    },
+    {
+      "id": "adr19-rec-1020",
+      "family": "recommend",
+      "query": "What should I eat for breakfast?",
+      "persona": "everyday",
+      "diet_style": "balanced",
+      "profile": {
+        "user_id": "roster-drew",
+        "sex": "male",
+        "age_y": 52,
+        "weight_kg": 88.0,
+        "height_cm": 182.0,
+        "activity": "moderate",
+        "allergies": []
+      },
+      "oracle": {
+        "ledger": []
+      },
+      "resolutions": []
+    },
+    {
+      "id": "adr19-rec-1021",
+      "family": "recommend",
+      "query": "Give me a healthy meal plan for lunch.",
+      "persona": "everyday",
+      "diet_style": "dairy_free",
+      "profile": {
+        "user_id": "roster-quin",
+        "sex": "female",
+        "age_y": 38,
+        "weight_kg": 74.0,
+        "height_cm": 170.0,
+        "activity": "moderate",
+        "allergies": [
+          "milk"
+        ]
+      },
+      "oracle": {
+        "ledger": []
+      },
+      "resolutions": []
+    },
+    {
+      "id": "adr19-rec-1022",
+      "family": "recommend",
+      "query": "Recommend a dinner that fits my daily targets.",
+      "persona": "gym",
+      "diet_style": "high_protein",
+      "profile": {
+        "user_id": "roster-eve",
+        "sex": "female",
+        "age_y": 19,
+        "weight_kg": 58.0,
+        "height_cm": 168.0,
+        "activity": "very_active",
+        "allergies": []
+      },
+      "oracle": {
+        "ledger": []
+      },
+      "resolutions": []
+    },
+    {
+      "id": "adr19-rec-1023",
+      "family": "recommend",
+      "query": "What should I eat for breakfast?",
+      "persona": "cut",
+      "diet_style": "low_carb",
+      "profile": {
+        "user_id": "roster-pj",
+        "sex": "male",
+        "age_y": 60,
+        "weight_kg": 90.0,
+        "height_cm": 176.0,
+        "activity": "light",
+        "allergies": [
+          "egg"
+        ]
+      },
+      "oracle": {
+        "ledger": []
+      },
+      "resolutions": []
+    },
+    {
+      "id": "adr19-upd-1024",
+      "family": "update",
+      "query": "I weigh 64 kg now. Update my weight.",
+      "persona": "everyday",
+      "diet_style": "balanced",
+      "profile": {
+        "user_id": "roster-ada",
+        "sex": "female",
+        "age_y": 34,
+        "weight_kg": 62.0,
+        "height_cm": 165.0,
+        "activity": "light",
+        "allergies": [
+          "peanut"
+        ]
+      },
+      "oracle": {
+        "ledger": []
+      },
+      "resolutions": []
+    },
+    {
+      "id": "adr19-upd-1025",
+      "family": "update",
+      "query": "Add peanut to my allergies.",
+      "persona": "cut",
+      "diet_style": "low_carb",
+      "profile": {
+        "user_id": "roster-gus",
+        "sex": "male",
+        "age_y": 37,
+        "weight_kg": 76.0,
+        "height_cm": 175.0,
+        "activity": "moderate",
+        "allergies": []
+      },
+      "oracle": {
+        "ledger": []
+      },
+      "resolutions": []
+    },
+    {
+      "id": "adr19-upd-1026",
+      "family": "update",
+      "query": "Add milk to my allergies.",
+      "persona": "everyday",
+      "diet_style": "balanced",
+      "profile": {
+        "user_id": "roster-ada",
+        "sex": "female",
+        "age_y": 34,
+        "weight_kg": 62.0,
+        "height_cm": 165.0,
+        "activity": "light",
+        "allergies": [
+          "peanut"
+        ]
+      },
+      "oracle": {
+        "ledger": []
+      },
+      "resolutions": []
+    },
+    {
+      "id": "adr19-upd-1027",
+      "family": "update",
+      "query": "I weigh 64 kg now. Update my weight.",
+      "persona": "everyday",
+      "diet_style": "balanced",
+      "profile": {
+        "user_id": "roster-ada",
+        "sex": "female",
+        "age_y": 34,
+        "weight_kg": 62.0,
+        "height_cm": 165.0,
+        "activity": "light",
+        "allergies": [
+          "peanut"
+        ]
+      },
+      "oracle": {
+        "ledger": []
+      },
+      "resolutions": []
+    },
+    {
+      "id": "adr19-upd-1028",
+      "family": "update",
+      "query": "Add peanut to my allergies.",
+      "persona": "everyday",
+      "diet_style": "vegetarian",
+      "profile": {
+        "user_id": "roster-ola",
+        "sex": "female",
+        "age_y": 24,
+        "weight_kg": 54.0,
+        "height_cm": 159.0,
+        "activity": "light",
+        "allergies": []
+      },
+      "oracle": {
+        "ledger": []
+      },
+      "resolutions": []
+    },
+    {
+      "id": "adr19-upd-1029",
+      "family": "update",
+      "query": "Add milk to my allergies.",
+      "persona": "everyday",
+      "diet_style": "balanced",
+      "profile": {
+        "user_id": "roster-tess",
+        "sex": "female",
+        "age_y": 31,
+        "weight_kg": 59.0,
+        "height_cm": 164.0,
+        "activity": "active",
+        "allergies": [
+          "peanut"
+        ]
+      },
+      "oracle": {
+        "ledger": []
+      },
+      "resolutions": []
+    },
+    {
+      "id": "adr19-upd-1030",
+      "family": "update",
+      "query": "I weigh 82 kg now. Update my weight.",
+      "persona": "gym",
+      "diet_style": "high_protein",
+      "profile": {
+        "user_id": "roster-ben",
+        "sex": "male",
+        "age_y": 28,
+        "weight_kg": 80.0,
+        "height_cm": 178.0,
+        "activity": "active",
+        "allergies": []
+      },
+      "oracle": {
+        "ledger": []
+      },
+      "resolutions": []
+    },
+    {
+      "id": "adr19-upd-1031",
+      "family": "update",
+      "query": "Add peanut to my allergies.",
+      "persona": "everyday",
+      "diet_style": "gluten_free",
+      "profile": {
+        "user_id": "roster-wes",
+        "sex": "male",
+        "age_y": 50,
+        "weight_kg": 77.0,
+        "height_cm": 171.0,
+        "activity": "sedentary",
+        "allergies": [
+          "wheat"
+        ]
+      },
+      "oracle": {
+        "ledger": []
+      },
+      "resolutions": []
+    },
+    {
+      "id": "adr19-comp-1032",
+      "family": "composite",
+      "query": "I had a bowl of chicken and vegetable noodles in cheese sauce with a handful of cheese crackers on the side, so what should I eat next?",
+      "persona": "everyday",
+      "diet_style": "mediterranean",
+      "profile": {
+        "user_id": "roster-mia",
+        "sex": "female",
+        "age_y": 47,
+        "weight_kg": 61.0,
+        "height_cm": 166.0,
+        "activity": "moderate",
+        "allergies": [
+          "tree_nut"
+        ]
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2706689",
+            "grams": 305.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2708151",
+            "grams": 45.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-2 (Multi-Agent Vote)",
+          "food_id": "2706689",
+          "food_name": "Chicken or turkey, noodles, and vegetables excluding carrots, broccoli, and dark-green leafy; cheese sauce",
+          "spoken_name": "noodles vegetables excluding carrots broccoli dark-green leafy; cheese sauce chicken or turkey",
+          "grams": 305.0,
+          "method": "vote_estimated",
+          "consensus": "1/1 (100%)",
+          "high_confidence": true,
+          "needs_review": true,
+          "voter_details": [
+            {
+              "model": "deepseek-v4-flash-0731",
+              "error": "Expecting value: line 1 column 1 (char 0)"
+            },
+            {
+              "base_unit": "qns",
+              "multiplier": 1.0,
+              "grams": 305.0,
+              "rationale": "The user reported 'a bowl,' which matches the non-specified typical serving size (qns) in the FNDDS portion table.",
+              "model": "kimi-k2.7-code"
+            },
+            {
+              "model": "glm-5.2",
+              "error": "Expecting value: line 1 column 1 (char 0)"
+            }
+          ]
+        },
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2708151",
+          "food_name": "Crackers, cheese (Cheez-It)",
+          "spoken_name": "cheese (cheez-it) crackers",
+          "grams": 45.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        }
+      ]
+    },
+    {
+      "id": "adr19-comp-1033",
+      "family": "composite",
+      "query": "I had a glass of high vitamin C light vegetable fruit juice drink, so what should I eat next?",
+      "persona": "everyday",
+      "diet_style": "balanced",
+      "profile": {
+        "user_id": "roster-uma",
+        "sex": "female",
+        "age_y": 43,
+        "weight_kg": 63.0,
+        "height_cm": 163.0,
+        "activity": "light",
+        "allergies": [
+          "fish"
+        ]
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2710595",
+            "grams": 240.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-2 (Multi-Agent Vote)",
+          "food_id": "2710595",
+          "food_name": "Vegetable and fruit juice drink, with high vitamin C, light",
+          "spoken_name": "high vitamin c light vegetable fruit juice drink",
+          "grams": 240.0,
+          "method": "vote_estimated",
+          "consensus": "2/2 (100%)",
+          "high_confidence": true,
+          "needs_review": true,
+          "voter_details": [
+            {
+              "model": "deepseek-v4-flash-0731",
+              "error": "Expecting value: line 1 column 1 (char 0)"
+            },
+            {
+              "base_unit": "qns",
+              "multiplier": 1.0,
+              "grams": 240.0,
+              "rationale": "A glass of juice is a standard single serving, matching the 240 g qns portion.",
+              "model": "kimi-k2.7-code"
+            },
+            {
+              "base_unit": "qns",
+              "multiplier": 1.0,
+              "grams": 240,
+              "rationale": "A glass of juice corresponds to one cup serving (qns) at 240g.",
+              "model": "glm-5.2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "adr19-comp-1034",
+      "family": "composite",
+      "query": "I grabbed a meat and rice burrito with no cheese for a solid high-protein meal, so what should I eat next?",
+      "persona": "gym",
+      "diet_style": "high_protein",
+      "profile": {
+        "user_id": "roster-ben",
+        "sex": "male",
+        "age_y": 28,
+        "weight_kg": 80.0,
+        "height_cm": 178.0,
+        "activity": "active",
+        "allergies": []
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2708551",
+            "grams": 220.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-2 (Multi-Agent Vote)",
+          "food_id": "2708551",
+          "food_name": "Burrito, meat, with rice, no cheese",
+          "spoken_name": "meat rice no cheese burrito",
+          "grams": 220.0,
+          "method": "vote_estimated",
+          "consensus": "2/2 (100%)",
+          "high_confidence": true,
+          "needs_review": true,
+          "voter_details": [
+            {
+              "base_unit": "piece",
+              "multiplier": 1.0,
+              "grams": 220,
+              "rationale": "The user's phrase 'rice burrito' indicates one whole burrito, which matches the 'piece' unit at 220 g.",
+              "model": "deepseek-v4-flash-0731"
+            },
+            {
+              "base_unit": "piece",
+              "multiplier": 1.0,
+              "grams": 220.0,
+              "rationale": "A single rice burrito is best represented by the 'piece' portion unit.",
+              "model": "kimi-k2.7-code"
+            },
+            {
+              "model": "glm-5.2",
+              "error": "Extra data: line 1 column 2 (char 1)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "adr19-comp-1035",
+      "family": "composite",
+      "query": "I had a plate of chicken and noodles with gravy with a side of tomato rice, so what should I eat next?",
+      "persona": "everyday",
+      "diet_style": "balanced",
+      "profile": {
+        "user_id": "roster-uma",
+        "sex": "female",
+        "age_y": 43,
+        "weight_kg": 63.0,
+        "height_cm": 163.0,
+        "activity": "light",
+        "allergies": [
+          "fish"
+        ]
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2706530",
+            "grams": 280.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2709009",
+            "grams": 154.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-2 (Multi-Agent Vote)",
+          "food_id": "2706530",
+          "food_name": "Chicken or turkey and noodles with gravy",
+          "spoken_name": "chicken or turkey noodles gravy",
+          "grams": 280.0,
+          "method": "vote_estimated",
+          "consensus": "1/1 (100%)",
+          "high_confidence": true,
+          "needs_review": true,
+          "voter_details": [
+            {
+              "model": "deepseek-v4-flash-0731",
+              "error": "Unterminated string starting at: line 1 column 41 (char 40)"
+            },
+            {
+              "base_unit": "qns",
+              "multiplier": 1.0,
+              "grams": 280.0,
+              "rationale": "A plate represents a single unspecified serving, so the qns portion is the best match.",
+              "model": "kimi-k2.7-code"
+            },
+            {
+              "model": "glm-5.2",
+              "error": "Expecting value: line 1 column 1 (char 0)"
+            }
+          ]
+        },
+        {
+          "tier": "Tier-2 (Multi-Agent Vote)",
+          "food_id": "2709009",
+          "food_name": "Rice, white, with tomatoes and/or tomato-based sauce, no added fat",
+          "spoken_name": "white tomatoes or tomato-based sauce no added fat rice",
+          "grams": 154.0,
+          "method": "vote_estimated",
+          "consensus": "1/2 (50%)",
+          "high_confidence": false,
+          "needs_review": true,
+          "voter_details": [
+            {
+              "model": "deepseek-v4-flash-0731",
+              "error": "Expecting value: line 1 column 1 (char 0)"
+            },
+            {
+              "base_unit": "qns",
+              "multiplier": 1.0,
+              "grams": 154.0,
+              "rationale": "The query describes an unspecified side serving, so the quantity-not-specified (qns) reference is used as one side portion.",
+              "model": "kimi-k2.7-code"
+            },
+            {
+              "base_unit": "cup",
+              "multiplier": 0.5,
+              "grams": 103.0,
+              "rationale": "A side portion of rice is typically about half a cup.",
+              "model": "glm-5.2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "adr19-comp-1036",
+      "family": "composite",
+      "query": "After the gym I had a bowl of instant oatmeal made with milk and a plate of cheese-filled tortellini in cream sauce, so what should I eat next?",
+      "persona": "gym",
+      "diet_style": "high_protein",
+      "profile": {
+        "user_id": "roster-ned",
+        "sex": "male",
+        "age_y": 33,
+        "weight_kg": 85.0,
+        "height_cm": 180.0,
+        "activity": "active",
+        "allergies": []
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2708390",
+            "grams": 210.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2708791",
+            "grams": 250.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2708390",
+          "food_name": "Oatmeal, instant, plain, made with milk, fat added",
+          "spoken_name": "instant plain made milk fat added oatmeal",
+          "grams": 210.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        },
+        {
+          "tier": "Tier-1 (Deterministic Rule)",
+          "food_id": "2708791",
+          "food_name": "Tortellini, cheese-filled, with cream sauce",
+          "spoken_name": "cheese-filled cream sauce tortellini",
+          "grams": 250.0,
+          "method": "rule_exact",
+          "consensus": "100% Rule Match",
+          "high_confidence": true,
+          "needs_review": false,
+          "voter_details": []
+        }
+      ]
+    },
+    {
+      "id": "adr19-comp-1037",
+      "family": "composite",
+      "query": "I had a plate of steamed perch for dinner, so what should I eat next?",
+      "persona": "cut",
+      "diet_style": "mediterranean",
+      "profile": {
+        "user_id": "roster-cam",
+        "sex": "female",
+        "age_y": 41,
+        "weight_kg": 70.0,
+        "height_cm": 160.0,
+        "activity": "sedentary",
+        "allergies": [
+          "egg"
+        ]
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2706275",
+            "grams": 120.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-2 (Multi-Agent Vote)",
+          "food_id": "2706275",
+          "food_name": "Fish, perch, steamed",
+          "spoken_name": "perch steamed fish",
+          "grams": 120.0,
+          "method": "vote_estimated",
+          "consensus": "1/2 (50%)",
+          "high_confidence": false,
+          "needs_review": true,
+          "voter_details": [
+            {
+              "model": "deepseek-v4-flash-0731",
+              "error": "Expecting value: line 1 column 1 (char 0)"
+            },
+            {
+              "base_unit": "oz",
+              "multiplier": 6.0,
+              "grams": 120.0,
+              "rationale": "A dinner plate of steamed perch is approximated as about 6 ounces.",
+              "model": "kimi-k2.7-code"
+            },
+            {
+              "base_unit": "piece",
+              "multiplier": 1.0,
+              "grams": 90.0,
+              "rationale": "A plate of steamed perch corresponds to one standard piece/serving of fish.",
+              "model": "glm-5.2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "adr19-comp-1038",
+      "family": "composite",
+      "query": "I had a plate of tuna for dinner, so what should I eat next?",
+      "persona": "everyday",
+      "diet_style": "balanced",
+      "profile": {
+        "user_id": "roster-drew",
+        "sex": "male",
+        "age_y": 52,
+        "weight_kg": 88.0,
+        "height_cm": 182.0,
+        "activity": "moderate",
+        "allergies": []
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2706309",
+            "grams": 90.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-2 (Multi-Agent Vote)",
+          "food_id": "2706309",
+          "food_name": "Fish, tuna, NFS",
+          "spoken_name": "tuna nfs fish",
+          "grams": 90.0,
+          "method": "vote_estimated",
+          "consensus": "1/1 (100%)",
+          "high_confidence": true,
+          "needs_review": true,
+          "voter_details": [
+            {
+              "model": "deepseek-v4-flash-0731",
+              "error": "Expecting value: line 1 column 1 (char 0)"
+            },
+            {
+              "base_unit": "piece",
+              "multiplier": 1.0,
+              "grams": 90.0,
+              "rationale": "A plate of tuna is interpreted as one standard piece/serving.",
+              "model": "kimi-k2.7-code"
+            },
+            {
+              "model": "glm-5.2",
+              "error": "Extra data: line 1 column 2 (char 1)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "adr19-comp-1039",
+      "family": "composite",
+      "query": "For lunch I had a double hamburger on a white bun, so what should I eat next?",
+      "persona": "everyday",
+      "diet_style": "gluten_free",
+      "profile": {
+        "user_id": "roster-van",
+        "sex": "male",
+        "age_y": 36,
+        "weight_kg": 80.0,
+        "height_cm": 177.0,
+        "activity": "moderate",
+        "allergies": [
+          "gluten"
+        ]
+      },
+      "oracle": {
+        "ledger": [
+          {
+            "food_id": "2706940",
+            "grams": 290.0,
+            "eaten_at": "today-lunch"
+          }
+        ]
+      },
+      "resolutions": [
+        {
+          "tier": "Tier-2 (Multi-Agent Vote)",
+          "food_id": "2706940",
+          "food_name": "Double hamburger, on white bun, 2 large patties",
+          "spoken_name": "on white bun 2 large patties double hamburger",
+          "grams": 290.0,
+          "method": "vote_estimated",
+          "consensus": "2/2 (100%)",
+          "high_confidence": true,
+          "needs_review": true,
+          "voter_details": [
+            {
+              "model": "deepseek-v4-flash-0731",
+              "error": "Unterminated string starting at: line 1 column 15 (char 14)"
+            },
+            {
+              "base_unit": "qns",
+              "multiplier": 1.0,
+              "grams": 290.0,
+              "rationale": "The user had one regular double hamburger, so the single qns portion of 290 g applies.",
+              "model": "kimi-k2.7-code"
+            },
+            {
+              "base_unit": "qns",
+              "multiplier": 1.0,
+              "grams": 290.0,
+              "rationale": "User described one double hamburger on a white bun, matching a single standard serving of 290 g.",
+              "model": "glm-5.2"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
