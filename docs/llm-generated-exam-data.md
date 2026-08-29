@@ -183,3 +183,18 @@ Freezer（代码）  冻结 v1.0-gold.json（绑定 catalog-v1 sha），EXAM_SPL
    - 投票结果产出置信度与共识比例（Consensus），呈现在 Review 看板中辅助人工高效裁决；
    - 审核通过的表达同步沉淀进 `portions.py` 和 `react.py` 手册，形成闭环。
 
+## 9. Oracle 架构对齐与标准 Realize 接缝收敛（ADR 0020）
+
+在 Claude Code 与 Grok 联合审计后，确立以下数据集流水线规范：
+
+1. **统一收敛至标准 Realize 领域接缝**：
+   - 严禁手搓未推导的 `Task(oracle=WorldState(...))`；
+   - 必须通过 `realize`（Log）、`realize_evaluate`（Evaluate）、`plan_windows_for_meal`（Recommend）、`apply_patch`（Update）及 `compose_oracles`（Composite）构建具有完整领域判分语义的 Oracle。
+2. **标准 Split JSON Schema 对齐**：
+   - 数据集输出严格对齐 `split.py` / `freezer.py` 结构（包含顶层 `items`、包含全量生理 Windows 的 `s0`、标准结构化 `oracle` 以及 `catalog_sha256` 校验和）。
+3. **数据流分层与人审闭环**：
+   - 流水线生成 Candidate（`data/candidates/`）→ 人工审核确认 Approved（`data/approved/`）→ Freezer 冻结为 Gold（`data/splits/`）。
+4. **端到端 Round-Trip 回归验收**：
+   - 所有生成的 Split 文件必须通过 `load_split` 读取并用参考真值跑 `Scorer.score() -> 100% PASS`。
+
+

@@ -22,5 +22,6 @@
 4. agent 手册对称性：新表达进题前必须同步写进 react.py 手册。
 5. 判分规则不动：`Pass ⇔ end state == Oracle`；考试仍是冻结 split 文件。
 6. **自然口语与解析（ADR 0019）**：禁止强制 LLM 逐字照抄 FNDDS "a cup" 字段；LLM 负责地道餐桌人话；`resolve_portion` 负责确定性查表；生僻/分数口语量词走 Multi-Agent Vote（FNDDS 参考表 × Multiplier）作为候选辅助人工审核把关。
+7. **Oracle 构造与 Split 对齐（ADR 0020）**：流水线必须收敛至 `realize` / `realize_evaluate` / `compose_oracles` 领域接缝，严禁手搓未推导的 Oracle；Split 输出严格符合 `split.py` 标准结构；所有候选必须经 Human-in-the-loop 核准后由 freezer 编译为正式 Gold Split，并通过端到端 Round-Trip 回归测试（`Scorer.score() -> 100% Pass`）。
 
 详细分工、执行顺序、pane 约定见 `docs/agent-orchestration.md`。
