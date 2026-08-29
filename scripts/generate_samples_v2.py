@@ -179,16 +179,16 @@ def generate_log_sample(
 
     food_descriptions = []
     for f in chosen_foods:
-        spoken = spoken_display_name(catalog, f.food_id)
-        food_descriptions.append(f'- id="{f.food_id}" name="{spoken}" ({f.name})')
+        food_descriptions.append(f'- id="{f.food_id}" description="{f.name}"')
 
     sys_prompt = (
-        "You are writing a natural food diary entry that a real person would type in an everyday app (like MyFitnessPal/Reddit).\n"
+        "You are writing a realistic food diary entry for a person logging their food in MyFitnessPal or Reddit.\n"
         f"User Persona: {person.persona}, Diet Style: {person.diet_style}.\n"
-        "Guidelines:\n"
-        "- Speak naturally using everyday dining portion words (e.g. 'a plate of...', 'a bowl of...', 'two slices of...', 'a piece of...', 'a burrito', 'a tablespoon of...').\n"
+        "CRITICAL NATURAL DINING GUIDELINES:\n"
+        "- Speak naturally as a real human eater. Use everyday household dining portions ('a bowl of...', 'a plate of...', 'two slices of...', 'a sandwich', 'a pack of...', 'a handful of...', 'a tablespoon of...').\n"
+        "- NEVER copy bureaucratic/academic database descriptors verbatim (e.g. NEVER say 'pre-sweetened with sugar', 'NS as to fat', 'Puerto Rican style', 'prepared from mix', 'peel not eaten', 'flavors other than chocolate'). Translate them to natural phrasing (e.g. 'sweet coffee', 'baked potato with butter', 'fried plantains', 'vanilla shake', 'chicken tenders').\n"
         "- NEVER use 'a cup of' for burgers, patties, sandwiches, or plated meals.\n"
-        "- Return ONLY a JSON object with schema: {\"query\": \"<natural single-sentence diary log>\", \"foods\": [\"<food_id>\", ...]}"
+        "- Return ONLY a JSON object: {\"query\": \"<natural single-sentence diary log>\", \"foods\": [\"<food_id>\", ...]}"
     )
     user_prompt = (
         f"Compose one plausible meal from these available foods:\n"
@@ -274,16 +274,16 @@ def generate_eval_sample(
 
     food_descriptions = []
     for f in chosen_foods:
-        spoken = spoken_display_name(catalog, f.food_id)
-        food_descriptions.append(f'- id="{f.food_id}" name="{spoken}" ({f.name})')
+        food_descriptions.append(f'- id="{f.food_id}" description="{f.name}"')
 
     sys_prompt = (
-        "You write a natural user query asking the nutritional assistant to evaluate a planned meal for lunch.\n"
+        "You write a natural user query asking a nutritional assistant to evaluate a planned lunch meal.\n"
         f"User Persona: {person.persona}, Diet Style: {person.diet_style}.\n"
-        "Guidelines:\n"
-        "- Example phrasing: 'Evaluate this lunch: a plate of pasta with sauce and a piece of burrito.'\n"
+        "CRITICAL NATURAL DINING GUIDELINES:\n"
+        "- Example phrasing: 'Evaluate this lunch: a turkey sandwich and an apple.'\n"
+        "- NEVER copy bureaucratic/academic database descriptors verbatim (e.g. NEVER say 'pre-sweetened with sugar', 'NS as to fat', 'Puerto Rican style', 'prepared from mix', 'peel not eaten'). Translate them to natural culinary phrasing (e.g. 'sweet coffee', 'baked potato with butter', 'fried plantains').\n"
         "- NEVER mention allergy codes or 'is this safe' directly in the query; keep it a neutral meal evaluation request.\n"
-        "- Speak foods with natural household measures (a plate of, a bowl of, a slice of, a patty, a piece of).\n"
+        "- Speak foods with natural household measures (a plate of, a bowl of, a slice of, a patty, a piece of, a handful of).\n"
         "- Return ONLY a JSON object: {\"query\": \"<evaluation query>\", \"foods\": [\"<food_id>\", ...]}"
     )
     user_prompt = (
@@ -467,15 +467,15 @@ def generate_comp_sample(
 
     food_descriptions = []
     for f in chosen_foods:
-        spoken = spoken_display_name(catalog, f.food_id)
-        food_descriptions.append(f'- id="{f.food_id}" name="{spoken}" ({f.name})')
+        food_descriptions.append(f'- id="{f.food_id}" description="{f.name}"')
 
     sys_prompt = (
         "You are writing a two-part user request: first, log what was just eaten for lunch, then ask what to eat for dinner.\n"
         f"User Persona: {person.persona}, Diet Style: {person.diet_style}.\n"
-        "Guidelines:\n"
-        "- Example: 'I had a plate of pasta with tomato sauce for lunch, so what should I eat for dinner?'\n"
-        "- Use natural household quantities (plate of, bowl of, slice of, piece of, handful of).\n"
+        "CRITICAL NATURAL DINING GUIDELINES:\n"
+        "- Example: 'I had a turkey sandwich and a bowl of chicken noodle soup for lunch, so what should I eat for dinner?'\n"
+        "- NEVER copy bureaucratic/academic database descriptors verbatim (e.g. NEVER say 'pre-sweetened with sugar', 'NS as to fat', 'Puerto Rican style', 'prepared from mix'). Translate them to natural colloquial dining terms.\n"
+        "- Use natural household quantities (plate of, bowl of, slice of, piece of, handful of, pack of).\n"
         "- Return ONLY a JSON object: {\"query\": \"<composite query>\", \"foods\": [\"<food_id>\", ...]}"
     )
     user_prompt = (

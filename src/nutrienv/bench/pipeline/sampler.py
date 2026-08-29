@@ -50,6 +50,30 @@ _MASS = {"oz": "oz", "fl_oz": "fl oz"}
 _MODIFIERS = frozenset({"thick", "thin", "regular"})
 
 
+_COMMON_STAPLE_KEYWORDS = (
+    "chicken", "beef", "pork", "egg", "salmon", "tuna", "shrimp", "turkey", "tofu", "steak",
+    "rice", "bread", "pasta", "noodle", "oatmeal", "potato", "toast", "bagel", "cornbread", "tortilla",
+    "apple", "banana", "orange", "broccoli", "carrot", "spinach", "tomato", "avocado", "cabbage", "lettuce", "cucumber",
+    "milk", "cheese", "yogurt", "butter", "coffee", "tea", "juice",
+    "pizza", "burger", "sandwich", "salad", "burrito", "taco", "soup",
+    "cracker", "almond", "peanut", "cookie", "chip", "popcorn", "granola"
+)
+
+_EXCLUDE_SURVEY_NOISE = (
+    "infant", "baby", "formula", "sweetbreads"
+)
+
+
+def _is_common_food(catalog: Mapping, food_id: str) -> bool:
+    entry = catalog.get(food_id)
+    if not isinstance(entry, Mapping):
+        return False
+    name = str(entry.get("name") or "").lower()
+    if any(bad in name for bad in _EXCLUDE_SURVEY_NOISE):
+        return False
+    return any(kw in name for kw in _COMMON_STAPLE_KEYWORDS)
+
+
 def sample_pools(
     catalog: Mapping,
     *,
@@ -59,6 +83,7 @@ def sample_pools(
     pool_size: int = POOL_SIZE,
     spoken_only: bool = False,
     with_allergen: str | None = None,
+    stratified: bool = True,
 ) -> list[FoodPool]:
     """Draw ``n_pools`` independent pools of ~``pool_size`` foods.
 
@@ -98,8 +123,22 @@ def sample_pools(
     rng = random.Random(seed)
     pools: list[FoodPool] = []
     size = min(pool_size, len(eligible))
+
+    # ADR 0022: Stratified sampling (75% common staples + 25% long-tail)
+    common_eligible = [f for f in eligible if _is_common_food(catalog, f)]
+    long_tail_eligible = [f for f in eligible if f not in common_eligible]
+
     for index in range(n_pools):
-        picked = list(rng.sample(eligible, size))
+        if stratified and common_eligible and len(common_eligible) >= int(size * 0.75):
+            n_common = min(len(common_eligible), max(1, int(round(size * 0.75))))
+            n_tail = max(0, size - n_common)
+            picked_common = rng.sample(common_eligible, n_common)
+            picked_tail = rng.sample(long_tail_eligible, min(n_tail, len(long_tail_eligible))) if n_tail > 0 else []
+            picked = picked_common + picked_tail
+            rng.shuffle(picked)
+        else:
+            picked = list(rng.sample(eligible, size))
+
         if carriers is not None and not set(picked) & carriers:
             # Guarantee the carrier condition: on huge catalogs a pure
             # re-draw almost never hits, so swap a randomly chosen slot for
