@@ -172,6 +172,7 @@ def generate_one(
     tier: str = "",
     gram_anchor: GramAnchor | None = None,
     items: Sequence[Mapping[str, object]] | None = None,
+    enable_semantic_vote: bool = False,
 ) -> GenerateOneResult:
     """One mill item: roster person → world windows → pool → expander → speech bind.
 
@@ -334,6 +335,7 @@ def generate_one(
         occasion,
         amount_path=path,
         gram_anchor=gram_anchor,
+        enable_semantic_vote=enable_semantic_vote,
     )
     if reason is not None:
         return GenerateOneResult(
@@ -1604,6 +1606,7 @@ def _bind_log_foods(
     *,
     amount_path: str,
     gram_anchor: GramAnchor | None = None,
+    enable_semantic_vote: bool = False,
 ) -> tuple[list[LedgerRow] | None, str | None]:
     pool_ids = {food.food_id for food in pool.foods}
     eaten_at = f"today-{occasion}"
@@ -1638,6 +1641,15 @@ def _bind_log_foods(
                 grams = _anchored_bind_grams(
                     gram_anchor, food_id, clause, query, catalog
                 )
+            if grams is None and enable_semantic_vote and gram_anchor is None:
+                from nutrienv.bench.pipeline.semantic_vote import vote_fndds_portion
+
+                voted = vote_fndds_portion(clause, food_id, catalog)
+                if (
+                    voted.status == "estimated_by_vote"
+                    and voted.recommended_grams is not None
+                ):
+                    grams = voted.recommended_grams
         if grams is None:
             return None, "unresolvable"
         if float(grams) <= GRAM_TOLERANCE:
