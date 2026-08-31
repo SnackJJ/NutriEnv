@@ -119,6 +119,19 @@ class ChatModel:
     disabled: bool = False
 
 
+DEEPSEEK_CHAT_URL = "https://api.deepseek.com/v1/chat/completions"
+NVIDIA_CHAT_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+
+
+def _deepseek_direct(model_id: str, *, disabled: bool = False) -> ChatModel:
+    return ChatModel(
+        model_id=model_id,
+        url=DEEPSEEK_CHAT_URL,
+        api_key_env="DEEPSEEK_API_KEY",
+        disabled=disabled,
+    )
+
+
 def _dashscope(model_id: str, *, disabled: bool = False) -> ChatModel:
     return ChatModel(
         model_id=model_id,
@@ -128,31 +141,53 @@ def _dashscope(model_id: str, *, disabled: bool = False) -> ChatModel:
     )
 
 
+def _nvidia(model_id: str, *, disabled: bool = False) -> ChatModel:
+    return ChatModel(
+        model_id=model_id,
+        url=NVIDIA_CHAT_URL,
+        api_key_env="NVIDIA_API_KEY",
+        disabled=disabled,
+    )
+
+
 def _deepseek_via_dashscope(model_id: str, *, disabled: bool = False) -> ChatModel:
     """DeepSeek snapshot ids are hosted on DashScope. No api.deepseek.com path."""
     return _dashscope(model_id, disabled=disabled)
 
 
-# Roadmap expander pool. All ids, including DeepSeek snapshots, are 百炼/DashScope.
+# Roadmap expander pool.
 EXPANDER_MODELS: dict[str, ChatModel] = {
+    "deepseek-chat": _deepseek_direct("deepseek-chat"),
+    "deepseek-reasoner": _deepseek_direct("deepseek-reasoner"),
+    "qwen3.8-flash": _dashscope("qwen3.8-flash"),
     "qwen3.8-2.4t-a95b": _dashscope("qwen3.8-2.4t-a95b"),
     "qwen3.8-max": _dashscope("qwen3.8-max"),
     "deepseek-v4-pro-0813": _deepseek_via_dashscope("deepseek-v4-pro-0813"),
     "deepseek-v4-flash-0731": _deepseek_via_dashscope("deepseek-v4-flash-0731"),
     "glm-5.2": _dashscope("glm-5.2"),
-    "kimi-k2.7-code": _dashscope("kimi-k2.7-code"),
+    "kimi-k3": _dashscope("kimi-k3"),
+    "moonshotai/kimi-k3": _dashscope("kimi-k3"),
 }
 
 
 def lookup_chat_model(model_id: str) -> ChatModel:
-    """Registry hit, else the configured opencode gateway, else heuristics.
+    """Registry hit, explicit provider prefix, else opencode gateway, else heuristics."""
+    if model_id.startswith("opencode/") or model_id.startswith("opencode-go/"):
+        real_id = model_id.split("/", 1)[1]
+        route = _opencode_route()
+        if route is not None:
+            url, key_env = route
+            return ChatModel(model_id=real_id, url=url, api_key_env=key_env)
+    if model_id.startswith("nvidia/"):
+        real_id = model_id.split("/", 1)[1]
+        return _nvidia(real_id)
+    if model_id.startswith("dashscope/"):
+        real_id = model_id.split("/", 1)[1]
+        return _dashscope(real_id)
+    if model_id.startswith("deepseek/"):
+        real_id = model_id.split("/", 1)[1]
+        return _deepseek_direct(real_id)
 
-    The opencode-go gateway is configured only through environment: when both
-    OPENCODE_BASE_URL and OPENCODE_API_KEY are set, any unlisted model id
-    routes there verbatim (the operator owns that catalog). Without both, the
-    route is unavailable and unknown ids fall back to the DashScope/DeepSeek
-    heuristics as before.
-    """
     known = EXPANDER_MODELS.get(model_id)
     if known is not None:
         return known
@@ -160,8 +195,8 @@ def lookup_chat_model(model_id: str) -> ChatModel:
     if any(tag in lowered for tag in _DASHSCOPE_HINTS):
         # DashScope-flavoured ids keep their historical route even when an
         # opencode gateway is configured, so qwen/glm/kimi resolution is
-        # stable across environments. Use an opencode-specific id (e.g.
-        # minimax-m3) to reach the opencode gateway.
+        # stable across environments. Use an opencode prefix (e.g.
+        # opencode-go/glm-5.3) to force opencode gateway routing.
         return _dashscope(model_id)
     if _opencode_route() is not None:
         url, key_env = _opencode_route()
@@ -232,9 +267,10 @@ def complete_chat(
         payload = {
             "model": mid,
             "messages": [dict(item) for item in messages],
-            "temperature": temperature,
             "max_tokens": max_tokens,
         }
+        if "kimi-k3" not in mid.lower():
+            payload["temperature"] = temperature
         try:
             text = post_chat_completion(
                 url,

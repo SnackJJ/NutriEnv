@@ -30,12 +30,10 @@ __all__ = ["GOLD_SPLIT_PATH", "EXAM_SPLIT_PATH", "load_split", "load_exam"]
 _ROOT = Path(__file__).resolve().parents[3]
 # Archived v0 calibration set; kept for archaeology through load_split.
 GOLD_SPLIT_PATH = _ROOT / "data" / "splits" / "archive" / "v0-gold.json"
-# No published exam is active while the v1.x mill lands. The old v0.5 path is
-# intentionally missing; load_exam fails closed until the next exam is frozen.
-EXAM_SPLIT_PATH = _ROOT / "data" / "splits" / "v0.5-gold.json"
-# v0.5-gold was archived with its v0.x parents (ticket 08 migration). No
-# version is accepted on the formal path until the next exam lands.
-_EXAM_VERSIONS = frozenset()
+# Published v2.2 exams.
+EXAM_SPLIT_PATH = _ROOT / "data" / "splits" / "v2.2-gold.json"
+_EXAM_VERSIONS = frozenset({"v2.2-gold", "v2.2-mini"})
+ALLOWED_TIERS = frozenset(EVALUATE_TIERS) | {"tier1", "tier2", "tier3"}
 
 
 def load_split(path: Path | str | None = None, *, catalog=None) -> list[Task]:
@@ -134,10 +132,10 @@ def _item(entry: object, catalog: dict) -> Task:
     declared_tier = entry.get("tier")
     if declared_tier is not None and (
         not isinstance(declared_tier, str)
-        or (declared_tier and declared_tier not in EVALUATE_TIERS)
+        or (declared_tier and declared_tier not in ALLOWED_TIERS)
     ):
         raise ValueError(
-            f"{task_id}: tier must be empty or one of {sorted(EVALUATE_TIERS)}"
+            f"{task_id}: tier must be empty or one of {sorted(ALLOWED_TIERS)}"
         )
     tier = declared_tier or ""
     s0 = _s0(entry.get("s0"), catalog)

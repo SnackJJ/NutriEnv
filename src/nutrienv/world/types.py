@@ -20,6 +20,7 @@ Bench must mirror these rules when it builds an Oracle, because Pass is
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 
@@ -109,6 +110,20 @@ class WorldState:
     last_reasons: tuple[str, ...] = ()
 
 
+_REASON_ALIASES: dict[str, str] = {
+    "carb_hi": "carb_g_hi",
+    "carb_lo": "carb_g_lo",
+    "protein_hi": "protein_g_hi",
+    "protein_lo": "protein_g_lo",
+    "fat_hi": "fat_g_hi",
+    "fat_lo": "fat_g_lo",
+    "fiber_hi": "fiber_g_hi",
+    "fiber_lo": "fiber_g_lo",
+    "sodium_hi": "sodium_mg_hi",
+    "sodium_lo": "sodium_mg_lo",
+}
+
+
 def normalize_reasons(values: object) -> tuple[str, ...]:
     """Canonicalize reject reasons into a sorted unique tuple of closed codes."""
     if isinstance(values, (str, bytes)) or not isinstance(values, (list, tuple)):
@@ -117,7 +132,8 @@ def normalize_reasons(values: object) -> tuple[str, ...]:
     for value in values:
         if not isinstance(value, str):
             raise ValueError("expected a list of strings")
-        token = value.strip()
+        token = value.strip().lower()
+        token = _REASON_ALIASES.get(token, token)
         if token not in REASON_CODES:
             raise ValueError(f"unknown reason: {token!r}")
         out.add(token)
@@ -132,9 +148,10 @@ def normalize_tags(values: object) -> tuple[str, ...]:
     for value in values:
         if not isinstance(value, str):
             raise ValueError("expected a list of strings")
-        name = value.strip().lower()
-        if not name:
+        cleaned = value.strip().lower()
+        if not cleaned:
             raise ValueError("tag must be a non-empty string")
+        name = re.sub(r"[\s\-]+", "_", cleaned)
         out.add(name)
     return tuple(sorted(out))
 

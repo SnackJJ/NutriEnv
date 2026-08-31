@@ -335,6 +335,5 @@ def test_archived_v0x_stays_pinned_and_load_exam_is_fail_closed() -> None:
     assert len(tasks) == 240
     with pytest.raises(ValueError, match="version"):
         load_exam(_SPLIT)
-    assert not EXAM_SPLIT_PATH.is_file()
-    with pytest.raises(FileNotFoundError):
-        load_exam()
+    assert EXAM_SPLIT_PATH.is_file()
+    assert len(load_exam()) == 100

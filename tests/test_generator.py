@@ -17,7 +17,7 @@ from nutrienv.bench.realizations import (
     UNIT_CONVERT_ROWS,
     UPDATE_ROWS,
 )
-from nutrienv.bench.situations import SITUATIONS
+from nutrienv.bench.situations import GENERATOR_V1_SITUATIONS, SITUATIONS
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, ledger_totals
@@ -49,9 +49,9 @@ def test_realize_covers_every_situation():
         ),
         "ledger_gap": _row(LEDGER_GAP_ROWS, "lg-miss-breakfast"),
     }
-    assert set(by_situation) == set(SITUATIONS)
+    assert set(by_situation) == set(GENERATOR_V1_SITUATIONS)
     tasks = [_task(row) for row in by_situation.values()]
-    assert {task.situations[0] for task in tasks} == set(SITUATIONS)
+    assert {task.situations[0] for task in tasks} == set(GENERATOR_V1_SITUATIONS)
     assert all(len(task.s0.catalog) >= 15 for task in tasks)
 
     condition = _task(next(row for row in CONSTRAIN_ROWS if row.seed_id == "co-gold-shrimp"))

@@ -434,12 +434,14 @@ def test_load_split_v05_is_the_240() -> None:
     assert len({task.id for task in tasks}) == 240
 
 
-def test_load_split_default_fails_closed_when_no_exam() -> None:
-    from nutrienv.bench.split import EXAM_SPLIT_PATH
+def test_load_split_default_loads_v2_2_gold() -> None:
+    from nutrienv.bench.split import EXAM_SPLIT_PATH, load_exam
 
-    assert EXAM_SPLIT_PATH.name == "v0.5-gold.json"
-    with pytest.raises(FileNotFoundError, match="split not found"):
-        load_split()
+    assert EXAM_SPLIT_PATH.name == "v2.2-gold.json"
+    tasks = load_split()
+    assert len(tasks) == 100
+    exam_tasks = load_exam()
+    assert len(exam_tasks) == 100
 
 
 def test_gold_split_exists_and_loads() -> None:

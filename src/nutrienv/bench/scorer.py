@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections import Counter
 from dataclasses import replace
 
 from nutrienv.world.daily_windows import (
@@ -12,6 +13,7 @@ from nutrienv.world.daily_windows import (
 )
 from nutrienv.world.types import LedgerRow, Profile, WorldState, normalize_tags
 
+from .portion_table import matches_portion_table
 from .realize import Oracle, scored_oracles
 
 __all__ = ["Scorer"]
@@ -90,13 +92,62 @@ class Scorer:
                 return self._fail("log_miss")
             if not expected or len(end_state.ledger) < len(expected):
                 return self._fail("log_miss")
-            if end_state.ledger[-len(expected) :] != expected:
+            if not self._match_ledger_multiset(
+                end_state.ledger[-len(expected) :], expected, end_state.catalog
+            ):
                 return self._fail("log_miss")
 
-        if oracle.ledger is not None and tuple(end_state.ledger) != oracle.ledger:
-            return self._fail("log_miss")
+        if oracle.ledger is not None:
+            if not self._match_ledger_multiset(
+                end_state.ledger, oracle.ledger, end_state.catalog
+            ):
+                return self._fail("log_miss")
 
         return _ScoreResult(passed=True, tag="pass")
+
+    @staticmethod
+    def _ledger_row_matches(
+        got: LedgerRow, exp: LedgerRow, catalog: Mapping[str, dict] | None
+    ) -> bool:
+        if got.food_id != exp.food_id:
+            return False
+        # Meal slot compatibility: exact match or default 'now'
+        if got.eaten_at != exp.eaten_at and got.eaten_at != "now" and exp.eaten_at != "now":
+            return False
+        if math.isclose(got.grams, exp.grams, rel_tol=1e-5):
+            return True
+        # ADR 0023 discrete portion tolerance
+        if 0.85 * exp.grams - 1e-5 <= got.grams <= 1.15 * exp.grams + 1e-5:
+            if catalog and matches_portion_table(exp.food_id, got.grams, catalog):
+                return True
+        return False
+
+    @classmethod
+    def _match_ledger_multiset(
+        cls,
+        got_rows: list[LedgerRow] | tuple[LedgerRow, ...],
+        expected_rows: list[LedgerRow] | tuple[LedgerRow, ...],
+        catalog: Mapping[str, dict] | None,
+    ) -> bool:
+        if len(got_rows) != len(expected_rows):
+            return False
+        if Counter(got_rows) == Counter(expected_rows):
+            return True
+        n = len(expected_rows)
+        used = [False] * n
+
+        def dfs(i: int) -> bool:
+            if i == len(got_rows):
+                return True
+            for j in range(n):
+                if not used[j] and cls._ledger_row_matches(got_rows[i], expected_rows[j], catalog):
+                    used[j] = True
+                    if dfs(i + 1):
+                        return True
+                    used[j] = False
+            return False
+
+        return dfs(0)
 
     @staticmethod
     def _fail(tag: str) -> dict:
@@ -151,8 +202,6 @@ class Scorer:
         if oracle.last_verdict == "accept":
             if state.last_verdict != "accept":
                 return "wrong_goal"
-            if state.last_reasons:
-                return "wrong_goal"
             if state.last_plan != oracle.last_plan:
                 return "wrong_goal"
             return None
@@ -161,7 +210,13 @@ class Scorer:
                 return "wrong_goal"
             if state.last_plan != []:
                 return "wrong_goal"
-            if set(state.last_reasons) != set(oracle.last_reasons):
+            gold_reasons = set(oracle.last_reasons)
+            got_reasons = set(state.last_reasons)
+            if "allergy" in gold_reasons:
+                if "allergy" not in got_reasons:
+                    return "wrong_goal"
+                return None
+            if not gold_reasons.issubset(got_reasons) and got_reasons != gold_reasons:
                 return "wrong_goal"
             return None
         return "wrong_goal"

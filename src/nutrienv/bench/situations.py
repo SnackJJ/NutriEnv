@@ -19,6 +19,17 @@ class Situation(str, Enum):
     NEAR_SYNONYM = "near_synonym"
     CONFLICT_WINDOWS = "conflict_windows"
     LEDGER_GAP = "ledger_gap"
+    IDEMPOTENT_UPDATE = "idempotent_update"
 
 
 SITUATIONS = tuple(item.value for item in Situation)
+
+GENERATOR_V1_SITUATIONS = (
+    Situation.FUZZY_PORTION.value,
+    Situation.MULTI_ITEM_LOG.value,
+    Situation.CONDITION_SUITABILITY.value,
+    Situation.UNIT_CONVERT.value,
+    Situation.NEAR_SYNONYM.value,
+    Situation.CONFLICT_WINDOWS.value,
+    Situation.LEDGER_GAP.value,
+)

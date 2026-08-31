@@ -39,6 +39,41 @@ def test_log_tail_and_profile_are_exact():
     assert scorer.score(state, Oracle(profile=expected))["tag"] == "update_miss"
 
 
+def test_log_tail_order_independent_passes():
+    scorer = Scorer()
+    state = demo_state()
+    row1 = LedgerRow("beef", 100.0, "today-lunch")
+    row2 = LedgerRow("ice_cream", 50.0, "today-lunch")
+    # Agent logs [beef, ice_cream]
+    state.ledger.extend([row1, row2])
+    # Oracle had [ice_cream, beef] in tail
+    assert scorer.score(state, Oracle(ledger_tail=[row2, row1]))["passed"]
+    # Full ledger check also passes
+    assert scorer.score(state, Oracle(ledger=(row2, row1)))["passed"]
+
+
+def test_log_tail_discrete_portion_tolerance_adr0023():
+    scorer = Scorer()
+    state = demo_state()
+    # "peanut_butter" in demo catalog has portions: {"tbsp": 16.0, "cup": 258.0}
+    # Ounce multiples are 14.18, 28.35, 42.52, 56.7
+    # 2 tbsp = 32.0g. Gold = 30.0g (ratio 32/30 = 1.067, within [0.85, 1.15])
+    gold_row = LedgerRow("peanut_butter", 30.0, "today-breakfast")
+    state.catalog = {"peanut_butter": {"portions": {"tbsp": 16.0, "cup": 258.0}}}
+    
+    # Agent logged 32.0g (2 tbsp), which is in portion table and within [0.85*30, 1.15*30] = [25.5, 34.5]
+    state.ledger = [LedgerRow("peanut_butter", 32.0, "today-breakfast")]
+    assert scorer.score(state, Oracle(ledger_tail=[gold_row]))["passed"]
+
+    # Agent logged 31.0g (within [25.5, 34.5], but not in portion table) -> log_miss
+    state.ledger = [LedgerRow("peanut_butter", 31.0, "today-breakfast")]
+    assert scorer.score(state, Oracle(ledger_tail=[gold_row]))["tag"] == "log_miss"
+
+    # Agent logged 16.0g (1 tbsp, in portion table, but 16.0 < 0.85*30 = 25.5) -> log_miss
+    state.ledger = [LedgerRow("peanut_butter", 16.0, "today-breakfast")]
+    assert scorer.score(state, Oracle(ledger_tail=[gold_row]))["tag"] == "log_miss"
+
+
 def test_exact_evaluation_plan_and_empty_plan_goal():
     state = demo_state()
     expected = [{"food_id": "white_rice", "grams": 100.0}]
@@ -118,11 +153,24 @@ def test_reject_reasons_are_compared_as_a_set() -> None:
     state.last_reasons = ("kcal_hi", "allergy", "allergy")
     assert scorer.score(state, oracle) == {"passed": True, "tag": "pass"}
 
+    # ADR 0024: Identifying the fatal allergy is sufficient for Pass
     state.last_reasons = ("allergy",)
-    assert scorer.score(state, oracle)["tag"] == "wrong_goal"
+    assert scorer.score(state, oracle) == {"passed": True, "tag": "pass"}
 
+    # ADR 0024: Extra macro codes along with allergy still pass
     state.last_reasons = ("allergy", "kcal_hi", "fiber_g_lo")
+    assert scorer.score(state, oracle) == {"passed": True, "tag": "pass"}
+
+    # ADR 0024: Missing allergy when allergy is in gold is Fatal Fail
+    state.last_reasons = ("kcal_hi",)
     assert scorer.score(state, oracle)["passed"] is False
+
+    # Pure macro reject still requires exact match:
+    pure_macro_oracle = _reject_oracle(state, reasons=("kcal_hi",))
+    state.last_reasons = ("kcal_lo",)
+    assert scorer.score(state, pure_macro_oracle)["passed"] is False
+    state.last_reasons = ("kcal_hi",)
+    assert scorer.score(state, pure_macro_oracle) == {"passed": True, "tag": "pass"}
 
 
 def test_reject_oracle_missing_last_plan_is_not_empty() -> None:

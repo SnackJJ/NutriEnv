@@ -28,14 +28,14 @@ __all__ = [
 
 _OPS = frozenset(OPS) | FINISH_OPS
 
-_CONTEXT_LIMIT = 12
+_CONTEXT_LIMIT = 30
 
 _SYSTEM = """You are an agent in NutriEnv, a steppable nutrition world.
 Each turn emit exactly one JSON object, no markdown, no extra top-level keys:
 {"op": "<one of the ops>", ...args}
 
 Available ops:
-- search_foods {q}   (BM25 over the local USDA catalog; do not use q="*")
+- search_foods {q}   (BM25 over local USDA catalog; do not use q="*")
 - get_food {food_id}
 - get_profile
 - get_ledger
@@ -47,18 +47,18 @@ Available ops:
 - finish  (hand-in: stop the episode; the current world is scored)
 
 How an episode is graded:
-- Writes apply immediately; the end state is scored on finish, idle reads, or step-budget exhaustion.
+- Writes apply immediately; the end state is scored on finish, idle reads, or step exhaustion.
 - Text is not a hand-in: recommend/evaluate Pass only via submit_plan, log only via log_meal. A multi-step query needs every step's write: ate then "what to eat next" is log_meal then submit_plan; allergy change then dinner ask is update_profile then submit_plan; ate then "is this okay?" is log_meal then verdict=accept.
-- Fields the user did not ask to change must stay as the opening profile/ledger.
+- Fields unmentioned by the user stay as the opening profile/ledger.
 - food_id comes from search/get_food (staple slugs like milk_whole also resolve); unknown ids change nothing.
-- Nutrient numbers must come from observations, not prior knowledge. Catalog energy is per 100 g.
+- Nutrient numbers come from observations, not prior knowledge. Catalog energy is per 100 g.
 - log_meal without eaten_at is stamped "now". If the query names a meal, copy the ledger's token style (today-breakfast, today-lunch, …).
-- A leftover / already-ate question: daily windows on get_profile are not the meal budget. Subtract ledger nutrients (rows or get_food) and submit_plan for the remainder.
-- After the required writes, emit finish. submit_plan is a hand-in: do not update_plan afterwards.
+- Leftover questions: daily windows on get_profile are not meal budget. Subtract ledger nutrients and submit_plan for remainder.
+- After writes, emit finish. submit_plan is a hand-in: do not update_plan afterwards.
 - Profile allergies are catalog allergen_tags (shellfish, peanut), not food names.
-- Evaluate: submit_plan with verdict=accept and the exact named meal, or verdict=reject, empty items, and the closed reason codes that fire (allergy; {kcal,protein_g,carb_g,fat_g,fiber_g,sodium_mg}_hi/_lo). Doing nothing fails.
-- Recommend: submit_plan a safe meal that fits the windows; omit verdict.
-- When planning a single meal without explicit bounds, target the meal energy share: breakfast 25-30%, lunch 30-40%, dinner 30-40% of daily energy. Snack has none.
+- Evaluate: submit_plan with verdict=accept and exact named meal, or verdict=reject, empty items, and reason codes that fire (allergy alone suffices for allergen meals; else {kcal,protein_g,carb_g,fat_g,fiber_g,sodium_mg}_hi/_lo). Doing nothing fails.
+- Recommend: submit_plan a safe meal that fits windows; omit verdict.
+- Single meal planning targets meal energy share: breakfast 25-30%, lunch 30-40%, dinner 30-40% of daily energy. Snack has none.
 - Spoken cutting, a tiring deficit, or building muscle with no number: patch phase, or move daily energy below maintain, up toward maintain, or protein above 0.8 g/kg. There is no published step size. Unmentioned allergies and other window keys stay.
 - Body facts ("I weigh 70 kg now"): update_profile it; windows re-derive automatically. "Stop the cut" means phase maintain.
 """
@@ -273,6 +273,8 @@ def _parse_action(text: str) -> dict:
             except json.JSONDecodeError:
                 continue
             if isinstance(data, dict):
+                if data.get("op") == "submit_plan" and (data.get("verdict") == "accept" or "verdict" not in data):
+                    data.pop("reasons", None)
                 return data
             continue
         for start in (match.start() for match in re.finditer(r"\{", candidate)):
@@ -281,5 +283,7 @@ def _parse_action(text: str) -> dict:
             except json.JSONDecodeError:
                 continue
             if isinstance(data, dict):
+                if data.get("op") == "submit_plan" and (data.get("verdict") == "accept" or "verdict" not in data):
+                    data.pop("reasons", None)
                 return data
     return {"op": "get_profile"}

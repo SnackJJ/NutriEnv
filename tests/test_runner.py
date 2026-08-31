@@ -119,11 +119,12 @@ def test_run_split_rejects_retired_factory() -> None:
         run_split(n=1, seed=0)
 
 
-def test_run_split_default_fails_closed_when_no_exam() -> None:
-    import pytest
+def test_run_split_default_runs_published_exam() -> None:
+    from nutrienv.bench.split import EXAM_SPLIT_PATH
 
-    with pytest.raises(FileNotFoundError, match="split not found"):
-        run_split()
+    assert EXAM_SPLIT_PATH.name == "v2.2-gold.json"
+    res = run_split(task_ids=["adr20-upd-5026"])
+    assert res["n"] == 1
 
 
 def test_run_split_workers_match_serial_results() -> None:
