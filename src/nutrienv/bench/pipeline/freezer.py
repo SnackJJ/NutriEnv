@@ -131,9 +131,10 @@ def _oracle_payload(oracle: Oracle, *, family: str, s0) -> dict[str, object]:
                 for sub in oracle.sub_oracles
             ],
         }
-    payload: dict[str, object] = {
-        "profile": _oracle_profile_payload(oracle.profile, s0.profile),
-    }
+    payload: dict[str, object] = {}
+    prof_payload = _oracle_profile_payload(oracle.profile, s0.profile)
+    if prof_payload is not None:
+        payload["profile"] = prof_payload
     if family == "evaluate" or (
         oracle.last_plan is not None and oracle.ledger_tail is None
     ):
@@ -224,7 +225,9 @@ def _attach_evaluated_plan(payload: dict[str, object], oracle: Oracle) -> None:
 
 
 def _oracle_profile_payload(oracle_profile, s0_profile) -> object:
-    if oracle_profile is None or oracle_profile == s0_profile:
+    if oracle_profile is None:
+        return None
+    if oracle_profile == s0_profile:
         return "s0"
     diff: dict[str, object] = {}
     if oracle_profile.allergies != s0_profile.allergies:

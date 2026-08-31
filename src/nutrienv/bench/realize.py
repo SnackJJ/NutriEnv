@@ -67,7 +67,15 @@ __all__ = [
 ]
 
 
-FAMILIES = ("lookup", "log", "recommend", "evaluate", "update", "constrain")
+FAMILIES = (
+    "lookup",
+    "log",
+    "recommend",
+    "evaluate",
+    "update",
+    "constrain",
+    "composite",
+)
 
 GOLD_WINDOWS = {"kcal": (1800.0, 2200.0), "protein_g": (90.0, 140.0)}
 

@@ -319,6 +319,7 @@ def _vote_single_agent(
             messages,
             temperature=temperature,
             max_tokens=max_tokens,
+            timeout=90.0,
         )
         cleaned = raw.strip()
         if "</think>" in cleaned:
@@ -349,9 +350,9 @@ def _vote_single_agent(
 
 
 DEFAULT_TRIAD_VOTERS: tuple[str, ...] = (
+    "deepseek-v4-pro-0813",
     "deepseek-v4-flash-0731",
-    "kimi-k2.7-code",
-    "glm-5.2",
+    "qwen3.8-flash",
 )
 
 
@@ -381,18 +382,25 @@ def vote_fndds_portion(
             voter_details=(),
         )
 
-    votes = []
-    for model_id in voter_models:
-        vote = _vote_single_agent(
-            model_id,
-            query,
-            food_id,
-            food_name,
-            portions,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-        votes.append(vote)
+    import concurrent.futures
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(voter_models)) as executor:
+        futures = {
+            executor.submit(
+                _vote_single_agent,
+                model_id,
+                query,
+                food_id,
+                food_name,
+                portions,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            ): model_id
+            for model_id in voter_models
+        }
+        votes = []
+        for future in concurrent.futures.as_completed(futures):
+            votes.append(future.result())
 
     ALLOWED_MULTIPLIERS = (0.25, 0.33, 0.5, 0.67, 0.75, 1.0, 1.5, 2.0, 3.0)
     valid_votes = []

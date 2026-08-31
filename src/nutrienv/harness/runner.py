@@ -20,6 +20,7 @@ __all__ = [
     "MODEL_LABEL",
     "run_split",
     "DEFAULT_MAX_STEPS",
+    "FAMILY_MAX_STEPS",
     "FINISH_OPS",
     "READ_OPS",
     "WRITE_OPS",
@@ -39,6 +40,14 @@ ENV_LABEL = f"nutrienv-{__version__}"
 HARNESS_LABEL = "script-v0"
 MODEL_LABEL = "script"
 DEFAULT_MAX_STEPS = 12
+
+FAMILY_MAX_STEPS = {
+    "update": 6,
+    "log": 12,
+    "evaluate": 12,
+    "recommend": 30,
+    "composite": 30,
+}
 
 
 def run_split(
@@ -185,12 +194,17 @@ def _eval_task(
     last_ops: list[str] = []
     last_steps = 0
     view = _harness_view(task, leak_oracle)
+    task_max_steps = (
+        max_steps
+        if max_steps != DEFAULT_MAX_STEPS
+        else FAMILY_MAX_STEPS.get(task.family, DEFAULT_MAX_STEPS)
+    )
     for _ in range(k):
         policy = harness.clone() if fresh else harness
         reset = getattr(policy, "reset", None)
         if callable(reset):
             reset(view)
-        passed, tag, ops = _run_episode(task, policy, scorer, max_steps)
+        passed, tag, ops = _run_episode(task, policy, scorer, task_max_steps)
         last_tag = tag
         last_ops = ops
         last_steps = len(ops)

@@ -129,11 +129,14 @@ def sample_pools(
     long_tail_eligible = [f for f in eligible if f not in common_eligible]
 
     for index in range(n_pools):
-        if stratified and common_eligible and len(common_eligible) >= int(size * 0.75):
+        if stratified and common_eligible and long_tail_eligible and size < len(eligible):
             n_common = min(len(common_eligible), max(1, int(round(size * 0.75))))
-            n_tail = max(0, size - n_common)
+            n_tail = size - n_common
+            if n_tail > len(long_tail_eligible):
+                n_tail = len(long_tail_eligible)
+                n_common = min(len(common_eligible), size - n_tail)
             picked_common = rng.sample(common_eligible, n_common)
-            picked_tail = rng.sample(long_tail_eligible, min(n_tail, len(long_tail_eligible))) if n_tail > 0 else []
+            picked_tail = rng.sample(long_tail_eligible, n_tail)
             picked = picked_common + picked_tail
             rng.shuffle(picked)
         else:
@@ -303,35 +306,70 @@ def unit_naturalness_rank(key: str) -> int:
     return 50
 
 
-def _is_liquid_or_condiment(name: str) -> bool:
+_NON_MEAL_CONDIMENT_WORDS = (
+    "paste",
+    "sauce",
+    "dressing",
+    "oil",
+    "syrup",
+    "ketchup",
+    "mustard",
+    "mayo",
+    "mayonnaise",
+    "vinegar",
+    "dip",
+    "gravy",
+    "seasoning",
+    "extract",
+    "margarine",
+    "shortening",
+    "flavoring",
+    "sweetener",
+    "coffee",
+    "tea",
+    "soda",
+    "cola",
+    "juice",
+    "cocktail",
+    "whiskey",
+    "vodka",
+    "manhattan",
+    "liqueur",
+    "candy",
+    "caramel",
+    "taffy",
+    "marshmallow",
+    "relish",
+)
+
+_NON_MEAL_CONDIMENT_PATTERNS = (
+    "powder mix",
+    "powder, mix",
+    "for use with vegetables",
+    "fruit flavored drink",
+    "drink, fruit flavored",
+    "nectar",
+)
+
+
+def is_non_meal_condiment(name: str) -> bool:
+    """True for standalone condiments/pastes/pure fats/drinks/candies that cannot constitute a meal by themselves."""
     lowered = name.lower()
-    return any(
-        w in lowered
-        for w in (
-            "sauce",
-            "dressing",
-            "oil",
-            "syrup",
-            "ketchup",
-            "mustard",
-            "mayo",
-            "mayonnaise",
-            "vinegar",
-            "dip",
-            "gravy",
-            "beverage",
-            "water",
-            "juice",
-            "coffee",
-            "tea",
-            "soda",
-            "cola",
-        )
-    )
+    if any(pat in lowered for pat in _NON_MEAL_CONDIMENT_PATTERNS):
+        return True
+    if any(main in lowered for main in ("with", "and", "sandwich", "burger", "pizza", "noodle", "pasta", "rice", "salad", "soup", "burrito", "taco", "fajita", "omelet", "stew", "chow mein", "egg", "nachos", "potato", "bread")):
+        return any(re.search(rf"\b{re.escape(w)}\b", lowered) for w in ("coffee", "tea", "soda", "cola", "juice", "cocktail", "whiskey", "vodka", "manhattan", "liqueur", "candy", "caramel", "taffy", "marshmallow", "relish"))
+    return any(re.search(rf"\b{re.escape(w)}\b", lowered) for w in _NON_MEAL_CONDIMENT_WORDS)
+
+
+def _is_liquid_or_condiment(name: str) -> bool:
+    return is_non_meal_condiment(name)
 
 
 def _unspecified_phrase(food: PoolFood) -> str:
     name = food.name.lower()
+    if is_non_meal_condiment(name):
+        return "a tablespoon"
     if any(
         w in name
         for w in (
