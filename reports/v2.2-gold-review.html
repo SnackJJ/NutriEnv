@@ -1,0 +1,1648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>NutriEnv v2.2 Benchmark 100-Task Gold & Mini Split Review</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:#0b0f19; color:#f1f5f9; padding:24px; margin:0; line-height:1.5; }
+        h1 { color:#38bdf8; margin:0 0 6px 0; font-size:24px; }
+        .meta-bar { display:flex; gap:16px; margin-bottom:20px; font-size:14px; color:#94a3b8; border-bottom:1px solid #243048; padding-bottom:12px; }
+        .filter-btn { background:#1e293b; color:#cbd5e1; border:1px solid #334155; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:13px; }
+        .filter-btn.active { background:#0284c7; color:#fff; border-color:#38bdf8; }
+    </style>
+    <script>
+        function filterFam(fam) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            document.querySelectorAll('.sample-card').forEach(c => {
+                if (fam === 'all' || c.getAttribute('data-family') === fam) {
+                    c.style.display = 'block';
+                } else {
+                    c.style.display = 'none';
+                }
+            });
+        }
+    </script>
+</head>
+<body>
+    <h1>🥗 NutriEnv v2.2 Gold Benchmark (100 Tasks + 20 Mini Split)</h1>
+    <div class="meta-bar">
+        <span><b>Total Gold Tasks:</b> 100</span>
+        <span><b>Mini Split Strata:</b> 20 (1 Upd / 3 Log / 4 Eval / 4 Rec / 8 Comp)</span>
+        <span><b>Solver Status:</b> 100% Reachable (unreachable=0)</span>
+        <span><b>Test Suite:</b> 1375/1375 Passing</span>
+        <span><b>Claude Opus Verdict:</b> <span style="color:#34d399;font-weight:bold;">APPROVE</span></span>
+    </div>
+    <div style="margin-bottom:16px;display:flex;gap:8px;">
+        <button class="filter-btn active" onclick="filterFam('all')">All (100)</button>
+        <button class="filter-btn" onclick="filterFam('update')">Update (5)</button>
+        <button class="filter-btn" onclick="filterFam('log')">Log (15)</button>
+        <button class="filter-btn" onclick="filterFam('evaluate')">Evaluate (20)</button>
+        <button class="filter-btn" onclick="filterFam('recommend')">Recommend (20)</button>
+        <button class="filter-btn" onclick="filterFam('composite')">Composite (40)</button>
+    </div>
+    <div>
+        
+    <div class="sample-card" data-family="update" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#38bdf8;">#1 [adr20-upd-5026] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">update</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #38bdf8;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Add peanut to my allergies."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li><i>No specific food items (free target match)</i></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="update" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#38bdf8;">#2 [adr20-upd-5027] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">update</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #38bdf8;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I was recently diagnosed with an egg allergy. Add egg to my allergy list."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li><i>No specific food items (free target match)</i></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="update" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#38bdf8;">#3 [adr20-upd-5028] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">update</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #38bdf8;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I am no longer allergic to peanut. Remove it from my allergies."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li><i>No specific food items (free target match)</i></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="update" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#38bdf8;">#4 [adr20-upd-5029] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">update</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #38bdf8;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I started exercising regularly, please update my activity level to moderate."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li><i>No specific food items (free target match)</i></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="update" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#38bdf8;">#5 [adr20-upd-5031] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">update</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #38bdf8;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Switch my fitness goal to muscle phase."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li><i>No specific food items (free target match)</i></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="log" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#34d399;">#6 [adr20-log-5001] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">log</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #34d399;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a plate of sliced tongue with a cornbread muffin."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Tongue</b> (85.0g, today-lunch)</li><li>[Log] <b>Cornbread muffin, stick, round, made from home recipe</b> (66.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="log" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#34d399;">#7 [adr20-log-5003] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">log</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #34d399;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a bowl of cooked mixed vegetables."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Classic mixed vegetables, canned, reduced sodium, cooked, no added fat</b> (180.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="log" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#34d399;">#8 [adr20-log-5004] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">log</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: cut</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #34d399;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a school cafeteria hamburger and a handful of flavored popcorn."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Hamburger, from school cafeteria</b> (90.0g, today-lunch)</li><li>[Log] <b>Popcorn, ready-to-eat, flavored, light</b> (28.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="log" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#34d399;">#9 [adr20-log-5005] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">log</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: cut</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #34d399;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a plate of fish with noodles and mixed vegetables covered in cheese sauce."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Fish, noodles, and vegetables excluding carrots, broccoli, and dark-green leafy; cheese sauce</b> (305.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="log" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#34d399;">#10 [adr20-log-5006] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">log</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #34d399;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a plate of fried green tomatoes for lunch."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Fried green tomatoes</b> (90.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="log" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#34d399;">#11 [adr20-log-5007] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">log</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #34d399;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "For breakfast I had a three-egg omelet with cheese, diced ham, onions, and bell peppers."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Egg omelet or scrambled egg, with cheese, meat, and vegetables other than dark-green and/or tomatoes, NS as to fat</b> (105.0g, today-breakfast)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="log" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#34d399;">#12 [adr20-log-5008] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">log</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #34d399;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a bowl of cooked savoy cabbage."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Cabbage, savoy, cooked</b> (78.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="log" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#34d399;">#13 [adr20-log-8200] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">log</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #34d399;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a bottle of Glucerna nutritional shake."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Nutritional drink or shake, ready-to-drink, sugar free (Glucerna)</b> (248.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="log" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#34d399;">#14 [adr20-log-8201] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">log</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: cut</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #34d399;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a bowl of chicken ramen."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Ramen bowl with chicken</b> (245.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="log" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#34d399;">#15 [adr20-log-8202] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">log</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #34d399;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a chewy granola bar with yogurt coating and a splash of coconut milk."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Cereal or granola bar, with yogurt coating (General Mills Nature Valley Chewy Granola Bar)</b> (35.0g, today-lunch)</li><li>[Log] <b>Coconut milk, used in cooking</b> (15.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="log" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#34d399;">#16 [adr20-log-8203] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">log</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: cut</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #34d399;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I logged a piece of grilled chicken with sauce for dinner."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Chicken, NS as to part, grilled with sauce, NS as to skin eaten</b> (85.0g, today-dinner)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="log" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#34d399;">#17 [adr20-log-8204] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">log</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: cut</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #34d399;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I kept it to two slices of thin-crust meat pizza for dinner."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Pizza with meat other than pepperoni, from restaurant or fast food, thin crust</b> (208.0g, today-dinner)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="log" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#34d399;">#18 [adr20-log-8205] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">log</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #34d399;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a plate of beef and noodles with vegetables in tomato sauce."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Beef, noodles, and vegetables excluding carrots, broccoli, and dark-green leafy; tomato-based sauce</b> (311.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="log" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#34d399;">#19 [adr20-log-8206] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">log</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #34d399;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had two fried eggs and a red velvet cupcake."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Egg, whole, fried with margarine</b> (110.0g, today-lunch)</li><li>[Log] <b>Cake or cupcake, red velvet</b> (200.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="log" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#34d399;">#20 [adr20-log-8207] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">log</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: cut</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #34d399;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "For dinner I had a plate of pasta with tomato sauce and vegetables."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Pasta with tomato-based sauce, and added vegetables, restaurant</b> (500.0g, today-dinner)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#21 [adr20-eval-5009] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you evaluate my planned lunch: an almond butter and jelly sandwich on white bread?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Almond butter and jelly sandwich, on white bread</b> (112.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#22 [adr20-eval-5010] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you evaluate my planned lunch: a bowl of chicken burrito with rice and a glass of wine spritzer?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Burrito bowl, chicken, with rice</b> (270.0g)</li><li>[Eval] <b>Wine spritzer</b> (180.0g)</li><li>[Plan] <b>Burrito bowl, chicken, with rice</b> (270.0g)</li><li>[Plan] <b>Wine spritzer</b> (180.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#23 [adr20-eval-5012] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you evaluate my planned lunch: a bowl of pasta, a handful of raw pecans, and a slice of thick-crust whole wheat cheese pizza?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Pasta, gluten free</b> (140.0g)</li><li>[Eval] <b>Pecans, unroasted</b> (28.0g)</li><li>[Eval] <b>Pizza, cheese, whole wheat thick crust</b> (132.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#24 [adr20-eval-5013] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you evaluate my planned lunch: a piece of steamed haddock?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Fish, haddock, steamed</b> (140.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#25 [adr20-eval-5015] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Evaluate this lunch: a corned beef sandwich on white bread with cheese and a chicken salad sandwich on white bread."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Corned beef sandwich on white, with cheese</b> (135.0g)</li><li>[Eval] <b>Chicken salad sandwich on white</b> (180.0g)</li><li>[Plan] <b>Corned beef sandwich on white, with cheese</b> (135.0g)</li><li>[Plan] <b>Chicken salad sandwich on white</b> (180.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#26 [adr20-eval-5016] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Evaluate my planned lunch: a plate of ham and rice with mushroom sauce."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Ham and rice with mushroom sauce</b> (310.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#27 [adr20-eval-5017] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you evaluate my planned lunch: a salmon cake sandwich, a bowl of adobo with noodles, and a handful of pistachios?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Pistachio nuts, lightly salted</b> (28.0g)</li><li>[Eval] <b>Salmon cake sandwich</b> (180.0g)</li><li>[Eval] <b>Adobo, with noodles</b> (224.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#28 [adr20-eval-8208] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you evaluate my planned lunch: a peanut butter and jelly sandwich made with reduced fat peanut butter on white bread?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Peanut butter and jelly sandwich, with reduced fat peanut butter, on white bread</b> (112.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#29 [adr20-eval-8209] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you evaluate my planned lunch: a fried egg?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Egg, whole, fried with oil</b> (55.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#30 [adr20-eval-8210] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you evaluate my planned lunch: a bowl of white rice cooked with margarine and a plate of lamb with noodles and gravy?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Rice, white, cooked, made with margarine</b> (163.0g)</li><li>[Eval] <b>Lamb or mutton and noodles with gravy</b> (311.0g)</li><li>[Plan] <b>Rice, white, cooked, made with margarine</b> (163.0g)</li><li>[Plan] <b>Lamb or mutton and noodles with gravy</b> (311.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#31 [adr20-eval-8211] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you evaluate my planned lunch: a fish sandwich from the school cafeteria?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Fish sandwich, from school cafeteria</b> (90.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#32 [adr20-eval-8212] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you evaluate my planned lunch: a sausage English muffin sandwich, a few turkey nuggets, and a bowl of macaroni with cheese and meat?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Sausage English muffin sandwich</b> (125.0g)</li><li>[Eval] <b>Turkey, nuggets</b> (85.0g)</li><li>[Eval] <b>Macaroni or noodles with cheese and meat</b> (230.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#33 [adr20-eval-8213] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you evaluate my planned lunch: a bowl of peanut butter cereal?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Cereal, other, peanut butter</b> (40.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#34 [adr20-eval-8214] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Evaluate this lunch: an omelet with cheese, tomatoes, and dark-green vegetables."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Egg omelet or scrambled egg, with cheese, tomatoes, and dark-green vegetables, NS as to fat</b> (85.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#35 [adr20-eval-8216] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Evaluate my planned lunch: a piece of wheat pita bread."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Bread, pita, wheat or cracked wheat</b> (28.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#36 [adr20-eval-8218] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you evaluate my planned lunch: a sausage, a double hamburger on a white bun, and a handful of raw spinach?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Sausage, NFS</b> (35.0g)</li><li>[Eval] <b>Double hamburger, on white bun, 2 large patties</b> (290.0g)</li><li>[Eval] <b>Spinach, raw</b> (25.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#37 [adr20-eval-8219] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you evaluate my planned lunch: a bowl of pasta with tomato and meat sauce?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Pasta with tomato-based sauce and meat, ready-to-heat</b> (250.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#38 [adr20-eval-8220] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you evaluate my planned lunch: a grilled chicken fillet chicken wrap and a bowl of Spanish rice?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Chicken fillet wrap sandwich, grilled, from fast food</b> (161.0g)</li><li>[Eval] <b>Spanish rice, fat added</b> (243.0g)</li><li>[Plan] <b>Chicken fillet wrap sandwich, grilled, from fast food</b> (161.0g)</li><li>[Plan] <b>Spanish rice, fat added</b> (243.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#39 [adr20-eval-8221] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you evaluate my planned lunch: a plate of fish and rice with cream sauce?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Fish and rice with cream sauce</b> (310.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="evaluate" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#f59e0b;">#40 [adr24-eval-8215] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">evaluate</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you evaluate my planned lunch: a bowl of chicken fricassee?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Eval] <b>Chicken or turkey fricassee, no sauce, no potatoes, Puerto Rican style</b> (223.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#41 [adr20-rec-5018] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Recommend a dinner that fits my daily targets."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Initial Ledger] <b>Burrito, pork, cheese</b> (190.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#42 [adr20-rec-5019] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: cut</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "What are some good breakfast options for my diet targets?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li><i>No specific food items (free target match)</i></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#43 [adr20-rec-5020] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "What do you recommend for lunch?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Initial Ledger] <b>Hot dog sandwich, vegetarian, on bread</b> (100.0g, today-breakfast)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#44 [adr20-rec-5021] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you suggest a healthy dinner meal?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Initial Ledger] <b>Burrito, pork, cheese</b> (190.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#45 [adr20-rec-5022] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Please provide a meal recommendation for breakfast."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li><i>No specific food items (free target match)</i></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#46 [adr20-rec-5023] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "What would be a suitable lunch meal according to my targets?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Initial Ledger] <b>Hot dog sandwich, vegetarian, on bread</b> (100.0g, today-breakfast)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#47 [adr20-rec-5024] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: cut</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "What should I eat for dinner?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Initial Ledger] <b>Burrito, pork, cheese</b> (190.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#48 [adr20-rec-5025] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Give me a healthy meal plan for breakfast."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li><i>No specific food items (free target match)</i></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#49 [adr20-rec-8222] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Please provide a meal recommendation for dinner."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Initial Ledger] <b>Burrito, pork, cheese</b> (190.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#50 [adr20-rec-8223] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "What would be a suitable breakfast meal according to my targets?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li><i>No specific food items (free target match)</i></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#51 [adr20-rec-8224] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "What should I eat for lunch?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Initial Ledger] <b>Hot dog sandwich, vegetarian, on bread</b> (100.0g, today-breakfast)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#52 [adr20-rec-8225] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Give me a healthy meal plan for dinner."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Initial Ledger] <b>Burrito, pork, cheese</b> (190.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#53 [adr20-rec-8226] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Recommend a breakfast that fits my daily targets."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li><i>No specific food items (free target match)</i></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#54 [adr20-rec-8227] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "What are some good lunch options for my diet targets?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Initial Ledger] <b>Hot dog sandwich, vegetarian, on bread</b> (100.0g, today-breakfast)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#55 [adr20-rec-8228] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "What do you recommend for dinner?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Initial Ledger] <b>Burrito, pork, cheese</b> (190.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#56 [adr20-rec-8229] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: cut</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Can you suggest a healthy breakfast meal?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li><i>No specific food items (free target match)</i></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#57 [adr20-rec-8230] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Please provide a meal recommendation for lunch."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Initial Ledger] <b>Hot dog sandwich, vegetarian, on bread</b> (100.0g, today-breakfast)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#58 [adr20-rec-8231] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "What would be a suitable dinner meal according to my targets?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Initial Ledger] <b>Hot dog sandwich, vegetarian, on bread</b> (100.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#59 [adr20-rec-8232] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "What should I eat for breakfast?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li><i>No specific food items (free target match)</i></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="recommend" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#ec4899;">#60 [adr20-rec-8233] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">recommend</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #ec4899;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Give me a healthy meal plan for lunch."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Initial Ledger] <b>Hot dog sandwich, vegetarian, on bread</b> (100.0g, today-breakfast)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#61 [adr20-comp-5034] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a chewy granola bar and a plate of cooked breadfruit for lunch, so what should I eat for dinner?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Cereal or granola bar (Quaker Chewy 25% Less Sugar Granola Bar)</b> (24.0g, today-lunch)</li><li>[Log] <b>Breadfruit, cooked</b> (85.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#62 [adr20-comp-5041] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a plate of chicken fajitas and a serving of seafood thermidor for lunch, so what should I eat for dinner?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Fajita, chicken</b> (120.0g, today-lunch)</li><li>[Log] <b>Seafood thermidor</b> (125.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#63 [adr20-comp-5044] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had an egg and meat quesadilla for lunch, so what should I eat for dinner?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Quesadilla, egg, with meat</b> (70.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#64 [adr20-comp-5047] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a biscuit from a fast food restaurant for lunch, so what should I eat for dinner?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Biscuit, from fast food / restaurant</b> (70.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#65 [adr20-comp-5050] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: cut</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a ground beef patty for lunch, so what should I eat for dinner?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Beef, ground, patty</b> (65.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#66 [adr20-comp-5052] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a plate of Mexican-style seasoned ground beef with potatoes and a scoop of chocolate ice cream for lunch, so what should I eat for dinner?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Ice cream, chocolate</b> (120.0g, today-lunch)</li><li>[Log] <b>Stewed, seasoned, ground beef with potatoes, Mexican style</b> (166.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#67 [adr24-comp-8237] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a piece of no-bake oatmeal cookie with chocolate and peanut butter and a plate of steamed bass for lunch, so what should I eat for dinner?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Cookie, oatmeal, with chocolate and peanut butter, no bake</b> (20.0g, today-lunch)</li><li>[Log] <b>Fish, bass, steamed</b> (90.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#68 [adr24-comp-8238] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a plate of meatless fried rice and two slices of turkey ham for lunch, so what should I eat for dinner?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Rice, fried, meatless</b> (166.0g, today-lunch)</li><li>[Log] <b>Turkey ham, prepackaged or deli, luncheon meat</b> (56.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#69 [adr24-comp-8239] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a wheat bagel and a glass of vegetable smoothie for lunch, so what high-protein dinner should I eat tonight?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Bagel, wheat</b> (105.0g, today-lunch)</li><li>[Log] <b>Vegetable smoothie</b> (216.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#70 [adr24-comp-8241] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a bowl of beef soup and a chicken deli sandwich for lunch, so what should I eat for dinner?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Soup, beef</b> (245.0g, today-lunch)</li><li>[Log] <b>Chicken deli sandwich or sub, restaurant</b> (195.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#71 [adr24-comp-9110] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a bowl of chicken fricassee for lunch, so what should I eat for dinner?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Chicken or turkey fricassee, no sauce, no potatoes, Puerto Rican style</b> (223.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#72 [adr24-comp-9111] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a bowl of brown rice with vegetables and gravy for lunch, so what should I eat for dinner?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Rice, brown, with vegetables and gravy, no added fat</b> (288.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#73 [adr24-comp-8301] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had tripe for lunch. Also, please update my activity level to light."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Tripe</b> (85.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#74 [adr24-comp-8302] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Log chicken nachos and fresh pineapple for lunch, and update my activity level to very active."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Nachos, chicken</b> (125.0g, today-lunch)</li><li>[Log] <b>Pineapple, raw</b> (83.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#75 [adr24-comp-8303] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: cut</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had cooked fresh carrots for lunch. Update my activity level to light."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Carrots, fresh, cooked, no added fat</b> (78.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#76 [adr24-comp-9200] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a piece of grilled chicken thigh for lunch. Also, please update my activity level to light."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Chicken thigh, grilled without sauce, skin eaten</b> (75.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#77 [adr24-comp-8246] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "For lunch, I had two sheets of matzo crackers. For an afternoon snack, is eating beef chow mein compliant with my targets?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Crackers, matzo, reduced sodium</b> (36.0g, today-lunch)</li><li>[Eval] <b>Beef chow mein or chop suey, no noodles</b> (165.0g)</li><li>[Plan] <b>Beef chow mein or chop suey, no noodles</b> (165.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#78 [adr24-comp-8247] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had two ladyfinger cookies for lunch. For an afternoon snack, is eating a bowl of Dal compliant with my targets?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Cookie, ladyfinger</b> (25.6g, today-lunch)</li><li>[Eval] <b>Dal</b> (240.0g)</li><li>[Plan] <b>Dal</b> (240.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#79 [adr24-comp-8249] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: cut</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a bowl of granola cereal for lunch. For an afternoon snack, is macaroni and cheese compliant with my targets?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Cereal, granola</b> (110.0g, today-lunch)</li><li>[Eval] <b>Macaroni or noodles with cheese</b> (230.0g)</li><li>[Plan] <b>Macaroni or noodles with cheese</b> (230.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#80 [adr24-comp-8306] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a bowl of macaroni and cheese with tuna for lunch. For an afternoon snack, is eating cherry pie filling compliant with my targets?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Macaroni or noodles with cheese and tuna</b> (230.0g, today-lunch)</li><li>[Eval] <b>Cherry pie filling</b> (260.0g)</li><li>[Plan] <b>Cherry pie filling</b> (260.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#81 [adr24-comp-8250] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I was recently diagnosed with a tree nut allergy, please add tree nut to my profile. What should I eat for dinner?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li><i>No specific food items (free target match)</i></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#82 [adr24-comp-8251] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Please add shellfish to my allergy profile. What should I eat for dinner that avoids shellfish?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li><i>No specific food items (free target match)</i></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#83 [adr24-comp-8252] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I recently developed a shellfish allergy, so please add shellfish to my allergy profile. What is a safe dinner recommendation for me?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li><i>No specific food items (free target match)</i></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#84 [adr24-comp-8253] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I recently developed a tree nut allergy, please add tree nut to my profile. What is a safe dinner recommendation for me?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li><i>No specific food items (free target match)</i></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#85 [adr24-comp-8255] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Please add milk to my allergy profile. For lunch, I had two slices of whole grain white bread. Can you recommend a dinner plan that is compliant?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Bread, whole grain white</b> (32.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#86 [adr24-comp-8256] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Please add egg to my allergy profile. I had a handful of sandwich crackers for lunch. What should I eat for dinner that is egg-free?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Crackers, sandwich</b> (18.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#87 [adr24-comp-8257] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Please add tree nut to my allergy profile. I had two slices of fruit pancakes for lunch. What should I eat for dinner that is tree-nut free?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Pancakes, fruit, frozen</b> (160.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#88 [adr24-comp-9300] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Please add shellfish to my allergy profile. For lunch, I had a bowl of chicken fricassee. What should I eat for dinner that is shellfish-free?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Chicken or turkey fricassee, no sauce, no potatoes, Puerto Rican style</b> (223.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#89 [adr24-comp-8309] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "For lunch I had two chicken cheese tacos on corn tortillas. Please update my weight to 59.5 kg. For an afternoon snack, is a small plate of sweet and sour shrimp okay?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Taco, corn tortilla, chicken, cheese</b> (210.0g, today-lunch)</li><li>[Eval] <b>Sweet and sour shrimp</b> (132.0g)</li><li>[Plan] <b>Sweet and sour shrimp</b> (132.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#90 [adr24-comp-8310] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I had a plate of sweet potato tots for lunch. Please update my weight to 72.5 kg. Is a bowl of cooked greens okay for an afternoon snack?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Sweet potato tots, school</b> (65.0g, today-lunch)</li><li>[Eval] <b>Greens, fresh, cooked, fat added</b> (135.0g)</li><li>[Plan] <b>Greens, fresh, cooked, fat added</b> (135.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#91 [adr24-comp-9402] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: cut</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "For lunch, I had a cup of cooked split peas. Please update my weight to 68.5 kg. For an afternoon snack, is a slice of sweet potato pie compliant with my targets?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Split peas, from dried, fat added</b> (185.0g, today-lunch)</li><li>[Eval] <b>Pie, sweet potato</b> (75.0g)</li><li>[Plan] <b>Pie, sweet potato</b> (75.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#92 [adr24-comp-9403] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "For lunch, I had a cup of brown rice with vegetables and gravy. Please update my weight to 72.0 kg. For an afternoon snack, is a slice of sweet potato pie compliant with my targets?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Rice, brown, with vegetables and gravy, no added fat</b> (288.0g, today-lunch)</li><li>[Eval] <b>Pie, sweet potato</b> (75.0g)</li><li>[Plan] <b>Pie, sweet potato</b> (75.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#93 [adr24-comp-8263] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I started regular gym training, so please update my activity level to light. Log lunch as a plate of smoked turkey. Is a bowl of Shrimp chow mein or chop suey with noodles okay for an afternoon snack?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Turkey, light or dark meat, smoked, skin eaten</b> (85.0g, today-lunch)</li><li>[Eval] <b>Shrimp chow mein or chop suey with noodles</b> (220.0g)</li><li>[Plan] <b>Shrimp chow mein or chop suey with noodles</b> (220.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#94 [adr24-comp-8265] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Please update my activity level to sedentary. For lunch, log a cheddar cheese sandwich on wheat bread. Is a turkey dinner with vegetables and stuffing okay for an afternoon snack?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Cheese sandwich, cheddar cheese, on wheat bread</b> (102.0g, today-lunch)</li><li>[Eval] <b>Turkey with vegetable, stuffing, diet frozen meal</b> (241.0g)</li><li>[Plan] <b>Turkey with vegetable, stuffing, diet frozen meal</b> (241.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#95 [adr24-comp-9502] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I started regular gym training, so please update my activity level to moderate. Log lunch as a bowl of chicken fricassee. Is a slice of sweet potato pie okay for an afternoon snack?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Chicken or turkey fricassee, no sauce, no potatoes, Puerto Rican style</b> (223.0g, today-lunch)</li><li>[Eval] <b>Pie, sweet potato</b> (75.0g)</li><li>[Plan] <b>Pie, sweet potato</b> (75.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#96 [adr24-comp-9503] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I started regular gym training, so please update my activity level to moderate. Log lunch as a cup of brown rice with vegetables and gravy. Is a slice of sweet potato pie okay for an afternoon snack?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Rice, brown, with vegetables and gravy, no added fat</b> (288.0g, today-lunch)</li><li>[Eval] <b>Pie, sweet potato</b> (75.0g)</li><li>[Plan] <b>Pie, sweet potato</b> (75.0g)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#97 [adr24-comp-8266] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span><span style="background:#0284c7;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">Mini Split (20)</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: gym</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Please update my profile to add a peanut allergy, set my activity level to very active, log lunch as a piece of soft breadstick, and recommend a peanut-free dinner suitable for my gym-focused lifestyle."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Breadsticks, soft, fast food / restaurant</b> (26.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#98 [adr24-comp-8267] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "I need to add a milk allergy to my profile. Please also update my activity level to light. For lunch, I had a piece of Melba toast. Can you recommend a dinner that is compliant with my milk allergy?"
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Melba toast</b> (18.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#99 [adr24-comp-9602] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: cut</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Please update my profile to add a milk allergy, set my activity level to very active, log lunch as a bowl of chicken fricassee, and recommend a milk-free dinner suitable for my gym-focused lifestyle."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Chicken or turkey fricassee, no sauce, no potatoes, Puerto Rican style</b> (223.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sample-card" data-family="composite" style="background:#151d30;border:1px solid #243048;border-radius:8px;padding:16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:bold;color:#a855f7;">#100 [adr24-comp-9603] <span style="text-transform:uppercase;font-size:12px;background:#1e293b;padding:2px 6px;border-radius:4px;">composite</span></span>
+            <span style="font-size:12px;color:#94a3b8;">Persona: everyday</span>
+        </div>
+        <div style="background:#0b1120;border-left:3px solid #a855f7;padding:10px 14px;border-radius:4px;margin-bottom:10px;font-size:15px;">
+            <b>Query:</b> "Please update my profile to add a milk allergy, set my activity level to very active, log lunch as a piece of grilled chicken thigh, and recommend a milk-free dinner suitable for my gym-focused lifestyle."
+        </div>
+        <div style="font-size:13px;color:#cbd5e1;">
+            <b>Oracle Foods / Actions:</b>
+            <ul style="margin:4px 0 0 0;padding-left:20px;color:#94a3b8;">
+                <li>[Log] <b>Chicken thigh, grilled without sauce, skin eaten</b> (75.0g, today-lunch)</li>
+            </ul>
+        </div>
+    </div>
+    
+    </div>
+</body>
+</html>

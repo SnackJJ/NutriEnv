@@ -25,5 +25,7 @@
 7. **Oracle 构造与 Split 对齐（ADR 0020）**：流水线必须收敛至 `realize` / `realize_evaluate` / `compose_oracles` 领域接缝，严禁手搓未推导的 Oracle；Split 输出严格符合 `split.py` 标准结构；所有候选必须经 Human-in-the-loop 核准后由 freezer 编译为正式 Gold Split，并通过端到端 Round-Trip 回归测试（`Scorer.score() -> 100% Pass`）。
 8. **流水线投票主力与安全闸门（ADR 0021）**：自然口语题目生成全面以 DeepSeek + Kimi + GLM 三模型投票为主力接地引擎，代码严格执行 $base\_grams \times multiplier$ 离散档位乘法，彻底删除模型自报克数后门；Tier-1 严格 Fail-Closed（未知前缀残词一律返回 None），全流程候选 100% 必须通过 `matches_portion_table` 物理白名单门禁。
 9. **分层抽样与去标签化自然语（ADR 0022）**：题库抽样采用 75% 常见日常食物 + 25% 长尾特色食物的分层抽样；Prompt 强制去标签化（严禁照抄 `NS as to fat` / `prepared from mix` 等科研分类词），确保生成的 User Query 为人类餐桌真实大白话。
+10. **双层评测协议与物理容差（ADR 0023）**：流水线实行“阶段一：Oracle Solver 全量 Round-Trip 100% Pass 证明题目健康可解”与“阶段二：受测 Agent 极简协议盲测考察真实常识推理”的双层架构；Oracle 保留 Gold 锚点，判分器支持 FNDDS 物理白名单离散容差；用户重复过敏原等真实人机交互打标为 `idempotent_update` 幂等测试。
+11. **标准 100 题矩阵与安全层级化（ADR 0024）**：彻底废弃老 240 题模板，确立 100 题百分制基准（Update 5% + Log 15% + Eval 20% + Rec 20% + Comp 40%）；判分器实行过敏致命红线层级化（只要识别出 `allergy` 拦截即 Pass，漏报 `allergy` 必 Fail）；账本记录实行无序多重集判分（消除同餐记录先后顺序死板判定）；抽样层强制餐品常识语义门禁（严禁调味品/浓缩膏/纯饮料单独成餐）；Recommend/Composite 步数预算放宽至 30 步。
 
 详细分工、执行顺序、pane 约定见 `docs/agent-orchestration.md`。

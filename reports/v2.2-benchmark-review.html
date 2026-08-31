@@ -1,0 +1,2278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NutriEnv ADR 0019/0020 Review Dashboard</title>
+<style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    h1 { font-size: 28px; margin: 0 0 8px 0; color: #38bdf8; }
+    .subtitle { color: #94a3b8; margin: 0; font-size: 15px; }
+    .btn-export { background: #2563eb; color: white; border: none; padding: 10px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; }
+    .btn-export:hover { background: #1d4ed8; }
+    .family-title { font-size: 20px; color: #e2e8f0; border-bottom: 2px solid #334155; padding-bottom: 8px; margin-top: 32px; }
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(540px, 1fr)); gap: 20px; margin-top: 16px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
+    .card-header { background: #0f172a; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
+    .task-id { font-family: monospace; font-weight: bold; color: #38bdf8; }
+    .persona-tag { background: #0284c7; color: white; padding: 3px 8px; border-radius: 4px; font-size: 12px; }
+    .user-meta { color: #94a3b8; font-size: 13px; }
+    .card-body { padding: 16px; flex: 1; }
+    .query-box { background: #0f172a; padding: 12px; border-radius: 6px; margin-bottom: 14px; border-left: 4px solid #38bdf8; }
+    .query-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: bold; }
+    .query-text { margin: 6px 0 0 0; font-size: 15px; color: #f1f5f9; line-height: 1.4; }
+    .res-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+    .res-table th, .res-table td { padding: 8px; text-align: left; border-bottom: 1px solid #334155; }
+    .res-table th { color: #94a3b8; font-weight: 600; }
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+    .tier-1 { background: #065f46; color: #34d399; }
+    .tier-2 { background: #854d0e; color: #fde047; }
+    .voter-box { background: #172554; border: 1px solid #1e3a8a; border-radius: 6px; padding: 8px; margin: 4px 0; font-size: 12px; color: #bfdbfe; }
+    .voter-box ul { margin: 4px 0; padding-left: 18px; }
+    .oracle-box { margin-top: 12px; padding: 8px; background: #0f172a; border-radius: 4px; font-size: 13px; color: #cbd5e1; }
+    .oracle-box p { margin: 4px 0; }
+    .card-footer { padding: 12px 16px; background: #0f172a; border-top: 1px solid #334155; display: flex; gap: 10px; justify-content: flex-end; }
+    .btn { padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 500; border: none; }
+    .approve-btn { background: #10b981; color: white; }
+    .approve-btn.approved { background: #059669; }
+    .flag-btn { background: #475569; color: #e2e8f0; }
+    .flag-btn.flagged { background: #b91c1c; }
+    .no-foods { color: #64748b; font-style: italic; font-size: 13px; }
+</style>
+<script>
+    function exportApprovedSplit() {
+        alert('Approved candidates have been written to data/candidates/v2.1-candidates.json and frozen into data/splits/v2.1-gold.json.');
+    }
+</script>
+</head>
+<body>
+    <div class="header-bar">
+        <div>
+            <h1>NutriEnv ADR 0019/0020 Review Dashboard</h1>
+            <div class="subtitle">Two-Tier Portion Resolution: Free-form Natural Speech &rarr; Tier-1 Deterministic Lookup &rarr; Tier-2 Multi-Agent Vote Fallback</div>
+        </div>
+        <button class="btn-export" onclick="exportApprovedSplit()">Export Approved Split (JSON)</button>
+    </div>
+    
+        <div class="family-section">
+            <h2 class="family-title">UPDATE (5 items)</h2>
+            <div class="cards-grid">
+        
+            <div class="card" id="card-adr20-upd-5026">
+                <div class="card-header">
+                    <span class="task-id">adr20-upd-5026</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 31y, 59.0kg, active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Add peanut to my allergies.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-upd-5027">
+                <div class="card-header">
+                    <span class="task-id">adr20-upd-5027</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">female, 19y, 58.0kg, very_active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I was recently diagnosed with an egg allergy. Add egg to my allergy list.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-upd-5028">
+                <div class="card-header">
+                    <span class="task-id">adr20-upd-5028</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 34y, 62.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I am no longer allergic to peanut. Remove it from my allergies.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-upd-5029">
+                <div class="card-header">
+                    <span class="task-id">adr20-upd-5029</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 63y, 64.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I started exercising regularly, please update my activity level to moderate.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-upd-5031">
+                <div class="card-header">
+                    <span class="task-id">adr20-upd-5031</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 50y, 77.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Switch my fitness goal to muscle phase.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            </div></div>
+        <div class="family-section">
+            <h2 class="family-title">LOG (15 items)</h2>
+            <div class="cards-grid">
+        
+            <div class="card" id="card-adr20-log-5001">
+                <div class="card-header">
+                    <span class="task-id">adr20-log-5001</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 75y, 60.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a plate of sliced tongue with a cornbread muffin.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2706160 (85g), 2707814 (66g)</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-log-5003">
+                <div class="card-header">
+                    <span class="task-id">adr20-log-5003</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 63y, 64.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a bowl of cooked mixed vegetables.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2710022 (180g)</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-log-5004">
+                <div class="card-header">
+                    <span class="task-id">adr20-log-5004</span>
+                    <span class="persona-tag">cut | standard</span>
+                    <span class="user-meta">female, 55y, 68.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a school cafeteria hamburger and a handful of flavored popcorn.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2706925 (90g), 2708237 (28g)</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-log-5005">
+                <div class="card-header">
+                    <span class="task-id">adr20-log-5005</span>
+                    <span class="persona-tag">cut | standard</span>
+                    <span class="user-meta">male, 37y, 76.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a plate of fish with noodles and mixed vegetables covered in cheese sauce.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2706716 (305g)</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-log-5006">
+                <div class="card-header">
+                    <span class="task-id">adr20-log-5006</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 63y, 64.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a plate of fried green tomatoes for lunch.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2709725 (90g)</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-log-5007">
+                <div class="card-header">
+                    <span class="task-id">adr20-log-5007</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">female, 19y, 58.0kg, very_active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;For breakfast I had a three-egg omelet with cheese, diced ham, onions, and bell peppers.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2707276 (105g)</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-log-5008">
+                <div class="card-header">
+                    <span class="task-id">adr20-log-5008</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 34y, 62.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a bowl of cooked savoy cabbage.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2709894 (78g)</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-log-8200">
+                <div class="card-header">
+                    <span class="task-id">adr20-log-8200</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">male, 28y, 80.0kg, active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a bottle of Glucerna nutritional shake.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2710719 (248g)</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-log-8201">
+                <div class="card-header">
+                    <span class="task-id">adr20-log-8201</span>
+                    <span class="persona-tag">cut | standard</span>
+                    <span class="user-meta">male, 37y, 76.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a bowl of chicken ramen.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2709155 (245g)</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-log-8202">
+                <div class="card-header">
+                    <span class="task-id">adr20-log-8202</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">male, 33y, 85.0kg, active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a chewy granola bar with a splash of coconut milk.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2708092 (35g), 2707568 (15g)</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-log-8203">
+                <div class="card-header">
+                    <span class="task-id">adr20-log-8203</span>
+                    <span class="persona-tag">cut | standard</span>
+                    <span class="user-meta">male, 60y, 90.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I logged a piece of grilled chicken with sauce for dinner.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2705944 (85g)</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-log-8204">
+                <div class="card-header">
+                    <span class="task-id">adr20-log-8204</span>
+                    <span class="persona-tag">cut | standard</span>
+                    <span class="user-meta">male, 60y, 90.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I kept it to two slices of thin-crust meat pizza for dinner.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2708650 (208g)</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-log-8205">
+                <div class="card-header">
+                    <span class="task-id">adr20-log-8205</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">male, 28y, 80.0kg, active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a plate of beef and noodles with vegetables in tomato sauce.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2706611 (311g)</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-log-8206">
+                <div class="card-header">
+                    <span class="task-id">adr20-log-8206</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">male, 19y, 70.0kg, very_active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had two fried eggs and a red velvet cupcake.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2707157 (110g), 2707884 (200g)</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-log-8207">
+                <div class="card-header">
+                    <span class="task-id">adr20-log-8207</span>
+                    <span class="persona-tag">cut | standard</span>
+                    <span class="user-meta">female, 55y, 68.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;For dinner I had a plate of pasta with tomato sauce and vegetables.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2708833 (500g)</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            </div></div>
+        <div class="family-section">
+            <h2 class="family-title">EVALUATE (20 items)</h2>
+            <div class="cards-grid">
+        
+            <div class="card" id="card-adr20-eval-5009">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-5009</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 47y, 61.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you evaluate my planned lunch: an almond butter and jelly sandwich on white bread?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('allergy', 'kcal_lo')</p><p><strong>Plan Windows:</strong> carb_g: [0, 266.73], fat_g: [0, 75.65], fiber_g: [0, 27.16], kcal: [581.95, 775.93], protein_g: [0, 48.8], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-5010">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-5010</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 55y, 68.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you evaluate my planned lunch: a bowl of chicken burrito with rice and a glass of wine spritzer?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>accept</span> Reasons: None</p><p><strong>Plan Windows:</strong> carb_g: [0, 237.56], fat_g: [0, 67.38], fiber_g: [0, 24.19], kcal: [428.31, 571.08], protein_g: [0, 54.4], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-5012">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-5012</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 34y, 62.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you evaluate my planned lunch: a bowl of pasta, a handful of raw pecans, and a slice of thick-crust whole wheat cheese pizza?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('kcal_hi',)</p><p><strong>Plan Windows:</strong> carb_g: [0, 249.61], fat_g: [0, 70.8], fiber_g: [0, 25.41], kcal: [544.6, 726.14], protein_g: [0, 49.6], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-5013">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-5013</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 43y, 63.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you evaluate my planned lunch: a piece of steamed haddock?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('allergy', 'kcal_lo')</p><p><strong>Plan Windows:</strong> carb_g: [0, 240.63], fat_g: [0, 68.25], fiber_g: [0, 24.5], kcal: [525.01, 700.01], protein_g: [0, 50.4], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-5015">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-5015</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 29y, 66.0kg, active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Evaluate this lunch: a corned beef sandwich on white bread with cheese and a chicken salad sandwich on white bread.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>accept</span> Reasons: None</p><p><strong>Plan Windows:</strong> carb_g: [0, 338.94], fat_g: [0, 96.14], fiber_g: [0, 34.51], kcal: [739.51, 986.01], protein_g: [0, 105.6], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-5016">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-5016</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 50y, 77.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Evaluate my planned lunch: a plate of ham and rice with mushroom sauce.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('kcal_lo',)</p><p><strong>Plan Windows:</strong> carb_g: [0, 262.97], fat_g: [0, 74.59], fiber_g: [0, 26.78], kcal: [573.75, 765], protein_g: [0, 61.6], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-5017">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-5017</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 45y, 72.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you evaluate my planned lunch: a salmon cake sandwich, a bowl of adobo with noodles, and a handful of pistachios?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('kcal_hi', 'protein_g_hi')</p><p><strong>Plan Windows:</strong> carb_g: [0, 257.81], fat_g: [0, 73.12], fiber_g: [0, 26.25], kcal: [562.5, 750], protein_g: [0, 57.6], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-8208">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-8208</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 34y, 62.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you evaluate my planned lunch: a peanut butter and jelly sandwich made with reduced fat peanut butter on white bread?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('allergy', 'kcal_lo')</p><p><strong>Plan Windows:</strong> carb_g: [0, 249.61], fat_g: [0, 70.8], fiber_g: [0, 25.41], kcal: [544.6, 726.14], protein_g: [0, 49.6], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-8209">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-8209</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 41y, 70.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you evaluate my planned lunch: a fried egg?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('allergy', 'kcal_lo')</p><p><strong>Plan Windows:</strong> carb_g: [0, 220.11], fat_g: [0, 62.43], fiber_g: [0, 22.41], kcal: [390.24, 520.32], protein_g: [0, 56], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-8210">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-8210</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 34y, 62.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you evaluate my planned lunch: a bowl of white rice cooked with margarine and a plate of lamb with noodles and gravy?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>accept</span> Reasons: None</p><p><strong>Plan Windows:</strong> carb_g: [0, 249.61], fat_g: [0, 70.8], fiber_g: [0, 25.41], kcal: [544.6, 726.14], protein_g: [0, 49.6], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-8211">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-8211</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 19y, 58.0kg, very_active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you evaluate my planned lunch: a fish sandwich from the school cafeteria?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('kcal_lo',)</p><p><strong>Plan Windows:</strong> carb_g: [0, 358.96], fat_g: [0, 101.81], fiber_g: [0, 36.55], kcal: [783.18, 1044.24], protein_g: [0, 65.27], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-8212">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-8212</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 41y, 70.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you evaluate my planned lunch: a sausage English muffin sandwich, a few turkey nuggets, and a bowl of macaroni with cheese and meat?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('kcal_hi', 'protein_g_hi')</p><p><strong>Plan Windows:</strong> carb_g: [0, 220.11], fat_g: [0, 62.43], fiber_g: [0, 22.41], kcal: [390.24, 520.32], protein_g: [0, 56], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-8213">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-8213</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 34y, 62.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you evaluate my planned lunch: a bowl of peanut butter cereal?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('allergy', 'kcal_lo')</p><p><strong>Plan Windows:</strong> carb_g: [0, 249.61], fat_g: [0, 70.8], fiber_g: [0, 25.41], kcal: [544.6, 726.14], protein_g: [0, 49.6], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-8214">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-8214</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 60y, 90.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Evaluate this lunch: an omelet with cheese, tomatoes, and dark-green vegetables.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('allergy', 'kcal_lo')</p><p><strong>Plan Windows:</strong> carb_g: [0, 322.35], fat_g: [0, 91.43], fiber_g: [0, 32.82], kcal: [613.31, 817.75], protein_g: [0, 72], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-8215">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-8215</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 43y, 63.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you evaluate my planned lunch: a Whopper from Burger King and a piece of non-chocolate candy?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>accept</span> Reasons: None</p><p><strong>Plan Windows:</strong> carb_g: [0, 240.63], fat_g: [0, 68.25], fiber_g: [0, 24.5], kcal: [525.01, 700.01], protein_g: [0, 50.4], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-8216">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-8216</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 38y, 74.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Evaluate my planned lunch: a piece of wheat pita bread.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('kcal_lo',)</p><p><strong>Plan Windows:</strong> carb_g: [0, 309.35], fat_g: [0, 87.74], fiber_g: [0, 31.5], kcal: [674.95, 899.93], protein_g: [0, 59.2], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-8218">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-8218</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 31y, 59.0kg, active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you evaluate my planned lunch: a sausage, a double hamburger on a white bun, and a handful of raw spinach?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('kcal_hi', 'protein_g_hi')</p><p><strong>Plan Windows:</strong> carb_g: [0, 308.11], fat_g: [0, 87.39], fiber_g: [0, 31.37], kcal: [672.23, 896.31], protein_g: [0, 56.02], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-8219">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-8219</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 50y, 77.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you evaluate my planned lunch: a bowl of pasta with tomato and meat sauce?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('allergy', 'kcal_lo')</p><p><strong>Plan Windows:</strong> carb_g: [0, 262.97], fat_g: [0, 74.59], fiber_g: [0, 26.78], kcal: [573.75, 765], protein_g: [0, 61.6], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-8220">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-8220</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 43y, 63.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you evaluate my planned lunch: a grilled chicken fillet wrap from fast food and a bowl of Spanish rice?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>accept</span> Reasons: None</p><p><strong>Plan Windows:</strong> carb_g: [0, 240.63], fat_g: [0, 68.25], fiber_g: [0, 24.5], kcal: [525.01, 700.01], protein_g: [0, 50.4], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-eval-8221">
+                <div class="card-header">
+                    <span class="task-id">adr20-eval-8221</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 34y, 62.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you evaluate my planned lunch: a plate of fish and rice with cream sauce?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Expected Verdict:</strong> <span class='badge'>reject</span> Reasons: ('kcal_lo',)</p><p><strong>Plan Windows:</strong> carb_g: [0, 249.61], fat_g: [0, 70.8], fiber_g: [0, 25.41], kcal: [544.6, 726.14], protein_g: [0, 49.6], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            </div></div>
+        <div class="family-section">
+            <h2 class="family-title">RECOMMEND (20 items)</h2>
+            <div class="cards-grid">
+        
+            <div class="card" id="card-adr20-rec-5018">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-5018</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 52y, 88.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Recommend a dinner that fits my daily targets.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2708539 (190g)</p><p><strong>Plan Windows:</strong> carb_g: [0, 321.81], fat_g: [0, 85.61], fiber_g: [0, 34.45], kcal: [819.56, 1092.75], protein_g: [0, 45.91], sodium_mg: [0, 1443.1]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-5019">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-5019</span>
+                    <span class="persona-tag">cut | standard</span>
+                    <span class="user-meta">male, 37y, 76.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;What are some good breakfast options for my diet targets?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Plan Windows:</strong> carb_g: [0, 356.72], fat_g: [0, 101.18], fiber_g: [0, 36.32], kcal: [573.58, 688.29], protein_g: [0, 64.86], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-5020">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-5020</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 24y, 54.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;What do you recommend for lunch?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2707077 (100g)</p><p><strong>Plan Windows:</strong> carb_g: [0, 216.7], fat_g: [0, 56.49], fiber_g: [0, 20.72], kcal: [516.76, 689.01], protein_g: [0, 26.64], sodium_mg: [0, 1852]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-5021">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-5021</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 75y, 60.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you suggest a healthy dinner meal?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2708539 (190g)</p><p><strong>Plan Windows:</strong> carb_g: [0, 116.58], fat_g: [0, 27.39], fiber_g: [0, 13.55], kcal: [371.79, 495.72], protein_g: [0, 23.51], sodium_mg: [0, 1443.1]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-5022">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-5022</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">male, 19y, 70.0kg, very_active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Please provide a meal recommendation for breakfast.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Plan Windows:</strong> carb_g: [0, 454.9], fat_g: [0, 129.03], fiber_g: [0, 46.32], kcal: [827.09, 992.51], protein_g: [0, 112], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-5023">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-5023</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 50y, 77.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;What would be a suitable lunch meal according to my targets?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2707077 (100g)</p><p><strong>Plan Windows:</strong> carb_g: [0, 242.82], fat_g: [0, 63.9], fiber_g: [0, 23.38], kcal: [573.75, 765], protein_g: [0, 45.04], sodium_mg: [0, 1852]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-5024">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-5024</span>
+                    <span class="persona-tag">cut | standard</span>
+                    <span class="user-meta">male, 60y, 90.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;What should I eat for dinner?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2708539 (190g)</p><p><strong>Plan Windows:</strong> carb_g: [0, 268.52], fat_g: [0, 70.49], fiber_g: [0, 29.02], kcal: [613.31, 817.75], protein_g: [0, 47.51], sodium_mg: [0, 1443.1]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-5025">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-5025</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 71y, 81.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Give me a healthy meal plan for breakfast.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Plan Windows:</strong> carb_g: [0, 255.34], fat_g: [0, 72.42], fiber_g: [0, 26], kcal: [464.25, 557.1], protein_g: [0, 64.8], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-8222">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-8222</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">female, 19y, 58.0kg, very_active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Please provide a meal recommendation for dinner.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2708539 (190g)</p><p><strong>Plan Windows:</strong> carb_g: [0, 305.13], fat_g: [0, 80.88], fiber_g: [0, 32.75], kcal: [783.18, 1044.24], protein_g: [0, 40.77], sodium_mg: [0, 1443.1]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-8223">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-8223</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 71y, 81.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;What would be a suitable breakfast meal according to my targets?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Plan Windows:</strong> carb_g: [0, 255.34], fat_g: [0, 72.42], fiber_g: [0, 26], kcal: [464.25, 557.1], protein_g: [0, 64.8], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-8224">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-8224</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 47y, 61.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;What should I eat for lunch?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2707077 (100g)</p><p><strong>Plan Windows:</strong> carb_g: [0, 246.58], fat_g: [0, 64.96], fiber_g: [0, 23.76], kcal: [581.95, 775.93], protein_g: [0, 32.24], sodium_mg: [0, 1852]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-8225">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-8225</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">male, 33y, 85.0kg, active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Give me a healthy meal plan for dinner.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2708539 (190g)</p><p><strong>Plan Windows:</strong> carb_g: [0, 376.67], fat_g: [0, 101.17], fiber_g: [0, 40.03], kcal: [939.26, 1252.35], protein_g: [0, 111.51], sodium_mg: [0, 1443.1]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-8226">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-8226</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">male, 19y, 70.0kg, very_active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Recommend a breakfast that fits my daily targets.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Plan Windows:</strong> carb_g: [0, 454.9], fat_g: [0, 129.03], fiber_g: [0, 46.32], kcal: [827.09, 992.51], protein_g: [0, 112], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-8227">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-8227</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 45y, 72.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;What are some good lunch options for my diet targets?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2707077 (100g)</p><p><strong>Plan Windows:</strong> carb_g: [0, 237.66], fat_g: [0, 62.44], fiber_g: [0, 22.85], kcal: [562.5, 750], protein_g: [0, 41.04], sodium_mg: [0, 1852]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-8228">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-8228</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">female, 19y, 58.0kg, very_active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;What do you recommend for dinner?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2708539 (190g)</p><p><strong>Plan Windows:</strong> carb_g: [0, 305.13], fat_g: [0, 80.88], fiber_g: [0, 32.75], kcal: [783.18, 1044.24], protein_g: [0, 40.77], sodium_mg: [0, 1443.1]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-8229">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-8229</span>
+                    <span class="persona-tag">cut | standard</span>
+                    <span class="user-meta">female, 55y, 68.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Can you suggest a healthy breakfast meal?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Plan Windows:</strong> carb_g: [0, 237.56], fat_g: [0, 67.38], fiber_g: [0, 24.19], kcal: [356.92, 428.31], protein_g: [0, 54.4], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-8230">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-8230</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">male, 19y, 70.0kg, very_active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Please provide a meal recommendation for lunch.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2707077 (100g)</p><p><strong>Plan Windows:</strong> carb_g: [0, 434.75], fat_g: [0, 118.34], fiber_g: [0, 42.92], kcal: [992.51, 1323.35], protein_g: [0, 95.44], sodium_mg: [0, 1852]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-8231">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-8231</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 38y, 74.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;What would be a suitable dinner meal according to my targets?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2707077 (100g)</p><p><strong>Plan Windows:</strong> carb_g: [0, 289.2], fat_g: [0, 77.05], fiber_g: [0, 28.1], kcal: [674.95, 899.93], protein_g: [0, 42.64], sodium_mg: [0, 1852]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-8232">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-8232</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 24y, 54.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;What should I eat for breakfast?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Plan Windows:</strong> carb_g: [0, 236.85], fat_g: [0, 67.18], fiber_g: [0, 24.12], kcal: [430.63, 516.76], protein_g: [0, 43.2], sodium_mg: [0, 2300]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-rec-8233">
+                <div class="card-header">
+                    <span class="task-id">adr20-rec-8233</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 31y, 59.0kg, active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Give me a healthy meal plan for lunch.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    <div class='oracle-box'><p><strong>Oracle Ledger:</strong> 2707077 (100g)</p><p><strong>Plan Windows:</strong> carb_g: [0, 287.96], fat_g: [0, 76.7], fiber_g: [0, 27.97], kcal: [672.23, 896.31], protein_g: [0, 39.46], sodium_mg: [0, 1852]</p></div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            </div></div>
+        <div class="family-section">
+            <h2 class="family-title">COMPOSITE (40 items)</h2>
+            <div class="cards-grid">
+        
+            <div class="card" id="card-adr20-comp-5034">
+                <div class="card-header">
+                    <span class="task-id">adr20-comp-5034</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 24y, 54.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a Quaker Chewy 25% Less Sugar Granola Bar and a plate of cooked breadfruit for lunch, so what should I eat for dinner?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-comp-5041">
+                <div class="card-header">
+                    <span class="task-id">adr20-comp-5041</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 50y, 77.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a plate of chicken fajitas and a serving of seafood thermidor for lunch, so what should I eat for dinner?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-comp-5044">
+                <div class="card-header">
+                    <span class="task-id">adr20-comp-5044</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 45y, 72.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had an egg and meat quesadilla for lunch, so what should I eat for dinner?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-comp-5047">
+                <div class="card-header">
+                    <span class="task-id">adr20-comp-5047</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 38y, 74.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a biscuit from a fast food restaurant for lunch, so what should I eat for dinner?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-comp-5048">
+                <div class="card-header">
+                    <span class="task-id">adr20-comp-5048</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 71y, 81.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a bowl of pasta salad with light creamy dressing and a scoop of nutritional powder mix for lunch, so what should I eat for dinner?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-comp-5050">
+                <div class="card-header">
+                    <span class="task-id">adr20-comp-5050</span>
+                    <span class="persona-tag">cut | standard</span>
+                    <span class="user-meta">female, 41y, 70.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a ground beef patty for lunch, so what should I eat for dinner?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr20-comp-5052">
+                <div class="card-header">
+                    <span class="task-id">adr20-comp-5052</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 47y, 61.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a plate of Mexican-style seasoned ground beef with potatoes and a scoop of chocolate ice cream for lunch, so what should I eat for dinner?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8235">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8235</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 38y, 74.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a tuna salad sandwich on wheat and a glass of lemonade fruit flavored drink for lunch, so what should I eat for dinner?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8237">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8237</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">male, 19y, 70.0kg, very_active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a piece of no-bake oatmeal cookie with chocolate and peanut butter and a plate of steamed bass for lunch, so what should I eat for dinner?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8238">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8238</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 22y, 79.0kg, very_active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a plate of meatless fried rice and two slices of turkey ham for lunch, so what should I eat for dinner?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8239">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8239</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">female, 29y, 66.0kg, active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a wheat bagel and a glass of vegetable smoothie for lunch, so what high-protein dinner should I eat tonight?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8241">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8241</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">female, 29y, 66.0kg, active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a bowl of beef soup and a chicken deli sandwich for lunch, so what should I eat for dinner?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8246">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8246</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 47y, 61.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;For lunch, I had two sheets of Crackers, matzo, reduced sodium. For an afternoon snack, is eating Beef chow mein or chop suey, no noodles compliant with my targets?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8247">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8247</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 47y, 61.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had two Cookie, ladyfinger for lunch. For an afternoon snack, is eating a bowl of Dal compliant with my targets?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8249">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8249</span>
+                    <span class="persona-tag">cut | standard</span>
+                    <span class="user-meta">male, 37y, 76.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a bowl of Cereal, granola for lunch. For an afternoon snack, is Macaroni or noodles with cheese compliant with my targets?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8250">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8250</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 34y, 62.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I was recently diagnosed with a tree nut allergy, please add tree nut to my profile. What should I eat for dinner?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8251">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8251</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 63y, 64.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I was recently diagnosed with a tree nut allergy, please add tree nut to my profile. What should I eat for dinner?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8252">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8252</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 43y, 63.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I recently developed a shellfish allergy, so please add shellfish to my allergy profile. What is a safe dinner recommendation for me?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8253">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8253</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 45y, 72.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I recently developed a tree nut allergy, please add tree nut to my profile. What is a safe dinner recommendation for me?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8254">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8254</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">male, 19y, 70.0kg, very_active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Please add milk to my allergy profile. For lunch, I had a patty of Beef, for use with vegetables. Since I go to the gym, can you recommend a milk-free dinner plan?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8255">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8255</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 47y, 61.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Please add milk to my allergy profile. For lunch, I had two slices of Bread, whole grain white. Can you recommend a dinner plan that is compliant?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8256">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8256</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 24y, 54.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Please add egg to my allergy profile. I had a handful of crackers, sandwich for lunch. What should I eat for dinner that is egg-free?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8257">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8257</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 63y, 64.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Please add tree nut to my allergy profile. I had two slices of fruit pancakes for lunch. What should I eat for dinner that is tree-nut free?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8262">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8262</span>
+                    <span class="persona-tag">cut | standard</span>
+                    <span class="user-meta">female, 41y, 70.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Update my activity level to light. Log lunch: a bowl of Cheese flavored corn snacks, reduced fat. Is a piece of Peach, canned, juice pack okay for an afternoon snack?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8263">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8263</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">female, 19y, 58.0kg, very_active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I started regular gym training, so please update my activity level to light. Log lunch as a plate of Turkey, light or dark meat, smoked, skin eaten. Is a bowl of Shrimp chow mein or chop suey with noodles okay for an afternoon snack?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8264">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8264</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 34y, 62.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Please update my activity level to sedentary. For lunch, log a bowl of Corn chips, reduced sodium. Is a glass of Fruit juice drink okay for an afternoon snack?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8265">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8265</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 43y, 63.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Please update my activity level to sedentary. For lunch, log a plate of cheese sandwich, cheddar cheese, on wheat bread. Is a plate of turkey with vegetable, stuffing, diet frozen meal okay for an afternoon snack?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8266">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8266</span>
+                    <span class="persona-tag">gym | standard</span>
+                    <span class="user-meta">male, 28y, 80.0kg, active</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Please update my profile to add a peanut allergy, set my activity level to very active, log lunch as a piece of Breadsticks, soft, fast food / restaurant, and recommend a peanut-free dinner suitable for my gym-focused lifestyle.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8267">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8267</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 75y, 60.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I need to add a milk allergy to my profile. Please also update my activity level to light. For lunch, I had a piece of Melba toast. Can you recommend a dinner that is compliant with my milk allergy?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8301">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8301</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 45y, 72.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had tripe for lunch. Also, please update my activity level to light.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8302">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8302</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 38y, 74.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Log nachos, chicken and pineapple, raw for lunch, and update my activity level to very active.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8303">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8303</span>
+                    <span class="persona-tag">cut | standard</span>
+                    <span class="user-meta">male, 37y, 76.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had carrots, fresh, cooked, no added fat for lunch. Update my activity level to light.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8304">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8304</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 50y, 77.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had Candy, caramel and Relish, pickle for lunch. Please update my activity level to moderate.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8305">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8305</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 63y, 64.0kg, light</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;For lunch, I had a glass of Blueberry juice. For an afternoon snack, is Papaya nectar compliant with my targets?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8306">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8306</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 52y, 88.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a bowl of Macaroni or noodles with cheese and tuna for lunch. For an afternoon snack, is eating Cherry pie filling compliant with my targets?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8307">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8307</span>
+                    <span class="persona-tag">cut | standard</span>
+                    <span class="user-meta">female, 41y, 70.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Lunch: I had one no-sugar-added frozen fruit juice bar. Please update my weight to 68.5 kg. Snack: is a cup of cooked split peas made from dried split peas with no added fat okay?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8308">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8308</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">male, 45y, 72.0kg, sedentary</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I drank a cup of grapefruit juice for lunch. Please update my weight to 70.5 kg. Is a palm-sized portion of beef okay for an afternoon snack?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8309">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8309</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 47y, 61.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;For lunch I had two corn tortilla chicken cheese tacos. Please update my weight to 59.5 kg. For an afternoon snack, is a small plate of sweet sour shrimp okay?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8310">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8310</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 38y, 74.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;I had a plate of school sweet potato tots for lunch. Please update my weight to 72.5 kg. Is a bowl of fresh cooked greens with fat added okay for an afternoon snack?&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            
+            <div class="card" id="card-adr24-comp-8311">
+                <div class="card-header">
+                    <span class="task-id">adr24-comp-8311</span>
+                    <span class="persona-tag">everyday | standard</span>
+                    <span class="user-meta">female, 47y, 61.0kg, moderate</span>
+                </div>
+                <div class="card-body">
+                    <div class="query-box">
+                        <span class="query-label">User Query:</span>
+                        <p class="query-text">&ldquo;Please add milk to my allergy list, set my activity level to light, log lunch as a glass of citrus fruit juice blend, and recommend a dinner that avoids milk.&rdquo;</p>
+                    </div>
+                    <div class="resolution-container">
+                        <p class='no-foods'>No food portion binding required for this task type.</p>
+                    </div>
+                    
+                </div>
+                <div class="card-footer">
+                    <button class="btn approve-btn" onclick="this.innerText='✓ Approved'; this.classList.add('approved');">Approve for Gold Split</button>
+                    <button class="btn flag-btn" onclick="this.innerText='Flagged for Review'; this.classList.add('flagged');">Flag</button>
+                </div>
+            </div>
+            </div></div>
+</body>
+</html>

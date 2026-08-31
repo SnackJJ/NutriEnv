@@ -197,4 +197,22 @@ Freezer（代码）  冻结 v1.0-gold.json（绑定 catalog-v1 sha），EXAM_SPL
 4. **端到端 Round-Trip 回归验收**：
    - 所有生成的 Split 文件必须通过 `load_split` 读取并用参考真值跑 `Scorer.score() -> 100% PASS`。
 
+---
+
+## 阶段七：双层评测协议与物理白名单容差机制（ADR 0023）
+
+针对 Benchmark 可解性（Soundness）与考试区分度（Hardness）的设计权衡，固化以下四大规范：
+
+1. **双层评测协议架构（Dual-Spec Benchmark Protocol）**：
+   - **阶段一（通过性证明 - Soundness）**：配备完整接地手册与领域调试指引的 Baseline Oracle Agent 运行全量题目，必须达成 `check_achievable -> 100% Pass`，在数学上证明全量题目 100% 物理可解、零逻辑矛盾；
+   - **阶段二（能力盲测 - Benchmark Hardness）**：向被测模型仅提供 `react.py` 标准工具定义与简明交互规范，测试其纯粹的意图理解、工具搜索与常识推理能力。
+2. **黄金锚点与物理白名单离散容差（Gold Anchor & Portion Tolerance）**：
+   - Oracle 保留权威 Gold 锚点克数；
+   - 判分器对落在 $[0.85 \times \text{Gold}, 1.15 \times \text{Gold}]$ 区间且符合 FNDDS 物理离散档位（`matches_portion_table == True`）的常识推导予以 Pass 认可。
+3. **真实交互幂等性支持（Idempotent Update Invariant）**：
+   - 真实人机交互中的重复过敏原提醒等操作打标为 `situation: "idempotent_update"`，断言状态平稳守恒且 Agent 明确确认。
+4. **大模型常识投票为主力与低共识保留候选机制（LLM Vote Primary & HITL Mark）**：
+   - 彻底确立 DeepSeek + Kimi + GLM 三独立厂商常识投票为主力引擎；
+   - 投票意见分散（1/3 或共识率 $<66\%$）的候选保留全量推导详情，标记 `needs_human_review=True` 供人工审核仲裁。
+
 
