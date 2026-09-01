@@ -32,6 +32,7 @@ DASHSCOPE_CHAT_URL = (
     "https://llm-dhaosul25kqjxu10.cn-beijing.maas.aliyuncs.com"
     "/compatible-mode/v1/chat/completions"
 )
+ARK_PLAN_URL = "https://ark.cn-beijing.volces.com/api/plan/v3/chat/completions"
 # opencode-go gateway: the operator configures base URL / key in env
 # (OPENCODE_BASE_URL / OPENCODE_API_KEY). There is no built-in default URL;
 # an unset base URL makes the opencode route unavailable, fail-closed.
@@ -81,7 +82,10 @@ def post_chat_completion(
             return _message_text(body)
         except retry_on as exc:
             last_error = exc
-            time.sleep(2 ** attempt)
+            sleep_time = float(2 ** attempt)
+            if isinstance(exc, urllib.error.HTTPError) and exc.code == 429:
+                sleep_time = max(sleep_time, 4.0 * (attempt + 1))
+            time.sleep(sleep_time)
     raise RuntimeError(f"{error_prefix}: {last_error}") from last_error
 
 
@@ -172,12 +176,17 @@ EXPANDER_MODELS: dict[str, ChatModel] = {
 
 def lookup_chat_model(model_id: str) -> ChatModel:
     """Registry hit, explicit provider prefix, else opencode gateway, else heuristics."""
+    load_dotenv_keys(_ROOT / ".env", _ROOT / ".env.local")
     if model_id.startswith("opencode/") or model_id.startswith("opencode-go/"):
         real_id = model_id.split("/", 1)[1]
         route = _opencode_route()
         if route is not None:
             url, key_env = route
             return ChatModel(model_id=real_id, url=url, api_key_env=key_env)
+    if model_id.startswith("ark/") or model_id.startswith("volc/") or model_id.startswith("volcengine/"):
+        real_id = model_id.split("/", 1)[1]
+        url = os.environ.get("ARK_BASE_URL", ARK_PLAN_URL)
+        return ChatModel(model_id=real_id, url=url, api_key_env="ARK_API_KEY")
     if model_id.startswith("nvidia/"):
         real_id = model_id.split("/", 1)[1]
         return _nvidia(real_id)

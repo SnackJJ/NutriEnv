@@ -118,7 +118,22 @@ def evaluate_task_with_telemetry(task, harness_spec, catalog) -> TaskTelemetry:
             text = raw_req
         except Exception as exc:
             err = str(exc)
-            text = '{"op": "get_profile"}'
+            text = '{"op": "finish"}'
+            messages.append({"role": "assistant", "content": text})
+            step_telemetry = StepTelemetry(
+                step_index=step_i + 1,
+                action={"op": "finish"},
+                observation_snippet=f"API Error: {err[:200]}",
+                prompt_tokens=0,
+                completion_tokens=0,
+                reasoning_tokens=0,
+                total_tokens=0,
+                latency_seconds=time.time() - t0,
+                is_valid_tool=False,
+                error=err
+            )
+            steps.append(step_telemetry)
+            break
 
         step_latency = time.time() - t0
         messages.append({"role": "assistant", "content": text})
@@ -201,6 +216,7 @@ def run_benchmark_suite(
     custom_url: str | None = None,
     custom_key_env: str | None = None,
     workers: int = 5,
+    resume: bool = False,
 ) -> dict:
     load_dotenv_keys(Path(".env.local"))
     from nutrienv.world.catalog_store import load_catalog
@@ -224,23 +240,64 @@ def run_benchmark_suite(
         "version": "v0"
     }
 
+    out_path = Path(f"reports/benchmark_{model_id.replace('/', '_')}.json")
+    cached_map: dict[str, TaskTelemetry] = {}
+    if resume and out_path.exists():
+        try:
+            prev_data = json.loads(out_path.read_text(encoding="utf-8"))
+            for pt in prev_data.get("tasks", []):
+                if pt.get("total_tokens", 0) > 0 and not any(s.get("error") for s in pt.get("steps", [])):
+                    step_objs = [
+                        StepTelemetry(
+                            step_index=s.get("step_index", 1),
+                            action=s.get("action", {}),
+                            observation_snippet=s.get("observation_snippet", ""),
+                            prompt_tokens=s.get("prompt_tokens", 0),
+                            completion_tokens=s.get("completion_tokens", 0),
+                            reasoning_tokens=s.get("reasoning_tokens", 0),
+                            total_tokens=s.get("total_tokens", 0),
+                            latency_seconds=s.get("latency_seconds", 0.0),
+                            is_valid_tool=s.get("is_valid_tool", True),
+                            error=s.get("error")
+                        )
+                        for s in pt.get("steps", [])
+                    ]
+                    cached_map[pt["task_id"]] = TaskTelemetry(
+                        task_id=pt["task_id"],
+                        family=pt["family"],
+                        query=pt["query"],
+                        persona=pt.get("persona", ""),
+                        passed=pt["passed"],
+                        score_tag=pt["score_tag"],
+                        n_steps=pt["n_steps"],
+                        max_budget=pt["max_budget"],
+                        wall_time_seconds=pt["wall_time_seconds"],
+                        total_prompt_tokens=pt["total_prompt_tokens"],
+                        total_completion_tokens=pt["total_completion_tokens"],
+                        total_reasoning_tokens=pt.get("total_reasoning_tokens", 0),
+                        total_tokens=pt["total_tokens"],
+                        tool_counts=pt.get("tool_counts", {}),
+                        invalid_tool_count=pt.get("invalid_tool_count", 0),
+                        allergen_violated=pt.get("allergen_violated", False),
+                        steps=step_objs
+                    )
+            print(f"🔄 Resuming benchmark: Loaded {len(cached_map)} valid completed tasks from {out_path}")
+        except Exception as e:
+            print(f"⚠️ Failed to load resume cache: {e}")
+
+    tasks_to_run = [(idx, task) for idx, task in enumerate(tasks, 1) if task.id not in cached_map]
+
     print(f"\n🚀 Running Benchmark Suite for Model: {model_id} (Workers: {workers})")
-    print(f"   Target Split: {split_path} ({len(tasks)} tasks)")
+    print(f"   Target Split: {split_path} ({len(tasks)} tasks, {len(tasks_to_run)} pending)")
     print(f"   Endpoint: {url} (Key: {key_env})")
 
-    results: list[TaskTelemetry] = []
-    if workers <= 1:
-        for idx, task in enumerate(tasks, 1):
-            telemetry = evaluate_task_with_telemetry(task, harness_spec, catalog)
-            results.append(telemetry)
-            mark = "✅ PASS" if telemetry.passed else "❌ FAIL"
-            print(f"  [{idx:02d}/{len(tasks):02d}] {mark} {task.id:<16} ({task.family:<10}) steps={telemetry.n_steps}/{telemetry.max_budget} time={telemetry.wall_time_seconds:.1f}s tokens={telemetry.total_tokens} tag={telemetry.score_tag}")
-    else:
+    task_results_map: dict[str, TaskTelemetry] = dict(cached_map)
+
+    if tasks_to_run:
         import threading
         from concurrent.futures import ThreadPoolExecutor, as_completed
         print_lock = threading.Lock()
-        completed_count = 0
-        task_results_map: dict[int, TaskTelemetry] = {}
+        completed_count = len(cached_map)
 
         def _worker(idx_task):
             idx, t = idx_task
@@ -250,15 +307,15 @@ def run_benchmark_suite(
                 completed_count += 1
                 mark = "✅ PASS" if tele.passed else "❌ FAIL"
                 print(f"  [{completed_count:02d}/{len(tasks):02d}] {mark} {t.id:<16} ({t.family:<10}) steps={tele.n_steps}/{tele.max_budget} time={tele.wall_time_seconds:.1f}s tokens={tele.total_tokens} tag={tele.score_tag}")
-            return idx, tele
+            return t.id, tele
 
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = [pool.submit(_worker, (idx, task)) for idx, task in enumerate(tasks, 1)]
+            futures = [pool.submit(_worker, it) for it in tasks_to_run]
             for fut in as_completed(futures):
-                idx, tele = fut.result()
-                task_results_map[idx] = tele
+                tid, tele = fut.result()
+                task_results_map[tid] = tele
 
-        results = [task_results_map[idx] for idx in range(1, len(tasks) + 1)]
+    results = [task_results_map[t.id] for t in tasks if t.id in task_results_map]
 
     # Aggregate Statistics
     total_tasks = len(results)
@@ -319,6 +376,7 @@ if __name__ == "__main__":
     parser.add_argument("--url", default=None)
     parser.add_argument("--key-env", default=None)
     parser.add_argument("--workers", type=int, default=5)
+    parser.add_argument("--resume", action="store_true", help="Resume from previously completed valid tasks in report json")
     args = parser.parse_args()
 
     run_benchmark_suite(
@@ -327,4 +385,5 @@ if __name__ == "__main__":
         custom_url=args.url,
         custom_key_env=args.key_env,
         workers=args.workers,
+        resume=args.resume,
     )
