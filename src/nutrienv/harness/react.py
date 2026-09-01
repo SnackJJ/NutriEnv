@@ -28,7 +28,7 @@ __all__ = [
 
 _OPS = frozenset(OPS) | FINISH_OPS
 
-_CONTEXT_LIMIT = 30
+_CONTEXT_LIMIT = 12
 
 _SYSTEM = """You are an agent in NutriEnv, a steppable nutrition world.
 Each turn emit exactly one JSON object, no markdown, no extra top-level keys:
@@ -47,12 +47,12 @@ Available ops:
 - finish  (hand-in: stop the episode; the current world is scored)
 
 How an episode is graded:
-- Writes apply immediately; the end state is scored on finish, idle reads, or step exhaustion.
-- Text is not a hand-in: recommend/evaluate Pass only via submit_plan, log only via log_meal. A multi-step query needs every step's write: ate then "what to eat next" is log_meal then submit_plan; allergy change then dinner ask is update_profile then submit_plan; ate then "is this okay?" is log_meal then verdict=accept.
+- Writes apply immediately; the end state is scored on finish or step limit.
+- Multi-step queries need every step's write: ate then "what to eat next" is log_meal (past eaten meal) then submit_plan (future meal plan; never log_meal future recommendations); allergy change then dinner ask is update_profile then submit_plan; ate then "is this okay?" is log_meal then verdict=accept.
 - Fields unmentioned by the user stay as the opening profile/ledger.
-- food_id comes from search/get_food (staple slugs like milk_whole also resolve); unknown ids change nothing.
+- food_id comes from search/get_food (slugs like milk_whole also resolve); unknown ids change nothing.
 - Nutrient numbers come from observations, not prior knowledge. Catalog energy is per 100 g.
-- log_meal without eaten_at is stamped "now". If the query names a meal, copy the ledger's token style (today-breakfast, today-lunch, …).
+- log_meal without eaten_at is stamped "now". If query names a meal, copy ledger style (today-breakfast, today-lunch, …).
 - Leftover questions: daily windows on get_profile are not meal budget. Subtract ledger nutrients and submit_plan for remainder.
 - After writes, emit finish. submit_plan is a hand-in: do not update_plan afterwards.
 - Profile allergies are catalog allergen_tags (shellfish, peanut), not food names.

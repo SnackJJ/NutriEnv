@@ -830,7 +830,7 @@
           },
           {
             "eaten_at": "today-lunch",
-            "food_id": "2707568",
+            "food_id": "2705413",
             "grams": 15.0
           }
         ],
@@ -1125,13 +1125,13 @@
           {
             "eaten_at": "today-dinner",
             "food_id": "2708833",
-            "grams": 500.0
+            "grams": 250.0
           }
         ],
         "profile": "s0"
       },
       "persona": "cut",
-      "query": "For dinner I had a plate of pasta with tomato sauce and vegetables.",
+      "query": "For dinner tonight, I went to an Italian restaurant and had a plate of pasta with tomato sauce and vegetables.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -5773,8 +5773,8 @@
             "ledger_tail": [
               {
                 "eaten_at": "today-lunch",
-                "food_id": "2706823",
-                "grams": 223.0
+                "food_id": "2706429",
+                "grams": 244.0
               }
             ],
             "profile": "s0"
@@ -5784,36 +5784,36 @@
             "ledger": [
               {
                 "eaten_at": "today-lunch",
-                "food_id": "2706823",
-                "grams": 223.0
+                "food_id": "2706429",
+                "grams": 244.0
               }
             ],
             "plan_must_be_safe": true,
             "plan_must_fit_windows": true,
             "plan_windows": {
-              "carb_g": [
-                0.0,
-                454.9
-              ],
-              "fat_g": [
-                0.0,
-                104.47
-              ],
-              "fiber_g": [
-                0.0,
-                46.32
-              ],
               "kcal": [
                 992.51,
                 1323.35
               ],
               "protein_g": [
                 0.0,
-                55.92
+                85.94
+              ],
+              "carb_g": [
+                0.0,
+                446.26
+              ],
+              "fat_g": [
+                0.0,
+                111.56
+              ],
+              "fiber_g": [
+                0.0,
+                46.07
               ],
               "sodium_mg": [
                 0.0,
-                645.34
+                1280.08
               ]
             },
             "profile": "s0"
@@ -6068,7 +6068,7 @@
               {
                 "eaten_at": "today-lunch",
                 "food_id": "2709260",
-                "grams": 83.0
+                "grams": 165.0
               }
             ]
           },
@@ -6102,7 +6102,7 @@
         ]
       },
       "persona": "everyday",
-      "query": "Log chicken nachos and fresh pineapple for lunch, and update my activity level to very active.",
+      "query": "Log chicken nachos and a cup of fresh pineapple for lunch, and update my activity level to very active.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -7518,8 +7518,8 @@
             "ledger_tail": [
               {
                 "eaten_at": "today-lunch",
-                "food_id": "2706823",
-                "grams": 223.0
+                "food_id": "2706429",
+                "grams": 244.0
               }
             ],
             "profile": {
@@ -7533,36 +7533,36 @@
             "ledger": [
               {
                 "eaten_at": "today-lunch",
-                "food_id": "2706823",
-                "grams": 223.0
+                "food_id": "2706429",
+                "grams": 244.0
               }
             ],
             "plan_must_be_safe": true,
             "plan_must_fit_windows": true,
             "plan_windows": {
-              "carb_g": [
-                0.0,
-                338.94
-              ],
-              "fat_g": [
-                0.0,
-                71.58
-              ],
-              "fiber_g": [
-                0.0,
-                34.51
-              ],
               "kcal": [
                 739.51,
                 986.01
               ],
               "protein_g": [
                 0.0,
-                49.52
+                79.54
+              ],
+              "carb_g": [
+                0.0,
+                330.3
+              ],
+              "fat_g": [
+                0.0,
+                78.67
+              ],
+              "fiber_g": [
+                0.0,
+                34.27
               ],
               "sodium_mg": [
                 0.0,
-                645.34
+                1280.08
               ]
             },
             "profile": {
@@ -8671,8 +8671,8 @@
             "ledger_tail": [
               {
                 "eaten_at": "today-lunch",
-                "food_id": "2706823",
-                "grams": 223.0
+                "food_id": "2706429",
+                "grams": 244.0
               }
             ],
             "profile": {
@@ -8714,34 +8714,34 @@
             "ledger": [
               {
                 "eaten_at": "today-lunch",
-                "food_id": "2706823",
-                "grams": 223.0
+                "food_id": "2706429",
+                "grams": 244.0
               }
             ],
             "plan_windows": {
-              "carb_g": [
-                0.0,
-                378.83
-              ],
-              "fat_g": [
-                0.0,
-                82.9
-              ],
-              "fiber_g": [
-                0.0,
-                38.57
-              ],
               "kcal": [
                 0.0,
-                2309.12
+                2459.89
               ],
               "protein_g": [
                 0.0,
-                71.92
+                101.94
+              ],
+              "carb_g": [
+                0.0,
+                370.19
+              ],
+              "fat_g": [
+                0.0,
+                89.98
+              ],
+              "fiber_g": [
+                0.0,
+                38.33
               ],
               "sodium_mg": [
                 0.0,
-                645.34
+                1280.08
               ]
             },
             "profile": {
@@ -9057,7 +9057,7 @@
         ]
       },
       "persona": "gym",
-      "query": "Please update my profile to add a peanut allergy, set my activity level to very active, log lunch as a piece of restaurant soft breadstick, and recommend a peanut-free dinner suitable for my gym-focused lifestyle.",
+      "query": "Please update my profile to add a peanut allergy, set my activity level to very active. For lunch, I went to an Italian restaurant and had a warm soft breadstick. Please recommend a peanut-free dinner suitable for my gym-focused lifestyle.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -9313,8 +9313,8 @@
             "ledger_tail": [
               {
                 "eaten_at": "today-lunch",
-                "food_id": "2706823",
-                "grams": 223.0
+                "food_id": "2706429",
+                "grams": 244.0
               }
             ],
             "profile": {
@@ -9352,36 +9352,36 @@
             "ledger": [
               {
                 "eaten_at": "today-lunch",
-                "food_id": "2706823",
-                "grams": 223.0
+                "food_id": "2706429",
+                "grams": 244.0
               }
             ],
             "plan_must_be_safe": true,
             "plan_must_fit_windows": true,
             "plan_windows": {
-              "carb_g": [
-                0.0,
-                445.43
-              ],
-              "fat_g": [
-                0.0,
-                101.79
-              ],
-              "fiber_g": [
-                0.0,
-                45.35
-              ],
               "kcal": [
                 881.85,
                 1175.8
               ],
               "protein_g": [
                 0.0,
-                24.9
+                54.93
+              ],
+              "carb_g": [
+                0.0,
+                436.79
+              ],
+              "fat_g": [
+                0.0,
+                108.87
+              ],
+              "fiber_g": [
+                0.0,
+                45.11
               ],
               "sodium_mg": [
                 0.0,
-                645.34
+                1280.08
               ]
             },
             "profile": {

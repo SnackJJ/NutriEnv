@@ -198,11 +198,51 @@ class Scorer:
             s0_windows=expected.windows,
         )
 
+    @classmethod
+    def _plan_item_matches(
+        cls, got: dict, exp: dict, catalog: Mapping[str, dict] | None
+    ) -> bool:
+        if got.get("food_id") != exp.get("food_id"):
+            return False
+        got_g = got.get("grams", 0.0)
+        exp_g = exp.get("grams", 0.0)
+        if not (isinstance(got_g, (int, float)) and isinstance(exp_g, (int, float))):
+            return False
+        if math.isclose(got_g, exp_g, rel_tol=1e-5):
+            return True
+        if catalog and matches_portion_table(exp["food_id"], got_g, catalog):
+            return True
+        return False
+
+    @classmethod
+    def _match_plan_items(
+        cls, got_items: list[dict], exp_items: list[dict], catalog: Mapping[str, dict] | None
+    ) -> bool:
+        if len(got_items) != len(exp_items):
+            return False
+        n = len(exp_items)
+        used = [False] * n
+
+        def dfs(i: int) -> bool:
+            if i == len(got_items):
+                return True
+            for j in range(n):
+                if not used[j] and cls._plan_item_matches(got_items[i], exp_items[j], catalog):
+                    used[j] = True
+                    if dfs(i + 1):
+                        return True
+                    used[j] = False
+            return False
+
+        return dfs(0)
+
     def _score_verdict(self, state: WorldState, oracle: Oracle) -> str | None:
         if oracle.last_verdict == "accept":
             if state.last_verdict != "accept":
                 return "wrong_goal"
-            if state.last_plan != oracle.last_plan:
+            if not isinstance(state.last_plan, list) or not isinstance(oracle.last_plan, list):
+                return "wrong_goal"
+            if not self._match_plan_items(state.last_plan, oracle.last_plan, state.catalog):
                 return "wrong_goal"
             return None
         if oracle.last_verdict == "reject":
@@ -272,7 +312,7 @@ class Scorer:
 
         # Empty is the free-recommendation sentinel. Evaluate tasks carry a
         # non-empty exact candidate so submitting a different plan is a miss.
-        if oracle.last_plan and items != oracle.last_plan:
+        if oracle.last_plan and not self._match_plan_items(items, oracle.last_plan, state.catalog):
             return "wrong_goal"
         return None
 

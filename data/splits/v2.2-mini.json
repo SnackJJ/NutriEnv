@@ -1945,7 +1945,7 @@
         ]
       },
       "persona": "gym",
-      "query": "Please update my profile to add a peanut allergy, set my activity level to very active, log lunch as a piece of restaurant soft breadstick, and recommend a peanut-free dinner suitable for my gym-focused lifestyle.",
+      "query": "Please update my profile to add a peanut allergy, set my activity level to very active. For lunch, I went to an Italian restaurant and had a warm soft breadstick. Please recommend a peanut-free dinner suitable for my gym-focused lifestyle.",
       "s0": {
         "ledger": [],
         "profile": {
