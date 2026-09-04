@@ -19,7 +19,11 @@ Unlike traditional static QA datasets, NutriEnv evaluates agents in a stateful, 
 The official NutriEnv v1.0 benchmark consists of 63 pure, adversarial-resilient tasks with zero hard false-negatives.
 
 <p align="center">
-  <img src="reports/assets/radar_v1.0_family.png" width="720" alt="NutriEnv v1.0 Capability Radar" />
+  <img src="reports/assets/eval_performance_by_family.png" width="820" alt="NutriEnv v1.0 Performance by Category" />
+</p>
+
+<p align="center">
+  <img src="reports/assets/eval_pareto_efficiency.png" width="820" alt="NutriEnv v1.0 Pareto Frontier" />
 </p>
 
 ### Main Results
