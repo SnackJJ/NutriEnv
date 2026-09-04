@@ -19,11 +19,11 @@ Unlike traditional static QA datasets, NutriEnv evaluates agents in a stateful, 
 The official NutriEnv v1.0 benchmark consists of 63 curated tasks with audited construct validity.
 
 <p align="center">
-  <img src="reports/assets/eval_performance_by_family.png" width="820" alt="NutriEnv v1.0 Performance by Category" />
+  <img src="reports/assets/eval_leaderboard_bars.png" width="760" alt="NutriEnv v1.0 Leaderboard Pass@1" />
 </p>
 
 <p align="center">
-  <img src="reports/assets/eval_pareto_efficiency.png" width="820" alt="NutriEnv v1.0 Pareto Frontier" />
+  <img src="reports/assets/eval_pareto_efficiency.png" width="760" alt="NutriEnv v1.0 Pareto Frontier" />
 </p>
 
 ### Main Results
