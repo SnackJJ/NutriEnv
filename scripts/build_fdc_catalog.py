@@ -401,7 +401,7 @@ def _apply_safe_overlay(
 def _portion_keys_full(description: str, modifier: str) -> list[str]:
     """Keys one FNDDS row writes under the full (catalog-v1) strategy.
 
-    Matches the dry-run POLICY in ``scripts/fndds_dry_run.py``: QNS,
+    Matches the dry-run POLICY in ``scripts/archive/fndds_dry_run.py``: QNS,
     compound piece/slice dual-write, household before size/new units,
     ``oz`` not ``oz_yield``, package rows not oz.
     """
@@ -847,7 +847,7 @@ def _macros_from_zip(zf: zipfile.ZipFile, wanted: set[str]) -> dict[str, dict[st
 def _independent_survey_portions(survey_zip: Path) -> dict[str, dict[str, float]]:
     """POLICY scan that does not call collect_portions_full."""
     spec = importlib.util.spec_from_file_location(
-        "fndds_dry_run", Path(__file__).resolve().parent / "fndds_dry_run.py"
+        "fndds_dry_run", Path(__file__).resolve().parent / "archive" / "fndds_dry_run.py"
     )
     if spec is None or spec.loader is None:
         raise ImportError("fndds_dry_run.py")

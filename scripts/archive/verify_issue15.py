@@ -43,7 +43,7 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from nutrienv.bench.pipeline.freezer import freeze_tasks, task_to_item  # noqa: E402
 from nutrienv.bench.quality_gates import (  # noqa: E402
@@ -58,7 +58,7 @@ from nutrienv.bench.split import load_split  # noqa: E402
 from nutrienv.bench.validator import validate_draft  # noqa: E402
 from nutrienv.world.catalog_store import load_catalog  # noqa: E402
 
-_ROOT = Path(__file__).resolve().parents[1]
+_ROOT = Path(__file__).resolve().parents[2]
 
 
 @dataclass(frozen=True)

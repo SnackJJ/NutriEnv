@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 from collections.abc import Mapping, Sequence
 
-_ROOT = Path(__file__).resolve().parents[1]
+_ROOT = Path(__file__).resolve().parents[2]
 _SRC = _ROOT / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))

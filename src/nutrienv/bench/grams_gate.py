@@ -49,8 +49,8 @@ DEFAULT_THRESHOLD = 0.6
 
 # All judge models, including DeepSeek snapshot ids, post to DashScope.
 
-#: Judge prompt shared with scripts/portion_judge_probe.py and
-#: scripts/gray_zone_probe.py; both import it from here.
+#: Judge prompt shared with scripts/archive/portion_judge_probe.py and
+#: scripts/archive/gray_zone_probe.py; both import it from here.
 JUDGE_SYSTEM = """You are a nutritionist auditing a food diary for plausible
 portion amounts. A user wrote the diary entry below. Judge whether the stated
 amount in grams is a plausible portion of that food that a real person would

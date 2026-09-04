@@ -1,6 +1,6 @@
 """Ticket 08: catalog-v2 tool + handbook seams.
 
-Live ReAct trajectories are recorded by ``scripts/agent_behavior_verify.py``
+Live ReAct trajectories are recorded by ``scripts/archive/agent_behavior_verify.py``
 into ``reports/agent-behavior-verify.json``. This file does not stand in for
 the agent with ``resolve_portion``.
 """
@@ -72,13 +72,13 @@ def test_recorded_live_results_cover_required_cases() -> None:
     import json
     import sys
 
-    sys.path.insert(0, str(ROOT / "scripts"))
+    sys.path.insert(0, str(ROOT / "scripts" / "archive"))
     import agent_behavior_verify as verify  # noqa: E402
 
     path = (
         ROOT / "reports" / "archive" / "audit_and_probes" / "agent-behavior-verify.json"
     )
-    assert path.is_file(), "run scripts/agent_behavior_verify.py to record live ReAct"
+    assert path.is_file(), "run scripts/archive/agent_behavior_verify.py to record live ReAct"
     payload = json.loads(path.read_text(encoding="utf-8"))
     got = {row["id"] for row in payload["cases"]}
     assert got == {case.id for case in verify.CASES}
@@ -113,7 +113,7 @@ def test_cut_noun_observation_file_is_multi_model() -> None:
 def _verify_mod():
     import sys
 
-    sys.path.insert(0, str(ROOT / "scripts"))
+    sys.path.insert(0, str(ROOT / "scripts" / "archive"))
     import agent_behavior_verify as verify  # noqa: E402
 
     return verify

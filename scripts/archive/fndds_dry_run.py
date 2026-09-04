@@ -18,7 +18,7 @@ import zipfile
 from pathlib import Path
 from typing import Iterable
 
-_ROOT = Path(__file__).resolve().parents[1]
+_ROOT = Path(__file__).resolve().parents[2]
 _SURVEY = _ROOT / "data" / "fdc" / "raw" / "survey.zip"
 _DB = _ROOT / "data" / "fdc" / "archive" / "catalog.sqlite"
 _SPLIT = _ROOT / "data" / "splits" / "archive" / "v0.5-gold.json"

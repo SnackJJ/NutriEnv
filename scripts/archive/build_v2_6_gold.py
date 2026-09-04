@@ -25,7 +25,7 @@ from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, WorldState
 
-_ROOT = Path(__file__).resolve().parents[1]
+_ROOT = Path(__file__).resolve().parents[2]
 _V25 = _ROOT / "data" / "splits" / "v2.5-gold.json"
 _V26 = _ROOT / "data" / "splits" / "v2.6-gold.json"
 _NUTRIENV_GOLD = _ROOT / "data" / "splits" / "nutrienv-gold.json"

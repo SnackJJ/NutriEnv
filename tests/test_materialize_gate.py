@@ -12,7 +12,7 @@ import pytest
 from nutrienv.world.catalog_store import load_catalog
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts" / "archive"))
 import materialize_split  # noqa: E402
 
 

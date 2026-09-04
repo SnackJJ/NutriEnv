@@ -24,7 +24,7 @@ from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.daily_windows import derive_daily_windows, plan_windows_for_meal
 from nutrienv.world.types import LedgerRow, WorldState, ledger_totals, normalize_tags
 
-_ROOT = Path(__file__).resolve().parents[1]
+_ROOT = Path(__file__).resolve().parents[2]
 _V23 = _ROOT / "data" / "splits" / "v2.3-gold.json"
 _V23_MINI = _ROOT / "data" / "splits" / "v2.3-mini.json"
 _V25 = _ROOT / "data" / "splits" / "v2.5-gold.json"

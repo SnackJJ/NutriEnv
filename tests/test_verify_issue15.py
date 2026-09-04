@@ -14,7 +14,7 @@ from nutrienv.bench.pipeline.expander import synthetic_expander
 from nutrienv.bench.pipeline.legacy_run_batch import run_batch
 from nutrienv.bench.pipeline.types import catalog_digest
 
-import scripts.verify_issue15 as vi
+import scripts.archive.verify_issue15 as vi
 
 V05_GOLD = "data/splits/archive/v0.5-gold.json"
 

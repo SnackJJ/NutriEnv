@@ -15,8 +15,9 @@ python -m pytest -q
 
 The published exam is `data/splits/nutrienv-v1.0.json`.
 The default world catalog is `data/fdc/catalog-v2.sqlite` (FNDDS-only).
-The legacy `data/fdc/archive/catalog.sqlite` (FNDDS + SR Legacy) is still
-kept because the archived v0.x splits are bound to it. Rebuild the active catalog with:
+`data/fdc/archive/catalog.sqlite` and `catalog-v1.sqlite` stay in the tree as
+mill / v0.x fixtures (SR portion keys that catalog-v2 drops). Rebuild the
+active catalog with:
 
 ```bash
 python scripts/download_fdc.py --sets fndds

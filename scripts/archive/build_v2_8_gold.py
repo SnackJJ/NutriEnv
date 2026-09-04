@@ -28,7 +28,7 @@ from nutrienv.world.daily_windows import plan_windows_for_meal
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import LedgerRow, WorldState, ledger_totals
 
-_ROOT = Path(__file__).resolve().parents[1]
+_ROOT = Path(__file__).resolve().parents[2]
 _V27 = _ROOT / "data" / "splits" / "v2.7-gold.json"
 _V28 = _ROOT / "data" / "splits" / "v2.8-gold.json"
 _NUTRIENV_GOLD = _ROOT / "data" / "splits" / "nutrienv-gold.json"

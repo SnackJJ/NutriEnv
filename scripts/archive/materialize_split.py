@@ -42,7 +42,7 @@ from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.portions import OUNCE_GRAMS, resolve_portion
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SPLITS = ROOT / "data" / "splits" / "archive"
 CATALOG = ROOT / "data" / "fdc" / "archive" / "catalog.sqlite"
 

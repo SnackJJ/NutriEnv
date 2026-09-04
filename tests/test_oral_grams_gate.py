@@ -18,7 +18,7 @@ from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.types import LedgerRow, Profile, WorldState
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "scripts" / "archive"))
 import landing_verify  # noqa: E402
 
 CATALOG_V1 = ROOT / "data" / "fdc" / "archive" / "catalog-v1.sqlite"

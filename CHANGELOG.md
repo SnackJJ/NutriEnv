@@ -2,6 +2,12 @@
 
 All notable changes to the NutriEnv project are documented in this file.
 
+## [Unreleased]
+
+### Changed
+- Moved remaining process probes (`landing_verify`, `materialize_split`, `gray_zone_probe`, and related builders) into `scripts/archive/`.
+- Documented why `data/fdc/archive/*.sqlite` remain in the clone: mill tests pin SR Legacy portion keys that catalog-v2 drops.
+
 ## [v1.0.0] - 2026-09-05
 
 ### Added
