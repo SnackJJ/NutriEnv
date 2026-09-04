@@ -709,7 +709,7 @@ V05 = Path("data/splits/archive/v0.5-gold.json")
 
 
 def test_v2_3_gold_all_tasks_reachable() -> None:
-    tasks = load_split(Path("data/splits/v2.3-gold.json"))
+    tasks = load_split(Path("data/splits/archive/v2.3-gold.json"))
     report = check_achievable(tasks)
     assert report.unreachable == ()
 

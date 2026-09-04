@@ -122,7 +122,7 @@ def test_run_split_rejects_retired_factory() -> None:
 def test_run_split_default_runs_published_exam() -> None:
     from nutrienv.bench.split import EXAM_SPLIT_PATH
 
-    assert EXAM_SPLIT_PATH.name == "v2.2-gold.json"
+    assert EXAM_SPLIT_PATH.name == "nutrienv-v1.0.json"
     res = run_split(task_ids=["adr20-upd-5026"])
     assert res["n"] == 1
 

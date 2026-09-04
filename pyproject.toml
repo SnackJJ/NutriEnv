@@ -1,7 +1,7 @@
 [project]
 name = "nutrienv"
-version = "0.1.0"
-description = "Nutrition env + bench: steppable world, frozen split, end-state Pass"
+version = "1.0.0"
+description = "Interactive USDA-FNDDS environment and 63-task benchmark for LLM dietary agents"
 requires-python = ">=3.11"
 dependencies = []
 

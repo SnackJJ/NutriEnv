@@ -547,18 +547,19 @@ def test_load_split_v05_is_the_240() -> None:
     assert len({task.id for task in tasks}) == 240
 
 
-def test_load_split_default_loads_v2_2_gold() -> None:
+def test_load_split_default_loads_nutrienv_v1() -> None:
     from nutrienv.bench.split import EXAM_SPLIT_PATH, load_exam
 
-    assert EXAM_SPLIT_PATH.name == "v2.2-gold.json"
+    assert EXAM_SPLIT_PATH.name == "nutrienv-v1.0.json"
     tasks = load_split()
-    assert len(tasks) == 100
+    assert len(tasks) == 63
     exam_tasks = load_exam()
-    assert len(exam_tasks) == 100
+    assert len(exam_tasks) == 63
+    assert {task.id for task in tasks} == {task.id for task in exam_tasks}
 
 
 def test_v2_3_gold_curation_size_and_adversarial_coverage() -> None:
-    v23 = load_split(Path("data/splits/v2.3-gold.json"))
+    v23 = load_split(Path("data/splits/archive/v2.3-gold.json"))
     assert len(v23) == 120
     v23_ids = {task.id for task in v23}
     purged = {
@@ -597,7 +598,7 @@ def test_v2_3_eval_accepts_keep_kcal_margin_off_the_window_edge() -> None:
     }
     tasks = {
         task.id: task
-        for task in load_split(Path("data/splits/v2.3-gold.json"))
+        for task in load_split(Path("data/splits/archive/v2.3-gold.json"))
         if task.id in tight
     }
     assert set(tasks) == tight
@@ -615,7 +616,7 @@ def test_v2_3_eval_accepts_keep_kcal_margin_off_the_window_edge() -> None:
 def test_v2_3_new_eval_accepts_span_multiple_roster_people() -> None:
     tasks = [
         task
-        for task in load_split(Path("data/splits/v2.3-gold.json"))
+        for task in load_split(Path("data/splits/archive/v2.3-gold.json"))
         if task.id.startswith("adr25-eval-")
     ]
     users = {task.s0.profile.user_id for task in tasks}
@@ -624,7 +625,7 @@ def test_v2_3_new_eval_accepts_span_multiple_roster_people() -> None:
 
 
 def test_v2_3_mini_covers_multi_item_eval_accept_and_unfit_recommend() -> None:
-    tasks = load_split(Path("data/splits/v2.3-mini.json"))
+    tasks = load_split(Path("data/splits/archive/v2.3-mini.json"))
     ids = {task.id for task in tasks}
     assert "adr25-eval-1001" in ids
     assert "adr25-eval-1008" in ids
@@ -637,7 +638,7 @@ def test_v2_3_mini_covers_multi_item_eval_accept_and_unfit_recommend() -> None:
 def test_v2_3_hygiene_composites_keep_child_ledgers_aligned() -> None:
     tasks = {
         task.id: task
-        for task in load_split(Path("data/splits/v2.3-gold.json"))
+        for task in load_split(Path("data/splits/archive/v2.3-gold.json"))
     }
     for task_id, food_id, grams in (
         ("adr24-comp-8310", "2709715", 130.0),
@@ -648,7 +649,7 @@ def test_v2_3_hygiene_composites_keep_child_ledgers_aligned() -> None:
 
 
 def test_v2_6_gold_disambiguates_queries_and_matches_public_release() -> None:
-    gold = load_split(Path("data/splits/v2.6-gold.json"))
+    gold = load_split(Path("data/splits/archive/v2.6-gold.json"))
     assert len(gold) == 128
     assert Counter(task.family for task in gold) == {
         "update": 5,
@@ -707,7 +708,7 @@ def test_v2_6_gold_disambiguates_queries_and_matches_public_release() -> None:
 
 
 def test_v2_5_nutrienv_v1_splits_exist_and_cover_all_requirements() -> None:
-    v25_tasks = load_split(Path("data/splits/v2.5-gold.json"))
+    v25_tasks = load_split(Path("data/splits/archive/v2.5-gold.json"))
     assert len(v25_tasks) == 128
 
     gold_ids = {t.id for t in v25_tasks}
@@ -720,15 +721,13 @@ def test_v2_5_nutrienv_v1_splits_exist_and_cover_all_requirements() -> None:
     assert "adr26-rec-1308" in gold_ids
 
     # Check mini splits
-    mini_tasks = load_split(Path("data/splits/nutrienv-mini.json"))
-    v25_mini_tasks = load_split(Path("data/splits/v2.5-mini.json"))
-    assert len(mini_tasks) == 24
+    v25_mini_tasks = load_split(Path("data/splits/archive/v2.5-mini.json"))
     assert len(v25_mini_tasks) == 24
 
 
 def test_v2_8_lite_gold_is_63_and_mirrors_public_release() -> None:
-    gold = load_split(Path("data/splits/v2.8-gold.json"))
-    public = load_split(Path("data/splits/nutrienv-gold.json"))
+    gold = load_split(Path("data/splits/archive/v2.8-gold.json"))
+    public = load_split(Path("data/splits/nutrienv-v1.0.json"))
     assert len(gold) == 63
     assert len(public) == 63
     assert Counter(task.family for task in gold) == {
@@ -745,6 +744,22 @@ def test_v2_8_lite_gold_is_63_and_mirrors_public_release() -> None:
     assert "adr29-fridge-03" in by_id
     assert "adr29-starve-04" in by_id
     assert {task.id for task in gold} == {task.id for task in public}
+
+
+def test_public_mini_is_ten_task_subset_of_v1() -> None:
+    public = load_split(Path("data/splits/nutrienv-v1.0.json"))
+    mini = load_split(Path("data/splits/nutrienv-mini.json"))
+    assert len(mini) == 10
+    public_ids = {task.id for task in public}
+    mini_ids = {task.id for task in mini}
+    assert mini_ids <= public_ids
+    assert Counter(task.family for task in mini) == {
+        "update": 1,
+        "log": 1,
+        "evaluate": 2,
+        "recommend": 2,
+        "composite": 4,
+    }
 
 
 def test_gold_split_exists_and_loads() -> None:

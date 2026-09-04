@@ -4,7 +4,7 @@
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python 3.11+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"></a>
   <a href="https://github.com/SnackJJ/NutriEnv"><img src="https://img.shields.io/badge/benchmark-NutriEnv--v1.0%20(63%20tasks)-orange.svg" alt="NutriEnv v1.0"></a>
-  <a href="tests/"><img src="https://img.shields.io/badge/tests-1408%20passed-brightgreen.svg" alt="1408 Tests Passing"></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/tests-1409%20passed-brightgreen.svg" alt="1409 Tests Passing"></a>
   <a href="https://snackjj.github.io/"><img src="https://img.shields.io/badge/homepage-snackjj.github.io-8A2BE2.svg" alt="Author Homepage"></a>
 </p>
 
@@ -113,7 +113,7 @@ cp .env.example .env.local
 
 ```bash
 pytest
-# 1,408 passed
+# 1,409 passed
 ```
 
 ### 4. Run Benchmark Suite
@@ -139,20 +139,19 @@ nutri-env/
 |   |-- env/                   # Interactive Gym-style step/reset loop
 |   |-- world/                 # Food catalog (SQLite), Profile, Ledger state
 |   |-- actions/               # Action schemas, validators, and execution dispatch
-|   |-- bench/                 # Task generator, Oracle solver, Scorer
+|   |-- bench/                 # Task generator, Oracle, Scorer, mill pipeline
 |   |-- harness/               # Agent harnesses (ReAct, Script, Telemetry)
 |   +-- io/                    # Network clients & environment loaders
 |-- data/
-|   |-- fdc/                   # USDA FDC SQLite database snapshot
+|   |-- fdc/                   # USDA FNDDS SQLite catalog snapshot
+|   |-- portion/               # Colloquial portion overlay
 |   +-- splits/
-|       |-- nutrienv-v1.0.json # Official v1.0 benchmark split (63 curated tasks)
-|       +-- nutrienv-mini.json # Fast smoke evaluation split (10 tasks)
-|-- reports/                   # Official benchmark results & charts
-|   |-- assets/                # Visual charts (PNG assets)
-|   +-- benchmark_*_v1.0.json  # Raw evaluation trajectories & metric dumps
-|-- docs/                      # Architectural Decision Records (ADRs) & specs
+|       |-- nutrienv-v1.0.json # Official v1.0 exam (63 tasks)
+|       +-- nutrienv-mini.json # Smoke subset (10 tasks from v1.0)
+|-- reports/                   # Official four-model results & charts
+|-- docs/                      # ADRs and specs
 |-- scripts/                   # Evaluation runner and visualization tools
-+-- tests/                     # 1,408 test cases covering 100% of environment logic
++-- tests/                     # Unit and integration tests
 ```
 
 ---

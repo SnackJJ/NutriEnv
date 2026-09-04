@@ -392,7 +392,7 @@ def _reuse_short_tasks(
 
 
 def run_benchmark_suite(
-    split_path: str = "data/splits/v2.2-mini.json",
+    split_path: str = "data/splits/nutrienv-mini.json",
     model_id: str = "deepseek-chat",
     custom_url: str | None = None,
     custom_key_env: str | None = None,
@@ -553,7 +553,7 @@ def run_benchmark_suite(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--split", default="data/splits/v2.2-mini.json")
+    parser.add_argument("--split", default="data/splits/nutrienv-mini.json")
     parser.add_argument("--model", default="deepseek-chat")
     parser.add_argument("--url", default=None)
     parser.add_argument("--key-env", default=None)

@@ -13,6 +13,7 @@ python -m pytest -q
 
 `pyproject.toml` already points pytest at `tests/` and puts `src/` on `pythonpath`.
 
+The published exam is `data/splits/nutrienv-v1.0.json`.
 The default world catalog is `data/fdc/catalog-v2.sqlite` (FNDDS-only).
 The legacy `data/fdc/archive/catalog.sqlite` (FNDDS + SR Legacy) is still
 kept because the archived v0.x splits are bound to it. Rebuild the active catalog with:

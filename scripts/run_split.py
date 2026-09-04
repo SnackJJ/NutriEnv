@@ -23,7 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--split",
         default=None,
-        help="frozen split JSON (default: published 240-item exam via load_exam)",
+        help="frozen split JSON (default: published NutriEnv v1.0 exam via load_exam)",
     )
     parser.add_argument("--k", type=int, default=1, help="episodes per task (pass^k)")
     parser.add_argument(

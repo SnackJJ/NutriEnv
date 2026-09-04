@@ -31,9 +31,22 @@ __all__ = ["GOLD_SPLIT_PATH", "EXAM_SPLIT_PATH", "load_split", "load_exam"]
 _ROOT = Path(__file__).resolve().parents[3]
 # Archived v0 calibration set; kept for archaeology through load_split.
 GOLD_SPLIT_PATH = _ROOT / "data" / "splits" / "archive" / "v0-gold.json"
-# Last published freeze. v2.3-gold is the next exam (hygiene + added items).
-EXAM_SPLIT_PATH = _ROOT / "data" / "splits" / "v2.2-gold.json"
-_EXAM_VERSIONS = frozenset({"v2.2-gold", "v2.2-mini", "v2.3-gold", "v2.3-mini", "v2.5-gold", "v2.6-gold", "v2.7-gold", "v2.8-gold"})
+# Published NutriEnv v1.0 exam (63 tasks). Historical freezes live in data/splits/archive/.
+EXAM_SPLIT_PATH = _ROOT / "data" / "splits" / "nutrienv-v1.0.json"
+_EXAM_VERSIONS = frozenset(
+    {
+        "v2.2-gold",
+        "v2.2-mini",
+        "v2.3-gold",
+        "v2.3-mini",
+        "v2.5-gold",
+        "v2.6-gold",
+        "v2.7-gold",
+        "v2.8-gold",
+        "nutrienv-v1.0-gold",
+        "nutrienv-v1.0-mini",
+    }
+)
 _EXAM_VERSION_RE = re.compile(r"^(v[2-9]\.\d+|nutrienv-v\d+\.\d+)-(gold|mini)$")
 
 
@@ -74,7 +87,7 @@ def load_split(path: Path | str | None = None, *, catalog=None) -> list[Task]:
 
 
 def load_exam(path: Path | str | None = None) -> list[Task]:
-    """Load the published 240-item exam. Fail closed on catalog identity.
+    """Load the published NutriEnv v1.0 exam. Fail closed on catalog identity.
 
     Unlike :func:`load_split`, this checks ``version``, a non-empty ``items``
     list, that the recorded catalog file exists (resolved from the repo root)

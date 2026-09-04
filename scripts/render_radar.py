@@ -70,7 +70,7 @@ legend = plt.legend(
     labelcolor='#F8FAFC'
 )
 
-plt.title("NutriEnv v1.0 (Lite Gold) Benchmark Radar\nDomain Grounding & Interactive State Planning", 
+plt.title("NutriEnv v1.0 Benchmark Radar\nDomain Grounding & Interactive State Planning", 
           size=16, color='#FFFFFF', weight='bold', pad=38)
 
 plt.tight_layout()

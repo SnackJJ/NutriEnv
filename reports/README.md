@@ -1,6 +1,6 @@
 # NutriEnv Evaluation Reports
 
-This directory contains the official evaluation trajectories, metrics, and visualization assets for **NutriEnv v1.0 (Lite Gold)**.
+This directory contains the official evaluation trajectories, metrics, and visualization assets for **NutriEnv v1.0**.
 
 ## Directory Structure
 
@@ -14,7 +14,7 @@ reports/
 +-- benchmark_ark_glm-5.3-flash_v1.0.json       # GLM-5.3-flash evaluation trajectories & metrics
 ```
 
-## Summary of Results (v1.0 Gold, 63 Tasks)
+## Summary of Results (v1.0, 63 Tasks)
 
 | Model | Total Pass Rate | Solved / Total | Avg Steps | Avg Latency | Update (2) | Log (6) | Evaluate (8) | Recommend (11) | Composite (36) |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
