@@ -163,7 +163,7 @@ This project is licensed under the [MIT License](LICENSE).
 
 ```bibtex
 @misc{snackjj2026nutrienv,
-  author = {Jiaqi Zhang},
+  author = {Zeqing Jiang},
   title = {NutriEnv: An Interactive Nutrition Benchmark & Environment for LLM Agents},
   year = {2026},
   publisher = {GitHub},
