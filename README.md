@@ -3,7 +3,7 @@
 <p align="center">
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python 3.11+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"></a>
-  <a href="https://github.com/SnackJJ/NutriEnv"><img src="https://img.shields.io/badge/benchmark-NutriEnv--v1.0--Gold%20(63%20tasks)-orange.svg" alt="NutriEnv v1.0 Gold"></a>
+  <a href="https://github.com/SnackJJ/NutriEnv"><img src="https://img.shields.io/badge/benchmark-NutriEnv--v1.0%20(63%20tasks)-orange.svg" alt="NutriEnv v1.0"></a>
   <a href="tests/"><img src="https://img.shields.io/badge/tests-1408%20passed-brightgreen.svg" alt="1408 Tests Passing"></a>
   <a href="https://snackjj.github.io/"><img src="https://img.shields.io/badge/homepage-snackjj.github.io-8A2BE2.svg" alt="Author Homepage"></a>
 </p>
@@ -14,9 +14,9 @@ Unlike traditional static QA datasets, NutriEnv evaluates agents in a stateful, 
 
 ---
 
-## Evaluation Leaderboard (NutriEnv v1.0 Lite Gold)
+## Evaluation Leaderboard (NutriEnv v1.0)
 
-The official NutriEnv v1.0 benchmark consists of 63 pure, adversarial-resilient tasks with zero hard false-negatives.
+The official NutriEnv v1.0 benchmark consists of 63 curated tasks with audited construct validity.
 
 <p align="center">
   <img src="reports/assets/eval_performance_by_family.png" width="820" alt="NutriEnv v1.0 Performance by Category" />
@@ -35,7 +35,7 @@ The official NutriEnv v1.0 benchmark consists of 63 pure, adversarial-resilient 
 | 3 | **DeepSeek-v4-flash** | **66.7%** | **42 / 63** | 10.9 | 251.1s | 2/2 (100%) | **5/6 (83.3%)** | **7/8 (87.5%)** | 8/11 (72.7%) | 20/36 (55.6%) |
 | 4 | **GLM-5.3-flash** | **60.3%** | **38 / 63** | **10.9** | **60.2s** | 2/2 (100%) | 2/6 (33.3%) | 4/8 (50.0%) | 7/11 (63.6%) | 23/36 (63.9%) |
 
-> Complete evaluation logs and trajectories are saved in [`reports/`](./reports/).
+> Evaluated on standardized API endpoints across reasoning and lightweight models. Full execution traces, logs, and token metrics are preserved in [`reports/`](./reports/).
 
 ---
 
@@ -76,16 +76,16 @@ NutriEnv models an interactive dialogue between a user and an AI dietary assista
 
 ## Evaluation Philosophy: Ground-Truth Oracle Matching
 
-NutriEnv strictly abides by an objective axiomatic evaluation rule:
+NutriEnv abides by an objective axiomatic evaluation rule:
 $$\text{Pass} \iff \text{End State} == \text{Oracle}$$
 
-1. **Deterministic Verification over LLM-as-a-Judge**: Scoring does not rely on subjective LLM judges. It inspects deterministic mutations:
-   - Profile equality (e.g. allergies recorded accurately).
+1. **Deterministic Verification over LLM-as-a-Judge**: Scoring inspects deterministic environment state mutations rather than subjective LLM judges:
+   - Profile equality (allergies, health targets).
    - Ledger set equality with $\pm 15\%$ physical measure tolerance.
    - Exact mathematical satisfaction of multi-dimensional nutrient windows:
      $$\text{Nutrient}_k = \sum \text{grams}_i \times \frac{\text{Nutrient}_{i,k}}{100} \in [\text{Lower}_k, \text{Upper}_k]$$
-2. **Zero Cheat-Sheets**: Handbooks provide tool specs and action schemas. Agents must reason and ground colloquial portions via `search_foods` + `get_food` autonomously.
-3. **Safety Redlines**: Proposing or logging foods containing user allergens causes an immediate fail (`allergy_violation`).
+2. **Zero Cheat-Sheets**: Handbooks provide tool specs and action schemas. Agents must reason and ground colloquial portions autonomously via `search_foods` + `get_food`.
+3. **Safety Redlines**: Proposing or logging foods containing user allergens triggers an immediate `allergy_violation` failure.
 
 ---
 
@@ -119,9 +119,9 @@ pytest
 ### 4. Run Benchmark Suite
 
 ```bash
-# Evaluate GLM-5.3 on the v1.0 Gold benchmark (63 tasks)
+# Evaluate GLM-5.3 on the official v1.0 benchmark (63 tasks)
 python scripts/eval_benchmark_suite.py \
-  --split data/splits/nutrienv-gold.json \
+  --split data/splits/nutrienv-v1.0.json \
   --model ark/glm-5.3 \
   --workers 5 \
   --out reports/benchmark_ark_glm-5.3_v1.0.json
@@ -145,10 +145,10 @@ nutri-env/
 |-- data/
 |   |-- fdc/                   # USDA FDC SQLite database snapshot
 |   +-- splits/
-|       |-- nutrienv-gold.json # Official v1.0 Gold split (63 pure tasks)
-|       +-- archive/           # Pruned and historical splits
-|-- reports/                   # Official benchmark results & radar charts
-|   |-- assets/                # Visual charts (radar_v1.0_family.png)
+|       |-- nutrienv-v1.0.json # Official v1.0 benchmark split (63 curated tasks)
+|       +-- nutrienv-mini.json # Fast smoke evaluation split (10 tasks)
+|-- reports/                   # Official benchmark results & charts
+|   |-- assets/                # Visual charts (PNG assets)
 |   +-- benchmark_*_v1.0.json  # Raw evaluation trajectories & metric dumps
 |-- docs/                      # Architectural Decision Records (ADRs) & specs
 |-- scripts/                   # Evaluation runner and visualization tools
@@ -162,8 +162,8 @@ nutri-env/
 This project is licensed under the [MIT License](LICENSE).
 
 ```bibtex
-@misc{nutrienv2026,
-  author = {NutriEnv Team},
+@misc{snackjj2026nutrienv,
+  author = {Jiaqi Zhang},
   title = {NutriEnv: An Interactive Nutrition Benchmark & Environment for LLM Agents},
   year = {2026},
   publisher = {GitHub},
