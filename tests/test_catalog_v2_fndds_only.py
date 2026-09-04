@@ -51,6 +51,12 @@ _LIVE = ROOT / "data" / "fdc" / "archive" / "catalog.sqlite"
 _V1 = ROOT / "data" / "fdc" / "archive" / "catalog-v1.sqlite"
 _SPLIT = ROOT / "data" / "splits" / "archive" / "v0.5-gold.json"
 _V2 = ROOT / "data" / "fdc" / "catalog-v2.sqlite"
+_SURVEY_ZIP = ROOT / "data" / "fdc" / "raw" / "survey.zip"
+_FNDDS_ZIP = ROOT / "data" / "fdc" / "raw" / "fndds.zip"
+requires_fdc_raw = pytest.mark.skipif(
+    not _SURVEY_ZIP.is_file() and not _FNDDS_ZIP.is_file(),
+    reason="data/fdc/raw USDA zips are not shipped in the public clone",
+)
 
 
 def _sha256(path: Path) -> str:
@@ -204,6 +210,7 @@ def test_fndds_only_build_refuses_frozen_catalog_paths(dest, tmp_path) -> None:
         assert _sha256(path) == digest
 
 
+@requires_fdc_raw
 def test_plan_lists_staple_swaps_without_writing_catalog_v2() -> None:
     before_live = _sha256(_LIVE)
     before_v1 = _sha256(_V1)
@@ -229,6 +236,7 @@ def test_plan_lists_staple_swaps_without_writing_catalog_v2() -> None:
     assert _sha256(_V1) == before_v1
 
 
+@requires_fdc_raw
 def test_plan_zero_fndds_drift_is_independent_raw_scan() -> None:
     plan = builder.plan_fndds_only_rebuild(live_catalog=_LIVE)
     raw = plan["raw_scan"]
@@ -238,6 +246,7 @@ def test_plan_zero_fndds_drift_is_independent_raw_scan() -> None:
     assert "sqlite" not in raw["source"]
 
 
+@requires_fdc_raw
 def test_plan_confirms_raw_portion_facts_then_resolver_keys() -> None:
     plan = builder.plan_fndds_only_rebuild(live_catalog=_LIVE)
     facts = {row["slug"]: row for row in plan["staple_swaps"]}
@@ -264,6 +273,7 @@ def test_plan_confirms_raw_portion_facts_then_resolver_keys() -> None:
     assert "wild" in salmon_delta["disclosure"].lower()
 
 
+@requires_fdc_raw
 def test_dryrun_report_lists_gram_changes_and_staple_swaps(tmp_path) -> None:
     plan = builder.plan_fndds_only_rebuild(
         live_catalog=_LIVE, split_path=_SPLIT
@@ -289,6 +299,7 @@ def test_dryrun_report_lists_gram_changes_and_staple_swaps(tmp_path) -> None:
     assert "不写" in text
 
 
+@requires_fdc_raw
 def test_cli_fndds_only_dry_run_writes_report_only(tmp_path) -> None:
     dest = tmp_path / "catalog-v2-dryrun.md"
     before_live = _sha256(_LIVE)
@@ -304,6 +315,7 @@ def test_cli_fndds_only_dry_run_writes_report_only(tmp_path) -> None:
         assert _sha256(_V2) == before_v2
 
 
+@requires_fdc_raw
 def test_catalog_v2_is_fndds_only_with_approved_staple_pins() -> None:
     if not _V2.is_file():
         pytest.fail("data/fdc/catalog-v2.sqlite is missing; rebuild with --fndds-only")

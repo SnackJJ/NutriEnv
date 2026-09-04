@@ -49,11 +49,11 @@ One exam item: initial world, a user query, and one primary goal. The full Actio
 _Avoid_: hidden tool menu, teaching-simplified action space
 
 **Family**:
-The single goal a Task is scored against: Log, Recommend, Evaluate, Update, or Constrain. Every Task has exactly one primary Family, and the exam's base slots are allocated by Family. A Composite task (v1.0+) carries additional scored Oracles and occupies extra quota beyond the base 240.
+The single goal a Task is scored against: Log, Recommend, Evaluate, Update, or Constrain. Every Task has exactly one primary Family. A Composite task (v1.0+) carries additional scored Oracles.
 _Avoid_: tool name, difficulty tier, Situation
 
 **Composite**:
-A task that carries more than one scored Oracle — the query asks for multiple steps (e.g. log then recommend). Pass requires every sub-Oracle's end state to match. Composite quota is extra, on top of the base 240 allocation.
+A task that carries more than one scored Oracle — the query asks for multiple steps (e.g. log then recommend). Pass requires every sub-Oracle's end state to match.
 _Avoid_: multi-family task (the primary Family is still one), rubric jury
 
 **Log**:

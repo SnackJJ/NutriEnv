@@ -48,4 +48,4 @@ python scripts/build_fdc_catalog.py --branded
 - Diagnostic tags (`allergy`, `window`, `oracle`, …) explain a fail. They are not the headline and are not a 0–100 quality score.
 - Illegal Actions (bad schema, unminted `food_id`) are Env physics: an error observation, no mutation, episode continues. They are not a Hand-in fail by themselves.
 
-See `CONTEXT.md` and `docs/adr/0002-binary-pass-headline.md`.
+See [`docs/glossary.md`](../docs/glossary.md).

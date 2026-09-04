@@ -4,7 +4,7 @@
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python 3.11+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"></a>
   <a href="https://github.com/SnackJJ/NutriEnv"><img src="https://img.shields.io/badge/benchmark-NutriEnv--v1.0%20(63%20tasks)-orange.svg" alt="NutriEnv v1.0"></a>
-  <a href="tests/"><img src="https://img.shields.io/badge/tests-1409%20passed-brightgreen.svg" alt="1409 Tests Passing"></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/tests-1402%20passed-brightgreen.svg" alt="1402 Tests Passing"></a>
   <a href="https://snackjj.github.io/"><img src="https://img.shields.io/badge/homepage-snackjj.github.io-8A2BE2.svg" alt="Author Homepage"></a>
 </p>
 
@@ -113,7 +113,7 @@ cp .env.example .env.local
 
 ```bash
 pytest
-# 1,409 passed
+# 1,402 passed
 ```
 
 ### 4. Run Benchmark Suite
@@ -149,7 +149,7 @@ nutri-env/
 |       |-- nutrienv-v1.0.json # Official v1.0 exam (63 tasks)
 |       +-- nutrienv-mini.json # Smoke subset (10 tasks from v1.0)
 |-- reports/                   # Official four-model results & charts
-|-- docs/                      # ADRs and specs
+|-- docs/                      # Glossary
 |-- scripts/                   # Evaluation runner and visualization tools
 +-- tests/                     # Unit and integration tests
 ```

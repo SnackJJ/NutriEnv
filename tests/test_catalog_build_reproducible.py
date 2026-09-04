@@ -292,6 +292,11 @@ def test_plan_default_byte_check_flags_unsorted_dumps(
         assert _sha256(path) == digest
 
 
+@pytest.mark.skipif(
+    not (ROOT / "data" / "fdc" / "raw" / "survey.zip").is_file()
+    and not (ROOT / "data" / "fdc" / "raw" / "fndds.zip").is_file(),
+    reason="data/fdc/raw USDA zips are not shipped in the public clone",
+)
 def test_plan_byte_check_detects_sqlite_key_order_drift(
     tmp_path: Path,
 ) -> None:
