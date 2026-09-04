@@ -29,6 +29,25 @@ def test_context_messages_pins_system_and_task() -> None:
     assert all(row.get("content") != "Observation:\n0" for row in sent)
 
 
+def test_context_messages_keeps_full_trajectory_when_limit_is_none() -> None:
+    messages = [{"role": "system", "content": "rules"}]
+    messages.append({"role": "user", "content": "Task:\nlog the milk"})
+    for index in range(20):
+        messages.append({"role": "user", "content": f"Observation:\n{index}"})
+        messages.append({"role": "assistant", "content": '{"op": "get_profile"}'})
+
+    sent = context_messages(messages, limit=None)
+    assert sent == messages
+    assert sent[2]["content"] == "Observation:\n0"
+
+
+def test_context_messages_rejects_non_positive_limit() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="limit"):
+        context_messages([{"role": "system", "content": "rules"}], limit=0)
+
+
 def test_oracle_hint_names_writes_not_the_catalog() -> None:
     profile = Profile(
         user_id="u",
@@ -94,6 +113,7 @@ def test_react_manual_teaches_evaluate_verdict_not_empty_items_as_reject() -> No
         assert "verdict=accept" in text
         assert "verdict=reject" in text
         assert "omit verdict" in text
+        assert "second submit_plan" in text
         assert "25-30%" in text
         assert "30-40%" in text
         assert "allergy" in text
@@ -126,7 +146,7 @@ def test_react_manual_teaches_implicit_update_direction_without_step_sizes() -> 
 
 
 def test_react_manual_teaches_log_then_recommend_needs_both_writes() -> None:
-    for version in REACT_VERSIONS:
+    for version in ("v0", "v1"):
         text = react_manual(version).lower()
         assert "what to eat next" in text
         assert "log_meal" in text
@@ -135,13 +155,36 @@ def test_react_manual_teaches_log_then_recommend_needs_both_writes() -> None:
 
 
 def test_react_manual_teaches_composite_chains_need_every_write() -> None:
-    for version in REACT_VERSIONS:
+    for version in ("v0", "v1"):
         text = react_manual(version).lower()
         assert "multi-step" in text
         # update+recommend and log+evaluate chains, symmetric with the mill.
         assert "update_profile then submit_plan" in text
         assert "log_meal then verdict=accept" in text
+    for version in REACT_VERSIONS:
+        text = react_manual(version).lower()
+        assert "multi-step" in text
+        assert "update_profile then submit_plan" in text
     assert len(react_manual("v0").split()) <= 400
+    assert len(react_manual("v2").split()) <= 400
+
+
+def test_react_v2_lists_amend_meal_and_drops_ate_then_cheats() -> None:
+    v0 = react_manual("v0")
+    v2 = react_manual("v2")
+    assert "amend_meal" not in v0
+    assert "amend_meal" in v2
+    assert "{index, grams, food_id?, eaten_at?}" in v2
+    lowered = v2.lower()
+    assert "ate then" not in lowered
+    assert "what to eat next" not in lowered
+    assert "is this okay" not in lowered
+    assert "log_meal then verdict=accept" not in lowered
+    assert "never log_meal future recommendations" in lowered
+    assert len(v2.split()) <= 400
+    harness = ReActHarness(api_key="dummy", version="v2")
+    assert harness.label == "react-v2"
+    assert harness.messages[0]["content"] == v2
 
 
 def test_react_version_rejects_unknown_and_clone_keeps_it() -> None:
@@ -153,6 +196,9 @@ def test_react_version_rejects_unknown_and_clone_keeps_it() -> None:
     clone = original.clone()
     assert clone.version == "v1"
     assert clone.label == "react-v1"
+    v2 = ReActHarness(api_key="dummy", version="v2")
+    assert v2.clone().version == "v2"
+    assert v2.clone().label == "react-v2"
 
 
 def test_clone_starts_a_fresh_message_log() -> None:
@@ -166,6 +212,26 @@ def test_clone_starts_a_fresh_message_log() -> None:
     assert clone.model == original.model
     assert clone.api_key == original.api_key
     assert clone.leak_oracle is original.leak_oracle
+    assert clone.context_limit == original.context_limit
+
+
+def test_clone_keeps_unlimited_context_limit() -> None:
+    original = ReActHarness(api_key="dummy", context_limit=None)
+    clone = original.clone()
+    assert original.context_limit is None
+    assert clone.context_limit is None
+
+
+def test_react_harness_default_context_limit_is_full_trajectory() -> None:
+    harness = ReActHarness(api_key="dummy")
+    assert harness.context_limit is None
+
+
+def test_react_harness_rejects_non_positive_context_limit() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="context_limit"):
+        ReActHarness(api_key="dummy", context_limit=0)
 
 
 def test_reset_leak_appends_hint_only_when_enabled() -> None:

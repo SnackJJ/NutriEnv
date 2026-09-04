@@ -267,11 +267,10 @@ def test_reject_with_empty_items_sets_reasons_and_clears_plan() -> None:
     assert state.last_reasons == ("allergy", "kcal_hi")
 
 
-def test_reject_with_nonempty_plan_is_illegal_and_leaves_world_unchanged() -> None:
+def test_reject_with_nonempty_plan_adopts_substitute_and_keeps_reasons() -> None:
     env = NutriEnv()
     env.reset(demo_state())
     env.step({"op": "submit_plan", "items": [{"food_id": "egg", "grams": 100}]})
-    before = copy.deepcopy(env.state())
 
     out = env.step(
         {
@@ -282,15 +281,11 @@ def test_reject_with_nonempty_plan_is_illegal_and_leaves_world_unchanged() -> No
         }
     )
 
-    assert out["ok"] is False
-    assert out["error"]["code"] == "bad_schema"
-    after = env.state()
-    assert after.ledger == before.ledger
-    assert after.profile == before.profile
-    assert after.last_plan == before.last_plan
-    assert after.last_verdict == before.last_verdict
-    assert after.last_reasons == before.last_reasons
-    assert after.catalog == before.catalog
+    assert out["ok"] is True
+    state = env.state()
+    assert state.last_verdict == "reject"
+    assert state.last_plan == [{"food_id": "oats", "grams": 50.0}]
+    assert state.last_reasons == ("kcal_hi",)
 
 
 def test_accept_with_reasons_is_illegal_and_leaves_world_unchanged() -> None:
@@ -681,4 +676,35 @@ def test_env_readme_documents_profile_body_facts() -> None:
     assert "maintain" in text
     assert "re-derive" in text
     assert "windows-only" in text
+
+
+def test_amend_meal_physics() -> None:
+    env = NutriEnv()
+    s0 = demo_state()
+    env.reset(s0)
+    # Log a meal first so ledger is non-empty
+    env.step({"op": "log_meal", "food_id": "peanut_butter", "grams": 32.0})
+    # 1. Normal amendment of grams
+    orig_len = len(env.state().ledger)
+    res = env.step({"op": "amend_meal", "index": 0, "grams": 60.0})
+    assert res["ok"] is True
+    assert res["observation"]["index"] == 0
+    assert res["observation"]["row"]["grams"] == 60.0
+    assert env.state().ledger[0].grams == 60.0
+    assert len(env.state().ledger) == orig_len
+
+    # 2. Out of bounds index
+    bad_idx = env.step({"op": "amend_meal", "index": 999, "grams": 50.0})
+    assert bad_idx["ok"] is False
+    assert bad_idx["error"]["code"] == "bad_index"
+
+    # 3. Negative grams
+    neg_g = env.step({"op": "amend_meal", "index": 0, "grams": -10.0})
+    assert neg_g["ok"] is False
+    assert neg_g["error"]["code"] in ("bad_schema", "implausible_quantity")
+
+    # 4. Unknown food_id
+    bad_food = env.step({"op": "amend_meal", "index": 0, "grams": 50.0, "food_id": "non_existent"})
+    assert bad_food["ok"] is False
+    assert bad_food["error"]["code"] == "unknown_food"
 

@@ -97,6 +97,8 @@ def task_to_item(task: Task) -> dict:
             {"food_id": item["food_id"], "grams": item["grams"]}
             for item in task.s0.last_plan
         ]
+    if task.s0.allowed_food_ids is not None:
+        s0["allowed_food_ids"] = sorted(task.s0.allowed_food_ids)
 
     item = {
         "id": task.id,
@@ -125,12 +127,14 @@ def _oracle_payload(oracle: Oracle, *, family: str, s0) -> dict[str, object]:
     if oracle.sub_oracles:
         # Parent fields are unused (compose_oracles); serializing a "profile"
         # here would resurrect one on load and break round-trip identity.
-        return {
+        payload: dict[str, object] = {
             "sub_oracles": [
                 _oracle_payload(sub, family=_sub_family(sub), s0=s0)
                 for sub in oracle.sub_oracles
             ],
         }
+        _attach_allowed_food_ids(payload, oracle, s0)
+        return payload
     payload: dict[str, object] = {}
     prof_payload = _oracle_profile_payload(oracle.profile, s0.profile)
     if prof_payload is not None:
@@ -138,10 +142,11 @@ def _oracle_payload(oracle: Oracle, *, family: str, s0) -> dict[str, object]:
     if family == "evaluate" or (
         oracle.last_plan is not None and oracle.ledger_tail is None
     ):
-        payload["last_plan"] = [
-            {"food_id": item["food_id"], "grams": item["grams"]}
-            for item in (oracle.last_plan or [])
-        ]
+        if not (oracle.last_verdict == "reject" and oracle.last_plan is None):
+            payload["last_plan"] = [
+                {"food_id": item["food_id"], "grams": item["grams"]}
+                for item in (oracle.last_plan or [])
+            ]
         _attach_plan_flags(payload, oracle)
         if oracle.plan_windows:
             payload["plan_windows"] = {
@@ -150,6 +155,7 @@ def _oracle_payload(oracle: Oracle, *, family: str, s0) -> dict[str, object]:
         _attach_verdict(payload, oracle)
         _attach_update_band(payload, oracle)
         _attach_evaluated_plan(payload, oracle)
+        _attach_allowed_food_ids(payload, oracle, s0)
         payload["ledger"] = _ledger_payload(oracle.ledger, s0)
         return payload
     if oracle.ledger_tail is not None:
@@ -171,6 +177,7 @@ def _oracle_payload(oracle: Oracle, *, family: str, s0) -> dict[str, object]:
     _attach_verdict(payload, oracle)
     _attach_update_band(payload, oracle)
     _attach_evaluated_plan(payload, oracle)
+    _attach_allowed_food_ids(payload, oracle, s0)
     if "ledger" not in payload and oracle.ledger is not None:
         payload["ledger"] = _ledger_payload(oracle.ledger, s0)
     return payload
@@ -222,6 +229,14 @@ def _attach_evaluated_plan(payload: dict[str, object], oracle: Oracle) -> None:
         ]
     if oracle.bound_labels:
         payload["bound_labels"] = list(oracle.bound_labels)
+
+
+def _attach_allowed_food_ids(payload: dict[str, object], oracle: Oracle, s0) -> None:
+    if oracle.allowed_food_ids is None:
+        return
+    if s0.allowed_food_ids is not None and oracle.allowed_food_ids == s0.allowed_food_ids:
+        return
+    payload["allowed_food_ids"] = sorted(oracle.allowed_food_ids)
 
 
 def _oracle_profile_payload(oracle_profile, s0_profile) -> object:

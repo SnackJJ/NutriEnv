@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 from dataclasses import replace
 from pathlib import Path
 
@@ -30,9 +31,16 @@ __all__ = ["GOLD_SPLIT_PATH", "EXAM_SPLIT_PATH", "load_split", "load_exam"]
 _ROOT = Path(__file__).resolve().parents[3]
 # Archived v0 calibration set; kept for archaeology through load_split.
 GOLD_SPLIT_PATH = _ROOT / "data" / "splits" / "archive" / "v0-gold.json"
-# Published v2.2 exams.
+# Last published freeze. v2.3-gold is the next exam (hygiene + added items).
 EXAM_SPLIT_PATH = _ROOT / "data" / "splits" / "v2.2-gold.json"
-_EXAM_VERSIONS = frozenset({"v2.2-gold", "v2.2-mini"})
+_EXAM_VERSIONS = frozenset({"v2.2-gold", "v2.2-mini", "v2.3-gold", "v2.3-mini", "v2.5-gold", "v2.6-gold", "v2.7-gold", "v2.8-gold"})
+_EXAM_VERSION_RE = re.compile(r"^(v[2-9]\.\d+|nutrienv-v\d+\.\d+)-(gold|mini)$")
+
+
+def _is_valid_exam_version(v: object) -> bool:
+    if not isinstance(v, str):
+        return False
+    return bool(_EXAM_VERSION_RE.match(v)) or v in _EXAM_VERSIONS
 ALLOWED_TIERS = frozenset(EVALUATE_TIERS) | {"tier1", "tier2", "tier3"}
 
 
@@ -82,9 +90,9 @@ def load_exam(path: Path | str | None = None) -> list[Task]:
     if not isinstance(payload, dict):
         raise ValueError("exam payload must be an object")
     version = payload.get("version")
-    if version not in _EXAM_VERSIONS:
+    if not _is_valid_exam_version(version):
         raise ValueError(
-            f"exam version must be one of {sorted(_EXAM_VERSIONS)}, got {version!r}"
+            f"exam version must match valid exam pattern or one of {sorted(_EXAM_VERSIONS)}, got {version!r}"
         )
     items = payload.get("items")
     if not isinstance(items, list) or not items:
@@ -168,6 +176,7 @@ def _s0(value: object, catalog: dict) -> WorldState:
         ledger=ledger,
         catalog=copy.deepcopy(catalog),
         last_plan=last_plan,
+        allowed_food_ids=_allowed_food_ids(value.get("allowed_food_ids"), catalog),
     )
 
 
@@ -227,9 +236,16 @@ def _plan_item(value: object, catalog: object) -> dict:
     return item
 
 
-def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool = True) -> Oracle:
+def _oracle(
+    value: object,
+    s0: WorldState,
+    catalog: object,
+    *,
+    allow_subs: bool = True,
+    inherit_allowed: bool = True,
+) -> Oracle:
     if value is None:
-        return Oracle()
+        return Oracle(allowed_food_ids=s0.allowed_food_ids if inherit_allowed else None)
     if not isinstance(value, dict):
         raise ValueError("oracle must be an object")
     update_band = value.get("update_band")
@@ -331,14 +347,28 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
 
     sub_oracles = None
     sub_raw = value.get("sub_oracles")
+    allowed_food_ids = _allowed_food_ids(value.get("allowed_food_ids"), catalog)
+    inherited_allowed = (
+        allowed_food_ids
+        if allowed_food_ids is not None
+        else (s0.allowed_food_ids if inherit_allowed else None)
+    )
     if sub_raw is not None:
         if not allow_subs:
             raise ValueError("nested sub_oracles are not allowed")
         if not isinstance(sub_raw, list) or len(sub_raw) < 2:
             raise ValueError("oracle.sub_oracles must be a list of at least 2 oracles")
         sub_oracles = tuple(
-            _oracle(item, s0, catalog, allow_subs=False) for item in sub_raw
+            _oracle(item, s0, catalog, allow_subs=False, inherit_allowed=False)
+            for item in sub_raw
         )
+        if inherited_allowed is not None:
+            sub_oracles = tuple(
+                sub
+                if sub.allowed_food_ids is not None
+                else replace(sub, allowed_food_ids=inherited_allowed)
+                for sub in sub_oracles
+            )
 
     last_verdict = value.get("last_verdict")
     if last_verdict is not None and last_verdict not in {"accept", "reject"}:
@@ -372,7 +402,18 @@ def _oracle(value: object, s0: WorldState, catalog: object, *, allow_subs: bool 
         evaluated_plan=evaluated_plan,
         bound_labels=_bound_labels(value),
         sub_oracles=sub_oracles,
+        allowed_food_ids=inherited_allowed,
     )
+
+
+def _allowed_food_ids(value: object, catalog: object) -> frozenset[str] | None:
+    if value is None:
+        return None
+    if not isinstance(value, list) or not all(
+        isinstance(item, str) and item.strip() for item in value
+    ):
+        raise ValueError("allowed_food_ids must be a list of non-empty strings")
+    return frozenset(canonical_food_id(catalog, item) for item in value)
 
 
 def _bound_labels(value: dict) -> tuple[str, ...]:

@@ -1,32 +1,72 @@
-data/fdc/raw/
-data/usda.db
-.venv/
-.pytest_cache/
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-.env
-.env.local
-*.egg-info/
-dist/
-build/
-.DS_Store
+*$py.class
 
-# tool infrastructure (not project content)
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments & testing
+.venv/
+env/
+venv/
+ENV/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local configuration & secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# IDE & OS files
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.schema*
+
+# Large raw datasets & local databases
+data/fdc/raw/
+data/usda.db
+
+# Tool infrastructure & local scratch space
 .agent
+.agent/
+.agents
 .agents/
 .claude/
 skills-lock.json
+.scratch/
+.work/
 
-# generated review-sheet artifacts (source of truth is build_review_sheet.py)
+# Generated review-sheet / temporary artifacts
 reports/review-sheet.json
 reports/review-sheet.html
 reports/review_sheet_preview.html
-
-# generated FNDDS dry-run diff (regenerate with scripts/fndds_dry_run.py)
 reports/dry-run-drift.json
-
-# local issue tracker scratch space (regenerate from spec/ADRs)
-.scratch/
-
-# issue-15 batch generation scratch space
-.work/

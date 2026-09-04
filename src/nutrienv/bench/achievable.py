@@ -38,6 +38,7 @@ SCORED_FEATURES = (
     "profile",
     "body_facts",
     "sub_oracles",
+    "allowed_food_ids",
 )
 
 
@@ -70,9 +71,74 @@ def check_achievable(tasks: Sequence[Task]) -> AchievabilityReport:
 def _reachable(task: Task, scorer: Scorer) -> bool:
     env = NutriEnv()
     env.reset(task.s0)
-    for oracle in scored_oracles(task.oracle):
+    oracles = tuple(scored_oracles(task.oracle))
+    pair = _unfit_recommend_pair(oracles)
+    if pair is not None:
+        return _replay_unfit_recommend(env, task, pair, scorer)
+    for oracle in oracles:
         if not _replay_oracle(env, task, oracle, scorer):
             return False
+    return scorer.score(env.state(), task.oracle)["passed"] is True
+
+
+def _unfit_recommend_pair(
+    oracles: tuple[Oracle, ...],
+) -> tuple[Oracle, Oracle] | None:
+    """Reject child that omits last_plan + recommend sentinel, or None."""
+    if len(oracles) != 2:
+        return None
+    reject = rec = None
+    for oracle in oracles:
+        if oracle.last_verdict == "reject" and oracle.last_plan is None:
+            reject = oracle
+        elif (
+            oracle.last_plan == []
+            and oracle.last_verdict is None
+            and (oracle.plan_must_fit_windows or oracle.plan_must_be_safe)
+        ):
+            rec = oracle
+    if reject is None or rec is None:
+        return None
+    return reject, rec
+
+
+def _replay_unfit_recommend(
+    env: NutriEnv,
+    task: Task,
+    pair: tuple[Oracle, Oracle],
+    scorer: Scorer,
+) -> bool:
+    """One submit_plan: reject reasons plus a fitting substitute."""
+    reject, rec = pair
+    for oracle in pair:
+        if not _replay_ledger(env, oracle):
+            return False
+        if not _replay_profile(env, oracle):
+            return False
+    allergies = env.state().profile.allergies
+    windows = (
+        rec.plan_windows
+        if rec.plan_windows is not None
+        else env.state().profile.windows
+    )
+    plan = fitting_plan(
+        task.s0.catalog,
+        windows,
+        allergies,
+        allowed_food_ids=_allowed_foods(task, rec),
+    )
+    if plan is None:
+        return False
+    action: dict = {
+        "op": "submit_plan",
+        "items": plan,
+        "verdict": "reject",
+    }
+    if reject.last_reasons:
+        action["reasons"] = list(reject.last_reasons)
+    stepped = env.step(action)
+    if not stepped.get("ok"):
+        return False
     return scorer.score(env.state(), task.oracle)["passed"] is True
 
 
@@ -117,9 +183,18 @@ def _replay_oracle(
                 if oracle.plan_windows is not None
                 else env.state().profile.windows
             )
-            plan = fitting_plan(task.s0.catalog, windows, allergies)
+            plan = fitting_plan(
+                task.s0.catalog,
+                windows,
+                allergies,
+                allowed_food_ids=_allowed_foods(task, oracle),
+            )
         else:
-            plan = _any_safe_plan(task.s0.catalog, allergies)
+            plan = _any_safe_plan(
+                task.s0.catalog,
+                allergies,
+                allowed_food_ids=_allowed_foods(task, oracle),
+            )
         if plan is None:
             return False
         stepped = env.step({"op": "submit_plan", "items": plan})
@@ -137,6 +212,19 @@ def _replay_ledger(env: NutriEnv, oracle: Oracle) -> bool:
         current = list(env.state().ledger)
         expected = list(oracle.ledger)
         if current == expected:
+            return True
+        if len(current) == len(expected):
+            for idx, (cur_r, exp_r) in enumerate(zip(current, expected)):
+                if cur_r != exp_r:
+                    stepped = env.step({
+                        "op": "amend_meal",
+                        "index": idx,
+                        "food_id": exp_r.food_id,
+                        "grams": exp_r.grams,
+                        "eaten_at": exp_r.eaten_at,
+                    })
+                    if not stepped.get("ok"):
+                        return False
             return True
         if expected[: len(current)] != current:
             return False
@@ -163,13 +251,24 @@ def _log_row(env: NutriEnv, row: LedgerRow) -> bool:
     return bool(stepped.get("ok"))
 
 
-def _any_safe_plan(catalog, allergies) -> list[dict] | None:
+def _allowed_foods(task: Task, oracle: Oracle | None = None) -> frozenset[str] | None:
+    src = oracle if oracle is not None else task.oracle
+    if src.allowed_food_ids is not None:
+        return src.allowed_food_ids
+    return task.s0.allowed_food_ids
+
+
+def _any_safe_plan(
+    catalog, allergies, allowed_food_ids: frozenset[str] | None = None
+) -> list[dict] | None:
     """Any 1 g allergen-safe item Scorer can score. Windows are not judged."""
     try:
         banned = set(normalize_tags(list(allergies)))
     except ValueError:
         return None
     for food_id, entry in catalog.items():
+        if allowed_food_ids is not None and food_id not in allowed_food_ids:
+            continue
         if not _scorer_legal_food(entry, banned):
             continue
         return [{"food_id": food_id, "grams": 1.0}]

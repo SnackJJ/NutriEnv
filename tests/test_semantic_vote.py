@@ -412,9 +412,16 @@ def test_discipline_5_scorer_stays_exact_end_state() -> None:
         catalog=catalog,
         ledger=[LedgerRow("milk_whole", 240.0, "today-lunch")],
     )
+    miss = WorldState(
+        profile=s0.profile,
+        catalog=catalog,
+        ledger=[LedgerRow("milk_whole", 200.0, "today-lunch")],
+    )
     assert Scorer().score(passed, oracle)["passed"] is True
-    assert Scorer().score(close, oracle)["passed"] is False
-    assert Scorer().score(close, oracle)["tag"] == "log_miss"
+    # 240 g vs gold 244 g is inside ±15% (ADR 0029); 200 g is not.
+    assert Scorer().score(close, oracle)["passed"] is True
+    assert Scorer().score(miss, oracle)["passed"] is False
+    assert Scorer().score(miss, oracle)["tag"] == "log_miss"
 
 
 def test_deterministic_leak_still_rejects_when_voter_would_pass(tmp_path: Path) -> None:

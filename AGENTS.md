@@ -27,5 +27,9 @@
 9. **分层抽样与去标签化自然语（ADR 0022）**：题库抽样采用 75% 常见日常食物 + 25% 长尾特色食物的分层抽样；Prompt 强制去标签化（严禁照抄 `NS as to fat` / `prepared from mix` 等科研分类词），确保生成的 User Query 为人类餐桌真实大白话。
 10. **双层评测协议与物理容差（ADR 0023）**：流水线实行“阶段一：Oracle Solver 全量 Round-Trip 100% Pass 证明题目健康可解”与“阶段二：受测 Agent 极简协议盲测考察真实常识推理”的双层架构；Oracle 保留 Gold 锚点，判分器支持 FNDDS 物理白名单离散容差；用户重复过敏原等真实人机交互打标为 `idempotent_update` 幂等测试。
 11. **标准 100 题矩阵与安全层级化（ADR 0024）**：彻底废弃老 240 题模板，确立 100 题百分制基准（Update 5% + Log 15% + Eval 20% + Rec 20% + Comp 40%）；判分器实行过敏致命红线层级化（只要识别出 `allergy` 拦截即 Pass，漏报 `allergy` 必 Fail）；账本记录实行无序多重集判分（消除同餐记录先后顺序死板判定）；抽样层强制餐品常识语义门禁（严禁调味品/浓缩膏/纯饮料单独成餐）；Recommend/Composite 步数预算放宽至 30 步。
+12. **考试版本冻结（ADR 0025）**：已发布的 split 不再改金标；卫生与新题进下一版。v2.2-gold=100 冻结；v2.3-gold=118（原 100 id 卫生修补 + 10 道 Evaluate accept + 8 道 Evaluate-unfit+Recommend）。`EXAM_SPLIT_PATH` 在 v2.3 榜跑出来之前仍指 v2.2。清单见 `docs/v2.2-gold-audit-followup.md`。
+13. **首发发行版与双星消融（ADR 0026）**：内部代号 v2.5，对外正式开源发行大版本 **NutriEnv v1.0**（题量 128 题）；扩充 `amend_meal` 动作实现账本 CRUD 闭环；引入 6 大常识伪健康误区矩阵；放宽 Reject 理由匹配杜绝假阴性；NutriEnv 与 NutriBuddy 形成基准评测与消融实验双星联动。
+14. **基建抗暗杀与公理重导出（ADR 0028）**：评测 Harness 单步超时提升至 90s，严禁静默伪造 finish，支持回合级自动整局重试；判分器拦截反向矛盾理由与虚假过敏指控；量词修正必须走 `plan_windows_for_meal` 全链路重导出；正式冻结 **`v2.7-gold`**（128题），对外镜像 `nutrienv-gold.json`。
+15. **63 题纯净黄金首发版（ADR 0029/0030）**：对外正式开源发行大版本 **NutriEnv v1.0 (Lite Gold)**（内部代号 **v2.8-gold**，题量收敛至 63 题纯净版）；发布前严格审计并剔除 7 道底层检索/单ID白名单环境瑕疵题（存档至 `v2.8-pruned-defective.json`），实现 **0 硬假阳性 / 0 确凿假阴性**；以 Composite 多意图长链为主干（占比 57.1%）；底层第一性 IR 全文检索重构（catalog-v3 / Porter 词干还原 / 烹饪态等价簇）正式登记为 **v3.0** 核心升级任务。
 
 详细分工、执行顺序、pane 约定见 `docs/agent-orchestration.md`。

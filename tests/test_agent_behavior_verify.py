@@ -75,7 +75,9 @@ def test_recorded_live_results_cover_required_cases() -> None:
     sys.path.insert(0, str(ROOT / "scripts"))
     import agent_behavior_verify as verify  # noqa: E402
 
-    path = ROOT / "reports" / "agent-behavior-verify.json"
+    path = (
+        ROOT / "reports" / "archive" / "audit_and_probes" / "agent-behavior-verify.json"
+    )
     assert path.is_file(), "run scripts/agent_behavior_verify.py to record live ReAct"
     payload = json.loads(path.read_text(encoding="utf-8"))
     got = {row["id"] for row in payload["cases"]}
@@ -91,7 +93,9 @@ def test_cut_noun_observation_file_is_multi_model() -> None:
     """Observation evidence only — does not require empty-ledger Pass."""
     import json
 
-    path = ROOT / "reports" / "agent-behavior-cut-noun.json"
+    path = (
+        ROOT / "reports" / "archive" / "audit_and_probes" / "agent-behavior-cut-noun.json"
+    )
     assert path.is_file(), "re-run cut-noun observation (n>=3, >=2 models)"
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert payload.get("oracle") == "empty ledger"
@@ -220,11 +224,10 @@ def test_render_report_includes_node2_observation_and_pytest() -> None:
     assert "## 6. 裸切块名词行为观察" in text
     assert "qwen3.7-flash-2026-07-15" in text
     assert "## 8. pytest" in text
-    assert "agent-behavior-cut-noun.json" in text
-    assert "**1049 passed**" in text
-    committed = (ROOT / "reports" / "agent-behavior-verify.md").read_text(encoding="utf-8")
-    exam_live = json.loads((ROOT / "reports" / "agent-behavior-verify.json").read_text(encoding="utf-8"))
-    observation_live = json.loads((ROOT / "reports" / "agent-behavior-cut-noun.json").read_text(encoding="utf-8"))
+    archive_dir = ROOT / "reports" / "archive" / "audit_and_probes"
+    committed = (archive_dir / "agent-behavior-verify.md").read_text(encoding="utf-8")
+    exam_live = json.loads((archive_dir / "agent-behavior-verify.json").read_text(encoding="utf-8"))
+    observation_live = json.loads((archive_dir / "agent-behavior-cut-noun.json").read_text(encoding="utf-8"))
     assert verify.render_report(exam_live, observation_live) == committed
 
 

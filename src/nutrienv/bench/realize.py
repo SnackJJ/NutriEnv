@@ -135,6 +135,11 @@ class Oracle:
 
     ``evaluated_plan`` is the named meal on Evaluate Tasks. Env does not
     adopt it on reject. Validator, reason bind, and Stage A read it.
+
+    ``allowed_food_ids`` is the closed inventory a submitted plan may use.
+    ``None`` means unrestricted; a frozenset fails off-list foods as
+    ``inventory_miss``. Composite children inherit a missing value from the
+    parent, then from S0.
     """
 
     profile: Profile | None = None
@@ -155,6 +160,7 @@ class Oracle:
     # None = single-family oracle (frozen v0.5 / v1.0 path). A non-empty
     # tuple is a composite container: Scorer judges only the children.
     sub_oracles: tuple[Oracle, ...] | None = None
+    allowed_food_ids: frozenset[str] | None = None
 
 
 @dataclass(frozen=True)

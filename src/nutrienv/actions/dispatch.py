@@ -271,12 +271,14 @@ def _submit_plan(state: WorldState, args: dict, _default_eaten_at: str) -> dict:
         state.last_reasons = ()
         return {"op": "submit_plan", "items": copy.deepcopy(normalized)}
 
-    if normalized:
-        raise ActionError("bad_schema", "reject requires empty items")
-    state.last_plan = []
+    # Empty items: refuse the named meal and adopt nothing.
+    # Non-empty items: refuse the named meal and hand in a substitute
+    # (Evaluate-unfit + Recommend). Pure Evaluate oracles still require
+    # an empty plan at score time.
+    state.last_plan = normalized
     state.last_verdict = "reject"
     state.last_reasons = reasons if reasons is not None else ()
-    return {"op": "submit_plan", "items": []}
+    return {"op": "submit_plan", "items": copy.deepcopy(normalized)}
 
 
 def _expand_food_allergies(state: WorldState, tags: tuple[str, ...]) -> tuple[str, ...]:
@@ -394,6 +396,28 @@ def _update_plan(state: WorldState, args: dict, _default_eaten_at: str) -> dict:
     return {"op": "update_plan", "plan_preset": copy.deepcopy(plan_preset)}
 
 
+def _amend_meal(state: WorldState, args: dict, _default_eaten_at: str) -> dict:
+    index = args["index"]
+    if not isinstance(index, int) or isinstance(index, bool):
+        raise ActionError("bad_schema", "index must be an integer")
+    if index < 0 or index >= len(state.ledger):
+        raise ActionError("bad_index", f"index {index} out of range (ledger size {len(state.ledger)})")
+
+    old_row = state.ledger[index]
+    grams = _require_grams(args["grams"], "'grams'")
+    food_id = _resolve_food(state, args["food_id"]) if "food_id" in args else old_row.food_id
+    eaten_at = as_nonempty_str(args["eaten_at"], "eaten_at") if "eaten_at" in args else old_row.eaten_at
+
+    new_row = LedgerRow(food_id=food_id, grams=grams, eaten_at=eaten_at)
+    state.ledger[index] = new_row
+    return {
+        "op": "amend_meal",
+        "index": index,
+        "row": {"food_id": new_row.food_id, "grams": new_row.grams, "eaten_at": new_row.eaten_at},
+        "ledger_size": len(state.ledger),
+    }
+
+
 _HANDLERS = {
     "search_foods": _search_foods,
     "get_food": _get_food,
@@ -404,4 +428,5 @@ _HANDLERS = {
     "submit_plan": _submit_plan,
     "update_profile": _update_profile,
     "update_plan": _update_plan,
+    "amend_meal": _amend_meal,
 }

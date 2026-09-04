@@ -29,6 +29,7 @@ ACTION_SCHEMAS: dict[str, tuple[frozenset[str], frozenset[str]]] = {
     "submit_plan": (frozenset({"items"}), frozenset({"verdict", "reasons"})),
     "update_profile": (frozenset({"patch"}), frozenset()),
     "update_plan": (frozenset({"patch"}), frozenset()),
+    "amend_meal": (frozenset({"index", "grams"}), frozenset({"food_id", "eaten_at"})),
 }
 
 OPS = frozenset(ACTION_SCHEMAS)

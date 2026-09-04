@@ -280,7 +280,12 @@ def validate_draft(task: Task) -> list[str]:
         # window.
         profile = _judged_profile(task)
         windows = task.oracle.plan_windows or profile.windows
-        if fitting_plan(task.s0.catalog, windows, profile.allergies) is None:
+        if fitting_plan(
+            task.s0.catalog,
+            windows,
+            profile.allergies,
+            allowed_food_ids=_allowed_foods(task),
+        ) is None:
             issues.append(
                 "item is unpassable: no allergen-safe plan fits the judged windows"
             )
@@ -742,7 +747,11 @@ def _validate_composite(task: Task) -> list[str]:
     has_substitute = any(
         child.last_plan == [] and child.last_verdict is None for child in children
     )
-    if has_unfit and has_substitute:
+    reject_omits_plan = any(
+        child.last_verdict == "reject" and child.last_plan is None
+        for child in children
+    )
+    if has_unfit and has_substitute and not reject_omits_plan:
         issues.append("composite Evaluate-unfit paired with Recommend-substitute")
     query = task.query.lower()
     tail: list = []
@@ -776,7 +785,12 @@ def _validate_composite(task: Task) -> list[str]:
                                 f"composite plan_windows {key} != expected meal windows {bounds}"
                             )
         windows = child.plan_windows or profile.windows
-        if fitting_plan(task.s0.catalog, windows, profile.allergies) is None:
+        if fitting_plan(
+            task.s0.catalog,
+            windows,
+            profile.allergies,
+            allowed_food_ids=_allowed_foods(task, child),
+        ) is None:
             issues.append("composite recommend is unpassable")
     return issues
 
@@ -963,12 +977,33 @@ _FIT_STAPLES = (
 _FIT_GRID = tuple(float(grams) for grams in range(20, 401, 20))
 
 
-def fitting_plan(catalog, windows: dict, allergies) -> list[dict] | None:
-    """Search staples for any allergen-safe plan inside every judged window."""
+def _allowed_foods(task, oracle=None):
+    src = oracle if oracle is not None else task.oracle
+    if src.allowed_food_ids is not None:
+        return src.allowed_food_ids
+    return task.s0.allowed_food_ids
+
+
+def fitting_plan(
+    catalog,
+    windows: dict,
+    allergies,
+    allowed_food_ids: frozenset[str] | None = None,
+) -> list[dict] | None:
+    """Search staples for any allergen-safe plan inside every judged window.
+
+    When ``allowed_food_ids`` is set, search only those ids present in
+    ``catalog`` (fridge / grocery / closed-menu supersets).
+    """
     banned = _tag_set(allergies)
     keys = list(windows)
     per_gram: dict[str, dict[str, float]] = {}
-    for food_id in _FIT_STAPLES:
+    candidates = (
+        tuple(food_id for food_id in sorted(allowed_food_ids) if food_id in catalog)
+        if allowed_food_ids is not None
+        else _FIT_STAPLES
+    )
+    for food_id in candidates:
         entry = catalog.get(food_id)
         if not isinstance(entry, dict):
             continue

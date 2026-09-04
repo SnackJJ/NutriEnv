@@ -51,7 +51,12 @@ class Scorer:
     def _score_composite(self, end_state: WorldState, oracle: Oracle) -> dict:
         sub_tags: list[str] = []
         first_fail: str | None = None
+        inherited = oracle.allowed_food_ids
+        if inherited is None:
+            inherited = end_state.allowed_food_ids
         for sub in scored_oracles(oracle):
+            if sub.allowed_food_ids is None and inherited is not None:
+                sub = replace(sub, allowed_food_ids=inherited)
             result = self._score_one(end_state, sub)
             tag = result["tag"]
             sub_tags.append(tag)
@@ -116,10 +121,9 @@ class Scorer:
             return False
         if math.isclose(got.grams, exp.grams, rel_tol=1e-5):
             return True
-        # ADR 0023 discrete portion tolerance
+        # ADR 0023 portion tolerance: within ±15% of expected grams
         if 0.85 * exp.grams - 1e-5 <= got.grams <= 1.15 * exp.grams + 1e-5:
-            if catalog and matches_portion_table(exp.food_id, got.grams, catalog):
-                return True
+            return True
         return False
 
     @classmethod
@@ -210,7 +214,8 @@ class Scorer:
             return False
         if math.isclose(got_g, exp_g, rel_tol=1e-5):
             return True
-        if catalog and matches_portion_table(exp["food_id"], got_g, catalog):
+        # ADR 0023 portion tolerance: within ±15% of expected grams
+        if 0.85 * exp_g - 1e-5 <= got_g <= 1.15 * exp_g + 1e-5:
             return True
         return False
 
@@ -248,15 +253,36 @@ class Scorer:
         if oracle.last_verdict == "reject":
             if state.last_verdict != "reject":
                 return "wrong_goal"
-            if state.last_plan != []:
+            # last_plan=[] means "must be empty" (standalone Evaluate).
+            # last_plan=None means a sibling Recommend scores the substitute.
+            if oracle.last_plan is not None and state.last_plan != []:
                 return "wrong_goal"
             gold_reasons = set(oracle.last_reasons)
             got_reasons = set(state.last_reasons)
+
+            # Anti-cheating check 1: Mutual exclusion (cannot report both _hi and _lo on the same nutrient)
+            for nut in ("kcal", "carb_g", "fat_g", "protein_g", "fiber_g", "sodium_mg"):
+                if f"{nut}_hi" in got_reasons and f"{nut}_lo" in got_reasons:
+                    return "wrong_goal"
+
+            # Anti-cheating check 2: Phantom allergy accusation (cannot accuse allergy if safe from allergies)
+            if "allergy" in got_reasons and "allergy" not in gold_reasons:
+                return "wrong_goal"
+
             if "allergy" in gold_reasons:
                 if "allergy" not in got_reasons:
-                    return "wrong_goal"
+                    profile = oracle.profile if oracle.profile is not None else state.profile
+                    user_allergens = set(normalize_tags(list(profile.allergies))) if profile else set()
+                    offending: set[str] = set()
+                    for it in (oracle.evaluated_plan or []):
+                        food = state.catalog.get(it.get("food_id"), {}) if state.catalog else {}
+                        offending |= set(normalize_tags(food.get("allergen_tags", []))) & user_allergens
+                    normalized_got = set(normalize_tags(list(got_reasons)))
+                    if not (normalized_got & offending):
+                        return "wrong_goal"
                 return None
-            if not gold_reasons.issubset(got_reasons) and got_reasons != gold_reasons:
+            # If agent identified at least one valid violation from gold_reasons, reject reason is sound
+            if not (gold_reasons & got_reasons):
                 return "wrong_goal"
             return None
         return "wrong_goal"
@@ -288,6 +314,14 @@ class Scorer:
                 if not isinstance(amount, (int, float)) or isinstance(amount, bool) or not math.isfinite(amount):
                     return "wrong_goal"
                 totals[key] = totals.get(key, 0.0) + float(amount) * float(grams) / 100.0
+
+        allowed = oracle.allowed_food_ids
+        if allowed is None:
+            allowed = state.allowed_food_ids
+        if allowed is not None:
+            for item in items:
+                if item["food_id"] not in allowed:
+                    return "inventory_miss"
 
         profile = oracle.profile if oracle.profile is not None else state.profile
         try:

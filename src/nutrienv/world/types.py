@@ -61,6 +61,7 @@ REASON_CODES = frozenset(
         "fiber_g_lo",
         "sodium_mg_hi",
         "sodium_mg_lo",
+        "inventory_miss",
     }
 )
 
@@ -100,6 +101,8 @@ class WorldState:
     ``[{"food_id": str, "grams": float}, ...]``; it is empty until one lands.
     ``last_verdict`` is ``None`` (silence), ``"accept"``, or ``"reject"``.
     ``last_reasons`` is the closed reason-code set from a reject.
+    ``allowed_food_ids`` is the closed inventory (fridge / grocery / menu).
+    ``None`` means the full catalog; a frozenset is the only legal plan set.
     """
 
     profile: Profile
@@ -108,7 +111,22 @@ class WorldState:
     last_plan: list = field(default_factory=list)
     last_verdict: str | None = None
     last_reasons: tuple[str, ...] = ()
+    allowed_food_ids: frozenset[str] | None = None
 
+
+_ALLERGEN_CODES: frozenset[str] = frozenset(
+    {
+        "egg",
+        "fish",
+        "gluten",
+        "milk",
+        "peanut",
+        "shellfish",
+        "soy",
+        "tree_nut",
+        "wheat",
+    }
+)
 
 _REASON_ALIASES: dict[str, str] = {
     "carb_hi": "carb_g_hi",
@@ -121,6 +139,9 @@ _REASON_ALIASES: dict[str, str] = {
     "fiber_lo": "fiber_g_lo",
     "sodium_hi": "sodium_mg_hi",
     "sodium_lo": "sodium_mg_lo",
+    "eggs": "egg",
+    "peanuts": "peanut",
+    "tree_nuts": "tree_nut",
 }
 
 
@@ -134,7 +155,7 @@ def normalize_reasons(values: object) -> tuple[str, ...]:
             raise ValueError("expected a list of strings")
         token = value.strip().lower()
         token = _REASON_ALIASES.get(token, token)
-        if token not in REASON_CODES:
+        if token not in REASON_CODES and token not in _ALLERGEN_CODES:
             raise ValueError(f"unknown reason: {token!r}")
         out.add(token)
     return tuple(sorted(out))

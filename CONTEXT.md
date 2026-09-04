@@ -61,8 +61,12 @@ A Family: the person reports a meal they already ate, and the Ledger must end up
 _Avoid_: planning the next meal, judging whether the meal was wise
 
 **Evaluate**:
-A Family: the person names a complete candidate meal and the agent must put that exact meal forward. What is judged is whether the named meal fits, not which meal to pick.
-_Avoid_: proposing a substitute for a bad meal (that is Constrain), taste rating
+A Family: the person names a candidate meal. Standalone Evaluate scores accept or reject of that named meal. A request for a replacement if it fails is Composite, not Evaluate.
+_Avoid_: taste rating
+
+**Evaluate-unfit + Recommend**:
+A Composite pair: refuse the named meal and hand in a different safe meal that fits the remaining windows.
+_Avoid_: scoring only the refusal; adopting the named allergen meal
 
 **Update**:
 A Family: the person asks to change their own Profile. Fields the person did not mention stay as they were.

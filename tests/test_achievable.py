@@ -420,6 +420,39 @@ def test_body_fact_weight_update_is_reachable() -> None:
     assert check_achievable([task]).unreachable == ()
 
 
+def test_evaluate_unfit_plus_recommend_is_reachable_in_one_submit() -> None:
+    s0 = demo_state()
+    s0.profile = replace(
+        s0.profile,
+        windows={"kcal": (0.0, 400.0), "protein_g": (0.0, 80.0)},
+    )
+    named = [{"food_id": "peanut_butter", "grams": 20.0}]
+    reject = Oracle(
+        profile=s0.profile,
+        last_plan=None,
+        ledger=tuple(s0.ledger),
+        last_verdict="reject",
+        last_reasons=("allergy",),
+        evaluated_plan=named,
+    )
+    rec = Oracle(
+        profile=s0.profile,
+        last_plan=[],
+        ledger=tuple(s0.ledger),
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=s0.profile.windows,
+    )
+    task = Task(
+        "comp-unfit-rec",
+        "composite",
+        "Evaluate peanut butter; if it fails, what should I eat for lunch instead?",
+        s0,
+        compose_oracles(reject, rec),
+    )
+    assert check_achievable([task]).unreachable == ()
+
+
 def test_reject_evaluate_is_reachable() -> None:
     s0 = demo_state()
     named = [{"food_id": "peanut_butter", "grams": 20.0}]
@@ -673,6 +706,12 @@ def test_cli_exits_nonzero_when_an_item_is_unreachable(tmp_path: Path, capsys) -
 
 
 V05 = Path("data/splits/archive/v0.5-gold.json")
+
+
+def test_v2_3_gold_all_tasks_reachable() -> None:
+    tasks = load_split(Path("data/splits/v2.3-gold.json"))
+    report = check_achievable(tasks)
+    assert report.unreachable == ()
 
 
 def test_archived_v05_load_split_reports_240_reachable() -> None:

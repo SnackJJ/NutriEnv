@@ -1,0 +1,257 @@
+{
+  "model": "ark/deepseek-v4-flash",
+  "split": "data/splits/v2.2-mini.json",
+  "context_limit": 12,
+  "note": "Reconstructed from eval log (step traces not kept; gold 100-task report was restored from git).",
+  "total_tasks": 20,
+  "passed_tasks": 12,
+  "pass_rate_pct": 60.0,
+  "overall_avg_steps": 14.6,
+  "overall_avg_time_seconds": 213.37,
+  "overall_total_tokens": 1048263,
+  "overall_avg_tokens_per_task": 52413.2,
+  "family_breakdown": {
+    "update": {
+      "total": 1,
+      "passed": 1,
+      "pass_rate": 100.0,
+      "avg_steps": 2.0,
+      "avg_time": 7.5,
+      "avg_tokens": 1931.0
+    },
+    "log": {
+      "total": 3,
+      "passed": 3,
+      "pass_rate": 100.0,
+      "avg_steps": 6.0,
+      "avg_time": 34.4,
+      "avg_tokens": 8873.0
+    },
+    "evaluate": {
+      "total": 4,
+      "passed": 4,
+      "pass_rate": 100.0,
+      "avg_steps": 4.25,
+      "avg_time": 67.6,
+      "avg_tokens": 7179.0
+    },
+    "recommend": {
+      "total": 4,
+      "passed": 1,
+      "pass_rate": 25.0,
+      "avg_steps": 25.25,
+      "avg_time": 215.90000000000003,
+      "avg_tokens": 127080.5
+    },
+    "composite": {
+      "total": 8,
+      "passed": 3,
+      "pass_rate": 37.5,
+      "avg_steps": 19.25,
+      "avg_time": 377.82499999999993,
+      "avg_tokens": 60334.375
+    }
+  },
+  "tasks": [
+    {
+      "task_id": "adr20-upd-5026",
+      "family": "update",
+      "passed": true,
+      "score_tag": "pass",
+      "n_steps": 2,
+      "max_budget": 6,
+      "wall_time_seconds": 7.5,
+      "total_tokens": 1931
+    },
+    {
+      "task_id": "adr20-log-5003",
+      "family": "log",
+      "passed": true,
+      "score_tag": "pass",
+      "n_steps": 4,
+      "max_budget": 12,
+      "wall_time_seconds": 26.5,
+      "total_tokens": 4568
+    },
+    {
+      "task_id": "adr20-eval-5009",
+      "family": "evaluate",
+      "passed": true,
+      "score_tag": "pass",
+      "n_steps": 1,
+      "max_budget": 12,
+      "wall_time_seconds": 25.9,
+      "total_tokens": 908
+    },
+    {
+      "task_id": "adr20-log-5004",
+      "family": "log",
+      "passed": true,
+      "score_tag": "pass",
+      "n_steps": 7,
+      "max_budget": 12,
+      "wall_time_seconds": 36.9,
+      "total_tokens": 13304
+    },
+    {
+      "task_id": "adr20-log-5001",
+      "family": "log",
+      "passed": true,
+      "score_tag": "pass",
+      "n_steps": 7,
+      "max_budget": 12,
+      "wall_time_seconds": 39.8,
+      "total_tokens": 8747
+    },
+    {
+      "task_id": "adr20-eval-5013",
+      "family": "evaluate",
+      "passed": true,
+      "score_tag": "pass",
+      "n_steps": 2,
+      "max_budget": 12,
+      "wall_time_seconds": 15.2,
+      "total_tokens": 2019
+    },
+    {
+      "task_id": "adr20-eval-5010",
+      "family": "evaluate",
+      "passed": true,
+      "score_tag": "pass",
+      "n_steps": 5,
+      "max_budget": 12,
+      "wall_time_seconds": 39.3,
+      "total_tokens": 6447
+    },
+    {
+      "task_id": "adr20-rec-5019",
+      "family": "recommend",
+      "passed": true,
+      "score_tag": "pass",
+      "n_steps": 13,
+      "max_budget": 30,
+      "wall_time_seconds": 91.9,
+      "total_tokens": 43656
+    },
+    {
+      "task_id": "adr20-eval-5012",
+      "family": "evaluate",
+      "passed": true,
+      "score_tag": "pass",
+      "n_steps": 9,
+      "max_budget": 12,
+      "wall_time_seconds": 190.0,
+      "total_tokens": 19342
+    },
+    {
+      "task_id": "adr20-rec-5018",
+      "family": "recommend",
+      "passed": false,
+      "score_tag": "window",
+      "n_steps": 30,
+      "max_budget": 30,
+      "wall_time_seconds": 245.3,
+      "total_tokens": 164191
+    },
+    {
+      "task_id": "adr24-comp-8301",
+      "family": "composite",
+      "passed": true,
+      "score_tag": "pass",
+      "n_steps": 5,
+      "max_budget": 30,
+      "wall_time_seconds": 28.2,
+      "total_tokens": 5604
+    },
+    {
+      "task_id": "adr20-rec-5021",
+      "family": "recommend",
+      "passed": false,
+      "score_tag": "window",
+      "n_steps": 28,
+      "max_budget": 30,
+      "wall_time_seconds": 198.7,
+      "total_tokens": 176614
+    },
+    {
+      "task_id": "adr20-rec-5020",
+      "family": "recommend",
+      "passed": false,
+      "score_tag": "window",
+      "n_steps": 30,
+      "max_budget": 30,
+      "wall_time_seconds": 327.7,
+      "total_tokens": 123861
+    },
+    {
+      "task_id": "adr24-comp-8250",
+      "family": "composite",
+      "passed": true,
+      "score_tag": "pass",
+      "n_steps": 9,
+      "max_budget": 30,
+      "wall_time_seconds": 61.7,
+      "total_tokens": 21011
+    },
+    {
+      "task_id": "adr20-comp-5034",
+      "family": "composite",
+      "passed": false,
+      "score_tag": "log_miss",
+      "n_steps": 30,
+      "max_budget": 30,
+      "wall_time_seconds": 189.5,
+      "total_tokens": 124272
+    },
+    {
+      "task_id": "adr24-comp-8309",
+      "family": "composite",
+      "passed": true,
+      "score_tag": "pass",
+      "n_steps": 10,
+      "max_budget": 30,
+      "wall_time_seconds": 143.5,
+      "total_tokens": 16139
+    },
+    {
+      "task_id": "adr24-comp-8263",
+      "family": "composite",
+      "passed": false,
+      "score_tag": "log_miss",
+      "n_steps": 19,
+      "max_budget": 30,
+      "wall_time_seconds": 385.9,
+      "total_tokens": 37669
+    },
+    {
+      "task_id": "adr24-comp-8246",
+      "family": "composite",
+      "passed": false,
+      "score_tag": "log_miss",
+      "n_steps": 21,
+      "max_budget": 30,
+      "wall_time_seconds": 587.9,
+      "total_tokens": 46428
+    },
+    {
+      "task_id": "adr24-comp-8266",
+      "family": "composite",
+      "passed": false,
+      "score_tag": "log_miss",
+      "n_steps": 30,
+      "max_budget": 30,
+      "wall_time_seconds": 559.3,
+      "total_tokens": 121773
+    },
+    {
+      "task_id": "adr24-comp-8255",
+      "family": "composite",
+      "passed": false,
+      "score_tag": "update_miss",
+      "n_steps": 30,
+      "max_budget": 30,
+      "wall_time_seconds": 1066.6,
+      "total_tokens": 109779
+    }
+  ]
+}

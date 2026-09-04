@@ -325,6 +325,7 @@ _NON_MEAL_CONDIMENT_WORDS = (
     "shortening",
     "flavoring",
     "sweetener",
+    "filling",
     "coffee",
     "tea",
     "soda",
@@ -356,6 +357,9 @@ def is_non_meal_condiment(name: str) -> bool:
     """True for standalone condiments/pastes/pure fats/drinks/candies that cannot constitute a meal by themselves."""
     lowered = name.lower()
     if any(pat in lowered for pat in _NON_MEAL_CONDIMENT_PATTERNS):
+        return True
+    # Head-noun paste/filling, even when the modifier is a staple ("sweet potato paste").
+    if re.search(r"\b(paste|filling)\b", lowered) and " with " not in lowered and " and " not in lowered:
         return True
     if any(main in lowered for main in ("with", "and", "sandwich", "burger", "pizza", "noodle", "pasta", "rice", "salad", "soup", "burrito", "taco", "fajita", "omelet", "stew", "chow mein", "egg", "nachos", "potato", "bread")):
         return any(re.search(rf"\b{re.escape(w)}\b", lowered) for w in ("coffee", "tea", "soda", "cola", "juice", "cocktail", "whiskey", "vodka", "manhattan", "liqueur", "candy", "caramel", "taffy", "marshmallow", "relish"))

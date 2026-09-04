@@ -236,7 +236,7 @@ def leftover_floor(
 
 def _is_evaluate_unfit(oracle: Oracle) -> bool:
     """ADR 0017's unfit envelope: a reject verdict over an empty named plan."""
-    return oracle.last_verdict == "reject" and oracle.last_plan == []
+    return oracle.last_verdict == "reject" and not oracle.last_plan
 
 
 def _evaluate_lenses(task: Task) -> list[Oracle]:
@@ -364,8 +364,12 @@ def constrained_recommends(tasks: Sequence[Task]) -> tuple[str, ...]:
         )
         hit = False
         for lens in lenses:
+            allowed = lens.oracle.allowed_food_ids or task.s0.allowed_food_ids
             if lens.oracle.plan_windows is not None and fitting_plan(
-                task.s0.catalog, lens.oracle.plan_windows, lens.profile.allergies
+                task.s0.catalog,
+                lens.oracle.plan_windows,
+                lens.profile.allergies,
+                allowed_food_ids=allowed,
             ) is None:
                 hit = True
                 break

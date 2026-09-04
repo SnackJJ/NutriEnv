@@ -33,7 +33,9 @@ def test_log_tail_and_profile_are_exact():
     row = LedgerRow("oats", 60.0, "now")
     state.ledger.extend([LedgerRow("banana", 100.0, "earlier"), row])
     assert scorer.score(state, Oracle(ledger_tail=[row]))["passed"]
-    assert scorer.score(state, Oracle(ledger_tail=[replace(row, grams=61.0)]))["tag"] == "log_miss"
+    # 61 g is inside the ±15% band; 80 g (1.33×) is not.
+    assert scorer.score(state, Oracle(ledger_tail=[replace(row, grams=61.0)]))["passed"]
+    assert scorer.score(state, Oracle(ledger_tail=[replace(row, grams=80.0)]))["tag"] == "log_miss"
 
     expected = replace(state.profile, allergies=("peanut", "shellfish"))
     assert scorer.score(state, Oracle(profile=expected))["tag"] == "update_miss"
@@ -65,13 +67,25 @@ def test_log_tail_discrete_portion_tolerance_adr0023():
     state.ledger = [LedgerRow("peanut_butter", 32.0, "today-breakfast")]
     assert scorer.score(state, Oracle(ledger_tail=[gold_row]))["passed"]
 
-    # Agent logged 31.0g (within [25.5, 34.5], but not in portion table) -> log_miss
+    # Agent logged 31.0g: inside the continuous ±15% band (ADR 0029 unbound the
+    # discrete portion-table lock), so this is a Pass.
     state.ledger = [LedgerRow("peanut_butter", 31.0, "today-breakfast")]
-    assert scorer.score(state, Oracle(ledger_tail=[gold_row]))["tag"] == "log_miss"
+    assert scorer.score(state, Oracle(ledger_tail=[gold_row]))["passed"]
 
     # Agent logged 16.0g (1 tbsp, in portion table, but 16.0 < 0.85*30 = 25.5) -> log_miss
     state.ledger = [LedgerRow("peanut_butter", 16.0, "today-breakfast")]
     assert scorer.score(state, Oracle(ledger_tail=[gold_row]))["tag"] == "log_miss"
+
+
+def test_plan_items_use_ledger_portion_band() -> None:
+    catalog = {"peanut_butter": {"portions": {"tbsp": 16.0, "cup": 258.0}}}
+    gold = {"food_id": "peanut_butter", "grams": 30.0}
+    assert Scorer._plan_item_matches(
+        {"food_id": "peanut_butter", "grams": 32.0}, gold, catalog
+    )
+    assert not Scorer._plan_item_matches(
+        {"food_id": "peanut_butter", "grams": 16.0}, gold, catalog
+    )
 
 
 def test_exact_evaluation_plan_and_empty_plan_goal():
@@ -469,3 +483,153 @@ def test_implicit_fatigue_accepts_either_route_the_handbook_offers() -> None:
     env.reset(_ada_state(phase="cut"))
     env.step({"op": "update_profile", "patch": {"phase": "cut"}})
     assert Scorer().score(env.state(), oracle)["tag"] == "update_miss"
+
+
+def test_specific_allergen_reason_alias_passes_scoped() -> None:
+    catalog = {
+        "shrimp": {
+            "name": "Shrimp",
+            "allergen_tags": ["shellfish"],
+            "nutrients": {"kcal": 100.0},
+        }
+    }
+    state = replace(
+        demo_state(),
+        catalog=catalog,
+        profile=replace(demo_state().profile, allergies=("shellfish",)),
+    )
+    evaluated_plan = [{"food_id": "shrimp", "grams": 100.0}]
+    oracle = Oracle(
+        profile=state.profile,
+        last_plan=[],
+        last_verdict="reject",
+        last_reasons=("allergy",),
+        evaluated_plan=evaluated_plan,
+        ledger=tuple(state.ledger),
+    )
+
+    # Model reports specific allergen "shellfish" -> Pass
+    env = NutriEnv()
+    env.reset(state)
+    env.step({"op": "submit_plan", "items": [], "verdict": "reject", "reasons": ["shellfish"]})
+    assert Scorer().score(env.state(), oracle) == {"passed": True, "tag": "pass"}
+
+    # Model hallucinates "peanut" -> Fail (wrong_goal)
+    env.reset(state)
+    env.step({"op": "submit_plan", "items": [], "verdict": "reject", "reasons": ["peanut"]})
+    assert Scorer().score(env.state(), oracle)["tag"] == "wrong_goal"
+
+    # Model misses allergy, reports "kcal_hi" -> Fail (wrong_goal)
+    env.reset(state)
+    env.step({"op": "submit_plan", "items": [], "verdict": "reject", "reasons": ["kcal_hi"]})
+    assert Scorer().score(env.state(), oracle)["tag"] == "wrong_goal"
+
+
+def test_non_allergy_reject_reasons_valid_subset_passes() -> None:
+    """If food violates multiple non-allergy constraints, identifying any true subset passes."""
+    state = demo_state()
+    oracle = Oracle(
+        profile=state.profile,
+        last_plan=[],
+        last_verdict="reject",
+        last_reasons=("fat_g_hi", "kcal_hi", "protein_g_hi"),
+        ledger=tuple(state.ledger),
+    )
+    env = NutriEnv()
+    env.reset(state)
+    # Agent identifies primary violation kcal_hi without listing all secondary violations
+    env.step({"op": "submit_plan", "items": [], "verdict": "reject", "reasons": ["kcal_hi"]})
+    assert Scorer().score(env.state(), oracle) == {"passed": True, "tag": "pass"}
+
+    # Agent identifies an irrelevant or false reason -> Fail
+    env.reset(state)
+    env.step({"op": "submit_plan", "items": [], "verdict": "reject", "reasons": ["sodium_mg_hi"]})
+    assert Scorer().score(env.state(), oracle)["tag"] == "wrong_goal"
+
+
+def test_scorer_reject_anti_cheating() -> None:
+    """Anti-cheating firewall: contradictory reasons or phantom allergy must fail."""
+    state = demo_state()
+    oracle = Oracle(
+        profile=state.profile,
+        last_plan=[],
+        last_verdict="reject",
+        last_reasons=("kcal_hi",),
+        ledger=tuple(state.ledger),
+    )
+    env = NutriEnv()
+    env.reset(state)
+
+    # 1. Contradictory reasons: reporting both kcal_hi and kcal_lo
+    env.step({
+        "op": "submit_plan",
+        "items": [],
+        "verdict": "reject",
+        "reasons": ["kcal_hi", "kcal_lo"],
+    })
+    assert Scorer().score(env.state(), oracle)["tag"] == "wrong_goal"
+
+    # 2. Phantom allergy accusation when gold has no allergy
+    env.reset(state)
+    env.step({
+        "op": "submit_plan",
+        "items": [],
+        "verdict": "reject",
+        "reasons": ["kcal_hi", "allergy"],
+    })
+    assert Scorer().score(env.state(), oracle)["tag"] == "wrong_goal"
+
+
+def test_off_inventory_food_is_inventory_miss() -> None:
+    scorer = Scorer()
+    state = demo_state()
+    state.profile = replace(
+        state.profile,
+        allergies=("peanut",),
+        windows={"kcal": (120.0, 140.0)},
+    )
+    oracle = Oracle(
+        profile=state.profile,
+        last_plan=[],
+        plan_must_fit_windows=True,
+        allowed_food_ids=frozenset({"white_rice", "broccoli"}),
+    )
+    state.last_plan = [{"food_id": "white_rice", "grams": 100.0}]
+    assert scorer.score(state, oracle) == {"passed": True, "tag": "pass"}
+
+    state.last_plan = [{"food_id": "chicken_breast", "grams": 80.0}]
+    assert scorer.score(state, oracle)["tag"] == "inventory_miss"
+
+
+def test_worldstate_allowed_food_ids_apply_when_oracle_omits_them() -> None:
+    scorer = Scorer()
+    state = demo_state()
+    state.profile = replace(state.profile, windows={"kcal": (120.0, 140.0)})
+    state.allowed_food_ids = frozenset({"white_rice"})
+    oracle = Oracle(profile=state.profile, last_plan=[], plan_must_fit_windows=True)
+    state.last_plan = [{"food_id": "chicken_breast", "grams": 80.0}]
+    assert scorer.score(state, oracle)["tag"] == "inventory_miss"
+    state.last_plan = [{"food_id": "white_rice", "grams": 100.0}]
+    assert scorer.score(state, oracle)["passed"] is True
+
+
+def test_composite_plan_leg_inherits_parent_allowed_food_ids() -> None:
+    state = demo_state()
+    state.profile = replace(state.profile, windows={"kcal": (120.0, 140.0)})
+    log_oracle = Oracle(profile=state.profile, ledger=tuple(state.ledger))
+    rec_oracle = Oracle(
+        profile=state.profile,
+        last_plan=[],
+        plan_must_fit_windows=True,
+        ledger=tuple(state.ledger),
+    )
+    parent = Oracle(
+        sub_oracles=(log_oracle, rec_oracle),
+        allowed_food_ids=frozenset({"white_rice"}),
+    )
+    state.last_plan = [{"food_id": "chicken_breast", "grams": 80.0}]
+    result = Scorer().score(state, parent)
+    assert result["passed"] is False
+    assert result["tag"] == "inventory_miss"
+    assert result["sub_tags"][-1] == "inventory_miss"
+

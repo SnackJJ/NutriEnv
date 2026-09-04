@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "visual-check",
+  "status": "skipped",
+  "visualReview": "pending",
+  "artifact": {
+    "path": "/home/jzq/Projects/nutri-env/reports/archify/nutrienv-pipeline.architecture.html",
+    "sha256": "eaed9adf25c70475869e898c9d6fb9b6f52318a547733c0257e5fbdbedc906cb",
+    "bytes": 644243
+  },
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "chrome": {
+    "status": "unavailable",
+    "executable": null
+  },
+  "containment": {
+    "status": "skipped",
+    "viewports": []
+  },
+  "captures": {
+    "status": "skipped",
+    "screenshots": [],
+    "contactSheet": null
+  },
+  "sidecars": {
+    "receipt": "nutrienv-pipeline.architecture.visual-check.json",
+    "contactSheet": "nutrienv-pipeline.architecture.visual-check.html"
+  },
+  "error": "Chrome or Chromium is unavailable. Set ARCHIFY_CHROME to its executable path."
+}

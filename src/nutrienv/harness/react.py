@@ -56,7 +56,7 @@ How an episode is graded:
 - Leftover questions: daily windows on get_profile are not meal budget. Subtract ledger nutrients and submit_plan for remainder.
 - After writes, emit finish. submit_plan is a hand-in: do not update_plan afterwards.
 - Profile allergies are catalog allergen_tags (shellfish, peanut), not food names.
-- Evaluate: submit_plan with verdict=accept and exact named meal, or verdict=reject, empty items, and reason codes that fire (allergy alone suffices for allergen meals; else {kcal,protein_g,carb_g,fat_g,fiber_g,sodium_mg}_hi/_lo). Doing nothing fails.
+- Evaluate: submit_plan with verdict=accept and exact named meal, or verdict=reject, empty items, and reason codes that fire (allergy alone suffices for allergen meals; else {kcal,protein_g,carb_g,fat_g,fiber_g,sodium_mg}_hi/_lo). If the query also asks what to eat instead: a single submit_plan with verdict=reject, those reason codes, and items for the replacement. A second submit_plan without verdict drops the reject. Doing nothing fails.
 - Recommend: submit_plan a safe meal that fits windows; omit verdict.
 - Single meal planning targets meal energy share: breakfast 25-30%, lunch 30-40%, dinner 30-40% of daily energy. Snack has none.
 - Spoken cutting, a tiring deficit, or building muscle with no number: patch phase, or move daily energy below maintain, up toward maintain, or protein above 0.8 g/kg. There is no published step size. Unmentioned allergies and other window keys stay.
@@ -76,10 +76,45 @@ _SYSTEM_V1_TAIL = """
 - "I am now allergic to Y, so no more Z": update_profile adds the catalog allergen tag for Y; never log_meal or submit_plan Z afterwards.
 """
 
-REACT_VERSIONS = ("v0", "v1")
+_SYSTEM_V2 = """You are an agent in NutriEnv, a steppable nutrition world.
+Each turn emit exactly one JSON object, no markdown, no extra top-level keys:
+{"op": "<one of the ops>", ...args}
+
+Available ops:
+- search_foods {q}   (BM25 over local USDA catalog; do not use q="*")
+- get_food {food_id}
+- get_profile
+- get_ledger
+- get_dri
+- log_meal {food_id, grams, eaten_at?}
+- amend_meal {index, grams, food_id?, eaten_at?}   (overwrite ledger[index]; index is 0-based into the current ledger; grams > 0; omitted fields keep the existing row's value)
+- submit_plan {items: [{food_id, grams}, ...], verdict?, reasons?}
+- update_profile {patch}
+- update_plan {patch}
+- finish  (hand-in: stop the episode; the current world is scored)
+
+How an episode is graded:
+- Writes apply immediately; the end state is scored on finish or step limit.
+- Multi-step queries need every step's write: allergy change then dinner ask is update_profile then submit_plan; never log_meal future recommendations.
+- Fields unmentioned by the user stay as the opening profile/ledger.
+- food_id comes from search/get_food (slugs like milk_whole also resolve); unknown ids change nothing.
+- Nutrient numbers come from observations, not prior knowledge. Catalog energy is per 100 g.
+- log_meal without eaten_at is stamped "now". If query names a meal, copy ledger style (today-breakfast, today-lunch, …).
+- Leftover questions: daily windows on get_profile are not meal budget. Subtract ledger nutrients and submit_plan for remainder.
+- After writes, emit finish. submit_plan is a hand-in: do not update_plan afterwards.
+- Profile allergies are catalog allergen_tags (shellfish, peanut), not food names.
+- Evaluate: submit_plan with verdict=accept and exact named meal, or verdict=reject, empty items, and reason codes that fire (allergy alone suffices for allergen meals; else {kcal,protein_g,carb_g,fat_g,fiber_g,sodium_mg}_hi/_lo). If the query also asks what to eat instead: a single submit_plan with verdict=reject, those reason codes, and items for the replacement. A second submit_plan without verdict drops the reject. Doing nothing fails.
+- Recommend: submit_plan a safe meal that fits windows; omit verdict.
+- Single meal planning targets meal energy share: breakfast 25-30%, lunch 30-40%, dinner 30-40% of daily energy. Snack has none.
+- Spoken cutting, a tiring deficit, or building muscle with no number: patch phase, or move daily energy below maintain, up toward maintain, or protein above 0.8 g/kg. There is no published step size. Unmentioned allergies and other window keys stay.
+- Body facts ("I weigh 70 kg now"): update_profile it; windows re-derive automatically. "Stop the cut" means phase maintain.
+"""
+
+REACT_VERSIONS = ("v0", "v1", "v2")
 _MANUALS = {
     "v0": _SYSTEM,
     "v1": _SYSTEM + _SYSTEM_V1_TAIL,
+    "v2": _SYSTEM_V2,
 }
 
 
@@ -90,12 +125,18 @@ def react_manual(version: str) -> str:
     return _MANUALS[version]
 
 
-def context_messages(messages: list[dict], *, limit: int = _CONTEXT_LIMIT) -> list[dict]:
+def context_messages(
+    messages: list[dict], *, limit: int | None = _CONTEXT_LIMIT
+) -> list[dict]:
     """Keep the system manual and the Task line when the window slides.
 
     A raw ``messages[-N:]`` drop drops both after a few steps, so the model
     forgets the ops and the query. Pin those two; slide only the trajectory.
+    ``limit=None`` sends the full log (published ReAct; the 12-message slide
+    is an ablation).
     """
+    if limit is None:
+        return list(messages)
     if limit < 1:
         raise ValueError("limit must be >= 1")
     if len(messages) <= limit:
@@ -179,9 +220,14 @@ class ReActHarness(Harness):
         max_steps: int = DEFAULT_MAX_STEPS,
         extra_body: dict | None = None,
         version: str = "v0",
+        context_limit: int | None = None,
     ) -> None:
         if version not in REACT_VERSIONS:
             raise ValueError(f"unknown react harness version: {version!r}")
+        if context_limit is not None and (
+            isinstance(context_limit, bool) or context_limit < 1
+        ):
+            raise ValueError("context_limit must be None or an int >= 1")
         spec = lookup_chat_model(model)
         self.base_url = base_url or spec.url
         self.api_key = api_key or os.environ.get(spec.api_key_env)
@@ -193,6 +239,7 @@ class ReActHarness(Harness):
         self.max_steps = max_steps
         self.extra_body = dict(extra_body or {})
         self.version = version
+        self.context_limit = context_limit
         self.messages: list[dict] = [{"role": "system", "content": react_manual(version)}]
 
     @property
@@ -210,6 +257,7 @@ class ReActHarness(Harness):
             max_steps=self.max_steps,
             extra_body=self.extra_body,
             version=self.version,
+            context_limit=self.context_limit,
         )
 
     def reset(self, task: object | None = None) -> None:
@@ -244,7 +292,7 @@ class ReActHarness(Harness):
     def _complete(self) -> str:
         payload = {
             "model": self.model,
-            "messages": context_messages(self.messages),
+            "messages": context_messages(self.messages, limit=self.context_limit),
             "temperature": 0.0,
             **self.extra_body,
         }

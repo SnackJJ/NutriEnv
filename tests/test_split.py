@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -147,6 +148,118 @@ def test_oracle_profile_object_keeps_unmentioned_body_facts(tmp_path: Path) -> N
     assert task.oracle.profile.activity == "light"
     assert task.oracle.profile.phase == "cut"
     assert task.oracle.profile.windows == task.s0.profile.windows
+
+
+def test_load_split_reads_allowed_food_ids_from_s0_into_oracle(tmp_path: Path) -> None:
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = {
+        "version": "test-inventory",
+        "items": [
+            {
+                "id": "inv-s0-001",
+                "family": "recommend",
+                "persona": "everyday",
+                "query": "Make dinner from the fridge.",
+                "s0": {
+                    "profile": {
+                        "user_id": "inv-ada",
+                        "allergies": ["peanut"],
+                        "windows": {"kcal": [120, 140]},
+                    },
+                    "ledger": [],
+                    "allowed_food_ids": ["white_rice", "broccoli"],
+                },
+                "oracle": {
+                    "profile": "s0",
+                    "last_plan": [],
+                    "plan_must_fit_windows": True,
+                    "ledger": "s0",
+                },
+            }
+        ],
+    }
+    path = tmp_path / "inventory-s0.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    task = load_split(path, catalog=demo_catalog())[0]
+    assert task.s0.allowed_food_ids == frozenset({"white_rice", "broccoli"})
+    assert task.oracle.allowed_food_ids == frozenset({"white_rice", "broccoli"})
+
+
+def test_load_split_reads_oracle_allowed_food_ids_and_composite_children(
+    tmp_path: Path,
+) -> None:
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = {
+        "version": "test-inventory",
+        "items": [
+            {
+                "id": "inv-comp-001",
+                "family": "log",
+                "persona": "everyday",
+                "query": "Log lunch then plan dinner from these groceries.",
+                "s0": {
+                    "profile": {
+                        "user_id": "inv-ada",
+                        "allergies": ["peanut"],
+                        "windows": {"kcal": [120, 140]},
+                    },
+                    "ledger": [],
+                },
+                "oracle": {
+                    "allowed_food_ids": ["white_rice", "broccoli", "chicken_breast"],
+                    "sub_oracles": [
+                        {"profile": "s0", "ledger": "s0"},
+                        {
+                            "profile": "s0",
+                            "last_plan": [],
+                            "plan_must_fit_windows": True,
+                            "ledger": "s0",
+                        },
+                    ],
+                },
+            }
+        ],
+    }
+    path = tmp_path / "inventory-comp.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    task = load_split(path, catalog=demo_catalog())[0]
+    assert task.s0.allowed_food_ids is None
+    assert task.oracle.allowed_food_ids == frozenset(
+        {"white_rice", "broccoli", "chicken_breast"}
+    )
+    assert task.oracle.sub_oracles is not None
+    assert all(
+        child.allowed_food_ids == task.oracle.allowed_food_ids
+        for child in task.oracle.sub_oracles
+    )
+
+
+def test_load_split_rejects_invalid_allowed_food_ids(tmp_path: Path) -> None:
+    from nutrienv.world.catalog_fixture import demo_catalog
+
+    payload = {
+        "version": "test-inventory",
+        "items": [
+            {
+                "id": "inv-bad-001",
+                "family": "recommend",
+                "persona": "everyday",
+                "query": "Make dinner.",
+                "s0": {
+                    "profile": {"user_id": "inv-ada", "windows": {"kcal": [120, 140]}},
+                    "ledger": [],
+                    "allowed_food_ids": "white_rice",
+                },
+                "oracle": {"profile": "s0", "last_plan": [], "ledger": "s0"},
+            }
+        ],
+    }
+    path = tmp_path / "inventory-bad.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="allowed_food_ids"):
+        load_split(path, catalog=demo_catalog())
 
 
 @pytest.mark.parametrize("phase", ["", None, "bulk"])
@@ -442,6 +555,196 @@ def test_load_split_default_loads_v2_2_gold() -> None:
     assert len(tasks) == 100
     exam_tasks = load_exam()
     assert len(exam_tasks) == 100
+
+
+def test_v2_3_gold_curation_size_and_adversarial_coverage() -> None:
+    v23 = load_split(Path("data/splits/v2.3-gold.json"))
+    assert len(v23) == 120
+    v23_ids = {task.id for task in v23}
+    purged = {
+        "adr20-log-5003",
+        "adr20-log-5008",
+        "adr20-comp-5041",
+        "adr20-comp-5052",
+        "adr24-comp-8237",
+        "adr24-comp-8238",
+        "adr24-comp-9111",
+        "adr24-comp-8263",
+    }
+    assert not (v23_ids & purged)
+    adversarial = {
+        "adr25-eval-1201",
+        "adr25-eval-1202",
+        "adr25-eval-1203",
+        "adr25-eval-1204",
+        "adr25-comp-1205",
+        "adr25-comp-1206",
+        "adr25-comp-1207",
+        "adr25-comp-1208",
+        "adr25-rec-1209",
+        "adr25-rec-1210",
+    }
+    assert adversarial <= v23_ids
+
+
+def test_v2_3_eval_accepts_keep_kcal_margin_off_the_window_edge() -> None:
+    from nutrienv.world.types import LedgerRow, ledger_totals
+
+    tight = {
+        "adr25-eval-1005",
+        "adr25-eval-1008",
+        "adr25-eval-1009",
+    }
+    tasks = {
+        task.id: task
+        for task in load_split(Path("data/splits/v2.3-gold.json"))
+        if task.id in tight
+    }
+    assert set(tasks) == tight
+    for task in tasks.values():
+        rows = [
+            LedgerRow(item["food_id"], item["grams"], "eval")
+            for item in task.oracle.evaluated_plan
+        ]
+        kcal = ledger_totals(rows, task.s0.catalog)["kcal"]
+        lo, hi = task.oracle.plan_windows["kcal"]
+        assert kcal - lo >= 50.0
+        assert hi - kcal >= 50.0
+
+
+def test_v2_3_new_eval_accepts_span_multiple_roster_people() -> None:
+    tasks = [
+        task
+        for task in load_split(Path("data/splits/v2.3-gold.json"))
+        if task.id.startswith("adr25-eval-")
+    ]
+    users = {task.s0.profile.user_id for task in tasks}
+    assert len(tasks) == 14
+    assert len(users) >= 7
+
+
+def test_v2_3_mini_covers_multi_item_eval_accept_and_unfit_recommend() -> None:
+    tasks = load_split(Path("data/splits/v2.3-mini.json"))
+    ids = {task.id for task in tasks}
+    assert "adr25-eval-1001" in ids
+    assert "adr25-eval-1008" in ids
+    assert "adr25-comp-1101" in ids
+    assert "adr25-comp-1108" in ids
+    multi = next(task for task in tasks if task.id == "adr25-eval-1008")
+    assert len(multi.oracle.evaluated_plan) >= 3
+
+
+def test_v2_3_hygiene_composites_keep_child_ledgers_aligned() -> None:
+    tasks = {
+        task.id: task
+        for task in load_split(Path("data/splits/v2.3-gold.json"))
+    }
+    for task_id, food_id, grams in (
+        ("adr24-comp-8310", "2709715", 130.0),
+    ):
+        children = tasks[task_id].oracle.sub_oracles
+        log = children[0]
+        assert any(row.food_id == food_id and row.grams == grams for row in log.ledger_tail)
+
+
+def test_v2_6_gold_disambiguates_queries_and_matches_public_release() -> None:
+    gold = load_split(Path("data/splits/v2.6-gold.json"))
+    assert len(gold) == 128
+    assert Counter(task.family for task in gold) == {
+        "update": 5,
+        "log": 14,
+        "evaluate": 39,
+        "recommend": 23,
+        "composite": 47,
+    }
+    by_id = {task.id: task for task in gold}
+    assert "adr20-log-8205" not in by_id
+    assert "adr20-log-5004" not in by_id
+    log_1309 = by_id["adr26-log-1309"]
+    assert log_1309.query == (
+        "I had two hard-boiled eggs and an apple for breakfast."
+    )
+    assert {(row.food_id, row.grams, row.eaten_at) for row in log_1309.oracle.ledger_tail} == {
+        ("2707154", 100.0, "today-breakfast"),
+        ("2709215", 165.0, "today-breakfast"),
+    }
+    log_1310 = by_id["adr26-log-1310"]
+    assert log_1310.query == (
+        "I had a glass of whole milk and a banana for breakfast."
+    )
+    assert {(row.food_id, row.grams, row.eaten_at) for row in log_1310.oracle.ledger_tail} == {
+        ("2705385", 244.0, "today-breakfast"),
+        ("2709224", 126.0, "today-breakfast"),
+    }
+    assert by_id["adr24-comp-8301"].query.startswith("I had a serving of tripe")
+    assert by_id["adr24-comp-8303"].query.startswith("I had a serving of cooked fresh carrots")
+    assert by_id["adr20-log-5005"].query.startswith("I had a standard plate of fish")
+    assert "prepared with added fat" in by_id["adr24-comp-9402"].query
+    assert any(
+        row.food_id == "2707421" and row.grams == 185.0
+        for row in by_id["adr24-comp-9402"].oracle.sub_oracles[0].ledger_tail
+    )
+    assert "made with no added fat" in by_id["adr24-comp-9403"].query
+    assert any(
+        row.food_id == "2709123" and row.grams == 288.0
+        for row in by_id["adr24-comp-9403"].oracle.sub_oracles[0].ledger_tail
+    )
+    assert "made with no added fat" in by_id["adr24-comp-9503"].query
+    assert any(
+        row.food_id == "2709123" and row.grams == 288.0
+        for row in by_id["adr24-comp-9503"].oracle.sub_oracles[1].ledger_tail
+    )
+    for task_id in (
+        "adr25-eval-1003",
+        "adr25-eval-1005",
+        "adr25-eval-1006",
+        "adr25-eval-1007",
+    ):
+        task = by_id[task_id]
+        assert "planned" in task.query
+        assert task.oracle.last_verdict == "accept"
+        assert task.oracle.ledger == ()
+
+
+def test_v2_5_nutrienv_v1_splits_exist_and_cover_all_requirements() -> None:
+    v25_tasks = load_split(Path("data/splits/v2.5-gold.json"))
+    assert len(v25_tasks) == 128
+
+    gold_ids = {t.id for t in v25_tasks}
+    # Check 6 dietary myth tasks
+    for i in range(1301, 1307):
+        assert f"adr26-eval-{i}" in gold_ids
+    # Check ledger amend task
+    assert "adr26-log-1307" in gold_ids
+    # Check multi-meal recommendation task
+    assert "adr26-rec-1308" in gold_ids
+
+    # Check mini splits
+    mini_tasks = load_split(Path("data/splits/nutrienv-mini.json"))
+    v25_mini_tasks = load_split(Path("data/splits/v2.5-mini.json"))
+    assert len(mini_tasks) == 24
+    assert len(v25_mini_tasks) == 24
+
+
+def test_v2_8_lite_gold_is_63_and_mirrors_public_release() -> None:
+    gold = load_split(Path("data/splits/v2.8-gold.json"))
+    public = load_split(Path("data/splits/nutrienv-gold.json"))
+    assert len(gold) == 63
+    assert len(public) == 63
+    assert Counter(task.family for task in gold) == {
+        "update": 2,
+        "log": 6,
+        "evaluate": 8,
+        "recommend": 11,
+        "composite": 36,
+    }
+    by_id = {task.id: task for task in gold}
+    assert "adr20-upd-5026" in by_id
+    assert "adr25-eval-1201" not in by_id
+    assert "adr29-fridge-01" not in by_id
+    assert "adr29-fridge-03" in by_id
+    assert "adr29-starve-04" in by_id
+    assert {task.id for task in gold} == {task.id for task in public}
 
 
 def test_gold_split_exists_and_loads() -> None:

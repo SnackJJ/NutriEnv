@@ -105,6 +105,33 @@ def test_composite_mixed_families_log_and_recommend():
     assert Scorer().score(state, composite)["passed"] is True
 
 
+def test_evaluate_unfit_with_substitute_passes_when_reject_omits_plan():
+    state = _tight_state()
+    reject = Oracle(
+        profile=state.profile,
+        last_plan=None,
+        last_verdict="reject",
+        last_reasons=("allergy",),
+        evaluated_plan=[{"food_id": "peanut_butter", "grams": 32.0}],
+        ledger=tuple(state.ledger),
+    )
+    rec = Oracle(
+        profile=state.profile,
+        last_plan=[],
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows={"kcal": (0.0, 400.0), "protein_g": (0.0, 80.0)},
+        ledger=tuple(state.ledger),
+    )
+    state.last_verdict = "reject"
+    state.last_reasons = ("allergy",)
+    state.last_plan = [{"food_id": "chicken_breast", "grams": 80.0}]
+    result = Scorer().score(state, compose_oracles(reject, rec))
+    assert result["passed"] is True
+    state.last_plan = []
+    assert Scorer().score(state, compose_oracles(reject, rec))["tag"] == "wrong_goal"
+
+
 def test_compose_oracles_rejects_one_or_nested():
     import pytest
 

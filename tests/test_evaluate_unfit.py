@@ -1,6 +1,7 @@
 """Ticket 05: constructed Evaluate-fit/unfit Tasks. Seams: realize_evaluate, Env step, Scorer, validate_draft."""
 
 import json
+from dataclasses import replace
 
 import pytest
 
@@ -307,6 +308,34 @@ def test_validator_rejects_evaluate_unfit_paired_with_recommend_substitute() -> 
     )
     issues = validate_draft(task)
     assert any("unfit" in item and "substitute" in item for item in issues)
+
+
+def test_validator_allows_unfit_plus_substitute_when_reject_omits_last_plan() -> None:
+    s0 = _ada_state()
+    unfit = realize_evaluate(
+        task_id="ev-unfit-pb",
+        query=_UNFIT_QUERY,
+        items=_UNFIT_MEAL,
+        s0=s0,
+        occasion="dinner",
+    )
+    reject = replace(unfit.oracle, last_plan=None)
+    recommend = Oracle(
+        profile=s0.profile,
+        last_plan=[],
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        ledger=tuple(s0.ledger),
+    )
+    task = Task(
+        "comp-unfit-sub-ok",
+        "composite",
+        "Check this peanut butter lunch; if it fails, what instead?",
+        s0,
+        compose_oracles(reject, recommend),
+    )
+    issues = validate_draft(task)
+    assert not any("unfit" in item and "substitute" in item for item in issues)
 
 
 def test_evaluated_plan_survives_freeze_load(tmp_path) -> None:

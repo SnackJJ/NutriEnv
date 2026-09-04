@@ -484,6 +484,38 @@ def test_leftover_gate_keeps_plan_windows_precedence():
     assert validate_draft(task) == []
 
 
+def test_fitting_plan_searches_only_allowed_food_ids():
+    catalog = {
+        "white_rice": {
+            "allergen_tags": [],
+            "nutrients": {"kcal": 130.0, "protein_g": 2.7},
+        },
+        "chicken_breast": {
+            "allergen_tags": [],
+            "nutrients": {"kcal": 165.0, "protein_g": 31.0},
+        },
+        "broccoli": {
+            "allergen_tags": [],
+            "nutrients": {"kcal": 34.0, "protein_g": 2.8},
+        },
+    }
+    windows = {"kcal": (120.0, 140.0), "protein_g": (2.0, 4.0)}
+    plan = fitting_plan(
+        catalog, windows, (), allowed_food_ids=frozenset({"white_rice", "missing_id"})
+    )
+    assert plan is not None
+    assert {item["food_id"] for item in plan} <= {"white_rice"}
+    assert (
+        fitting_plan(
+            catalog,
+            windows,
+            (),
+            allowed_food_ids=frozenset({"chicken_breast", "broccoli"}),
+        )
+        is None
+    )
+
+
 def test_fitting_plan_normalizes_allergy_tags():
     catalog = {
         "peanut_butter": {

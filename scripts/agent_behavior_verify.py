@@ -43,9 +43,15 @@ from nutrienv.world.catalog_store import load_catalog  # noqa: E402
 from nutrienv.world.types import LedgerRow, Profile, WorldState  # noqa: E402
 
 CATALOG_V2 = ROOT / "data" / "fdc" / "catalog-v2.sqlite"
-RESULTS_JSON = ROOT / "reports" / "agent-behavior-verify.json"
-CUT_NOUN_JSON = ROOT / "reports" / "agent-behavior-cut-noun.json"
-REPORT_MD = ROOT / "reports" / "agent-behavior-verify.md"
+RESULTS_JSON = (
+    ROOT / "reports" / "archive" / "audit_and_probes" / "agent-behavior-verify.json"
+)
+CUT_NOUN_JSON = (
+    ROOT / "reports" / "archive" / "audit_and_probes" / "agent-behavior-cut-noun.json"
+)
+REPORT_MD = (
+    ROOT / "reports" / "archive" / "audit_and_probes" / "agent-behavior-verify.md"
+)
 DEFAULT_MODEL = "deepseek-v4-flash-0731"
 OBSERVE_MODELS = ("deepseek-v4-flash-0731", "qwen3.7-flash-2026-07-15")
 CUT_NOUN_HANDBOOK = (

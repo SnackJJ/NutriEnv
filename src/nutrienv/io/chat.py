@@ -9,7 +9,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from http.client import IncompleteRead
+from http.client import IncompleteRead, HTTPException
 from pathlib import Path
 
 from .dotenv import load_dotenv_keys
@@ -42,6 +42,7 @@ OPENCODE_DEFAULT_URL = ""
 # (including JSON/shape errors). Do not merge the two sets.
 REACT_RETRY_ON: tuple[type[BaseException], ...] = (
     IncompleteRead,
+    HTTPException,
     urllib.error.URLError,
     TimeoutError,
     OSError,
@@ -59,24 +60,24 @@ def post_chat_completion(
     error_prefix: str = "request failed",
 ) -> str:
     """POST one chat completion and return ``choices[0].message.content``."""
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
-            # Some OpenAI-compatible gateways (e.g. opencode.ai/zen) sit behind
-            # Cloudflare and reject urllib's default python UA (403/1010).
-            "User-Agent": (
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
-            ),
-        },
-        method="POST",
-    )
+    import socket
+    socket.setdefaulttimeout(timeout)
     last_error: Exception | None = None
     for attempt in range(retries):
         try:
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                    "User-Agent": (
+                        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                        "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+                    ),
+                },
+                method="POST",
+            )
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
             return _message_text(body)
