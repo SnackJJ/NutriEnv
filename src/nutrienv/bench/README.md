@@ -62,14 +62,11 @@ draft is checked with `load_split` then this function, or
 
 ## Situations
 
-Situations use the active local USDA FDC catalog (`data/fdc/catalog-v2.sqlite`,
-FNDDS-only, built by `scripts/download_fdc.py` and
-`scripts/build_fdc_catalog.py --fndds-only --out data/fdc/catalog-v2.sqlite`).
+Situations use the published USDA FNDDS catalog (`data/fdc/catalog.sqlite`,
+built by `scripts/download_fdc.py` and
+`scripts/build_fdc_catalog.py --fndds-only --out data/fdc/catalog.sqlite`).
 
-The published exam is `data/splits/nutrienv-v1.0.json` (63 tasks). Historical
-v0.x and v2.x freezes live in `data/splits/archive/`. v0.x is bound to
-`data/fdc/archive/catalog.sqlite` and loads only through `load_split()`;
-`load_exam()` rejects those versions.
+The published exam is `data/splits/nutrienv-v1.0.json` (63 tasks).
 
 Diversity comes from `realizations.py` tables. Every family the exam scores is table-backed: `FUZZY_ROWS` (24), `LEFTOVER_ROWS` (27), `UPDATE_ROWS` (22), `CONSTRAIN_ROWS` (22, split into `kind="condition"` and `kind="conflict"`), `EVALUATE_ROWS` (55). Gold-shaped rows come first in each table so the factory still covers the calibration shapes.
 

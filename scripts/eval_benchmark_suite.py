@@ -406,7 +406,7 @@ def run_benchmark_suite(
 ) -> dict:
     load_dotenv_keys(Path(".env.local"))
     from nutrienv.world.catalog_store import load_catalog
-    catalog = load_catalog(Path("data/fdc/catalog-v2.sqlite"))
+    catalog = load_catalog(Path("data/fdc/catalog.sqlite"))
     tasks = load_split(split_path, catalog=catalog)
 
     spec = lookup_chat_model(model_id)

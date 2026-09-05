@@ -1,7 +1,7 @@
 {
   "version": "nutrienv-v1.0-gold",
   "parent": "v2.7-gold",
-  "catalog": "data/fdc/catalog-v2.sqlite",
+  "catalog": "data/fdc/catalog.sqlite",
   "catalog_sha256": "57184b2bbce4519076b4238a8d64861950db46fdc793d0e43055f07f43c28b5f",
   "items": [
     {

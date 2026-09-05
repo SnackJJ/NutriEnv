@@ -40,7 +40,7 @@ from nutrienv.bench.pipeline.types import FoodPool  # noqa: E402
 from nutrienv.io.chat import complete_chat  # noqa: E402
 from nutrienv.world.catalog_store import load_catalog  # noqa: E402
 
-DEFAULT_CATALOG = "data/fdc/catalog-v2.sqlite"
+DEFAULT_CATALOG = "data/fdc/catalog.sqlite"
 
 
 def _live_complete(model_id: str, messages: Sequence[Mapping[str, str]]) -> str:

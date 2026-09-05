@@ -1,19 +1,9 @@
 #!/usr/bin/env python3
 """Build the local FDC sqlite catalog from official CSV zips.
 
-Default path is the archived v0.x safe-overlay freeze
-(``data/fdc/archive/catalog.sqlite``).
-Full FNDDS strategy (seq_num first-wins) writes a *new* file:
+Published FNDDS-only snapshot:
 
-    .venv/bin/python scripts/build_fdc_catalog.py --out data/fdc/archive/catalog-v1.sqlite
-
-FNDDS-only (no SR Legacy; catalog-v2) is a *new* file after dry-run approval:
-
-    .venv/bin/python scripts/build_fdc_catalog.py --fndds-only --dry-run
-    .venv/bin/python scripts/build_fdc_catalog.py --fndds-only --out data/fdc/catalog-v2.sqlite
-
-``--full`` / ``--fndds-only`` without ``--out``, or targeting
-``data/fdc/archive/catalog.sqlite`` / ``data/fdc/archive/catalog-v1.sqlite``, is refused.
+    python scripts/build_fdc_catalog.py --fndds-only --out data/fdc/catalog.sqlite
 """
 
 from __future__ import annotations
@@ -30,7 +20,7 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
 _RAW = _ROOT / "data" / "fdc" / "raw"
-_DB = _ROOT / "data" / "fdc" / "archive" / "catalog.sqlite"
+_DB = _ROOT / "data" / "fdc" / "catalog.sqlite"
 
 _NUTRIENT_BY_ID = {
     "1008": "kcal",
@@ -1571,7 +1561,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--fndds-only",
         action="store_true",
-        help="Skip SR Legacy. Requires --out (catalog-v2) or --dry-run.",
+        help="Skip SR Legacy. Requires --out or --dry-run.",
     )
     parser.add_argument(
         "--dry-run",
@@ -1587,7 +1577,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     dest = args.out
     fndds_only = args.fndds_only or (
-        dest is not None and dest.name == "catalog-v2.sqlite"
+        dest is not None and dest.name == "catalog.sqlite"
     )
     full = (
         args.full
@@ -1599,14 +1589,14 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--dry-run currently supports --fndds-only only")
         plan = plan_fndds_only_rebuild(
             live_catalog=_DB,
-            split_path=_ROOT / "data" / "splits" / "archive" / "v0.5-gold.json",
-            reference_catalog=_ROOT / "data" / "fdc" / "catalog-v2.sqlite",
+            split_path=_ROOT / "data" / "splits" / "nutrienv-v1.0.json",
+            reference_catalog=_ROOT / "data" / "fdc" / "catalog.sqlite",
         )
         write_catalog_v2_dryrun(plan, args.report)
         print(f"wrote {args.report}")
         return 0
     if full and dest is None:
-        parser.error("full strategy requires --out PATH (refusing to overwrite data/fdc/archive/catalog.sqlite)")
+        parser.error("full strategy requires --out PATH")
     if fndds_only and dest is None:
         parser.error("fndds-only requires --out PATH or --dry-run")
     build(

@@ -29,10 +29,9 @@ from .situations import SITUATIONS
 __all__ = ["GOLD_SPLIT_PATH", "EXAM_SPLIT_PATH", "load_split", "load_exam"]
 
 _ROOT = Path(__file__).resolve().parents[3]
-# Archived v0 calibration set; kept for archaeology through load_split.
-GOLD_SPLIT_PATH = _ROOT / "data" / "splits" / "archive" / "v0-gold.json"
-# Published NutriEnv v1.0 exam (63 tasks). Historical freezes live in data/splits/archive/.
+# Published NutriEnv v1.0 exam (63 tasks).
 EXAM_SPLIT_PATH = _ROOT / "data" / "splits" / "nutrienv-v1.0.json"
+GOLD_SPLIT_PATH = EXAM_SPLIT_PATH
 _EXAM_VERSIONS = frozenset(
     {
         "v2.2-gold",
