@@ -1,19 +1,19 @@
 {
   "model": "ark/glm-5.3",
-  "split": "data/splits/v2.8-gold.json",
+  "split": "/home/jzq/Projects/nutri-env/data/splits/nutrienv-v1.0.json",
   "context_limit": null,
   "total_tasks": 63,
-  "passed_tasks": 45,
-  "pass_rate_pct": 71.43,
+  "passed_tasks": 47,
+  "pass_rate_pct": 74.6,
   "void_count": 0,
   "void_ids": [],
   "clean_total_tasks": 63,
-  "clean_pass_rate_pct": 71.43,
-  "overall_avg_steps": 14.7,
-  "overall_avg_time_seconds": 114.34,
-  "overall_total_tokens": 5243543,
-  "overall_avg_tokens_per_task": 83230.8,
-  "total_invalid_tool_calls": 15,
+  "clean_pass_rate_pct": 74.6,
+  "overall_avg_steps": 14.63,
+  "overall_avg_time_seconds": 112.24,
+  "overall_total_tokens": 5203053,
+  "overall_avg_tokens_per_task": 82588.1,
+  "total_invalid_tool_calls": 16,
   "total_allergen_violations": 0,
   "family_breakdown": {
     "update": {
@@ -32,9 +32,9 @@
       "void": 0,
       "pass_rate": 66.66666666666666,
       "clean_pass_rate": 66.66666666666666,
-      "avg_steps": 8.833333333333334,
-      "avg_time": 57.861444314320885,
-      "avg_tokens": 32806.5
+      "avg_steps": 8.666666666666666,
+      "avg_time": 51.41159085432688,
+      "avg_tokens": 31133.5
     },
     "evaluate": {
       "total": 8,
@@ -58,13 +58,13 @@
     },
     "composite": {
       "total": 36,
-      "passed": 24,
+      "passed": 26,
       "void": 0,
-      "pass_rate": 66.66666666666666,
-      "clean_pass_rate": 66.66666666666666,
-      "avg_steps": 17.583333333333332,
-      "avg_time": 140.37041209803687,
-      "avg_tokens": 109515.22222222222
+      "pass_rate": 72.22222222222221,
+      "clean_pass_rate": 72.22222222222221,
+      "avg_steps": 17.5,
+      "avg_time": 137.76286790768305,
+      "avg_tokens": 108669.33333333333
     }
   },
   "tasks": [
@@ -521,17 +521,17 @@
     {
       "task_id": "adr20-log-5006",
       "family": "log",
-      "query": "I had a side order of fried green tomatoes for lunch.",
+      "query": "I had a mini side order of fried green tomatoes (about a half-cup basket) for lunch.",
       "persona": "everyday",
       "passed": true,
       "score_tag": "pass",
       "n_steps": 4,
       "max_budget": 12,
-      "wall_time_seconds": 17.456300020217896,
-      "total_prompt_tokens": 4306,
+      "wall_time_seconds": 11.392991542816162,
+      "total_prompt_tokens": 4336,
       "total_completion_tokens": 46,
       "total_reasoning_tokens": 0,
-      "total_tokens": 4352,
+      "total_tokens": 4382,
       "tool_counts": {
         "search_foods": 1,
         "get_food": 1,
@@ -548,11 +548,11 @@
             "q": "fried green tomatoes"
           },
           "observation_snippet": "{'op': 'reset', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875], 'fiber_g': [22.166",
-          "prompt_tokens": 915,
+          "prompt_tokens": 923,
           "completion_tokens": 12,
           "reasoning_tokens": 0,
-          "total_tokens": 927,
-          "latency_seconds": 4.059912204742432,
+          "total_tokens": 935,
+          "latency_seconds": 3.0705924034118652,
           "is_valid_tool": true,
           "error": null
         },
@@ -563,11 +563,11 @@
             "food_id": "2709725"
           },
           "observation_snippet": "{'op': 'search_foods', 'q': 'fried green tomatoes', 'results': [{'food_id': '2709725', 'name': 'Fried green tomatoes', 'aliases': [], 'allergen_tags': []}]}",
-          "prompt_tokens": 1002,
+          "prompt_tokens": 1010,
           "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 1012,
-          "latency_seconds": 2.3719265460968018,
+          "total_tokens": 1020,
+          "latency_seconds": 2.8821709156036377,
           "is_valid_tool": true,
           "error": null
         },
@@ -576,15 +576,15 @@
           "action": {
             "op": "log_meal",
             "food_id": "2709725",
-            "grams": 90.0,
+            "grams": 90,
             "eaten_at": "today-lunch"
           },
           "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2709725', 'name': 'Fried green tomatoes', 'nutrients': {'carb_g': 21.78, 'fat_g': 12.84, 'fiber_g': 1.3, 'kcal': 216.0, 'protein_g': 3.68, 'sodium_mg': 317.0}, ",
-          "prompt_tokens": 1161,
+          "prompt_tokens": 1168,
           "completion_tokens": 20,
           "reasoning_tokens": 0,
-          "total_tokens": 1181,
-          "latency_seconds": 7.849650621414185,
+          "total_tokens": 1188,
+          "latency_seconds": 3.185131311416626,
           "is_valid_tool": true,
           "error": null
         },
@@ -594,11 +594,11 @@
             "op": "finish"
           },
           "observation_snippet": "{'op': 'log_meal', 'row': {'food_id': '2709725', 'grams': 90.0, 'eaten_at': 'today-lunch'}, 'ledger_size': 1}",
-          "prompt_tokens": 1228,
+          "prompt_tokens": 1235,
           "completion_tokens": 4,
           "reasoning_tokens": 0,
-          "total_tokens": 1232,
-          "latency_seconds": 3.164562225341797,
+          "total_tokens": 1239,
+          "latency_seconds": 2.2495501041412354,
           "is_valid_tool": true,
           "error": null
         }
@@ -2531,21 +2531,21 @@
     {
       "task_id": "adr20-comp-5044",
       "family": "composite",
-      "query": "I had an egg and meat quesadilla for lunch, so what should I eat for dinner?",
+      "query": "I had a small cafeteria portion of egg and meat quesadilla (two small cut pieces) for lunch, so what should I eat for dinner?",
       "persona": "everyday",
-      "passed": false,
-      "score_tag": "log_miss",
-      "n_steps": 23,
+      "passed": true,
+      "score_tag": "pass",
+      "n_steps": 28,
       "max_budget": 30,
-      "wall_time_seconds": 220.39093232154846,
-      "total_prompt_tokens": 203703,
-      "total_completion_tokens": 9502,
+      "wall_time_seconds": 253.88636779785156,
+      "total_prompt_tokens": 302794,
+      "total_completion_tokens": 11159,
       "total_reasoning_tokens": 0,
-      "total_tokens": 213205,
+      "total_tokens": 313953,
       "tool_counts": {
-        "get_profile": 12,
-        "search_foods": 4,
-        "get_food": 4,
+        "get_profile": 13,
+        "search_foods": 6,
+        "get_food": 6,
         "log_meal": 1,
         "get_ledger": 1,
         "submit_plan": 1
@@ -2559,11 +2559,11 @@
             "op": "get_profile"
           },
           "observation_snippet": "{'op': 'reset', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [26.25, ",
-          "prompt_tokens": 1925,
-          "completion_tokens": 1001,
+          "prompt_tokens": 2018,
+          "completion_tokens": 1086,
           "reasoning_tokens": 0,
-          "total_tokens": 2926,
-          "latency_seconds": 17.838879585266113,
+          "total_tokens": 3104,
+          "latency_seconds": 11.867295742034912,
           "is_valid_tool": true,
           "error": null
         },
@@ -2574,11 +2574,11 @@
             "q": "quesadilla"
           },
           "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [2",
-          "prompt_tokens": 2108,
+          "prompt_tokens": 2202,
           "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 2118,
-          "latency_seconds": 5.136566638946533,
+          "total_tokens": 2212,
+          "latency_seconds": 3.5825860500335693,
           "is_valid_tool": true,
           "error": null
         },
@@ -2589,11 +2589,11 @@
             "food_id": "2708598"
           },
           "observation_snippet": "{'op': 'search_foods', 'q': 'quesadilla', 'results': [{'food_id': '2708590', 'name': 'Quesadilla, NFS', 'aliases': [], 'allergen_tags': []}, {'food_id': '2708593', 'name': 'Quesadilla, chicken', 'alia",
-          "prompt_tokens": 2416,
+          "prompt_tokens": 2510,
           "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 2426,
-          "latency_seconds": 2.475153684616089,
+          "total_tokens": 2520,
+          "latency_seconds": 3.1113529205322266,
           "is_valid_tool": true,
           "error": null
         },
@@ -2603,11 +2603,11 @@
             "op": "get_profile"
           },
           "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2708598', 'name': 'Quesadilla, egg, with meat', 'nutrients': {'carb_g': 19.09, 'fat_g': 13.93, 'fiber_g': 1.3, 'kcal': 249.0, 'protein_g': 11.43, 'sodium_mg': 5",
-          "prompt_tokens": 3413,
-          "completion_tokens": 842,
+          "prompt_tokens": 3476,
+          "completion_tokens": 810,
           "reasoning_tokens": 0,
-          "total_tokens": 4255,
-          "latency_seconds": 16.368632555007935,
+          "total_tokens": 4286,
+          "latency_seconds": 18.28854489326477,
           "is_valid_tool": true,
           "error": null
         },
@@ -2616,59 +2616,57 @@
           "action": {
             "op": "log_meal",
             "food_id": "2708598",
-            "grams": 200,
+            "grams": 70,
             "eaten_at": "today-lunch"
           },
           "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [2",
-          "prompt_tokens": 3608,
+          "prompt_tokens": 3670,
           "completion_tokens": 20,
           "reasoning_tokens": 0,
-          "total_tokens": 3628,
-          "latency_seconds": 4.456578493118286,
+          "total_tokens": 3690,
+          "latency_seconds": 3.969024896621704,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 6,
           "action": {
-            "op": "get_profile"
+            "op": "get_ledger"
           },
-          "observation_snippet": "{'op': 'log_meal', 'row': {'food_id': '2708598', 'grams': 200.0, 'eaten_at': 'today-lunch'}, 'ledger_size': 1}",
-          "prompt_tokens": 4506,
-          "completion_tokens": 809,
+          "observation_snippet": "{'op': 'log_meal', 'row': {'food_id': '2708598', 'grams': 70.0, 'eaten_at': 'today-lunch'}, 'ledger_size': 1}",
+          "prompt_tokens": 3739,
+          "completion_tokens": 5,
           "reasoning_tokens": 0,
-          "total_tokens": 5315,
-          "latency_seconds": 14.873810291290283,
+          "total_tokens": 3744,
+          "latency_seconds": 3.377302646636963,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 7,
           "action": {
-            "op": "search_foods",
-            "q": "chicken breast"
+            "op": "get_profile"
           },
-          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [2",
-          "prompt_tokens": 4690,
-          "completion_tokens": 11,
+          "observation_snippet": "{'op': 'get_ledger', 'ledger': [{'food_id': '2708598', 'grams': 70.0, 'eaten_at': 'today-lunch', 'nutrients': {'carb_g': 13.363, 'fat_g': 9.751, 'fiber_g': 0.91, 'kcal': 174.3, 'protein_g': 8.001, 'so",
+          "prompt_tokens": 4675,
+          "completion_tokens": 791,
           "reasoning_tokens": 0,
-          "total_tokens": 4701,
-          "latency_seconds": 5.238186597824097,
+          "total_tokens": 5466,
+          "latency_seconds": 15.918685674667358,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 8,
           "action": {
-            "op": "get_food",
-            "food_id": "2705968"
+            "op": "get_profile"
           },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'chicken breast', 'results': [{'food_id': '2705956', 'name': 'Chicken breast, baked, broiled, or roasted, skin not eaten, from raw', 'aliases': ['chicken', 'grilled chicken",
-          "prompt_tokens": 5628,
-          "completion_tokens": 10,
+          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [2",
+          "prompt_tokens": 5902,
+          "completion_tokens": 1028,
           "reasoning_tokens": 0,
-          "total_tokens": 5638,
-          "latency_seconds": 2.314168930053711,
+          "total_tokens": 6930,
+          "latency_seconds": 19.797494888305664,
           "is_valid_tool": true,
           "error": null
         },
@@ -2677,12 +2675,12 @@
           "action": {
             "op": "get_profile"
           },
-          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2705968', 'name': 'Chicken breast, grilled without sauce, skin not eaten', 'nutrients': {'carb_g': 0.0, 'fat_g': 5.45, 'fiber_g': 0.0, 'kcal': 176.0, 'protein_g",
-          "prompt_tokens": 6646,
-          "completion_tokens": 816,
+          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [2",
+          "prompt_tokens": 7010,
+          "completion_tokens": 910,
           "reasoning_tokens": 0,
-          "total_tokens": 7462,
-          "latency_seconds": 14.431856632232666,
+          "total_tokens": 7920,
+          "latency_seconds": 20.37730598449707,
           "is_valid_tool": true,
           "error": null
         },
@@ -2690,14 +2688,14 @@
           "step_index": 10,
           "action": {
             "op": "search_foods",
-            "q": "brown rice"
+            "q": "chicken breast"
           },
           "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [2",
-          "prompt_tokens": 6830,
-          "completion_tokens": 10,
+          "prompt_tokens": 7194,
+          "completion_tokens": 11,
           "reasoning_tokens": 0,
-          "total_tokens": 6840,
-          "latency_seconds": 2.099336624145508,
+          "total_tokens": 7205,
+          "latency_seconds": 6.45271372795105,
           "is_valid_tool": true,
           "error": null
         },
@@ -2705,58 +2703,58 @@
           "step_index": 11,
           "action": {
             "op": "get_food",
-            "food_id": "2708414"
+            "food_id": "2705956"
           },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'brown rice', 'results': [{'food_id': '2709033', 'name': 'Beans and brown rice', 'aliases': [], 'allergen_tags': []}, {'food_id': '2709034', 'name': 'Kidney beans and brown",
-          "prompt_tokens": 7631,
+          "observation_snippet": "{'op': 'search_foods', 'q': 'chicken breast', 'results': [{'food_id': '2705956', 'name': 'Chicken breast, baked, broiled, or roasted, skin not eaten, from raw', 'aliases': ['chicken', 'grilled chicken",
+          "prompt_tokens": 8132,
           "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 7641,
-          "latency_seconds": 3.113043785095215,
+          "total_tokens": 8142,
+          "latency_seconds": 3.1563358306884766,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 12,
           "action": {
-            "op": "get_profile"
+            "op": "search_foods",
+            "q": "brown rice"
           },
-          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2708414', 'name': 'Rice, brown, cooked, no added fat', 'nutrients': {'carb_g': 25.76, 'fat_g': 1.11, 'fiber_g': 1.0, 'kcal': 123.0, 'protein_g': 2.43, 'sodium_m",
-          "prompt_tokens": 8582,
-          "completion_tokens": 776,
+          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2705956', 'name': 'Chicken breast, baked, broiled, or roasted, skin not eaten, from raw', 'nutrients': {'carb_g': 0.0, 'fat_g': 3.52, 'fiber_g': 0.0, 'kcal': 16",
+          "prompt_tokens": 8347,
+          "completion_tokens": 45,
           "reasoning_tokens": 0,
-          "total_tokens": 9358,
-          "latency_seconds": 14.848351001739502,
+          "total_tokens": 8392,
+          "latency_seconds": 3.6049675941467285,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 13,
           "action": {
-            "op": "search_foods",
-            "q": "broccoli"
+            "op": "get_food",
+            "food_id": "2708414"
           },
-          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [2",
-          "prompt_tokens": 8765,
-          "completion_tokens": 9,
+          "observation_snippet": "{'op': 'search_foods', 'q': 'brown rice', 'results': [{'food_id': '2709033', 'name': 'Beans and brown rice', 'aliases': [], 'allergen_tags': []}, {'food_id': '2709034', 'name': 'Kidney beans and brown",
+          "prompt_tokens": 9149,
+          "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 8774,
-          "latency_seconds": 1.9346034526824951,
+          "total_tokens": 9159,
+          "latency_seconds": 2.836446762084961,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 14,
           "action": {
-            "op": "get_food",
-            "food_id": "2709650"
+            "op": "get_profile"
           },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'broccoli', 'results': [{'food_id': '2709643', 'name': 'Broccoli, raw', 'aliases': ['broccoli florets', 'broccoli'], 'allergen_tags': []}, {'food_id': '2709656', 'name': 'F",
-          "prompt_tokens": 9569,
-          "completion_tokens": 10,
+          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2708414', 'name': 'Rice, brown, cooked, no added fat', 'nutrients': {'carb_g': 25.76, 'fat_g': 1.11, 'fiber_g': 1.0, 'kcal': 123.0, 'protein_g': 2.43, 'sodium_m",
+          "prompt_tokens": 10229,
+          "completion_tokens": 927,
           "reasoning_tokens": 0,
-          "total_tokens": 9579,
-          "latency_seconds": 1.905076265335083,
+          "total_tokens": 11156,
+          "latency_seconds": 13.151089668273926,
           "is_valid_tool": true,
           "error": null
         },
@@ -2765,12 +2763,12 @@
           "action": {
             "op": "get_profile"
           },
-          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2709650', 'name': 'Broccoli, fresh, cooked with oil', 'nutrients': {'carb_g': 6.32, 'fat_g': 3.37, 'fiber_g': 2.4, 'kcal': 67.0, 'protein_g': 2.59, 'sodium_mg':",
-          "prompt_tokens": 10304,
-          "completion_tokens": 554,
+          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [2",
+          "prompt_tokens": 11249,
+          "completion_tokens": 802,
           "reasoning_tokens": 0,
-          "total_tokens": 10858,
-          "latency_seconds": 11.937352895736694,
+          "total_tokens": 12051,
+          "latency_seconds": 13.112424373626709,
           "is_valid_tool": true,
           "error": null
         },
@@ -2780,11 +2778,11 @@
             "op": "get_profile"
           },
           "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [2",
-          "prompt_tokens": 11567,
-          "completion_tokens": 1054,
+          "prompt_tokens": 12402,
+          "completion_tokens": 953,
           "reasoning_tokens": 0,
-          "total_tokens": 12621,
-          "latency_seconds": 15.377870321273804,
+          "total_tokens": 13355,
+          "latency_seconds": 14.978441953659058,
           "is_valid_tool": true,
           "error": null
         },
@@ -2794,39 +2792,41 @@
             "op": "get_profile"
           },
           "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [2",
-          "prompt_tokens": 12823,
-          "completion_tokens": 1055,
+          "prompt_tokens": 13415,
+          "completion_tokens": 823,
           "reasoning_tokens": 0,
-          "total_tokens": 13878,
-          "latency_seconds": 16.318485021591187,
+          "total_tokens": 14238,
+          "latency_seconds": 14.104902029037476,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 18,
           "action": {
-            "op": "get_profile"
+            "op": "search_foods",
+            "q": "lentils"
           },
           "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [2",
-          "prompt_tokens": 13726,
-          "completion_tokens": 709,
+          "prompt_tokens": 14374,
+          "completion_tokens": 749,
           "reasoning_tokens": 0,
-          "total_tokens": 14435,
-          "latency_seconds": 15.355777978897095,
+          "total_tokens": 15123,
+          "latency_seconds": 13.4745454788208,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 19,
           "action": {
-            "op": "get_profile"
+            "op": "get_food",
+            "food_id": "2707425"
           },
-          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [2",
-          "prompt_tokens": 14778,
-          "completion_tokens": 854,
+          "observation_snippet": "{'op': 'search_foods', 'q': 'lentils', 'results': [{'food_id': '2707423', 'name': 'Lentils, NFS', 'aliases': [], 'allergen_tags': []}, {'food_id': '2707426', 'name': 'Lentils, from canned', 'aliases':",
+          "prompt_tokens": 14670,
+          "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 15632,
-          "latency_seconds": 15.847594022750854,
+          "total_tokens": 14680,
+          "latency_seconds": 2.3264548778533936,
           "is_valid_tool": true,
           "error": null
         },
@@ -2835,68 +2835,146 @@
           "action": {
             "op": "get_profile"
           },
-          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [2",
-          "prompt_tokens": 15696,
-          "completion_tokens": 690,
+          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2707425', 'name': 'Lentils, from dried, no added fat', 'nutrients': {'carb_g': 20.01, 'fat_g': 0.38, 'fiber_g': 7.9, 'kcal': 115.0, 'protein_g': 8.97, 'sodium_m",
+          "prompt_tokens": 15391,
+          "completion_tokens": 567,
           "reasoning_tokens": 0,
-          "total_tokens": 16386,
-          "latency_seconds": 15.092875719070435,
+          "total_tokens": 15958,
+          "latency_seconds": 12.23816967010498,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 21,
           "action": {
-            "op": "get_ledger"
+            "op": "get_profile"
           },
           "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [2",
-          "prompt_tokens": 15873,
-          "completion_tokens": 5,
+          "prompt_tokens": 16386,
+          "completion_tokens": 794,
           "reasoning_tokens": 0,
-          "total_tokens": 15878,
-          "latency_seconds": 5.464985609054565,
+          "total_tokens": 17180,
+          "latency_seconds": 13.189601421356201,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 22,
           "action": {
-            "op": "get_profile"
+            "op": "search_foods",
+            "q": "broccoli"
           },
-          "observation_snippet": "{'op': 'get_ledger', 'ledger': [{'food_id': '2708598', 'grams': 200.0, 'eaten_at': 'today-lunch', 'nutrients': {'carb_g': 38.18, 'fat_g': 27.86, 'fiber_g': 2.6, 'kcal': 498.0, 'protein_g': 22.86, 'sod",
-          "prompt_tokens": 16203,
-          "completion_tokens": 201,
+          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [2",
+          "prompt_tokens": 16568,
+          "completion_tokens": 9,
           "reasoning_tokens": 0,
-          "total_tokens": 16404,
-          "latency_seconds": 14.738157510757446,
+          "total_tokens": 16577,
+          "latency_seconds": 3.2645764350891113,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 23,
           "action": {
+            "op": "get_food",
+            "food_id": "2709645"
+          },
+          "observation_snippet": "{'op': 'search_foods', 'q': 'broccoli', 'results': [{'food_id': '2709643', 'name': 'Broccoli, raw', 'aliases': ['broccoli florets', 'broccoli'], 'allergen_tags': []}, {'food_id': '2709656', 'name': 'F",
+          "prompt_tokens": 17371,
+          "completion_tokens": 10,
+          "reasoning_tokens": 0,
+          "total_tokens": 17381,
+          "latency_seconds": 1.9918317794799805,
+          "is_valid_tool": true,
+          "error": null
+        },
+        {
+          "step_index": 24,
+          "action": {
+            "op": "get_profile"
+          },
+          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2709645', 'name': 'Broccoli, fresh, cooked, no added fat', 'nutrients': {'carb_g': 6.51, 'fat_g': 0.35, 'fiber_g': 2.5, 'kcal': 41.0, 'protein_g': 2.67, 'sodium",
+          "prompt_tokens": 18195,
+          "completion_tokens": 641,
+          "reasoning_tokens": 0,
+          "total_tokens": 18836,
+          "latency_seconds": 12.338419198989868,
+          "is_valid_tool": true,
+          "error": null
+        },
+        {
+          "step_index": 25,
+          "action": {
+            "op": "search_foods",
+            "q": "olive oil"
+          },
+          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [2",
+          "prompt_tokens": 18378,
+          "completion_tokens": 10,
+          "reasoning_tokens": 0,
+          "total_tokens": 18388,
+          "latency_seconds": 3.4382879734039307,
+          "is_valid_tool": true,
+          "error": null
+        },
+        {
+          "step_index": 26,
+          "action": {
+            "op": "get_food",
+            "food_id": "2710186"
+          },
+          "observation_snippet": "{'op': 'search_foods', 'q': 'olive oil', 'results': [{'food_id': '2710186', 'name': 'Olive oil', 'aliases': ['olive oil', 'evoo', 'oil', 'olive_oil'], 'allergen_tags': []}, {'food_id': '2710221', 'nam",
+          "prompt_tokens": 18502,
+          "completion_tokens": 10,
+          "reasoning_tokens": 0,
+          "total_tokens": 18512,
+          "latency_seconds": 3.5281128883361816,
+          "is_valid_tool": true,
+          "error": null
+        },
+        {
+          "step_index": 27,
+          "action": {
+            "op": "get_profile"
+          },
+          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2710186', 'name': 'Olive oil', 'nutrients': {'carb_g': 0.0, 'fat_g': 100.0, 'fiber_g': 0.0, 'kcal': 900.0, 'protein_g': 0.0, 'sodium_mg': 2.0}, 'allergen_tags':",
+          "prompt_tokens": 18708,
+          "completion_tokens": 63,
+          "reasoning_tokens": 0,
+          "total_tokens": 18771,
+          "latency_seconds": 10.423184156417847,
+          "is_valid_tool": true,
+          "error": null
+        },
+        {
+          "step_index": 28,
+          "action": {
             "op": "submit_plan",
             "items": [
               {
-                "food_id": "2705968",
-                "grams": 75
+                "food_id": "2705956",
+                "grams": 70
               },
               {
-                "food_id": "2708414",
-                "grams": 300
+                "food_id": "2707425",
+                "grams": 270
               },
               {
-                "food_id": "2709650",
+                "food_id": "2709645",
                 "grams": 150
+              },
+              {
+                "food_id": "2710186",
+                "grams": 15
               }
             ]
           },
           "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-hao', 'allergies': ['peanut', 'shellfish'], 'medications': [], 'windows': {'carb_g': [257.8125, 257.8125], 'fat_g': [73.125, 73.125], 'fiber_g': [2",
-          "prompt_tokens": 16416,
-          "completion_tokens": 36,
+          "prompt_tokens": 18932,
+          "completion_tokens": 45,
           "reasoning_tokens": 0,
-          "total_tokens": 16452,
-          "latency_seconds": 3.190213918685913,
+          "total_tokens": 18977,
+          "latency_seconds": 5.93453311920166,
           "is_valid_tool": true,
           "error": null
         }
@@ -6949,25 +7027,24 @@
     {
       "task_id": "adr24-comp-8256",
       "family": "composite",
-      "query": "Please add egg to my allergy profile. I had a handful of sandwich crackers for lunch. What should I eat for dinner that is egg-free?",
+      "query": "Please add egg to my allergy profile. I grabbed a small single-serving snack pack of sandwich crackers for lunch. What should I eat for dinner that is egg-free?",
       "persona": "everyday",
       "passed": false,
       "score_tag": "log_miss",
-      "n_steps": 18,
+      "n_steps": 17,
       "max_budget": 30,
-      "wall_time_seconds": 128.491601228714,
-      "total_prompt_tokens": 98556,
-      "total_completion_tokens": 4031,
+      "wall_time_seconds": 122.57592344284058,
+      "total_prompt_tokens": 70986,
+      "total_completion_tokens": 3515,
       "total_reasoning_tokens": 0,
-      "total_tokens": 102587,
+      "total_tokens": 74501,
       "tool_counts": {
         "invalid_format_fallback": 1,
         "update_profile": 1,
         "search_foods": 5,
         "get_food": 5,
-        "get_profile": 3,
         "log_meal": 1,
-        "get_ledger": 1,
+        "get_profile": 3,
         "submit_plan": 1
       },
       "invalid_tool_count": 1,
@@ -6981,11 +7058,11 @@
             ]
           },
           "observation_snippet": "{'op': 'reset', 'profile': {'user_id': 'roster-ola', 'allergies': [], 'medications': [], 'windows': {'carb_g': [236.84804687500002, 236.84804687500002], 'fat_g': [67.17871875, 67.17871875], 'fiber_g':",
-          "prompt_tokens": 1980,
-          "completion_tokens": 1018,
+          "prompt_tokens": 1985,
+          "completion_tokens": 1016,
           "reasoning_tokens": 0,
-          "total_tokens": 2998,
-          "latency_seconds": 17.891340494155884,
+          "total_tokens": 3001,
+          "latency_seconds": 19.264703512191772,
           "is_valid_tool": false,
           "error": null
         },
@@ -7000,11 +7077,11 @@
             }
           },
           "observation_snippet": "{'error': {'code': 'bad_schema', 'message': \"action is missing 'op'\"}}",
-          "prompt_tokens": 2047,
+          "prompt_tokens": 2053,
           "completion_tokens": 14,
           "reasoning_tokens": 0,
-          "total_tokens": 2061,
-          "latency_seconds": 3.277940511703491,
+          "total_tokens": 2067,
+          "latency_seconds": 7.625255584716797,
           "is_valid_tool": true,
           "error": null
         },
@@ -7012,74 +7089,76 @@
           "step_index": 3,
           "action": {
             "op": "search_foods",
-            "q": "sandwich crackers"
+            "q": "sandwich crackers cheese snack pack"
           },
           "observation_snippet": "{'op': 'update_profile', 'profile': {'user_id': 'roster-ola', 'allergies': ['egg'], 'medications': [], 'windows': {'carb_g': [236.84804687500002, 236.84804687500002], 'fat_g': [67.17871875, 67.1787187",
-          "prompt_tokens": 2228,
-          "completion_tokens": 12,
+          "prompt_tokens": 2238,
+          "completion_tokens": 16,
           "reasoning_tokens": 0,
-          "total_tokens": 2240,
-          "latency_seconds": 3.854198455810547,
+          "total_tokens": 2254,
+          "latency_seconds": 2.2244083881378174,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 4,
           "action": {
-            "op": "get_food",
-            "food_id": "2708171"
+            "op": "search_foods",
+            "q": "sandwich crackers"
           },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'sandwich crackers', 'results': [{'food_id': '2708171', 'name': 'Crackers, sandwich', 'aliases': [], 'allergen_tags': []}, {'food_id': '2708176', 'name': 'Crackers, sandwic",
-          "prompt_tokens": 2551,
-          "completion_tokens": 10,
+          "observation_snippet": "{'op': 'search_foods', 'q': 'sandwich crackers cheese snack pack', 'results': []}",
+          "prompt_tokens": 2305,
+          "completion_tokens": 12,
           "reasoning_tokens": 0,
-          "total_tokens": 2561,
-          "latency_seconds": 2.389477014541626,
+          "total_tokens": 2317,
+          "latency_seconds": 1.6732234954833984,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 5,
           "action": {
-            "op": "get_profile"
+            "op": "get_food",
+            "food_id": "2708171"
           },
-          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2708171', 'name': 'Crackers, sandwich', 'nutrients': {'carb_g': 58.38, 'fat_g': 24.54, 'fiber_g': 2.3, 'kcal': 494.0, 'protein_g': 11.47, 'sodium_mg': 801.0}, '",
-          "prompt_tokens": 3522,
-          "completion_tokens": 810,
+          "observation_snippet": "{'op': 'search_foods', 'q': 'sandwich crackers', 'results': [{'food_id': '2708171', 'name': 'Crackers, sandwich', 'aliases': [], 'allergen_tags': []}, {'food_id': '2708176', 'name': 'Crackers, sandwic",
+          "prompt_tokens": 2629,
+          "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 4332,
-          "latency_seconds": 15.043841123580933,
+          "total_tokens": 2639,
+          "latency_seconds": 2.532564163208008,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 6,
           "action": {
-            "op": "log_meal",
-            "food_id": "2708171",
-            "grams": 30,
-            "eaten_at": "today-lunch"
+            "op": "get_food",
+            "food_id": "2708176"
           },
-          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-ola', 'allergies': ['egg'], 'medications': [], 'windows': {'carb_g': [236.84804687500002, 236.84804687500002], 'fat_g': [67.17871875, 67.17871875],",
-          "prompt_tokens": 3727,
-          "completion_tokens": 20,
+          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2708171', 'name': 'Crackers, sandwich', 'nutrients': {'carb_g': 58.38, 'fat_g': 24.54, 'fiber_g': 2.3, 'kcal': 494.0, 'protein_g': 11.47, 'sodium_mg': 801.0}, '",
+          "prompt_tokens": 2770,
+          "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 3747,
-          "latency_seconds": 8.127535343170166,
+          "total_tokens": 2780,
+          "latency_seconds": 5.334954500198364,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 7,
           "action": {
-            "op": "get_ledger"
+            "op": "log_meal",
+            "food_id": "2708171",
+            "grams": 33,
+            "eaten_at": "today-lunch"
           },
-          "observation_snippet": "{'op': 'log_meal', 'row': {'food_id': '2708171', 'grams': 30.0, 'eaten_at': 'today-lunch'}, 'ledger_size': 1}",
-          "prompt_tokens": 3796,
-          "completion_tokens": 5,
+          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2708176', 'name': 'Crackers, sandwich, cheese filled', 'nutrients': {'carb_g': 61.7, 'fat_g': 21.1, 'fiber_g': 1.9, 'kcal': 477.0, 'protein_g': 9.3, 'sodium_mg'",
+          "prompt_tokens": 2928,
+          "completion_tokens": 20,
           "reasoning_tokens": 0,
-          "total_tokens": 3801,
-          "latency_seconds": 1.7214300632476807,
+          "total_tokens": 2948,
+          "latency_seconds": 11.915912389755249,
           "is_valid_tool": true,
           "error": null
         },
@@ -7088,12 +7167,12 @@
           "action": {
             "op": "get_profile"
           },
-          "observation_snippet": "{'op': 'get_ledger', 'ledger': [{'food_id': '2708171', 'grams': 30.0, 'eaten_at': 'today-lunch', 'nutrients': {'carb_g': 17.514, 'fat_g': 7.361999999999999, 'fiber_g': 0.69, 'kcal': 148.2, 'protein_g'",
-          "prompt_tokens": 4670,
-          "completion_tokens": 702,
+          "observation_snippet": "{'op': 'log_meal', 'row': {'food_id': '2708171', 'grams': 33.0, 'eaten_at': 'today-lunch'}, 'ledger_size': 1}",
+          "prompt_tokens": 3854,
+          "completion_tokens": 839,
           "reasoning_tokens": 0,
-          "total_tokens": 5372,
-          "latency_seconds": 14.557825565338135,
+          "total_tokens": 4693,
+          "latency_seconds": 13.284420251846313,
           "is_valid_tool": true,
           "error": null
         },
@@ -7101,14 +7180,14 @@
           "step_index": 9,
           "action": {
             "op": "search_foods",
-            "q": "chicken breast"
+            "q": "chicken breast grilled"
           },
           "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-ola', 'allergies': ['egg'], 'medications': [], 'windows': {'carb_g': [236.84804687500002, 236.84804687500002], 'fat_g': [67.17871875, 67.17871875],",
-          "prompt_tokens": 4865,
-          "completion_tokens": 11,
+          "prompt_tokens": 4051,
+          "completion_tokens": 13,
           "reasoning_tokens": 0,
-          "total_tokens": 4876,
-          "latency_seconds": 3.0433855056762695,
+          "total_tokens": 4064,
+          "latency_seconds": 2.4989962577819824,
           "is_valid_tool": true,
           "error": null
         },
@@ -7116,14 +7195,14 @@
           "step_index": 10,
           "action": {
             "op": "get_food",
-            "food_id": "2705956"
+            "food_id": "2705968"
           },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'chicken breast', 'results': [{'food_id': '2705956', 'name': 'Chicken breast, baked, broiled, or roasted, skin not eaten, from raw', 'aliases': ['chicken', 'grilled chicken",
-          "prompt_tokens": 5803,
+          "observation_snippet": "{'op': 'search_foods', 'q': 'chicken breast grilled', 'results': [{'food_id': '2705967', 'name': 'Chicken breast, grilled without sauce, skin eaten', 'aliases': [], 'allergen_tags': []}, {'food_id': '",
+          "prompt_tokens": 4297,
           "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 5813,
-          "latency_seconds": 8.769371747970581,
+          "total_tokens": 4307,
+          "latency_seconds": 1.9866831302642822,
           "is_valid_tool": true,
           "error": null
         },
@@ -7131,14 +7210,14 @@
           "step_index": 11,
           "action": {
             "op": "search_foods",
-            "q": "rice cooked"
+            "q": "rice white cooked"
           },
-          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2705956', 'name': 'Chicken breast, baked, broiled, or roasted, skin not eaten, from raw', 'nutrients': {'carb_g': 0.0, 'fat_g': 3.52, 'fiber_g': 0.0, 'kcal': 16",
-          "prompt_tokens": 5983,
-          "completion_tokens": 10,
+          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2705968', 'name': 'Chicken breast, grilled without sauce, skin not eaten', 'nutrients': {'carb_g': 0.0, 'fat_g': 5.45, 'fiber_g': 0.0, 'kcal': 176.0, 'protein_g",
+          "prompt_tokens": 4462,
+          "completion_tokens": 12,
           "reasoning_tokens": 0,
-          "total_tokens": 5993,
-          "latency_seconds": 3.273157835006714,
+          "total_tokens": 4474,
+          "latency_seconds": 2.8310608863830566,
           "is_valid_tool": true,
           "error": null
         },
@@ -7146,14 +7225,14 @@
           "step_index": 12,
           "action": {
             "op": "get_food",
-            "food_id": "2708414"
+            "food_id": "2708408"
           },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'rice cooked', 'results': [{'food_id': '2708408', 'name': 'Rice, white, cooked, no added fat', 'aliases': ['rice', 'steamed rice', 'cooked rice', 'white_rice'], 'allergen_t",
-          "prompt_tokens": 6794,
+          "observation_snippet": "{'op': 'search_foods', 'q': 'rice white cooked', 'results': [{'food_id': '2708408', 'name': 'Rice, white, cooked, no added fat', 'aliases': ['rice', 'steamed rice', 'cooked rice', 'white_rice'], 'alle",
+          "prompt_tokens": 4904,
           "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 6804,
-          "latency_seconds": 3.4356529712677,
+          "total_tokens": 4914,
+          "latency_seconds": 2.566291570663452,
           "is_valid_tool": true,
           "error": null
         },
@@ -7161,14 +7240,14 @@
           "step_index": 13,
           "action": {
             "op": "search_foods",
-            "q": "broccoli"
+            "q": "broccoli cooked"
           },
-          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2708414', 'name': 'Rice, brown, cooked, no added fat', 'nutrients': {'carb_g': 25.76, 'fat_g': 1.11, 'fiber_g': 1.0, 'kcal': 123.0, 'protein_g': 2.43, 'sodium_m",
-          "prompt_tokens": 6940,
-          "completion_tokens": 9,
+          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2708408', 'name': 'Rice, white, cooked, no added fat', 'nutrients': {'carb_g': 27.99, 'fat_g': 0.28, 'fiber_g': 0.4, 'kcal': 129.0, 'protein_g': 2.67, 'sodium_m",
+          "prompt_tokens": 5066,
+          "completion_tokens": 11,
           "reasoning_tokens": 0,
-          "total_tokens": 6949,
-          "latency_seconds": 2.556121349334717,
+          "total_tokens": 5077,
+          "latency_seconds": 3.3103766441345215,
           "is_valid_tool": true,
           "error": null
         },
@@ -7178,12 +7257,12 @@
             "op": "get_food",
             "food_id": "2709645"
           },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'broccoli', 'results': [{'food_id': '2709643', 'name': 'Broccoli, raw', 'aliases': ['broccoli florets', 'broccoli'], 'allergen_tags': []}, {'food_id': '2709656', 'name': 'F",
-          "prompt_tokens": 7743,
+          "observation_snippet": "{'op': 'search_foods', 'q': 'broccoli cooked', 'results': [{'food_id': '2709573', 'name': 'Broccoli raab, cooked', 'aliases': [], 'allergen_tags': []}, {'food_id': '2709658', 'name': 'Broccoli, Chines",
+          "prompt_tokens": 5653,
           "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 7753,
-          "latency_seconds": 1.8568546772003174,
+          "total_tokens": 5663,
+          "latency_seconds": 1.8066110610961914,
           "is_valid_tool": true,
           "error": null
         },
@@ -7193,73 +7272,53 @@
             "op": "get_profile"
           },
           "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2709645', 'name': 'Broccoli, fresh, cooked, no added fat', 'nutrients': {'carb_g': 6.51, 'fat_g': 0.35, 'fiber_g': 2.5, 'kcal': 41.0, 'protein_g': 2.67, 'sodium",
-          "prompt_tokens": 8538,
-          "completion_tokens": 619,
+          "prompt_tokens": 6552,
+          "completion_tokens": 738,
           "reasoning_tokens": 0,
-          "total_tokens": 9157,
-          "latency_seconds": 16.537065029144287,
+          "total_tokens": 7290,
+          "latency_seconds": 16.88290786743164,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 16,
           "action": {
-            "op": "search_foods",
-            "q": "olive oil"
+            "op": "get_profile"
           },
           "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-ola', 'allergies': ['egg'], 'medications': [], 'windows': {'carb_g': [236.84804687500002, 236.84804687500002], 'fat_g': [67.17871875, 67.17871875],",
-          "prompt_tokens": 8732,
-          "completion_tokens": 10,
+          "prompt_tokens": 7507,
+          "completion_tokens": 738,
           "reasoning_tokens": 0,
-          "total_tokens": 8742,
-          "latency_seconds": 3.302915096282959,
+          "total_tokens": 8245,
+          "latency_seconds": 18.191027641296387,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 17,
           "action": {
-            "op": "get_food",
-            "food_id": "2710186"
-          },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'olive oil', 'results': [{'food_id': '2710186', 'name': 'Olive oil', 'aliases': ['olive oil', 'evoo', 'oil', 'olive_oil'], 'allergen_tags': []}, {'food_id': '2710221', 'nam",
-          "prompt_tokens": 8856,
-          "completion_tokens": 10,
-          "reasoning_tokens": 0,
-          "total_tokens": 8866,
-          "latency_seconds": 3.7010862827301025,
-          "is_valid_tool": true,
-          "error": null
-        },
-        {
-          "step_index": 18,
-          "action": {
             "op": "submit_plan",
             "items": [
               {
-                "food_id": "2705956",
-                "grams": 100
+                "food_id": "2705968",
+                "grams": 90
               },
               {
-                "food_id": "2708414",
-                "grams": 200
+                "food_id": "2708408",
+                "grams": 250
               },
               {
                 "food_id": "2709645",
-                "grams": 100
-              },
-              {
-                "food_id": "2710186",
-                "grams": 10
+                "grams": 200
               }
             ]
           },
-          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2710186', 'name': 'Olive oil', 'nutrients': {'carb_g': 0.0, 'fat_g': 100.0, 'fiber_g': 0.0, 'kcal': 900.0, 'protein_g': 0.0, 'sodium_mg': 2.0}, 'allergen_tags':",
-          "prompt_tokens": 9781,
-          "completion_tokens": 741,
+          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-ola', 'allergies': ['egg'], 'medications': [], 'windows': {'carb_g': [236.84804687500002, 236.84804687500002], 'fat_g': [67.17871875, 67.17871875],",
+          "prompt_tokens": 7732,
+          "completion_tokens": 36,
           "reasoning_tokens": 0,
-          "total_tokens": 10522,
-          "latency_seconds": 15.12143349647522,
+          "total_tokens": 7768,
+          "latency_seconds": 8.606128692626953,
           "is_valid_tool": true,
           "error": null
         }
@@ -7270,89 +7329,32 @@
     {
       "task_id": "adr24-comp-8257",
       "family": "composite",
-      "query": "Please add tree nut to my allergy profile. I had two slices of fruit pancakes for lunch. What should I eat for dinner that is tree-nut free?",
+      "query": "Please add tree nut to my allergy profile. For lunch, I heated up two pouches of frozen fruit pancakes from the freezer. What should I eat for dinner that is tree-nut free?",
       "persona": "everyday",
-      "passed": false,
-      "score_tag": "log_miss",
-      "n_steps": 28,
+      "passed": true,
+      "score_tag": "pass",
+      "n_steps": 21,
       "max_budget": 30,
-      "wall_time_seconds": 272.82300329208374,
-      "total_prompt_tokens": 238647,
-      "total_completion_tokens": 8778,
+      "wall_time_seconds": 151.37165474891663,
+      "total_prompt_tokens": 138118,
+      "total_completion_tokens": 6193,
       "total_reasoning_tokens": 0,
-      "total_tokens": 247425,
+      "total_tokens": 144311,
       "tool_counts": {
-        "get_profile": 12,
-        "search_foods": 7,
-        "get_food": 6,
         "update_profile": 1,
+        "search_foods": 6,
+        "get_food": 5,
         "log_meal": 1,
+        "get_ledger": 1,
+        "get_profile": 5,
+        "invalid_format_fallback": 1,
         "submit_plan": 1
       },
-      "invalid_tool_count": 0,
+      "invalid_tool_count": 1,
       "allergen_violated": false,
       "steps": [
         {
           "step_index": 1,
-          "action": {
-            "op": "get_profile"
-          },
-          "observation_snippet": "{'op': 'reset', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875], 'fiber_g': [22.166",
-          "prompt_tokens": 1960,
-          "completion_tokens": 999,
-          "reasoning_tokens": 0,
-          "total_tokens": 2959,
-          "latency_seconds": 15.190418243408203,
-          "is_valid_tool": true,
-          "error": null
-        },
-        {
-          "step_index": 2,
-          "action": {
-            "op": "search_foods",
-            "q": "fruit pancakes"
-          },
-          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875], 'fiber_g': [",
-          "prompt_tokens": 2147,
-          "completion_tokens": 11,
-          "reasoning_tokens": 0,
-          "total_tokens": 2158,
-          "latency_seconds": 3.8073651790618896,
-          "is_valid_tool": true,
-          "error": null
-        },
-        {
-          "step_index": 3,
-          "action": {
-            "op": "get_food",
-            "food_id": "2708306"
-          },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'fruit pancakes', 'results': [{'food_id': '2708306', 'name': 'Pancakes, fruit', 'aliases': [], 'allergen_tags': []}, {'food_id': '2708296', 'name': 'Pancakes, fruit, frozen",
-          "prompt_tokens": 2289,
-          "completion_tokens": 10,
-          "reasoning_tokens": 0,
-          "total_tokens": 2299,
-          "latency_seconds": 3.3944432735443115,
-          "is_valid_tool": true,
-          "error": null
-        },
-        {
-          "step_index": 4,
-          "action": {
-            "op": "search_foods",
-            "q": "almonds"
-          },
-          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2708306', 'name': 'Pancakes, fruit', 'nutrients': {'carb_g': 30.63, 'fat_g': 9.54, 'fiber_g': 2.4, 'kcal': 232.0, 'protein_g': 5.86, 'sodium_mg': 395.0}, 'aller",
-          "prompt_tokens": 2429,
-          "completion_tokens": 9,
-          "reasoning_tokens": 0,
-          "total_tokens": 2438,
-          "latency_seconds": 12.51674771308899,
-          "is_valid_tool": true,
-          "error": null
-        },
-        {
-          "step_index": 5,
           "action": {
             "op": "update_profile",
             "patch": {
@@ -7362,73 +7364,131 @@
               ]
             }
           },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'almonds', 'results': [{'food_id': '2707486', 'name': 'Almonds, unroasted', 'aliases': ['almonds', 'raw almonds', 'almond'], 'allergen_tags': ['tree_nut']}, {'food_id': '27",
-          "prompt_tokens": 2737,
-          "completion_tokens": 17,
+          "observation_snippet": "{'op': 'reset', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875], 'fiber_g': [22.166",
+          "prompt_tokens": 1997,
+          "completion_tokens": 1027,
           "reasoning_tokens": 0,
-          "total_tokens": 2754,
-          "latency_seconds": 2.894063711166382,
+          "total_tokens": 3024,
+          "latency_seconds": 12.379834651947021,
+          "is_valid_tool": true,
+          "error": null
+        },
+        {
+          "step_index": 2,
+          "action": {
+            "op": "search_foods",
+            "q": "frozen fruit pancakes"
+          },
+          "observation_snippet": "{'op': 'update_profile', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk', 'tree_nut'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875",
+          "prompt_tokens": 2174,
+          "completion_tokens": 13,
+          "reasoning_tokens": 0,
+          "total_tokens": 2187,
+          "latency_seconds": 2.3061938285827637,
+          "is_valid_tool": true,
+          "error": null
+        },
+        {
+          "step_index": 3,
+          "action": {
+            "op": "get_food",
+            "food_id": "2708296"
+          },
+          "observation_snippet": "{'op': 'search_foods', 'q': 'frozen fruit pancakes', 'results': [{'food_id': '2708296', 'name': 'Pancakes, fruit, frozen', 'aliases': [], 'allergen_tags': []}]}",
+          "prompt_tokens": 2262,
+          "completion_tokens": 10,
+          "reasoning_tokens": 0,
+          "total_tokens": 2272,
+          "latency_seconds": 3.0916879177093506,
+          "is_valid_tool": true,
+          "error": null
+        },
+        {
+          "step_index": 4,
+          "action": {
+            "op": "log_meal",
+            "food_id": "2708296",
+            "grams": 160,
+            "eaten_at": "today-lunch"
+          },
+          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2708296', 'name': 'Pancakes, fruit, frozen', 'nutrients': {'carb_g': 36.47, 'fat_g': 6.52, 'fiber_g': 1.1, 'kcal': 224.0, 'protein_g': 4.99, 'sodium_mg': 438.0}",
+          "prompt_tokens": 2417,
+          "completion_tokens": 20,
+          "reasoning_tokens": 0,
+          "total_tokens": 2437,
+          "latency_seconds": 3.8895390033721924,
+          "is_valid_tool": true,
+          "error": null
+        },
+        {
+          "step_index": 5,
+          "action": {
+            "op": "get_ledger"
+          },
+          "observation_snippet": "{'op': 'log_meal', 'row': {'food_id': '2708296', 'grams': 160.0, 'eaten_at': 'today-lunch'}, 'ledger_size': 1}",
+          "prompt_tokens": 2485,
+          "completion_tokens": 5,
+          "reasoning_tokens": 0,
+          "total_tokens": 2490,
+          "latency_seconds": 11.232149124145508,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 6,
           "action": {
-            "op": "log_meal",
-            "food_id": "2708306",
-            "grams": 40,
-            "eaten_at": "today-lunch"
+            "op": "get_profile"
           },
-          "observation_snippet": "{'op': 'update_profile', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk', 'tree_nut'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875",
-          "prompt_tokens": 2922,
-          "completion_tokens": 20,
+          "observation_snippet": "{'op': 'get_ledger', 'ledger': [{'food_id': '2708296', 'grams': 160.0, 'eaten_at': 'today-lunch', 'nutrients': {'carb_g': 58.352, 'fat_g': 10.431999999999999, 'fiber_g': 1.76, 'kcal': 358.4, 'protein_",
+          "prompt_tokens": 3588,
+          "completion_tokens": 933,
           "reasoning_tokens": 0,
-          "total_tokens": 2942,
-          "latency_seconds": 10.903228998184204,
+          "total_tokens": 4521,
+          "latency_seconds": 12.837708711624146,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 7,
           "action": {
-            "op": "get_profile"
+            "op": "search_foods",
+            "q": "chicken breast"
           },
-          "observation_snippet": "{'op': 'log_meal', 'row': {'food_id': '2708306', 'grams': 40.0, 'eaten_at': 'today-lunch'}, 'ledger_size': 1}",
-          "prompt_tokens": 3824,
-          "completion_tokens": 813,
+          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk', 'tree_nut'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875], ",
+          "prompt_tokens": 3779,
+          "completion_tokens": 11,
           "reasoning_tokens": 0,
-          "total_tokens": 4637,
-          "latency_seconds": 15.586732149124146,
+          "total_tokens": 3790,
+          "latency_seconds": 3.234910726547241,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 8,
           "action": {
-            "op": "search_foods",
-            "q": "chicken breast"
+            "op": "get_food",
+            "food_id": "2705956"
           },
-          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk', 'tree_nut'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875], ",
-          "prompt_tokens": 4015,
-          "completion_tokens": 11,
+          "observation_snippet": "{'op': 'search_foods', 'q': 'chicken breast', 'results': [{'food_id': '2705956', 'name': 'Chicken breast, baked, broiled, or roasted, skin not eaten, from raw', 'aliases': ['chicken', 'grilled chicken",
+          "prompt_tokens": 4717,
+          "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 4026,
-          "latency_seconds": 11.859333515167236,
+          "total_tokens": 4727,
+          "latency_seconds": 3.255782127380371,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 9,
           "action": {
-            "op": "get_food",
-            "food_id": "2705956"
+            "op": "get_profile"
           },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'chicken breast', 'results': [{'food_id': '2705956', 'name': 'Chicken breast, baked, broiled, or roasted, skin not eaten, from raw', 'aliases': ['chicken', 'grilled chicken",
-          "prompt_tokens": 4953,
-          "completion_tokens": 10,
+          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2705956', 'name': 'Chicken breast, baked, broiled, or roasted, skin not eaten, from raw', 'nutrients': {'carb_g': 0.0, 'fat_g': 3.52, 'fiber_g': 0.0, 'kcal': 16",
+          "prompt_tokens": 5890,
+          "completion_tokens": 981,
           "reasoning_tokens": 0,
-          "total_tokens": 4963,
-          "latency_seconds": 2.8619027137756348,
+          "total_tokens": 6871,
+          "latency_seconds": 14.280871868133545,
           "is_valid_tool": true,
           "error": null
         },
@@ -7438,12 +7498,12 @@
             "op": "search_foods",
             "q": "brown rice cooked"
           },
-          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2705956', 'name': 'Chicken breast, baked, broiled, or roasted, skin not eaten, from raw', 'nutrients': {'carb_g': 0.0, 'fat_g': 3.52, 'fiber_g': 0.0, 'kcal': 16",
-          "prompt_tokens": 5135,
+          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk', 'tree_nut'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875], ",
+          "prompt_tokens": 6081,
           "completion_tokens": 12,
           "reasoning_tokens": 0,
-          "total_tokens": 5147,
-          "latency_seconds": 2.2525618076324463,
+          "total_tokens": 6093,
+          "latency_seconds": 4.093734502792358,
           "is_valid_tool": true,
           "error": null
         },
@@ -7454,11 +7514,11 @@
             "food_id": "2708414"
           },
           "observation_snippet": "{'op': 'search_foods', 'q': 'brown rice cooked', 'results': [{'food_id': '2710789', 'name': 'Rice, brown, cooked, as ingredient', 'aliases': [], 'allergen_tags': []}, {'food_id': '2708411', 'name': 'R",
-          "prompt_tokens": 5504,
+          "prompt_tokens": 6450,
           "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 5514,
-          "latency_seconds": 3.4982833862304688,
+          "total_tokens": 6460,
+          "latency_seconds": 2.969306468963623,
           "is_valid_tool": true,
           "error": null
         },
@@ -7469,11 +7529,11 @@
             "q": "broccoli cooked"
           },
           "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2708414', 'name': 'Rice, brown, cooked, no added fat', 'nutrients': {'carb_g': 25.76, 'fat_g': 1.11, 'fiber_g': 1.0, 'kcal': 123.0, 'protein_g': 2.43, 'sodium_m",
-          "prompt_tokens": 5651,
+          "prompt_tokens": 6597,
           "completion_tokens": 11,
           "reasoning_tokens": 0,
-          "total_tokens": 5662,
-          "latency_seconds": 2.548092842102051,
+          "total_tokens": 6608,
+          "latency_seconds": 2.610389471054077,
           "is_valid_tool": true,
           "error": null
         },
@@ -7484,11 +7544,11 @@
             "food_id": "2709645"
           },
           "observation_snippet": "{'op': 'search_foods', 'q': 'broccoli cooked', 'results': [{'food_id': '2709573', 'name': 'Broccoli raab, cooked', 'aliases': [], 'allergen_tags': []}, {'food_id': '2709658', 'name': 'Broccoli, Chines",
-          "prompt_tokens": 6238,
+          "prompt_tokens": 7184,
           "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 6248,
-          "latency_seconds": 2.0298705101013184,
+          "total_tokens": 7194,
+          "latency_seconds": 1.7932219505310059,
           "is_valid_tool": true,
           "error": null
         },
@@ -7498,11 +7558,11 @@
             "op": "get_profile"
           },
           "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2709645', 'name': 'Broccoli, fresh, cooked, no added fat', 'nutrients': {'carb_g': 6.51, 'fat_g': 0.35, 'fiber_g': 2.5, 'kcal': 41.0, 'protein_g': 2.67, 'sodium",
-          "prompt_tokens": 7071,
-          "completion_tokens": 658,
+          "prompt_tokens": 8198,
+          "completion_tokens": 852,
           "reasoning_tokens": 0,
-          "total_tokens": 7729,
-          "latency_seconds": 13.72361135482788,
+          "total_tokens": 9050,
+          "latency_seconds": 13.909076452255249,
           "is_valid_tool": true,
           "error": null
         },
@@ -7512,11 +7572,11 @@
             "op": "get_profile"
           },
           "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk', 'tree_nut'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875], ",
-          "prompt_tokens": 8084,
-          "completion_tokens": 797,
+          "prompt_tokens": 9041,
+          "completion_tokens": 617,
           "reasoning_tokens": 0,
-          "total_tokens": 8881,
-          "latency_seconds": 16.191417455673218,
+          "total_tokens": 9658,
+          "latency_seconds": 11.951098680496216,
           "is_valid_tool": true,
           "error": null
         },
@@ -7526,197 +7586,103 @@
             "op": "get_profile"
           },
           "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk', 'tree_nut'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875], ",
-          "prompt_tokens": 9080,
-          "completion_tokens": 754,
+          "prompt_tokens": 10129,
+          "completion_tokens": 873,
           "reasoning_tokens": 0,
-          "total_tokens": 9834,
-          "latency_seconds": 13.926321506500244,
+          "total_tokens": 11002,
+          "latency_seconds": 12.843402862548828,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 17,
           "action": {
-            "op": "get_profile"
+            "op": "search_foods",
+            "q": "almonds"
           },
           "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk', 'tree_nut'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875], ",
-          "prompt_tokens": 10078,
-          "completion_tokens": 770,
+          "prompt_tokens": 10318,
+          "completion_tokens": 9,
           "reasoning_tokens": 0,
-          "total_tokens": 10848,
-          "latency_seconds": 15.372591495513916,
+          "total_tokens": 10327,
+          "latency_seconds": 7.749974966049194,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 18,
           "action": {
-            "op": "get_profile"
+            "op": "search_foods",
+            "q": "olive oil"
           },
-          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk', 'tree_nut'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875], ",
-          "prompt_tokens": 11041,
-          "completion_tokens": 754,
+          "observation_snippet": "{'op': 'search_foods', 'q': 'almonds', 'results': [{'food_id': '2707486', 'name': 'Almonds, unroasted', 'aliases': ['almonds', 'raw almonds', 'almond'], 'allergen_tags': ['tree_nut']}, {'food_id': '27",
+          "prompt_tokens": 10639,
+          "completion_tokens": 31,
           "reasoning_tokens": 0,
-          "total_tokens": 11795,
-          "latency_seconds": 16.584925651550293,
+          "total_tokens": 10670,
+          "latency_seconds": 4.034766435623169,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 19,
           "action": {
-            "op": "get_profile"
+            "op": "get_food",
+            "food_id": "2710186"
           },
-          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk', 'tree_nut'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875], ",
-          "prompt_tokens": 11999,
-          "completion_tokens": 704,
+          "observation_snippet": "{'op': 'search_foods', 'q': 'olive oil', 'results': [{'food_id': '2710186', 'name': 'Olive oil', 'aliases': ['olive oil', 'evoo', 'oil', 'olive_oil'], 'allergen_tags': []}, {'food_id': '2710221', 'nam",
+          "prompt_tokens": 10764,
+          "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 12703,
-          "latency_seconds": 15.513437509536743,
+          "total_tokens": 10774,
+          "latency_seconds": 2.8472020626068115,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 20,
           "action": {
-            "op": "get_profile"
+            "food_id": "2705956",
+            "grams": 112
           },
-          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk', 'tree_nut'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875], ",
-          "prompt_tokens": 12915,
-          "completion_tokens": 682,
+          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2710186', 'name': 'Olive oil', 'nutrients': {'carb_g': 0.0, 'fat_g': 100.0, 'fiber_g': 0.0, 'kcal': 900.0, 'protein_g': 0.0, 'sodium_mg': 2.0}, 'allergen_tags':",
+          "prompt_tokens": 11652,
+          "completion_tokens": 703,
           "reasoning_tokens": 0,
-          "total_tokens": 13597,
-          "latency_seconds": 15.91869592666626,
-          "is_valid_tool": true,
+          "total_tokens": 12355,
+          "latency_seconds": 12.339980125427246,
+          "is_valid_tool": false,
           "error": null
         },
         {
           "step_index": 21,
           "action": {
-            "op": "get_profile"
-          },
-          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk', 'tree_nut'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875], ",
-          "prompt_tokens": 14066,
-          "completion_tokens": 932,
-          "reasoning_tokens": 0,
-          "total_tokens": 14998,
-          "latency_seconds": 20.066624402999878,
-          "is_valid_tool": true,
-          "error": null
-        },
-        {
-          "step_index": 22,
-          "action": {
-            "op": "get_profile"
-          },
-          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk', 'tree_nut'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875], ",
-          "prompt_tokens": 14263,
-          "completion_tokens": 19,
-          "reasoning_tokens": 0,
-          "total_tokens": 14282,
-          "latency_seconds": 20.74054455757141,
-          "is_valid_tool": true,
-          "error": null
-        },
-        {
-          "step_index": 23,
-          "action": {
-            "op": "search_foods",
-            "q": "spaghetti cooked"
-          },
-          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk', 'tree_nut'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875], ",
-          "prompt_tokens": 14453,
-          "completion_tokens": 11,
-          "reasoning_tokens": 0,
-          "total_tokens": 14464,
-          "latency_seconds": 4.565351247787476,
-          "is_valid_tool": true,
-          "error": null
-        },
-        {
-          "step_index": 24,
-          "action": {
-            "op": "get_food",
-            "food_id": "2708357"
-          },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'spaghetti cooked', 'results': [{'food_id': '2710001', 'name': 'Spaghetti squash, cooked', 'aliases': [], 'allergen_tags': []}, {'food_id': '2708357', 'name': 'Pasta, cooke",
-          "prompt_tokens": 14579,
-          "completion_tokens": 10,
-          "reasoning_tokens": 0,
-          "total_tokens": 14589,
-          "latency_seconds": 3.222822427749634,
-          "is_valid_tool": true,
-          "error": null
-        },
-        {
-          "step_index": 25,
-          "action": {
-            "op": "search_foods",
-            "q": "olive oil"
-          },
-          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2708357', 'name': 'Pasta, cooked', 'nutrients': {'carb_g': 30.68, 'fat_g': 0.92, 'fiber_g': 1.8, 'kcal': 157.0, 'protein_g': 5.76, 'sodium_mg': 232.0}, 'allerge",
-          "prompt_tokens": 14737,
-          "completion_tokens": 10,
-          "reasoning_tokens": 0,
-          "total_tokens": 14747,
-          "latency_seconds": 3.889793634414673,
-          "is_valid_tool": true,
-          "error": null
-        },
-        {
-          "step_index": 26,
-          "action": {
-            "op": "get_food",
-            "food_id": "2710186"
-          },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'olive oil', 'results': [{'food_id': '2710186', 'name': 'Olive oil', 'aliases': ['olive oil', 'evoo', 'oil', 'olive_oil'], 'allergen_tags': []}, {'food_id': '2710221', 'nam",
-          "prompt_tokens": 14862,
-          "completion_tokens": 10,
-          "reasoning_tokens": 0,
-          "total_tokens": 14872,
-          "latency_seconds": 2.5305588245391846,
-          "is_valid_tool": true,
-          "error": null
-        },
-        {
-          "step_index": 27,
-          "action": {
-            "op": "get_profile"
-          },
-          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2710186', 'name': 'Olive oil', 'nutrients': {'carb_g': 0.0, 'fat_g': 100.0, 'fiber_g': 0.0, 'kcal': 900.0, 'protein_g': 0.0, 'sodium_mg': 2.0}, 'allergen_tags':",
-          "prompt_tokens": 15639,
-          "completion_tokens": 573,
-          "reasoning_tokens": 0,
-          "total_tokens": 16212,
-          "latency_seconds": 12.668214559555054,
-          "is_valid_tool": true,
-          "error": null
-        },
-        {
-          "step_index": 28,
-          "action": {
             "op": "submit_plan",
             "items": [
               {
-                "food_id": "2708357",
-                "grams": 250
+                "food_id": "2705956",
+                "grams": 113
               },
               {
-                "food_id": "2710186",
-                "grams": 17
+                "food_id": "2708414",
+                "grams": 195
               },
               {
                 "food_id": "2709645",
-                "grams": 100
+                "grams": 155
+              },
+              {
+                "food_id": "2710186",
+                "grams": 7
               }
             ]
           },
-          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-fay', 'allergies': ['milk', 'tree_nut'], 'medications': [], 'windows': {'carb_g': [217.70546875, 217.70546875], 'fat_g': [61.7491875, 61.7491875], ",
-          "prompt_tokens": 15976,
-          "completion_tokens": 151,
+          "observation_snippet": "{'error': {'code': 'bad_schema', 'message': \"action is missing 'op'\"}}",
+          "prompt_tokens": 11756,
+          "completion_tokens": 45,
           "reasoning_tokens": 0,
-          "total_tokens": 16127,
-          "latency_seconds": 8.51924180984497,
+          "total_tokens": 11801,
+          "latency_seconds": 7.66716194152832,
           "is_valid_tool": true,
           "error": null
         }
@@ -11766,21 +11732,22 @@
     {
       "task_id": "adr29-dish-03",
       "family": "log",
-      "query": "I made shredded potato with green pepper: a cup of potato, a cup of green peppers, and 1 tablespoon of vegetable oil for lunch. Please break it down into those raw ingredients in my diary.",
+      "query": "For lunch, I boiled a peeled potato and diced it with fresh green peppers and a tablespoon of vegetable oil. Please break down the prep into a cup of boiled potato, a cup of raw green peppers, and 1 tbsp vegetable oil in my diary.",
       "persona": "everyday",
       "passed": false,
       "score_tag": "log_miss",
-      "n_steps": 12,
+      "n_steps": 11,
       "max_budget": 12,
-      "wall_time_seconds": 72.63528680801392,
-      "total_prompt_tokens": 30170,
-      "total_completion_tokens": 2045,
+      "wall_time_seconds": 39.99947452545166,
+      "total_prompt_tokens": 22009,
+      "total_completion_tokens": 138,
       "total_reasoning_tokens": 0,
-      "total_tokens": 32215,
+      "total_tokens": 22147,
       "tool_counts": {
-        "search_foods": 7,
+        "search_foods": 4,
         "get_food": 3,
-        "get_profile": 2
+        "log_meal": 3,
+        "finish": 1
       },
       "invalid_tool_count": 0,
       "allergen_violated": false,
@@ -11789,44 +11756,44 @@
           "step_index": 1,
           "action": {
             "op": "search_foods",
-            "q": "potato raw"
+            "q": "potato boiled"
           },
           "observation_snippet": "{'op': 'reset', 'profile': {'user_id': 'roster-jay', 'allergies': [], 'medications': [], 'windows': {'kcal': [3498.375, 3498.375], 'protein_g': [63.2, 87.459375], 'carb_g': [481.02656249999995, 481.02",
-          "prompt_tokens": 948,
-          "completion_tokens": 10,
+          "prompt_tokens": 960,
+          "completion_tokens": 11,
           "reasoning_tokens": 0,
-          "total_tokens": 958,
-          "latency_seconds": 5.810268402099609,
+          "total_tokens": 971,
+          "latency_seconds": 11.89082670211792,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 2,
           "action": {
-            "op": "search_foods",
-            "q": "potato"
+            "op": "get_food",
+            "food_id": "2709388"
           },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'potato raw', 'results': []}",
-          "prompt_tokens": 1007,
-          "completion_tokens": 9,
+          "observation_snippet": "{'op': 'search_foods', 'q': 'potato boiled', 'results': [{'food_id': '2709385', 'name': 'Potato, boiled, NFS', 'aliases': [], 'allergen_tags': []}, {'food_id': '2709386', 'name': 'Potato, boiled, read",
+          "prompt_tokens": 1589,
+          "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 1016,
-          "latency_seconds": 2.8562986850738525,
+          "total_tokens": 1599,
+          "latency_seconds": 2.763155221939087,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 3,
           "action": {
-            "op": "get_food",
-            "food_id": "2709382"
+            "op": "search_foods",
+            "q": "green pepper raw"
           },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'potato', 'results': [{'food_id': '2709383', 'name': 'Potato, baked, NFS', 'aliases': ['baked potato', 'potato'], 'allergen_tags': []}, {'food_id': '2707642', 'name': 'Brea",
-          "prompt_tokens": 1723,
-          "completion_tokens": 10,
+          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2709388', 'name': 'Potato, boiled, from fresh, peel not eaten, no added fat', 'nutrients': {'carb_g': 21.46, 'fat_g': 0.1, 'fiber_g': 1.5, 'kcal': 93.0, 'protei",
+          "prompt_tokens": 1746,
+          "completion_tokens": 11,
           "reasoning_tokens": 0,
-          "total_tokens": 1733,
-          "latency_seconds": 2.505906105041504,
+          "total_tokens": 1757,
+          "latency_seconds": 2.3695225715637207,
           "is_valid_tool": true,
           "error": null
         },
@@ -11834,29 +11801,29 @@
           "step_index": 4,
           "action": {
             "op": "search_foods",
-            "q": "green pepper"
+            "q": "peppers green"
           },
-          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2709382', 'name': 'Potato, NFS', 'nutrients': {'carb_g': 20.45, 'fat_g': 4.25, 'fiber_g': 1.4, 'kcal': 126.0, 'protein_g': 1.87, 'sodium_mg': 166.0}, 'allergen_",
-          "prompt_tokens": 1863,
-          "completion_tokens": 10,
+          "observation_snippet": "{'op': 'search_foods', 'q': 'green pepper raw', 'results': []}",
+          "prompt_tokens": 1808,
+          "completion_tokens": 11,
           "reasoning_tokens": 0,
-          "total_tokens": 1873,
-          "latency_seconds": 2.420931816101074,
+          "total_tokens": 1819,
+          "latency_seconds": 2.894136428833008,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 5,
           "action": {
-            "op": "search_foods",
-            "q": "bell pepper"
+            "op": "get_food",
+            "food_id": "2709800"
           },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'green pepper', 'results': [{'food_id': '2710798', 'name': 'Green pepper, cooked, as ingredient', 'aliases': [], 'allergen_tags': []}, {'food_id': '2706633', 'name': 'Stuff",
-          "prompt_tokens": 2042,
+          "observation_snippet": "{'op': 'search_foods', 'q': 'peppers green', 'results': [{'food_id': '2709976', 'name': 'Peppers, green, cooked', 'aliases': [], 'allergen_tags': []}, {'food_id': '2709800', 'name': 'Peppers, sweet, g",
+          "prompt_tokens": 1921,
           "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 2052,
-          "latency_seconds": 2.7136011123657227,
+          "total_tokens": 1931,
+          "latency_seconds": 1.6052863597869873,
           "is_valid_tool": true,
           "error": null
         },
@@ -11864,14 +11831,14 @@
           "step_index": 6,
           "action": {
             "op": "search_foods",
-            "q": "pepper"
+            "q": "vegetable oil"
           },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'bell pepper', 'results': []}",
-          "prompt_tokens": 2101,
-          "completion_tokens": 9,
+          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2709800', 'name': 'Peppers, sweet, green, raw', 'nutrients': {'carb_g': 4.78, 'fat_g': 0.11, 'fiber_g': 0.9, 'kcal': 23.0, 'protein_g': 0.72, 'sodium_mg': 0.0},",
+          "prompt_tokens": 2073,
+          "completion_tokens": 11,
           "reasoning_tokens": 0,
-          "total_tokens": 2110,
-          "latency_seconds": 2.9691100120544434,
+          "total_tokens": 2084,
+          "latency_seconds": 1.570573091506958,
           "is_valid_tool": true,
           "error": null
         },
@@ -11879,87 +11846,79 @@
           "step_index": 7,
           "action": {
             "op": "get_food",
-            "food_id": "2710798"
+            "food_id": "2710180"
           },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'pepper', 'results': [{'food_id': '2706747', 'name': 'Pepper steak', 'aliases': [], 'allergen_tags': []}, {'food_id': '2710045', 'name': 'Stuffed jalapeno pepper', 'aliases",
-          "prompt_tokens": 2645,
+          "observation_snippet": "{'op': 'search_foods', 'q': 'vegetable oil', 'results': [{'food_id': '2710180', 'name': 'Vegetable oil, NFS', 'aliases': [], 'allergen_tags': []}]}",
+          "prompt_tokens": 2158,
           "completion_tokens": 10,
           "reasoning_tokens": 0,
-          "total_tokens": 2655,
-          "latency_seconds": 2.9568233489990234,
+          "total_tokens": 2168,
+          "latency_seconds": 2.693692684173584,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 8,
           "action": {
-            "op": "search_foods",
-            "q": "sweet pepper"
+            "op": "log_meal",
+            "food_id": "2709388",
+            "grams": 160,
+            "eaten_at": "today-lunch"
           },
-          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2710798', 'name': 'Green pepper, cooked, as ingredient', 'nutrients': {'carb_g': 5.14, 'fat_g': 0.12, 'fiber_g': 1.0, 'kcal': 25.0, 'protein_g': 0.77, 'sodium_m",
-          "prompt_tokens": 2783,
-          "completion_tokens": 10,
+          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2710180', 'name': 'Vegetable oil, NFS', 'nutrients': {'carb_g': 0.0, 'fat_g': 100.0, 'fiber_g': 0.0, 'kcal': 900.0, 'protein_g': 0.0, 'sodium_mg': 0.0}, 'allerg",
+          "prompt_tokens": 2314,
+          "completion_tokens": 20,
           "reasoning_tokens": 0,
-          "total_tokens": 2793,
-          "latency_seconds": 4.8288254737854,
+          "total_tokens": 2334,
+          "latency_seconds": 4.828362703323364,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 9,
           "action": {
-            "op": "search_foods",
-            "q": "green peppers raw"
+            "op": "log_meal",
+            "food_id": "2709800",
+            "grams": 150,
+            "eaten_at": "today-lunch"
           },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'sweet pepper', 'results': []}",
-          "prompt_tokens": 2844,
-          "completion_tokens": 12,
+          "observation_snippet": "{'op': 'log_meal', 'row': {'food_id': '2709388', 'grams': 160.0, 'eaten_at': 'today-lunch'}, 'ledger_size': 1}",
+          "prompt_tokens": 2400,
+          "completion_tokens": 20,
           "reasoning_tokens": 0,
-          "total_tokens": 2856,
-          "latency_seconds": 6.797656059265137,
+          "total_tokens": 2420,
+          "latency_seconds": 2.2078304290771484,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 10,
           "action": {
-            "op": "get_food",
-            "food_id": "2709800"
+            "op": "log_meal",
+            "food_id": "2710180",
+            "grams": 14,
+            "eaten_at": "today-lunch"
           },
-          "observation_snippet": "{'op': 'search_foods', 'q': 'green peppers raw', 'results': [{'food_id': '2709800', 'name': 'Peppers, sweet, green, raw', 'aliases': [], 'allergen_tags': []}]}",
-          "prompt_tokens": 2932,
-          "completion_tokens": 10,
+          "observation_snippet": "{'op': 'log_meal', 'row': {'food_id': '2709800', 'grams': 150.0, 'eaten_at': 'today-lunch'}, 'ledger_size': 2}",
+          "prompt_tokens": 2486,
+          "completion_tokens": 20,
           "reasoning_tokens": 0,
-          "total_tokens": 2942,
-          "latency_seconds": 2.1596643924713135,
+          "total_tokens": 2506,
+          "latency_seconds": 2.8009159564971924,
           "is_valid_tool": true,
           "error": null
         },
         {
           "step_index": 11,
           "action": {
-            "op": "get_profile"
+            "op": "finish"
           },
-          "observation_snippet": "{'op': 'get_food', 'food': {'food_id': '2709800', 'name': 'Peppers, sweet, green, raw', 'nutrients': {'carb_g': 4.78, 'fat_g': 0.11, 'fiber_g': 0.9, 'kcal': 23.0, 'protein_g': 0.72, 'sodium_mg': 0.0},",
-          "prompt_tokens": 4015,
-          "completion_tokens": 907,
+          "observation_snippet": "{'op': 'log_meal', 'row': {'food_id': '2710180', 'grams': 14.0, 'eaten_at': 'today-lunch'}, 'ledger_size': 3}",
+          "prompt_tokens": 2554,
+          "completion_tokens": 4,
           "reasoning_tokens": 0,
-          "total_tokens": 4922,
-          "latency_seconds": 18.2666072845459,
-          "is_valid_tool": true,
-          "error": null
-        },
-        {
-          "step_index": 12,
-          "action": {
-            "op": "get_profile"
-          },
-          "observation_snippet": "{'op': 'get_profile', 'profile': {'user_id': 'roster-jay', 'allergies': [], 'medications': [], 'windows': {'kcal': [3498.375, 3498.375], 'protein_g': [63.2, 87.459375], 'carb_g': [481.02656249999995, ",
-          "prompt_tokens": 5267,
-          "completion_tokens": 1038,
-          "reasoning_tokens": 0,
-          "total_tokens": 6305,
-          "latency_seconds": 18.313140869140625,
+          "total_tokens": 2558,
+          "latency_seconds": 4.347971439361572,
           "is_valid_tool": true,
           "error": null
         }

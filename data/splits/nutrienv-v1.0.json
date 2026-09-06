@@ -243,7 +243,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "I had a side order of fried green tomatoes for lunch.",
+      "query": "I had a mini side order of fried green tomatoes (about a half-cup basket) for lunch.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -1222,7 +1222,7 @@
         ]
       },
       "persona": "everyday",
-      "query": "I had an egg and meat quesadilla for lunch, so what should I eat for dinner?",
+      "query": "I had a small cafeteria portion of egg and meat quesadilla (two small cut pieces) for lunch, so what should I eat for dinner?",
       "s0": {
         "ledger": [],
         "profile": {
@@ -2896,7 +2896,7 @@
         ]
       },
       "persona": "everyday",
-      "query": "Please add egg to my allergy profile. I had a handful of sandwich crackers for lunch. What should I eat for dinner that is egg-free?",
+      "query": "Please add egg to my allergy profile. I grabbed a small single-serving snack pack of sandwich crackers for lunch. What should I eat for dinner that is egg-free?",
       "s0": {
         "ledger": [],
         "profile": {
@@ -3014,7 +3014,7 @@
         ]
       },
       "persona": "everyday",
-      "query": "Please add tree nut to my allergy profile. I had two slices of fruit pancakes for lunch. What should I eat for dinner that is tree-nut free?",
+      "query": "Please add tree nut to my allergy profile. For lunch, I heated up two pouches of frozen fruit pancakes from the freezer. What should I eat for dinner that is tree-nut free?",
       "s0": {
         "ledger": [],
         "profile": {
@@ -4528,7 +4528,7 @@
       "family": "log",
       "persona": "everyday",
       "situations": [],
-      "query": "I made shredded potato with green pepper: a cup of potato, a cup of green peppers, and 1 tablespoon of vegetable oil for lunch. Please break it down into those raw ingredients in my diary.",
+      "query": "For lunch, I boiled a peeled potato and diced it with fresh green peppers and a tablespoon of vegetable oil. Please break down the prep into a cup of boiled potato, a cup of raw green peppers, and 1 tbsp vegetable oil in my diary.",
       "s0": {
         "profile": {
           "user_id": "roster-jay",
