@@ -7,6 +7,8 @@ This directory contains the official evaluation trajectories, metrics, and visua
 ```text
 reports/
 |-- assets/
+|   |-- eval_leaderboard_bars.png               # Official Pass@1 leaderboard horizontal bar chart
+|   |-- eval_pareto_efficiency.png              # Official Token-Efficiency vs Pass Rate Pareto Frontier
 |   +-- radar_v1.0_family.png                   # Official 5-axis capability radar chart
 |-- benchmark_ark_glm-5.3_v1.0.json             # GLM-5.3 (Flagship) evaluation trajectories & metrics
 |-- benchmark_ark_deepseek-v4-pro_v1.0.json     # DeepSeek-v4-pro evaluation trajectories & metrics
@@ -23,4 +25,5 @@ reports/
 | **DeepSeek-v4-flash** | **66.7%** | **42 / 63** | 10.9 | 251.1s | 2/2 (100%) | 5/6 (83.3%) | 7/8 (87.5%) | 8/11 (72.7%) | 20/36 (55.6%) |
 | **GLM-5.3-flash** | **60.3%** | **38 / 63** | 10.9 | 60.2s | 2/2 (100%) | 2/6 (33.3%) | 4/8 (50.0%) | 7/11 (63.6%) | 23/36 (63.9%) |
 
+> **Note**: All models in this benchmark suite were evaluated by invoking model endpoints provided by **Volcano Engine (火山引擎) Agent Plan**.
 Each benchmark JSON includes complete step-by-step tool actions, observations, latency, token usage, and final state validation tags.

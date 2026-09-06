@@ -35,7 +35,7 @@ The official NutriEnv v1.0 benchmark consists of 63 curated tasks with audited c
 | 3 | **DeepSeek-v4-flash** | **66.7%** | **42 / 63** | 10.9 | 251.1s | 2/2 (100%) | **5/6 (83.3%)** | **7/8 (87.5%)** | 8/11 (72.7%) | 20/36 (55.6%) |
 | 4 | **GLM-5.3-flash** | **60.3%** | **38 / 63** | **10.9** | **60.2s** | 2/2 (100%) | 2/6 (33.3%) | 4/8 (50.0%) | 7/11 (63.6%) | 23/36 (63.9%) |
 
-> Evaluated on standardized API endpoints across reasoning and lightweight models. Full execution traces, logs, and token metrics are preserved in [`reports/`](./reports/).
+> Evaluated on standardized API endpoints across reasoning and lightweight models (all models were invoked via Volcano Engine / 火山引擎 Agent Plan). Full execution traces, logs, and token metrics are preserved in [`reports/`](./reports/).
 
 ---
 
