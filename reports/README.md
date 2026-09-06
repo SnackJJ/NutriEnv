@@ -20,10 +20,10 @@ reports/
 
 | Model | Total Pass Rate | Solved / Total | Avg Steps | Avg Latency | Update (2) | Log (6) | Evaluate (8) | Recommend (11) | Composite (36) |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **DeepSeek-v4-pro** | **76.2%** | **48 / 63** | 12.9 | 167.5s | 2/2 (100%) | 4/6 (66.7%) | 6/8 (75.0%) | 9/11 (81.8%) | 27/36 (75.0%) |
-| **GLM-5.3 (Flagship)** | **74.6%** | **47 / 63** | 14.6 | 112.2s | 2/2 (100%) | 4/6 (66.7%) | 6/8 (75.0%) | 9/11 (81.8%) | 26/36 (72.2%) |
-| **DeepSeek-v4-flash** | **68.2%** | **43 / 63** | 11.0 | 248.9s | 2/2 (100%) | 5/6 (83.3%) | 7/8 (87.5%) | 8/11 (72.7%) | 21/36 (58.3%) |
-| **GLM-5.3-flash** | **63.5%** | **40 / 63** | 10.9 | 59.5s | 2/2 (100%) | 3/6 (50.0%) | 4/8 (50.0%) | 7/11 (63.6%) | 24/36 (66.7%) |
+| **DeepSeek-v4-pro** | **77.8%** | **49 / 63** | 12.9 | 167.5s | 2/2 (100%) | 5/6 (83.3%) | 6/8 (75.0%) | 9/11 (81.8%) | 27/36 (75.0%) |
+| **GLM-5.3 (Flagship)** | **76.2%** | **48 / 63** | 14.6 | 112.2s | 2/2 (100%) | 5/6 (83.3%) | 6/8 (75.0%) | 9/11 (81.8%) | 26/36 (72.2%) |
+| **DeepSeek-v4-flash** | **69.8%** | **44 / 63** | 11.0 | 248.9s | 2/2 (100%) | 6/6 (100.0%) | 7/8 (87.5%) | 8/11 (72.7%) | 21/36 (58.3%) |
+| **GLM-5.3-flash** | **65.1%** | **41 / 63** | 10.9 | 59.5s | 2/2 (100%) | 4/6 (66.7%) | 4/8 (50.0%) | 7/11 (63.6%) | 24/36 (66.7%) |
 
 > **Note**: All models in this benchmark suite were evaluated by invoking model endpoints provided by **Volcano Engine (火山引擎) Agent Plan**.
 Each benchmark JSON includes complete step-by-step tool actions, observations, latency, token usage, and final state validation tags.
