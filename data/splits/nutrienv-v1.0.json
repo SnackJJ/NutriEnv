@@ -1798,7 +1798,7 @@
         ]
       },
       "persona": "cut",
-      "query": "I had a serving of cooked fresh carrots for lunch. Update my activity level to light.",
+      "query": "For lunch, I had a small half-cup side of cooked fresh carrots. Please update my activity level to light.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -4983,7 +4983,7 @@
               ],
               "protein_g": [
                 0.0,
-                34.39
+                25.87
               ],
               "carb_g": [
                 0.0,
@@ -4991,7 +4991,7 @@
               ],
               "fat_g": [
                 0.0,
-                71.4
+                69.43
               ],
               "fiber_g": [
                 0.0,
@@ -4999,7 +4999,7 @@
               ],
               "sodium_mg": [
                 0.0,
-                1965.2
+                1922.0
               ]
             },
             "ledger": [
@@ -5376,7 +5376,7 @@
       "family": "recommend",
       "persona": "cut",
       "situations": [],
-      "query": "I am at a convenience store with only this closed menu: sushi, a generic sandwich, a hot dog, egg salad, canned tuna, a banana, Greek yogurt, edamame, diet cola, regular cola, a ramen bowl, and an apple. I need a low-sodium lunch from those items only.",
+      "query": "I have only these 12 items on hand in my basket: sushi, a generic sandwich, a hot dog, egg salad, canned tuna, a banana, Greek yogurt, edamame, diet cola, regular cola, a ramen bowl, and an apple. I need a low-sodium lunch from those items only.",
       "s0": {
         "profile": {
           "user_id": "roster-kim",
@@ -5471,7 +5471,7 @@
       "family": "recommend",
       "persona": "gym",
       "situations": [],
-      "query": "Same 7-Eleven case: sushi, sandwich, hot dog, egg salad, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen, and an apple. Pick a high-protein snack from that closed menu.",
+      "query": "From these same 12 items on hand in my basket — sushi, sandwich, hot dog, egg salad, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen, and an apple — pick a high-protein snack from that closed list only.",
       "s0": {
         "profile": {
           "user_id": "roster-ned",
@@ -5564,7 +5564,7 @@
       "family": "recommend",
       "persona": "cut",
       "situations": [],
-      "query": "Convenience-store lunch, closed menu of sushi, sandwich, hot dog, egg salad, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen, and apple. I want a sugar-conscious, lower-fat combo from those foods only.",
+      "query": "From these 12 items on hand in my basket (sushi, sandwich, hot dog, egg salad, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen, and apple), I want a sugar-conscious, lower-fat combo from those foods only.",
       "s0": {
         "profile": {
           "user_id": "roster-gus",
@@ -5657,7 +5657,7 @@
       "family": "recommend",
       "persona": "everyday",
       "situations": [],
-      "query": "I cannot do dairy. From this convenience-store menu — sushi, sandwich, hot dog, egg salad, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen, apple — build a lactose-safe lunch. Stay inside the case.",
+      "query": "I cannot do dairy. From these 12 items on hand in my basket — sushi, sandwich, hot dog, egg salad, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen, apple — build a lactose-safe lunch from that list only.",
       "s0": {
         "profile": {
           "user_id": "roster-fay",
@@ -5751,7 +5751,7 @@
       "family": "recommend",
       "persona": "gym",
       "situations": [],
-      "query": "Closed convenience-store dinner: sushi, sandwich, hot dog, egg salad, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen, and an apple. Put together a high-protein dinner using only those items.",
+      "query": "I have only these 12 items on hand in my basket: sushi, sandwich, hot dog, egg salad, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen, and an apple. Put together a high-protein dinner using only those items.",
       "s0": {
         "profile": {
           "user_id": "roster-raj",
@@ -5798,6 +5798,7 @@
           "2707182",
           "2707436",
           "2708959",
+          "2708965",
           "2709153",
           "2709215",
           "2709224",

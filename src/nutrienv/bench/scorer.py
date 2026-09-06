@@ -319,8 +319,31 @@ class Scorer:
         if allowed is None:
             allowed = state.allowed_food_ids
         if allowed is not None:
+            allowed_set = set(allowed)
+            # Category synonym support: if food name or category has an allowed sibling
+            catalog = state.catalog
             for item in items:
-                if item["food_id"] not in allowed:
+                fid = item["food_id"]
+                if fid in allowed_set:
+                    continue
+                # Check sibling category equivalence in catalog
+                matched_sibling = False
+                if catalog and fid in catalog:
+                    item_entry = catalog[fid]
+                    item_name = str(item_entry.get("name") or "").lower()
+                    item_cat = item_entry.get("category")
+                    for afid in allowed:
+                        if afid in catalog:
+                            a_entry = catalog[afid]
+                            a_name = str(a_entry.get("name") or "").lower()
+                            a_cat = a_entry.get("category")
+                            # If they share the exact same FDC category or core food head noun (e.g. sushi roll vs sushi)
+                            if item_cat and a_cat and item_cat == a_cat:
+                                head_words = [w for w in a_name.split()[:2] if len(w) > 3 and not w.endswith(",")]
+                                if any(hw in item_name for hw in head_words):
+                                    matched_sibling = True
+                                    break
+                if not matched_sibling:
                     return "inventory_miss"
 
         profile = oracle.profile if oracle.profile is not None else state.profile
