@@ -4,8 +4,6 @@
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python 3.11+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"></a>
   <a href="https://github.com/SnackJJ/NutriEnv"><img src="https://img.shields.io/badge/benchmark-NutriEnv--v1.0%20(63%20tasks)-orange.svg" alt="NutriEnv v1.0"></a>
-  <a href="tests/"><img src="https://img.shields.io/badge/tests-17%20passed-brightgreen.svg" alt="17 Tests Passing"></a>
-  <a href="https://snackjj.github.io/"><img src="https://img.shields.io/badge/homepage-snackjj.github.io-8A2BE2.svg" alt="Author Homepage"></a>
 </p>
 
 NutriEnv is an interactive, steppable environment and benchmark suite designed to evaluate the multi-turn tool interaction, dietary state tracking, high-dimensional inequality planning, and nutrition grounding capabilities of Large Language Models (LLMs) and Agentic AI.
@@ -30,10 +28,10 @@ The official NutriEnv v1.0 benchmark consists of 63 curated tasks with audited c
 
 | Rank | Model | Total Pass Rate | Solved / Total | Avg Turns | Avg Latency | Update (2) | Log (6) | Evaluate (8) | Recommend (11) | Composite (36) |
 |:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 1 | **GLM-5.3 (Flagship)** | **71.4%** | **45 / 63** | 14.7 | 114.3s | 2/2 (100%) | 4/6 (66.7%) | 6/8 (75.0%) | 9/11 (81.8%) | **24/36 (66.7%)** |
-| 2 | **DeepSeek-v4-pro** | **69.8%** | **44 / 63** | 12.6 | 168.5s | 2/2 (100%) | 3/6 (50.0%) | 6/8 (75.0%) | 9/11 (81.8%) | **24/36 (66.7%)** |
-| 3 | **DeepSeek-v4-flash** | **66.7%** | **42 / 63** | 10.9 | 251.1s | 2/2 (100%) | **5/6 (83.3%)** | **7/8 (87.5%)** | 8/11 (72.7%) | 20/36 (55.6%) |
-| 4 | **GLM-5.3-flash** | **60.3%** | **38 / 63** | **10.9** | **60.2s** | 2/2 (100%) | 2/6 (33.3%) | 4/8 (50.0%) | 7/11 (63.6%) | 23/36 (63.9%) |
+| 1 | **DeepSeek-v4-pro** | **84.1%** | **53 / 63** | 12.9 | 167.5s | 2/2 (100%) | 5/6 (83.3%) | 6/8 (75.0%) | **10/11 (90.9%)** | **30/36 (83.3%)** |
+| 2 | **GLM-5.3 (Flagship)** | **82.5%** | **52 / 63** | 14.6 | 112.2s | 2/2 (100%) | 5/6 (83.3%) | 6/8 (75.0%) | **10/11 (90.9%)** | 29/36 (80.6%) |
+| 3 | **DeepSeek-v4-flash** | **71.4%** | **45 / 63** | 11.0 | 248.9s | 2/2 (100%) | **6/6 (100.0%)** | **7/8 (87.5%)** | 8/11 (72.7%) | 22/36 (61.1%) |
+| 4 | **GLM-5.3-flash** | **68.2%** | **43 / 63** | **10.9** | **59.5s** | 2/2 (100%) | 4/6 (66.7%) | 4/8 (50.0%) | 7/11 (63.6%) | 26/36 (72.2%) |
 
 > Evaluated on standardized API endpoints across reasoning and lightweight models (all models were invoked via Volcano Engine / 火山引擎 Agent Plan). Full execution traces, logs, and token metrics are preserved in [`reports/`](./reports/).
 
