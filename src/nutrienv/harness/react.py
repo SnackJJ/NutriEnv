@@ -151,6 +151,12 @@ def context_messages(
         and str(rest[0].get("content", "")).startswith("Task:")
     ):
         pinned.append(rest.pop(0))
+    if (
+        rest
+        and rest[0].get("role") == "user"
+        and str(rest[0].get("content", "")).startswith("Pinned constraints:")
+    ):
+        pinned.append(rest.pop(0))
     room = limit - len(pinned)
     if room <= 0:
         return pinned[:limit]
@@ -234,6 +240,7 @@ class ReActHarness(Harness):
         if not self.api_key:
             raise RuntimeError(f"{spec.api_key_env} is not set")
         self.model = model
+        self.api_model = spec.model_id
         self.timeout = timeout
         self.leak_oracle = leak_oracle
         self.max_steps = max_steps
@@ -268,9 +275,13 @@ class ReActHarness(Harness):
             system = system + "\n\n" + oracle_hint(oracle)
         self.messages = [{"role": "system", "content": system}]
 
-    def act(self, observation: dict, query: str, history: list) -> dict:
+    def ensure_task(self, query: str) -> None:
+        """Pin the Task line before the first observation. Idempotent."""
         if len(self.messages) == 1:
             self.messages.append({"role": "user", "content": f"Task:\n{query}"})
+
+    def act(self, observation: dict, query: str, history: list) -> dict:
+        self.ensure_task(query)
         remaining = max(0, self.max_steps - len(history))
         self.messages.append(
             {
@@ -282,6 +293,14 @@ class ReActHarness(Harness):
                 ),
             }
         )
+        return self._emit()
+
+    def revise(self, feedback: str) -> dict:
+        """Re-complete after a harness-side check bounce. Env never saw the rejected action."""
+        self.messages.append({"role": "user", "content": feedback})
+        return self._emit()
+
+    def _emit(self) -> dict:
         text = self._complete()
         self.messages.append({"role": "assistant", "content": text})
         action = _parse_action(text)
@@ -291,7 +310,7 @@ class ReActHarness(Harness):
 
     def _complete(self) -> str:
         payload = {
-            "model": self.model,
+            "model": self.api_model,
             "messages": context_messages(self.messages, limit=self.context_limit),
             "temperature": 0.0,
             **self.extra_body,
@@ -308,30 +327,56 @@ class ReActHarness(Harness):
 
 
 def _parse_action(text: str) -> dict:
-    """Return the first complete JSON object, tolerating prose or a code fence."""
+    """Return the intended JSON Action object, tolerating CoT prose or code fences."""
     stripped = text.strip()
     fenced = re.search(r"```(?:json)?\s*(.*?)\s*```", stripped, re.S | re.I)
     candidates = [fenced.group(1), stripped] if fenced else [stripped]
     decoder = json.JSONDecoder()
+    valid_actions: list[dict] = []
+    other_dicts: list[dict] = []
+
     for candidate in candidates:
         first = len(candidate) - len(candidate.lstrip())
-        if first < len(candidate) and candidate[first] in "[{":
+        if first < len(candidate) and candidate[first] == "{":
             try:
                 data, _ = decoder.raw_decode(candidate, first)
+                if isinstance(data, dict):
+                    if data.get("op") in _OPS:
+                        valid_actions.append(data)
+                    else:
+                        other_dicts.append(data)
             except json.JSONDecodeError:
-                continue
-            if isinstance(data, dict):
-                if data.get("op") == "submit_plan" and (data.get("verdict") == "accept" or "verdict" not in data):
-                    data.pop("reasons", None)
-                return data
-            continue
-        for start in (match.start() for match in re.finditer(r"\{", candidate)):
-            try:
-                data, _ = decoder.raw_decode(candidate, start)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(data, dict):
-                if data.get("op") == "submit_plan" and (data.get("verdict") == "accept" or "verdict" not in data):
-                    data.pop("reasons", None)
-                return data
-    return {"op": "get_profile"}
+                pass
+        elif first < len(candidate) and candidate[first] == "[":
+            # A top-level JSON array is not a valid action dict
+            pass
+        else:
+            for start in (match.start() for match in re.finditer(r"\{", candidate)):
+                try:
+                    data, _ = decoder.raw_decode(candidate, start)
+                    if isinstance(data, dict):
+                        if data.get("op") in _OPS:
+                            valid_actions.append(data)
+                        else:
+                            other_dicts.append(data)
+                except json.JSONDecodeError:
+                    pass
+
+    # Take the first valid action to prevent accepting hallucinated multi-turn rollouts
+    chosen = valid_actions[0] if valid_actions else (other_dicts[0] if other_dicts else None)
+    if chosen is None:
+        return {"op": "get_profile"}
+
+    if chosen.get("op") == "submit_plan":
+        if chosen.get("verdict") == "accept" or "verdict" not in chosen:
+            chosen.pop("reasons", None)
+        valid_keys = {"op", "items", "verdict", "reasons"}
+        chosen = {k: v for k, v in chosen.items() if k in valid_keys}
+        if isinstance(chosen.get("items"), list):
+            chosen["items"] = [
+                {"food_id": str(it.get("food_id")), "grams": float(it.get("grams", 0.0))}
+                for it in chosen["items"]
+                if isinstance(it, dict) and "food_id" in it
+            ]
+    return chosen
+

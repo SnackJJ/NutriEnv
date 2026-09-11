@@ -30,6 +30,7 @@ from nutrienv.harness.react import (
     react_manual,
 )
 from nutrienv.harness.runner import FAMILY_MAX_STEPS, DEFAULT_MAX_STEPS, FINISH_OPS, WRITE_OPS, READ_OPS
+from nutrienv.harness.tool_call import run_episode_tool_call, ToolCallInfraError
 from nutrienv.io.dotenv import load_dotenv_keys
 from nutrienv.io.chat import lookup_chat_model, post_chat_completion, REACT_RETRY_ON
 
@@ -111,8 +112,9 @@ def evaluate_task_with_telemetry(task, harness_spec, catalog) -> TaskTelemetry:
                 messages, limit=harness_spec.get("context_limit", _CONTEXT_LIMIT)
             ),
             "temperature": 0.0,
-            "max_tokens": 1000,
         }
+        if "max_tokens" in harness_spec:
+            payload["max_tokens"] = harness_spec["max_tokens"]
         if "extra_body" in harness_spec:
             payload.update(harness_spec["extra_body"])
 
@@ -141,7 +143,11 @@ def evaluate_task_with_telemetry(task, harness_spec, catalog) -> TaskTelemetry:
 
         action = _parse_action(text)
         op = str(action.get("op", "unknown"))
-        is_valid = op in ("search_foods", "get_food", "get_profile", "get_ledger", "get_dri", "log_meal", "submit_plan", "update_profile", "update_plan", "finish", "done", "stop")
+        is_valid = op in (
+            "search_foods", "get_food", "get_profile", "get_ledger", "get_dri",
+            "log_meal", "submit_plan", "update_profile", "update_plan", "amend_meal",
+            "finish", "done", "stop"
+        )
         if not is_valid:
             invalid_tool_count += 1
             op = "invalid_format_fallback"
@@ -179,6 +185,10 @@ def evaluate_task_with_telemetry(task, harness_spec, catalog) -> TaskTelemetry:
             observation = {"error": result.get("error")}
 
         if op == "submit_plan":
+            break
+
+        # Circuit breaker: stop if stuck in 3 consecutive parse errors
+        if len(steps) >= 3 and all(s.action.get("op") == "parse_error" for s in steps[-3:]):
             break
 
     wall_time = time.time() - t_start
@@ -219,8 +229,12 @@ def evaluate_task_with_episode_retry(
     last_err: str | None = None
     for attempt in range(max_retries + 1):
         try:
+            if harness_spec.get("mode") == "tool_call":
+                return run_episode_tool_call(
+                    task, harness_spec, catalog, StepTelemetry, TaskTelemetry
+                )
             return evaluate_task_with_telemetry(task, harness_spec, catalog)
-        except EpisodeInfraError as exc:
+        except (EpisodeInfraError, ToolCallInfraError) as exc:
             last_err = str(exc)
             if attempt < max_retries:
                 time.sleep(2.0 * (attempt + 1))
@@ -314,6 +328,7 @@ def _build_summary(
     context_limit: int | None,
     ordered_ids: list[str],
     results_map: dict[str, TaskTelemetry],
+    harness_mode: str = "tool_call",
 ) -> dict:
     results = [results_map[tid] for tid in ordered_ids if tid in results_map]
     total_tasks = len(results)
@@ -357,6 +372,7 @@ def _build_summary(
         "overall_avg_tokens_per_task": round(sum(r.total_tokens for r in results) / total_tasks, 1) if total_tasks else 0.0,
         "total_invalid_tool_calls": sum(r.invalid_tool_count for r in results),
         "total_allergen_violations": sum(1 for r in results if r.allergen_violated),
+        "harness_mode": harness_mode,
         "family_breakdown": family_stats,
         "tasks": [asdict(r) for r in results],
     }
@@ -403,10 +419,14 @@ def run_benchmark_suite(
     reuse_from: str | None = None,
     reuse_max_steps: int = 5,
     out: str | None = None,
+    harness_mode: str = "tool_call",
 ) -> dict:
     load_dotenv_keys(Path(".env.local"))
     from nutrienv.world.catalog_store import load_catalog
-    catalog = load_catalog(Path("data/fdc/catalog.sqlite"))
+    catalog_path = Path("data/fdc/catalog.sqlite")
+    if not catalog_path.exists():
+        catalog_path = Path("data/fdc/catalog-v2.sqlite")
+    catalog = load_catalog(catalog_path)
     tasks = load_split(split_path, catalog=catalog)
 
     spec = lookup_chat_model(model_id)
@@ -421,10 +441,11 @@ def run_benchmark_suite(
         "model": spec.model_id,
         "url": url,
         "api_key": api_key,
-        "timeout": 90.0,
-        "retries": 4,
+        "timeout": 180.0,
+        "retries": 5,
         "version": "v2",
         "context_limit": context_limit,
+        "mode": harness_mode,
     }
 
     split_stem = Path(split_path).stem
@@ -436,6 +457,10 @@ def run_benchmark_suite(
     if (resume or rerun_failed) and out_path.exists():
         try:
             prev_data = json.loads(out_path.read_text(encoding="utf-8"))
+            prev_mode = prev_data.get("harness_mode")
+            if prev_mode and prev_mode != harness_mode:
+                print(f"⚠️ Warning: Prior report has harness_mode '{prev_mode}', but current run is '{harness_mode}'. Resume aborted.")
+                prev_data = {}
             for pt in prev_data.get("tasks", []):
                 if pt.get("total_tokens", 0) > 0 and not any(s.get("error") for s in pt.get("steps", [])):
                     if rerun_failed and not pt.get("passed"):
@@ -510,7 +535,7 @@ def run_benchmark_suite(
 
     def _checkpoint() -> dict:
         summary = _build_summary(
-            model_id, split_path, context_limit, ordered_ids, task_results_map
+            model_id, split_path, context_limit, ordered_ids, task_results_map, harness_mode=harness_mode
         )
         _write_report(out_path, summary)
         return summary
@@ -582,6 +607,12 @@ if __name__ == "__main__":
         default=None,
         help="report JSON path (default: reports/ablation_ctx_<split>_<model>_limit<tag>.json)",
     )
+    parser.add_argument(
+        "--harness",
+        default="react",
+        choices=["react", "tool_call"],
+        help="harness mode: react (default official ReAct loop) or tool_call (native function calling)",
+    )
     args = parser.parse_args()
 
     run_benchmark_suite(
@@ -596,4 +627,5 @@ if __name__ == "__main__":
         reuse_from=args.reuse_from,
         reuse_max_steps=args.reuse_max_steps,
         out=args.out,
+        harness_mode=args.harness,
     )

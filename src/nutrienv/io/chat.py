@@ -25,6 +25,7 @@ __all__ = [
     "complete_chat",
     "lookup_chat_model",
     "post_chat_completion",
+    "post_chat_completion_raw",
 ]
 
 DEEPSEEK_CHAT_URL = "https://api.deepseek.com/v1/chat/completions"
@@ -88,6 +89,46 @@ def post_chat_completion(
                 sleep_time = max(sleep_time, 4.0 * (attempt + 1))
             time.sleep(sleep_time)
     raise RuntimeError(f"{error_prefix}: {last_error}") from last_error
+
+
+def post_chat_completion_raw(
+    url: str,
+    payload: dict,
+    api_key: str,
+    timeout: float,
+    retries: int = 3,
+    retry_on: tuple[type[BaseException], ...] = REACT_RETRY_ON,
+    error_prefix: str = "request failed",
+) -> dict:
+    """POST one chat completion and return the full parsed body dict."""
+    import socket
+    socket.setdefaulttimeout(timeout)
+    last_error: Exception | None = None
+    for attempt in range(retries):
+        try:
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                    "User-Agent": (
+                        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                        "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+                    ),
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except retry_on as exc:
+            last_error = exc
+            sleep_time = float(2 ** attempt)
+            if isinstance(exc, urllib.error.HTTPError) and exc.code == 429:
+                sleep_time = max(sleep_time, 4.0 * (attempt + 1))
+            time.sleep(sleep_time)
+    raise RuntimeError(f"{error_prefix}: {last_error}") from last_error
+
 
 
 _ROOT = Path(__file__).resolve().parents[3]
