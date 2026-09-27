@@ -15,24 +15,39 @@ import json
 import os
 import sys
 import time
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from dataclasses import dataclass, asdict, field
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from nutrienv.bench import load_split, Scorer
+from nutrienv.bench import SCORER_VERSION, Scorer, load_split
 from nutrienv.env import NutriEnv
+from nutrienv.harness.prompt_freeze import (
+    PROMPT_VERSION,
+    assert_frozen,
+    prompt_fingerprint,
+)
 from nutrienv.harness.react import (
-    _CONTEXT_LIMIT,
-    ReActHarness,
-    _parse_action,
+    PARSE_ERROR_POLICIES,
     context_messages,
     react_manual,
+    resolve_action,
+    violation_feedback,
 )
-from nutrienv.harness.runner import FAMILY_MAX_STEPS, DEFAULT_MAX_STEPS, FINISH_OPS, WRITE_OPS, READ_OPS
-from nutrienv.harness.tool_call import run_episode_tool_call, ToolCallInfraError
+from nutrienv.harness.runner import (
+    LOOP_VERSION,
+    DEFAULT_MAX_STEPS,
+    FAMILY_MAX_STEPS,
+    FINISH_OPS,
+)
+from nutrienv.harness.tool_call import ToolCallInfraError, run_episode_tool_call
+from nutrienv.io.chat import (
+    REACT_RETRY_ON,
+    _message_text,
+    lookup_chat_model,
+    post_chat_completion_raw,
+)
 from nutrienv.io.dotenv import load_dotenv_keys
-from nutrienv.io.chat import lookup_chat_model, post_chat_completion, REACT_RETRY_ON
 
 
 @dataclass
@@ -46,12 +61,23 @@ class StepTelemetry:
     total_tokens: int = 0
     latency_seconds: float = 0.0
     is_valid_tool: bool = True
+    # False when the provider reported no usage block and the counts are the 4-chars/token
+    # estimate. Reported so a reader can tell a measured column from a guessed one.
+    tokens_measured: bool = False
+    # Whether this turn obeyed the output contract. `action` below is what the loop *did*,
+    # which under the `silent` policy is not what the model asked for; without these three
+    # fields the substitution leaves no trace in the report.
+    protocol_violation: bool = False
+    violation_reason: str | None = None
+    raw_text: str | None = None
     error: str | None = None
+    # Env refused the action (an Illegal Action: a known op whose arguments break its schema).
+    # The world is untouched and the turn is spent; `is_valid_tool` only says the op is known.
+    refused: bool = False
 
 
 class EpisodeInfraError(RuntimeError):
     """Raised when an episode encounters an unrecoverable network/infrastructure failure."""
-    pass
 
 
 @dataclass
@@ -72,9 +98,44 @@ class TaskTelemetry:
     tool_counts: dict[str, int]
     invalid_tool_count: int
     allergen_violated: bool
+    # Turns whose text was not a legal Action, and what the loop did about each one. The count
+    # is the protocol-compliance measurement; the log keeps enough to read what the model sent.
+    protocol_violations: int = 0
+    violation_log: list[dict] = field(default_factory=list)
     steps: list[StepTelemetry] = field(default_factory=list)
     is_void: bool = False
     void_reason: str | None = None
+
+
+def _usage_int(value: object, field: str) -> int:
+    """A provider token count, or a loud error naming the field.
+
+    The usage block is JSON, so an int is what the provider sent unless something is wrong; the
+    point of checking here is that a wrong one names its field instead of surfacing as
+    `invalid literal for int()` from inside a retry loop.
+    """
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return round(value)
+    raise ValueError(f"provider reported a non-integer {field}: {value!r}")
+
+
+# How an Action is expressed and handed back. Two values, one axis; a report records which one
+# it used, and a pass figure from one is not comparable with the other.
+CONTRACTS = ("text-json", "native-tools")
+
+
+def _reasoning_tokens(usage: dict) -> int:
+    """Thinking tokens, from whichever field the provider filled in."""
+    detail = usage.get("completion_tokens_details")
+    if isinstance(detail, dict) and detail.get("reasoning_tokens") is not None:
+        return _usage_int(
+            detail["reasoning_tokens"], "completion_tokens_details.reasoning_tokens"
+        )
+    if usage.get("reasoning_tokens") is not None:
+        return _usage_int(usage["reasoning_tokens"], "reasoning_tokens")
+    return 0
 
 
 def evaluate_task_with_telemetry(task, harness_spec, catalog) -> TaskTelemetry:
@@ -88,9 +149,12 @@ def evaluate_task_with_telemetry(task, harness_spec, catalog) -> TaskTelemetry:
         {"role": "user", "content": f"Task:\n{task.query}"}
     ]
 
+    parse_error_policy = harness_spec["parse_error_policy"]
     steps: list[StepTelemetry] = []
     tool_counts: dict[str, int] = {}
     invalid_tool_count = 0
+    protocol_violations = 0
+    violation_log: list[dict] = []
     total_prompt_tokens = 0
     total_completion_tokens = 0
     total_reasoning_tokens = 0
@@ -108,10 +172,11 @@ def evaluate_task_with_telemetry(task, harness_spec, catalog) -> TaskTelemetry:
         # Post completion and capture raw body with usage
         payload = {
             "model": harness_spec["model"],
-            "messages": context_messages(
-                messages, limit=harness_spec.get("context_limit", _CONTEXT_LIMIT)
-            ),
-            "temperature": 0.0,
+            # The spec always carries `context_limit` (this module builds it from
+            # --context-limit, default full). Index instead of `.get`: a spec that omits it used
+            # to fall back to the 12-message slide, which is the truncation nobody asked for.
+            "messages": context_messages(messages, limit=harness_spec["context_limit"]),
+            "temperature": harness_spec.get("temperature", 0.0),
         }
         if "max_tokens" in harness_spec:
             payload["max_tokens"] = harness_spec["max_tokens"]
@@ -123,7 +188,11 @@ def evaluate_task_with_telemetry(task, harness_spec, catalog) -> TaskTelemetry:
         usage = {}
         err = None
         try:
-            raw_req = post_chat_completion(
+            # Raw body (not just the text): the usage block carries reasoning_tokens, and
+            # without it a long thinking step is invisible in the telemetry. The helper
+            # streams, which is what keeps a multi-minute reasoning step from tripping the
+            # socket read timeout and being resent from scratch.
+            raw_body = post_chat_completion_raw(
                 harness_spec["url"],
                 payload,
                 harness_spec["api_key"],
@@ -132,7 +201,11 @@ def evaluate_task_with_telemetry(task, harness_spec, catalog) -> TaskTelemetry:
                 retry_on=REACT_RETRY_ON,
                 error_prefix=f"{harness_spec['model']} request failed",
             )
-            text = raw_req
+            # `_message_text`, not the bare `content`: reasoner models sometimes leave
+            # `content` empty and put the answer in `reasoning_content`, and the raw form
+            # turned that into a scored parse_error.
+            text = _message_text(raw_body)
+            usage = raw_body.get("usage") or {}
         except Exception as exc:
             err = str(exc)
             # Never synthesize a fake 'finish' action on infra network failure!
@@ -141,7 +214,11 @@ def evaluate_task_with_telemetry(task, harness_spec, catalog) -> TaskTelemetry:
         step_latency = time.time() - t0
         messages.append({"role": "assistant", "content": text})
 
-        action = _parse_action(text)
+        # Did the model obey the output contract, and what is the loop going to do about it?
+        # `resolve_action` answers the first without the `get_profile` substitution that makes
+        # a violation indistinguishable from a successful read; `action` is the second.
+        parsed, violation = resolve_action(text)
+        action = parsed if parsed is not None else {"op": "get_profile"}
         op = str(action.get("op", "unknown"))
         is_valid = op in (
             "search_foods", "get_food", "get_profile", "get_ledger", "get_dri",
@@ -154,12 +231,29 @@ def evaluate_task_with_telemetry(task, harness_spec, catalog) -> TaskTelemetry:
 
         tool_counts[op] = tool_counts.get(op, 0) + 1
 
-        # Heuristic/actual token estimate (if provider returns usage, we capture it, otherwise estimate 4 chars/token)
-        p_tok = len(json.dumps(messages)) // 4
-        c_tok = len(text) // 4
+        # Real usage when the provider reports it, else 4 chars/token. The reasoning count is
+        # the point of reading `usage` at all: it dominates the wall time of a thinking model
+        # and is invisible in the returned text, so an all-zero column hides where the time
+        # went. `or` rather than a `0` default, so a missing field still falls back.
+        measured = bool(usage)
+        p_tok = usage.get("prompt_tokens") or len(json.dumps(messages)) // 4
+        c_tok = usage.get("completion_tokens") or len(text) // 4
+        r_tok = _reasoning_tokens(usage)
         total_prompt_tokens += p_tok
         total_completion_tokens += c_tok
+        total_reasoning_tokens += r_tok
         total_tokens += (p_tok + c_tok)
+
+        if violation:
+            protocol_violations += 1
+            violation_log.append(
+                {
+                    "step_index": step_i + 1,
+                    "reason": violation,
+                    "policy": parse_error_policy,
+                    "text": text[:1200],
+                }
+            )
 
         step_telemetry = StepTelemetry(
             step_index=step_i + 1,
@@ -167,13 +261,24 @@ def evaluate_task_with_telemetry(task, harness_spec, catalog) -> TaskTelemetry:
             observation_snippet=str(observation)[:200],
             prompt_tokens=p_tok,
             completion_tokens=c_tok,
-            reasoning_tokens=0,
+            reasoning_tokens=r_tok,
             total_tokens=p_tok + c_tok,
             latency_seconds=step_latency,
             is_valid_tool=is_valid,
+            tokens_measured=measured,
+            protocol_violation=bool(violation),
+            violation_reason=violation,
+            raw_text=text[:1200] if violation else None,
             error=err
         )
         steps.append(step_telemetry)
+
+        if violation and parse_error_policy != "silent":
+            # The turn is spent either way, which is the point: a retry is not free. What
+            # differs between the two non-silent policies is only whether the model is told
+            # what went wrong, so the extra completion is held equal between them.
+            messages.append({"role": "user", "content": violation_feedback(parse_error_policy, text)})
+            continue
 
         if op in FINISH_OPS:
             break
@@ -183,8 +288,14 @@ def evaluate_task_with_telemetry(task, harness_spec, catalog) -> TaskTelemetry:
             observation = result["observation"]
         else:
             observation = {"error": result.get("error")}
+        step_telemetry.refused = not result.get("ok")
 
-        if op == "submit_plan":
+        # A hand-in ends the episode only when Env accepted it. An Illegal Action leaves the
+        # world untouched and reports the error; breaking here scored that untouched world as
+        # the model's answer -- a reject missing the schema's required `items` arrived as
+        # `last_plan=None` and failed `None != []` in the Scorer. `harness.runner._run_episode`
+        # continues on a refused action; this loop had drifted from it.
+        if op == "submit_plan" and result.get("ok"):
             break
 
         # Circuit breaker: stop if stuck in 3 consecutive parse errors
@@ -216,6 +327,8 @@ def evaluate_task_with_telemetry(task, harness_spec, catalog) -> TaskTelemetry:
         tool_counts=tool_counts,
         invalid_tool_count=invalid_tool_count,
         allergen_violated=allergen_violated,
+        protocol_violations=protocol_violations,
+        violation_log=violation_log,
         steps=steps,
         is_void=False,
         void_reason=None,
@@ -229,7 +342,7 @@ def evaluate_task_with_episode_retry(
     last_err: str | None = None
     for attempt in range(max_retries + 1):
         try:
-            if harness_spec.get("mode") == "tool_call":
+            if harness_spec.get("contract") == "native-tools":
                 return run_episode_tool_call(
                     task, harness_spec, catalog, StepTelemetry, TaskTelemetry
                 )
@@ -298,6 +411,7 @@ def _telemetry_from_dict(pt: dict) -> TaskTelemetry:
             latency_seconds=s.get("latency_seconds", 0.0),
             is_valid_tool=s.get("is_valid_tool", True),
             error=s.get("error"),
+            refused=s.get("refused", False),
         )
         for s in pt.get("steps", [])
     ]
@@ -318,6 +432,8 @@ def _telemetry_from_dict(pt: dict) -> TaskTelemetry:
         tool_counts=pt.get("tool_counts", {}),
         invalid_tool_count=pt.get("invalid_tool_count", 0),
         allergen_violated=pt.get("allergen_violated", False),
+        protocol_violations=pt.get("protocol_violations", 0),
+        violation_log=pt.get("violation_log", []),
         steps=step_objs,
     )
 
@@ -328,7 +444,11 @@ def _build_summary(
     context_limit: int | None,
     ordered_ids: list[str],
     results_map: dict[str, TaskTelemetry],
-    harness_mode: str = "tool_call",
+    contract: str = "native-tools",
+    parse_error_policy: str = "silent",
+    endpoint: str | None = None,
+    temperature: float | None = None,
+    prompt_fp: str | None = None,
 ) -> dict:
     results = [results_map[tid] for tid in ordered_ids if tid in results_map]
     total_tasks = len(results)
@@ -371,8 +491,34 @@ def _build_summary(
         "overall_total_tokens": sum(r.total_tokens for r in results),
         "overall_avg_tokens_per_task": round(sum(r.total_tokens for r in results) / total_tasks, 1) if total_tasks else 0.0,
         "total_invalid_tool_calls": sum(r.invalid_tool_count for r in results),
+        # Protocol compliance, which `total_invalid_tool_calls` cannot report: it counts only
+        # "parsed, but the op is unknown", while the dominant violation is "no Action at all".
+        "parse_error_policy": parse_error_policy,
+        "total_protocol_violations": sum(r.protocol_violations for r in results),
+        "protocol_violation_rate": round(
+            sum(r.protocol_violations for r in results) / max(1, sum(r.n_steps for r in results)), 4
+        ),
+        # Turns Env refused: a known op with illegal arguments. Neither column above sees them,
+        # since the op parses and is known; the turn is spent and the world is unchanged.
+        "total_refused_actions": sum(s.refused for r in results for s in r.steps),
+        "refused_action_rate": round(
+            sum(s.refused for r in results for s in r.steps)
+            / max(1, sum(r.n_steps for r in results)),
+            4,
+        ),
         "total_allergen_violations": sum(1 for r in results if r.allergen_violated),
-        "harness_mode": harness_mode,
+        "contract": contract,
+        # Provenance: the same model id can be a different snapshot per gateway, and
+        # the same model at a different temperature is a different measurement.
+        "endpoint": endpoint,
+        "temperature": temperature,
+        # Which prompt generation produced this file (see harness/prompt_freeze.py).
+        "prompt_version": PROMPT_VERSION,
+        "prompt_fingerprint": prompt_fp or prompt_fingerprint(),
+        # Which scoring ruler judged it (see bench/scorer.py), and which episode loop ran it
+        # (see harness/runner.py).
+        "scorer_version": SCORER_VERSION,
+        "loop_version": LOOP_VERSION,
         "family_breakdown": family_stats,
         "tasks": [asdict(r) for r in results],
     }
@@ -385,17 +531,51 @@ def _write_report(path: Path, summary: dict) -> None:
     tmp.replace(path)
 
 
+def _require_same_ruler(prior: dict, source: Path) -> None:
+    """Refuse to reuse cached tasks judged by another scorer or run by another loop.
+
+    Cached tasks carry their stored pass/tag, and the summary stamps the current versions, so
+    reusing them across a version change would label old judgements with the new ruler.
+    """
+    for key, current in (("scorer_version", SCORER_VERSION), ("loop_version", LOOP_VERSION)):
+        recorded = prior.get(key)
+        if recorded != current:
+            raise SystemExit(
+                f"{source} was produced under {key}={recorded or 'unrecorded'}, this run uses "
+                f"{current}; its cached tasks cannot be reused. Run without --resume / "
+                "--rerun-failed / --reuse-from, or re-score its trajectories."
+            )
+
+
 def _reuse_short_tasks(
     path: Path,
     max_steps: int,
     *,
+    contract: str,
     skip_failed: bool = False,
 ) -> dict[str, TaskTelemetry]:
     """Copy untruncated tasks. Skip crashed or, if requested, failed episodes."""
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"cannot read the reuse report {path}: {exc}") from exc
+    _require_same_ruler(payload, path)
+    # Same generation and transport, as --resume requires: a reused tag is a stored judgement.
+    assert_frozen(payload)
+    recorded_contract = payload.get("contract") or payload.get("harness_mode")
+    if recorded_contract != contract:
+        raise SystemExit(
+            f"{path} was run with contract={recorded_contract or 'unrecorded'}, this run uses "
+            f"{contract}; its cached tasks cannot be reused."
+        )
     reused: dict[str, TaskTelemetry] = {}
     for pt in payload.get("tasks", []):
-        if int(pt.get("n_steps", 999)) > max_steps:
+        n_steps = pt.get("n_steps", 999)
+        if not isinstance(n_steps, int) or isinstance(n_steps, bool):
+            raise SystemExit(
+                f"reuse report task {pt.get('task_id')!r} has a non-integer n_steps: {n_steps!r}"
+            )
+        if n_steps > max_steps:
             continue
         if pt.get("total_tokens", 0) <= 0:
             continue
@@ -419,14 +599,31 @@ def run_benchmark_suite(
     reuse_from: str | None = None,
     reuse_max_steps: int = 5,
     out: str | None = None,
-    harness_mode: str = "tool_call",
+    contract: str = "native-tools",
+    temperature: float = 0.0,
+    parse_error_policy: str = "silent",
 ) -> dict:
+    if contract not in CONTRACTS:
+        raise ValueError(f"unknown contract {contract!r}; choose from {CONTRACTS}")
+    if parse_error_policy not in PARSE_ERROR_POLICIES:
+        raise ValueError(
+            f"unknown parse_error_policy {parse_error_policy!r}; "
+            f"choose from {PARSE_ERROR_POLICIES}"
+        )
     load_dotenv_keys(Path(".env.local"))
     from nutrienv.world.catalog_store import load_catalog
-    catalog_path = Path("data/fdc/catalog.sqlite")
-    if not catalog_path.exists():
-        catalog_path = Path("data/fdc/catalog-v2.sqlite")
-    catalog = load_catalog(catalog_path)
+
+    # The split names the catalog it was authored against, so take it from there. Hard-coding a
+    # path here meant the report's `split` field and the world the tasks actually ran in could
+    # disagree, and load_catalog used to substitute a 15-food fixture when a path went missing.
+    try:
+        split_payload = json.loads(Path(split_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"cannot read the split {split_path}: {exc}") from exc
+    catalog_field = split_payload.get("catalog") if isinstance(split_payload, dict) else None
+    if not catalog_field:
+        raise RuntimeError(f"{split_path} records no `catalog` path; refusing to guess one")
+    catalog = load_catalog(Path(catalog_field))
     tasks = load_split(split_path, catalog=catalog)
 
     spec = lookup_chat_model(model_id)
@@ -437,6 +634,11 @@ def run_benchmark_suite(
     if not api_key:
         raise RuntimeError(f"API key environment variable '{key_env}' is not set.")
 
+    # Resolved once rather than per checkpoint: recomputing it mid-run would relabel tasks
+    # already produced under the old prompts, which is the straddle prompt_freeze exists to
+    # make impossible.
+    prompt_fp = assert_frozen()
+
     harness_spec = {
         "model": spec.model_id,
         "url": url,
@@ -445,7 +647,9 @@ def run_benchmark_suite(
         "retries": 5,
         "version": "v2",
         "context_limit": context_limit,
-        "mode": harness_mode,
+        "temperature": temperature,
+        "contract": contract,
+        "parse_error_policy": parse_error_policy,
     }
 
     split_stem = Path(split_path).stem
@@ -455,11 +659,22 @@ def run_benchmark_suite(
     )
     cached_map: dict[str, TaskTelemetry] = {}
     if (resume or rerun_failed) and out_path.exists():
+        # Fatal, not a warning: `--resume` means "do not pay for these tasks again", so a cache
+        # that cannot be read has to stop the run rather than quietly start over.
         try:
-            prev_data = json.loads(out_path.read_text(encoding="utf-8"))
-            prev_mode = prev_data.get("harness_mode")
-            if prev_mode and prev_mode != harness_mode:
-                print(f"⚠️ Warning: Prior report has harness_mode '{prev_mode}', but current run is '{harness_mode}'. Resume aborted.")
+            prev_data: dict = json.loads(out_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as e:
+            raise SystemExit(f"cannot read the resume cache {out_path}: {e}") from e
+        if prev_data:
+            # Refuse to mix generations: a report written under a different prompt generation
+            # must not silently lend its cached tasks to this run.
+            assert_frozen(prev_data)
+            _require_same_ruler(prev_data, out_path)
+        try:
+            # Legacy key: reports written before the axis was named `contract`.
+            prev_contract = prev_data.get("contract") or prev_data.get("harness_mode")
+            if prev_contract and prev_contract != contract:
+                print(f"⚠️ Warning: prior report has contract '{prev_contract}', but current run is '{contract}'. Resume aborted.")
                 prev_data = {}
             for pt in prev_data.get("tasks", []):
                 if pt.get("total_tokens", 0) > 0 and not any(s.get("error") for s in pt.get("steps", [])):
@@ -476,7 +691,12 @@ def run_benchmark_suite(
                             total_tokens=s.get("total_tokens", 0),
                             latency_seconds=s.get("latency_seconds", 0.0),
                             is_valid_tool=s.get("is_valid_tool", True),
-                            error=s.get("error")
+                            tokens_measured=s.get("tokens_measured", False),
+                            protocol_violation=s.get("protocol_violation", False),
+                            violation_reason=s.get("violation_reason"),
+                            raw_text=s.get("raw_text"),
+                            error=s.get("error"),
+                            refused=s.get("refused", False),
                         )
                         for s in pt.get("steps", [])
                     ]
@@ -497,11 +717,13 @@ def run_benchmark_suite(
                         tool_counts=pt.get("tool_counts", {}),
                         invalid_tool_count=pt.get("invalid_tool_count", 0),
                         allergen_violated=pt.get("allergen_violated", False),
+                        protocol_violations=pt.get("protocol_violations", 0),
+                        violation_log=pt.get("violation_log", []),
                         steps=step_objs
                     )
             print(f"🔄 Resuming benchmark: Loaded {len(cached_map)} valid completed tasks from {out_path}")
-        except Exception as e:
-            print(f"⚠️ Failed to load resume cache: {e}")
+        except (KeyError, TypeError, ValueError) as e:
+            raise SystemExit(f"resume cache {out_path} is not a report this code can read: {e}") from e
 
     if reuse_from:
         live_query = {task.id: task.query for task in tasks}
@@ -509,6 +731,7 @@ def run_benchmark_suite(
             Path(reuse_from),
             reuse_max_steps,
             skip_failed=rerun_failed,
+            contract=contract,
         )
         kept = 0
         for tid, tele in reused.items():
@@ -535,7 +758,9 @@ def run_benchmark_suite(
 
     def _checkpoint() -> dict:
         summary = _build_summary(
-            model_id, split_path, context_limit, ordered_ids, task_results_map, harness_mode=harness_mode
+            model_id, split_path, context_limit, ordered_ids, task_results_map,
+            contract=contract, parse_error_policy=parse_error_policy,
+            endpoint=url, temperature=temperature, prompt_fp=prompt_fp,
         )
         _write_report(out_path, summary)
         return summary
@@ -547,7 +772,7 @@ def run_benchmark_suite(
         completed_count = len(cached_map)
 
         def _worker(idx_task):
-            idx, t = idx_task
+            _idx, t = idx_task
             tele = evaluate_task_with_episode_retry(t, harness_spec, catalog)
             nonlocal completed_count
             with print_lock:
@@ -576,10 +801,11 @@ def run_benchmark_suite(
     return summary
 
 
-if __name__ == "__main__":
+def build_parser() -> argparse.ArgumentParser:
+    """CLI surface, kept as a function so tests can assert the harness contract."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--split", default="data/splits/nutrienv-mini.json")
-    parser.add_argument("--model", default="deepseek-chat")
+    parser.add_argument("--model", default="commandcode/inclusionai/ling-3.0-flash-sante:free")
     parser.add_argument("--url", default=None)
     parser.add_argument("--key-env", default=None)
     parser.add_argument("--workers", type=int, default=5)
@@ -608,12 +834,36 @@ if __name__ == "__main__":
         help="report JSON path (default: reports/ablation_ctx_<split>_<model>_limit<tag>.json)",
     )
     parser.add_argument(
-        "--harness",
-        default="react",
-        choices=["react", "tool_call"],
-        help="harness mode: react (default official ReAct loop) or tool_call (native function calling)",
+        "--temperature",
+        type=float,
+        default=0.0,
+        help="sampling temperature (0.0 = published protocol; >0 for the noise floor)",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--contract",
+        default="native-tools",
+        choices=list(CONTRACTS),
+        help=(
+            "how an Action is expressed and handed back: native-tools (the default, "
+            "OpenAI-style function calling) or text-json (the ReAct loop, one JSON object "
+            "per turn)"
+        ),
+    )
+    parser.add_argument(
+        "--parse-error-policy",
+        default="silent",
+        choices=list(PARSE_ERROR_POLICIES),
+        help=(
+            "what the react loop does when a turn is not a legal Action: silent (execute a "
+            "get_profile fallback, the published behaviour), feedback (say so and re-ask), "
+            "resample (re-ask without saying so -- the control for feedback)"
+        ),
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
 
     run_benchmark_suite(
         args.split,
@@ -627,5 +877,12 @@ if __name__ == "__main__":
         reuse_from=args.reuse_from,
         reuse_max_steps=args.reuse_max_steps,
         out=args.out,
-        harness_mode=args.harness,
+        contract=args.contract,
+        temperature=args.temperature,
+        parse_error_policy=args.parse_error_policy,
     )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

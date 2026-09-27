@@ -123,7 +123,9 @@ def main(argv: list[str] | None = None) -> int:
         base_url=args.base_url,
         timeout=180.0,
         leak_oracle=args.leak_oracle,
-        max_steps=args.max_steps,
+        # The Runner hands the harness its per-task budget before every episode; this only has to
+        # be a valid constructor default until then.
+        max_steps=args.max_steps if args.max_steps is not None else DEFAULT_MAX_STEPS,
         version=args.harness_version,
     )
     result = run_split(

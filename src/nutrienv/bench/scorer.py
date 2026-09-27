@@ -4,19 +4,68 @@ from __future__ import annotations
 
 import math
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import replace
 
 from nutrienv.world.daily_windows import (
     BAND_WINDOW_KEYS,
+    MEAL_ENERGY_SHARE,
+    SIX_WINDOW_KEYS,
     estimated_energy_requirement,
     implicit_windows_pass,
+    judged_ceiling,
+    plan_windows_for_meal,
 )
-from nutrienv.world.types import LedgerRow, Profile, WorldState, normalize_tags
+from nutrienv.world.types import (
+    LedgerRow,
+    Profile,
+    WorldState,
+    ledger_totals,
+    normalize_tags,
+)
 
-from .portion_table import matches_portion_table
 from .realize import Oracle, scored_oracles
 
-__all__ = ["Scorer"]
+__all__ = ["SCORER_VERSION", "Scorer"]
+
+# Bump when a scoring rule changes on purpose. Every report carries this string, so a bump
+# marks the boundary between two rulers: the same trajectory can score differently on each
+# side, and ``compare_harness_modes.py`` refuses a delta across it, as it does across splits
+# and prompt generations.
+SCORER_VERSION = "s6-free-recommend-windows"
+
+# plan_windows are computed at 2 dp (``meal_slot_and_remainder`` rounds, when authored and when
+# ``_meal_windows`` re-derives them), so a bound can sit up to half a hundredth inside the true
+# one. A total that close to a bound is on it. This, not the re-derivation, is what passes
+# adr29-buy-04 (14.934 g against a true 14.9345 g stored as 14.93 g). Nothing wider: caps and
+# floors are otherwise exact.
+_PLAN_WINDOW_ROUNDING = 0.005
+
+
+def _meal_occasion(
+    pinned: Mapping[str, tuple[float, float]],
+    daily: Mapping[str, tuple[float, float]],
+) -> str | None:
+    """The occasion whose meal slot produced ``pinned``, read from its kcal floor.
+
+    With ``last_meal`` unset, ``plan_windows_for_meal`` takes every floor from the slot alone:
+    kcal is the day's floor times the occasion's share, every other floor is 0. The ledger
+    cannot move them, so they identify the occasion whatever the ledger was. Any other shape
+    returns None.
+    """
+    if set(pinned) != set(SIX_WINDOW_KEYS) or "kcal" not in daily:
+        return None
+    if any(pinned[key][0] != 0.0 for key in SIX_WINDOW_KEYS if key != "kcal"):
+        return None
+    hits = [
+        occasion
+        for occasion, (share_lo, _) in MEAL_ENERGY_SHARE.items()
+        if round(daily["kcal"][0] * share_lo, 2) == pinned["kcal"][0]
+    ]
+    # lunch and dinner share one slot, so either name yields the same windows.
+    if len({MEAL_ENERGY_SHARE[occasion] for occasion in hits}) != 1:
+        return None
+    return hits[0]
 
 
 class _ScoreResult(dict):
@@ -117,7 +166,11 @@ class Scorer:
         if got.food_id != exp.food_id:
             return False
         # Meal slot compatibility: exact match or default 'now'
-        if got.eaten_at != exp.eaten_at and got.eaten_at != "now" and exp.eaten_at != "now":
+        if (
+            got.eaten_at != exp.eaten_at
+            and got.eaten_at != "now"
+            and exp.eaten_at != "now"
+        ):
             return False
         if math.isclose(got.grams, exp.grams, rel_tol=1e-5):
             return True
@@ -144,7 +197,9 @@ class Scorer:
             if i == len(got_rows):
                 return True
             for j in range(n):
-                if not used[j] and cls._ledger_row_matches(got_rows[i], expected_rows[j], catalog):
+                if not used[j] and cls._ledger_row_matches(
+                    got_rows[i], expected_rows[j], catalog
+                ):
                     used[j] = True
                     if dfs(i + 1):
                         return True
@@ -221,33 +276,54 @@ class Scorer:
 
     @classmethod
     def _match_plan_items(
-        cls, got_items: list[dict], exp_items: list[dict], catalog: Mapping[str, dict] | None
+        cls,
+        got_items: list[dict],
+        exp_items: list[dict],
+        catalog: Mapping[str, dict] | None,
     ) -> bool:
-        if len(got_items) != len(exp_items):
-            return False
-        n = len(exp_items)
-        used = [False] * n
+        """Match per-food gram totals: a plan carries no slot, so row grouping is no answer.
 
-        def dfs(i: int) -> bool:
-            if i == len(got_items):
-                return True
-            for j in range(n):
-                if not used[j] and cls._plan_item_matches(got_items[i], exp_items[j], catalog):
-                    used[j] = True
-                    if dfs(i + 1):
-                        return True
-                    used[j] = False
+        Two rows of 75 g and one row of 150 g of the same food are the same meal; the oracle's
+        choice of encoding must not decide the score. Each food's total is judged by the same
+        ADR 0023 band as a single row.
+        """
+        got = cls._grams_by_food(got_items)
+        exp = cls._grams_by_food(exp_items)
+        if got is None or exp is None or set(got) != set(exp):
             return False
+        return all(
+            cls._plan_item_matches(
+                {"food_id": food_id, "grams": got[food_id]},
+                {"food_id": food_id, "grams": exp[food_id]},
+                catalog,
+            )
+            for food_id in exp
+        )
 
-        return dfs(0)
+    @staticmethod
+    def _grams_by_food(items: list[dict]) -> dict[str, float] | None:
+        totals: dict[str, float] = {}
+        for item in items:
+            grams = item.get("grams") if isinstance(item, dict) else None
+            if not isinstance(grams, (int, float)) or isinstance(grams, bool):
+                return None
+            food_id = item.get("food_id")
+            if not isinstance(food_id, str):
+                return None
+            totals[food_id] = totals.get(food_id, 0.0) + float(grams)
+        return totals
 
     def _score_verdict(self, state: WorldState, oracle: Oracle) -> str | None:
         if oracle.last_verdict == "accept":
             if state.last_verdict != "accept":
                 return "wrong_goal"
-            if not isinstance(state.last_plan, list) or not isinstance(oracle.last_plan, list):
+            if not isinstance(state.last_plan, list) or not isinstance(
+                oracle.last_plan, list
+            ):
                 return "wrong_goal"
-            if not self._match_plan_items(state.last_plan, oracle.last_plan, state.catalog):
+            if not self._match_plan_items(
+                state.last_plan, oracle.last_plan, state.catalog
+            ):
                 return "wrong_goal"
             return None
         if oracle.last_verdict == "reject":
@@ -271,12 +347,25 @@ class Scorer:
 
             if "allergy" in gold_reasons:
                 if "allergy" not in got_reasons:
-                    profile = oracle.profile if oracle.profile is not None else state.profile
-                    user_allergens = set(normalize_tags(list(profile.allergies))) if profile else set()
+                    profile = (
+                        oracle.profile if oracle.profile is not None else state.profile
+                    )
+                    user_allergens = (
+                        set(normalize_tags(list(profile.allergies)))
+                        if profile
+                        else set()
+                    )
                     offending: set[str] = set()
-                    for it in (oracle.evaluated_plan or []):
-                        food = state.catalog.get(it.get("food_id"), {}) if state.catalog else {}
-                        offending |= set(normalize_tags(food.get("allergen_tags", []))) & user_allergens
+                    for it in oracle.evaluated_plan or []:
+                        food = (
+                            state.catalog.get(it.get("food_id"), {})
+                            if state.catalog
+                            else {}
+                        )
+                        offending |= (
+                            set(normalize_tags(food.get("allergen_tags", [])))
+                            & user_allergens
+                        )
                     normalized_got = set(normalize_tags(list(got_reasons)))
                     if not (normalized_got & offending):
                         return "wrong_goal"
@@ -311,39 +400,22 @@ class Scorer:
             if not isinstance(nutrients, dict):
                 return "wrong_goal"
             for key, amount in nutrients.items():
-                if not isinstance(amount, (int, float)) or isinstance(amount, bool) or not math.isfinite(amount):
+                if (
+                    not isinstance(amount, (int, float))
+                    or isinstance(amount, bool)
+                    or not math.isfinite(amount)
+                ):
                     return "wrong_goal"
-                totals[key] = totals.get(key, 0.0) + float(amount) * float(grams) / 100.0
+                totals[key] = (
+                    totals.get(key, 0.0) + float(amount) * float(grams) / 100.0
+                )
 
         allowed = oracle.allowed_food_ids
         if allowed is None:
             allowed = state.allowed_food_ids
         if allowed is not None:
-            allowed_set = set(allowed)
-            # Category synonym support: if food name or category has an allowed sibling
-            catalog = state.catalog
             for item in items:
-                fid = item["food_id"]
-                if fid in allowed_set:
-                    continue
-                # Check sibling category equivalence in catalog
-                matched_sibling = False
-                if catalog and fid in catalog:
-                    item_entry = catalog[fid]
-                    item_name = str(item_entry.get("name") or "").lower()
-                    item_cat = item_entry.get("category")
-                    for afid in allowed:
-                        if afid in catalog:
-                            a_entry = catalog[afid]
-                            a_name = str(a_entry.get("name") or "").lower()
-                            a_cat = a_entry.get("category")
-                            # If they share the exact same FDC category or core food head noun (e.g. sushi roll vs sushi)
-                            if item_cat and a_cat and item_cat == a_cat:
-                                head_words = [w for w in a_name.split()[:2] if len(w) > 3 and not w.endswith(",")]
-                                if any(hw in item_name for hw in head_words):
-                                    matched_sibling = True
-                                    break
-                if not matched_sibling:
+                if item["food_id"] not in allowed:
                     return "inventory_miss"
 
         profile = oracle.profile if oracle.profile is not None else state.profile
@@ -355,23 +427,58 @@ class Scorer:
             return "allergy"
 
         if oracle.plan_must_fit_windows or oracle.plan_windows is not None:
-            windows = (
-                oracle.plan_windows if oracle.plan_windows is not None else profile.windows
-            )
+            tolerance = 0.0
+            if oracle.plan_windows is not None:
+                windows = self._meal_windows(state, oracle, profile)
+                tolerance = _PLAN_WINDOW_ROUNDING
+            else:
+                windows = profile.windows
             for nutrient, window in windows.items():
                 try:
                     lo, hi = window
                 except (TypeError, ValueError):
                     return "wrong_goal"
                 amount = totals.get(nutrient, 0.0)
-                if amount < lo or amount > hi:
+                if amount < lo - tolerance or amount > judged_ceiling(nutrient, hi) + tolerance:
                     return "window"
 
         # Empty is the free-recommendation sentinel. Evaluate tasks carry a
         # non-empty exact candidate so submitting a different plan is a miss.
-        if oracle.last_plan and not self._match_plan_items(items, oracle.last_plan, state.catalog):
+        if oracle.last_plan and not self._match_plan_items(
+            items, oracle.last_plan, state.catalog
+        ):
             return "wrong_goal"
         return None
+
+    @staticmethod
+    def _meal_windows(
+        state: WorldState, oracle: Oracle, profile: Profile
+    ) -> Mapping[str, tuple[float, float]]:
+        """The meal's windows, re-derived from the oracle's own ledger.
+
+        In ``nutrienv-v1.0.json`` this repairs the ``adr29-amend-*`` items, whose
+        ``plan_windows`` were authored on the ledger before the correction the query asks for,
+        and reproduces every other item's pinned windows. The windows follow the child's own
+        ledger and profile. The authoring gate checks items against this method
+        (``validator._ruler_window_issues``). It does *not* remove the 2 dp rounding: ``plan_windows_for_meal`` rounds
+        too, so ``_PLAN_WINDOW_ROUNDING`` is what absorbs it (``adr29-buy-04``). The oracle's
+        ledger is the gold day, so the agent has no lever here: deriving from the agent's
+        ledger instead would let an in-band under-log (0.85 x gold) widen a small remainder
+        severalfold. Pinned windows whose occasion cannot be read back, or an oracle without a
+        ledger, are judged as pinned, as is every child that is not a free recommendation.
+        """
+        pinned = oracle.plan_windows
+        # Only a free recommendation plans the *next* meal on the day its ledger holds. An
+        # Evaluate child's windows were bound, with its verdict, on the day before the named
+        # meal, and its ledger may already hold that meal (log it, then "is this lunch okay?"):
+        # re-deriving would subtract the meal from its own budget.
+        if oracle.ledger is None or oracle.last_plan != [] or oracle.last_verdict is not None:
+            return pinned
+        occasion = _meal_occasion(pinned, profile.windows)
+        if occasion is None:
+            return pinned
+        eaten = ledger_totals(list(oracle.ledger), state.catalog)
+        return plan_windows_for_meal(profile.windows, eaten, occasion) or pinned
 
     @staticmethod
     def _positive_finite(value: object) -> bool:

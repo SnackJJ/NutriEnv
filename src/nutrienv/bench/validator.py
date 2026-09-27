@@ -760,8 +760,11 @@ def _validate_composite(task: Task) -> list[str]:
             tail = list(sub.ledger_tail)
             break
     occasion = recommend_occasion(query, tail)
-    eaten: dict[str, float] | None = None
     for child in children:
+        # Every child with pinned windows, fixed candidates included: the Scorer judges any
+        # submitted plan against the windows it derives, so the item must pin those.
+        if child.plan_windows:
+            issues.extend(_ruler_window_issues(task, child))
         if _child_is_update(child, task):
             issues.extend(_validate_update(replace(task, oracle=child), query))
             continue
@@ -775,8 +778,14 @@ def _validate_composite(task: Task) -> list[str]:
             if occasion is None:
                 issues.append("composite recommend occasion unresolved")
             else:
-                if eaten is None:
-                    eaten = ledger_totals([*task.s0.ledger, *tail], task.s0.catalog)
+                # The Scorer re-derives these windows from the child's ledger (an amend
+                # rewrites S0's rows rather than appending a tail), so author them from it too.
+                day = (
+                    list(child.ledger)
+                    if child.ledger is not None
+                    else [*task.s0.ledger, *tail]
+                )
+                eaten = ledger_totals(day, task.s0.catalog)
                 expected = plan_windows_for_meal(profile.windows, eaten, occasion)
                 if expected is not None:
                     for key, bounds in expected.items():
@@ -793,6 +802,19 @@ def _validate_composite(task: Task) -> list[str]:
         ) is None:
             issues.append("composite recommend is unpassable")
     return issues
+
+
+def _ruler_window_issues(task: Task, child) -> list[str]:
+    from nutrienv.bench.scorer import _PLAN_WINDOW_ROUNDING, Scorer
+
+    profile = child.profile or task.s0.profile
+    judged = Scorer._meal_windows(task.s0, child, profile)
+    return [
+        f"plan_windows {key} {bounds} != the Scorer's {tuple(judged.get(key, ()))}"
+        for key, bounds in child.plan_windows.items()
+        if key not in judged
+        or any(abs(a - b) > _PLAN_WINDOW_ROUNDING for a, b in zip(bounds, judged[key]))
+    ]
 
 
 def _child_is_update(child, task: Task) -> bool:

@@ -2,7 +2,7 @@
 
 from .achievable import AchievabilityReport, SCORED_FEATURES, check_achievable
 from .realize import Material, Oracle, Task, material_from_row, realize, spoken_query
-from .scorer import Scorer
+from .scorer import SCORER_VERSION, Scorer
 from .situations import SITUATIONS, Situation
 from .split import EXAM_SPLIT_PATH, GOLD_SPLIT_PATH, load_exam, load_split
 
@@ -16,6 +16,7 @@ __all__ = [
     "realize",
     "material_from_row",
     "spoken_query",
+    "SCORER_VERSION",
     "Scorer",
     "Situation",
     "SITUATIONS",

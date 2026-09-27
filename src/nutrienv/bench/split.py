@@ -90,8 +90,7 @@ def load_exam(path: Path | str | None = None) -> list[Task]:
 
     Unlike :func:`load_split`, this checks ``version``, a non-empty ``items``
     list, that the recorded catalog file exists (resolved from the repo root)
-    and is a ``.sqlite`` file (``load_catalog`` would otherwise silently fall
-    back to the demo fixture), and that ``sha256(catalog bytes)`` matches
+    and is a ``.sqlite`` file, and that ``sha256(catalog bytes)`` matches
     ``catalog_sha256``. The verified catalog file is the one attached to
     every Task.
     """

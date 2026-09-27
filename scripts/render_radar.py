@@ -3,10 +3,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 models = [
-    ('GLM-5.3 (Flagship)', 'reports/benchmark_ark_glm-5.3_v1.0.json', '#818CF8'),       # Indigo soft
-    ('DeepSeek-v4-pro', 'reports/benchmark_ark_deepseek-v4-pro_v1.0.json', '#34D399'),  # Emerald bright
-    ('DeepSeek-v4-flash', 'reports/benchmark_ark_deepseek-v4-flash_v1.0.json', '#60A5FA'),# Sky blue
-    ('GLM-5.3-flash', 'reports/benchmark_ark_glm-5.3-flash_v1.0.json', '#FBBF24'),      # Amber
+    ('DeepSeek-v4-pro', 'reports/benchmark_commandcode_deepseek-v4-pro_v1.0_fc.json', '#34D399'),  # Emerald
+    ('GLM-5.3-flash', 'reports/benchmark_commandcode_glm-5.3-flash_v1.0_fc.json', '#FBBF24'),      # Amber
+    ('MiMo-v2.6-flash', 'reports/benchmark_commandcode_mimo-v2.6-flash_v1.0_fc.json', '#F472B6'),  # Pink
+    ('DeepSeek-v4-flash', 'reports/benchmark_commandcode_deepseek-v4-flash_v1.0_fc.json', '#60A5FA'),# Sky Blue
+    ('DeepSeek-v4.1-flash', 'reports/benchmark_commandcode_deepseek-v4.1-flash_v1.0_fc.json', '#818CF8'),  # Indigo
 ]
 
 categories = [
@@ -52,7 +53,7 @@ for name, path, color in models:
     ]
     vals += vals[:1]
     
-    overall = data['pass_rate_pct']
+    overall = 100.0 * data['passed_tasks'] / data['total_tasks']
     label = f"{name:19s} {overall:4.1f}%"
     
     ax.plot(angles, vals, color=color, linewidth=2.5, linestyle='solid', label=label)

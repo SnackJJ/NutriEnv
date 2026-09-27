@@ -16,6 +16,9 @@ __all__ = [
     "BAND_WINDOW_KEYS",
     "MEAL_ENERGY_SHARE",
     "SIX_WINDOW_KEYS",
+    "TARGET_CEILING_KEYS",
+    "TARGET_CEILING_SLACK",
+    "judged_ceiling",
     "derive_daily_windows",
     "derive_profile_windows",
     "estimated_energy_requirement",
@@ -63,6 +66,21 @@ SIX_WINDOW_KEYS: tuple[str, ...] = (
     "fiber_g",
     "sodium_mg",
 )
+
+# The daily hi of protein, carb, fat and fiber is a scaled FDA Daily Value: a reference intake,
+# not a limit (the DV table marks only sodium with an upper_limit, and protein's lo and hi are
+# often the same 0.8 g/kg). Going slightly over one is not a nutrition error, so a plan's ceiling
+# on these keys is judged with this slack. Sodium's ceiling is a health limit and kcal's already
+# carries the meal-share band, so both stay exact; every floor stays exact.
+TARGET_CEILING_KEYS = frozenset({"protein_g", "carb_g", "fat_g", "fiber_g"})
+TARGET_CEILING_SLACK = 0.15
+
+
+def judged_ceiling(key: str, hi: float) -> float:
+    """The ceiling a plan is judged against for ``key``'s published ``hi``."""
+    if key in TARGET_CEILING_KEYS:
+        return hi * (1.0 + TARGET_CEILING_SLACK)
+    return hi
 
 
 

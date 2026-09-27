@@ -38,6 +38,9 @@ _RICE = "white_rice"
 class ScriptHarness(Harness):
     """Heuristic policy. Emits only typed Env actions; never scores."""
 
+    def set_step_budget(self, max_steps: int) -> None:
+        """No-op: this harness builds no prompt, so it has no rendered budget to keep in sync."""
+
     def act(self, observation: dict, query: str, history: list) -> dict:
         text = query.lower()
         if _looks_like(text, _LOG_MARKERS):

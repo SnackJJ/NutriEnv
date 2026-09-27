@@ -34,11 +34,21 @@ def test_write_report_replaces_atomically(tmp_path: Path) -> None:
     assert not path.with_name(path.name + ".tmp").exists()
 
 
+def _versions() -> dict:
+    return {
+        "scorer_version": suite.SCORER_VERSION,
+        "loop_version": suite.LOOP_VERSION,
+        "prompt_fingerprint": suite.prompt_fingerprint(),
+        "contract": "text-json",
+    }
+
+
 def test_reuse_skips_zero_token_and_step_errors(tmp_path: Path) -> None:
     path = tmp_path / "rep.json"
     path.write_text(
         json.dumps(
             {
+                **_versions(),
                 "tasks": [
                     _task(task_id="ok"),
                     _task(task_id="crash", passed=False, n_steps=1, total_tokens=0, steps=[{"error": "timeout"}]),
@@ -48,7 +58,32 @@ def test_reuse_skips_zero_token_and_step_errors(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    reused = suite._reuse_short_tasks(path, 5)
+    reused = suite._reuse_short_tasks(path, 5, contract="text-json")
     assert set(reused) == {"ok", "fail"}
-    skipped = suite._reuse_short_tasks(path, 5, skip_failed=True)
+    skipped = suite._reuse_short_tasks(path, 5, contract="text-json", skip_failed=True)
     assert set(skipped) == {"ok"}
+
+
+def test_reuse_refuses_a_report_from_another_ruler(tmp_path: Path) -> None:
+    """Cached tags are stored judgements; the summary would stamp them with today's ruler."""
+    import pytest
+
+    for prior in ({}, {**_versions(), "scorer_version": "s1-exact-windows"},
+                  {**_versions(), "loop_version": "l1"}):
+        path = tmp_path / "rep.json"
+        path.write_text(json.dumps({**prior, "tasks": [_task()]}), encoding="utf-8")
+        with pytest.raises(SystemExit, match="cannot be reused"):
+            suite._reuse_short_tasks(path, 5, contract="text-json")
+
+
+def test_reuse_refuses_another_prompt_generation_or_contract(tmp_path: Path) -> None:
+    import pytest
+
+    path = tmp_path / "rep.json"
+    path.write_text(json.dumps({**_versions(), "prompt_fingerprint": "old", "tasks": [_task()]}), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="prompt generation"):
+        suite._reuse_short_tasks(path, 5, contract="text-json")
+    path.write_text(json.dumps({**_versions(), "tasks": [_task()]}), encoding="utf-8")
+    assert set(suite._reuse_short_tasks(path, 5, contract="text-json")) == {"t"}
+    with pytest.raises(SystemExit, match="contract"):
+        suite._reuse_short_tasks(path, 5, contract="native-tools")

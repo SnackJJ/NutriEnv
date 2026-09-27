@@ -21,13 +21,21 @@ __all__ = [
     "run_split",
     "DEFAULT_MAX_STEPS",
     "FAMILY_MAX_STEPS",
+    "task_step_budget",
     "FINISH_OPS",
+    "LOOP_VERSION",
     "READ_OPS",
     "WRITE_OPS",
     "IDLE_READS_AFTER_WRITE",
 ]
 
 FINISH_OPS = frozenset({"finish", "done", "stop"})
+# Bump when an episode loop's turn handling changes (what ends an episode, what spends a
+# turn): the same model then faces a different measurement though prompt and scorer are
+# unchanged. Every exam and ablation report records it. l2: a hand-in Env refused no longer
+# ends the episode, in the text loop (27c7eef), the native-tools loop (bef528f) and the ablation
+# loop (scripts/run_ablation.py); ``_run_episode`` here always continued.
+LOOP_VERSION = "l2-refused-handin-continues"
 READ_OPS = frozenset(
     {"search_foods", "get_food", "get_profile", "get_ledger", "get_dri"}
 )
@@ -50,6 +58,21 @@ FAMILY_MAX_STEPS = {
 }
 
 
+def task_step_budget(task, max_steps: int | None) -> int:
+    """The loop bound for one Task: its family's budget, unless the run pinned another one.
+
+    The bound belongs to the Runner, and a harness renders it into its prompt, so both must read
+    it from here. Passing a constructor default around instead told the model a budget the exam
+    does not use -- 12 steps on the 30-step `composite`/`recommend` families.
+    """
+    # None is "per family"; an int pins every Task to one bound. The sentinel used to be
+    # DEFAULT_MAX_STEPS, so `--max-steps 12` ran the family budget while the run's own record said
+    # `fixed(12)`: asking for 12 was indistinguishable from not asking.
+    if max_steps is not None:
+        return max_steps
+    return FAMILY_MAX_STEPS.get(task.family, DEFAULT_MAX_STEPS)
+
+
 def run_split(
     seed: int | None = None,
     n: int | None = None,
@@ -58,7 +81,7 @@ def run_split(
     situation: str | None = None,
     *,
     split_path: Path | str | None = None,
-    max_steps: int = DEFAULT_MAX_STEPS,
+    max_steps: int | None = None,
     harness: Harness | None = None,
     harness_label: str | None = None,
     model_label: str | None = None,
@@ -80,14 +103,20 @@ def run_split(
     its own Env and harness clone). Published numbers should use a frozen
     file.
 
+    ``max_steps=None`` (the default) gives each Task its family's budget from
+    :data:`FAMILY_MAX_STEPS`; an int pins every Task to that bound, and the
+    harness is told whichever one the episode will use.
+
     ``reset`` receives a :class:`HarnessView` (id, family, persona, situations,
     query) unless ``leak_oracle`` is True, in which case it receives the full
     Task. The flag is recorded on the result so a leaked run is self-identifying.
     """
     if isinstance(k, bool) or not isinstance(k, int) or k < 1:
         raise ValueError("k must be an int >= 1")
-    if isinstance(max_steps, bool) or not isinstance(max_steps, int) or max_steps < 1:
-        raise ValueError("max_steps must be an int >= 1")
+    if max_steps is not None and (
+        isinstance(max_steps, bool) or not isinstance(max_steps, int) or max_steps < 1
+    ):
+        raise ValueError("max_steps must be None (per family) or an int >= 1")
     if isinstance(workers, bool) or not isinstance(workers, int) or workers < 1:
         raise ValueError("workers must be an int >= 1")
 
@@ -184,7 +213,7 @@ def _eval_task(
     task,
     harness: Harness,
     scorer: Scorer,
-    max_steps: int,
+    max_steps: int | None,
     k: int,
     fresh: bool,
     leak_oracle: bool = False,
@@ -194,13 +223,10 @@ def _eval_task(
     last_ops: list[str] = []
     last_steps = 0
     view = _harness_view(task, leak_oracle)
-    task_max_steps = (
-        max_steps
-        if max_steps != DEFAULT_MAX_STEPS
-        else FAMILY_MAX_STEPS.get(task.family, DEFAULT_MAX_STEPS)
-    )
+    task_max_steps = task_step_budget(task, max_steps)
     for _ in range(k):
         policy = harness.clone() if fresh else harness
+        policy.set_step_budget(task_max_steps)
         reset = getattr(policy, "reset", None)
         if callable(reset):
             reset(view)

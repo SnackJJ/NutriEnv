@@ -26,14 +26,33 @@ The official NutriEnv v1.0 benchmark consists of 63 curated tasks with audited c
 
 ### Main Results
 
-| Rank | Model | Total Pass Rate | Solved / Total | Avg Turns | Avg Latency | Update (2) | Log (6) | Evaluate (8) | Recommend (11) | Composite (36) |
-|:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 1 | **DeepSeek-v4-pro** | **84.1%** | **53 / 63** | 12.9 | 167.5s | 2/2 (100%) | 5/6 (83.3%) | 6/8 (75.0%) | **10/11 (90.9%)** | **30/36 (83.3%)** |
-| 2 | **GLM-5.3 (Flagship)** | **82.5%** | **52 / 63** | 14.6 | 112.2s | 2/2 (100%) | 5/6 (83.3%) | 6/8 (75.0%) | **10/11 (90.9%)** | 29/36 (80.6%) |
-| 3 | **DeepSeek-v4-flash** | **71.4%** | **45 / 63** | 11.0 | 248.9s | 2/2 (100%) | **6/6 (100.0%)** | **7/8 (87.5%)** | 8/11 (72.7%) | 22/36 (61.1%) |
-| 4 | **GLM-5.3-flash** | **68.2%** | **43 / 63** | **10.9** | **59.5s** | 2/2 (100%) | 4/6 (66.7%) | 4/8 (50.0%) | 7/11 (63.6%) | 26/36 (72.2%) |
+| Rank | Model | Total Pass Rate | Solved / Total | Avg Steps | Avg Latency | Update (2) | Log (6) | Evaluate (8) | Recommend (11) | Composite (36) | text-json |
+|:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 1 | **DeepSeek-v4-pro** | **84.1%** | **53 / 63** | 10.9 | 120.5s | 2/2 (100.0%) | 5/6 (83.3%) | 7/8 (87.5%) | 9/11 (81.8%) | 30/36 (83.3%) | 54 / 63 |
+| 2 | **GLM-5.3-flash** | **81.0%** | **51 / 63** | 12.2 | 235.4s | 2/2 (100.0%) | 4/6 (66.7%) | 6/8 (75.0%) | 9/11 (81.8%) | 30/36 (83.3%) | 53 / 63 |
+| 2 | **MiMo-v2.6-flash** | **81.0%** | **51 / 63** | 13.9 | 216.0s | 2/2 (100.0%) | 5/6 (83.3%) | 6/8 (75.0%) | 8/11 (72.7%) | 30/36 (83.3%) | 43 / 63 |
+| 4 | **DeepSeek-v4-flash** | **68.3%** | **43 / 63** | 11.5 | 37.1s | 2/2 (100.0%) | 2/6 (33.3%) | 5/8 (62.5%) | 9/11 (81.8%) | 25/36 (69.4%) | 44 / 63 |
+| 5 | **DeepSeek-v4.1-flash** | **58.7%** | **37 / 63** | 11.4 | 40.6s | 2/2 (100.0%) | 5/6 (83.3%) | 4/8 (50.0%) | 7/11 (63.6%) | 19/36 (52.8%) | 44 / 63 |
 
-> Evaluated on standardized API endpoints across reasoning and lightweight models (all models were invoked via Volcano Engine / 火山引擎 Agent Plan). Full execution traces, logs, and token metrics are preserved in [`reports/`](./reports/).
+> **Protocol.** One run per model on `data/splits/nutrienv-v1.0.json` (63 tasks), native function
+> calling (`--contract native-tools`, the default), temperature 0, all models through the
+> Command Code provider plan. Every report records the ruler it was
+> measured with: `scorer_version = s6-free-recommend-windows`, `loop_version =
+> l2-refused-handin-continues`, `prompt_version = p5-fc-manual-lines`. The **text-json** column is
+> the same models on the ReAct text contract, re-judged offline with the same Scorer
+> (`scripts/rescore_report.py`). Full traces and token counts are in [`reports/`](./reports/)
+> (`benchmark_commandcode_<model>_v1.0_{fc,text}.json`); the Pass / Rate columns can be regenerated from
+> them with `scripts/render_leaderboard.py`.
+>
+> **Single runs are noisy.** A second FC run of DeepSeek-v4.1-flash under the identical
+> configuration scored 49 / 63 (vs 37 above); differences of a few tasks between rows are not
+> meaningful.
+>
+> **Not comparable with the previous table.** The earlier leaderboard (GLM-5.3 flagship,
+> DeepSeek-v4-pro/flash and GLM-5.3-flash via the Volcano Engine ARK plan, since retired) was
+> measured before the scorer and episode-loop revisions listed in [CHANGELOG](./CHANGELOG.md);
+> it is kept in git history only. GLM-5.3 (flagship) is not offered on the current provider and
+> is not re-measured.
 
 ---
 
@@ -80,8 +99,11 @@ $$\text{Pass} \iff \text{End State} == \text{Oracle}$$
 1. **Deterministic Verification over LLM-as-a-Judge**: Scoring inspects deterministic environment state mutations rather than subjective LLM judges:
    - Profile equality (allergies, health targets).
    - Ledger set equality with $\pm 15\%$ physical measure tolerance.
-   - Exact mathematical satisfaction of multi-dimensional nutrient windows:
+   - Satisfaction of multi-dimensional nutrient windows:
      $$\text{Nutrient}_k = \sum \text{grams}_i \times \frac{\text{Nutrient}_{i,k}}{100} \in [\text{Lower}_k, \text{Upper}_k]$$
+     Every floor, the energy ceiling and the sodium ceiling are exact. The protein, carb, fat and
+     fiber ceilings are reference intakes (scaled FDA Daily Values), not limits, and are judged with
+     15% slack (`TARGET_CEILING_SLACK`).
 2. **Zero Cheat-Sheets**: Handbooks provide tool specs and action schemas. Agents must reason and ground colloquial portions autonomously via `search_foods` + `get_food`.
 3. **Safety Redlines**: Proposing or logging foods containing user allergens triggers an immediate `allergy_violation` failure.
 
@@ -104,7 +126,7 @@ pip install -e ".[dev]"
 
 ```bash
 cp .env.example .env.local
-# Add your ARK_API_KEY / DASHSCOPE_API_KEY / DEEPSEEK_API_KEY
+# Add your COMMANDCODE_API_KEY (DASHSCOPE_API_KEY / DEEPSEEK_API_KEY for the other routes)
 ```
 
 ### 3. Run Unit & Regression Tests
@@ -117,12 +139,13 @@ pytest
 ### 4. Run Benchmark Suite
 
 ```bash
-# Evaluate GLM-5.3 on the official v1.0 benchmark (63 tasks)
+# Evaluate DeepSeek-v4-pro on the official v1.0 benchmark (63 tasks, native function calling)
 python scripts/eval_benchmark_suite.py \
   --split data/splits/nutrienv-v1.0.json \
-  --model ark/glm-5.3 \
-  --workers 5 \
-  --out reports/benchmark_ark_glm-5.3_v1.0.json
+  --model commandcode/deepseek/deepseek-v4-pro \
+  --workers 6 \
+  --out reports/benchmark_commandcode_deepseek-v4-pro_v1.0_fc.json
+# add --contract text-json for the ReAct text loop
 ```
 
 ---
@@ -146,7 +169,7 @@ nutri-env/
 |   +-- splits/
 |       |-- nutrienv-v1.0.json # Official v1.0 exam (63 tasks)
 |       +-- nutrienv-mini.json # Smoke subset (10 tasks from v1.0)
-|-- reports/                   # Official four-model results & charts
+|-- reports/                   # Official leaderboard reports & charts
 |-- docs/                      # Glossary
 |-- scripts/                   # Evaluation runner and visualization tools
 +-- tests/                     # Unit and integration tests

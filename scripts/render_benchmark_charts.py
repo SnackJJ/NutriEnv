@@ -10,10 +10,11 @@ text_white = '#F8FAFC'
 text_muted = '#94A3B8'
 
 models = [
-    ('GLM-5.3 (Flagship)', 'reports/benchmark_ark_glm-5.3_v1.0.json', '#818CF8'),              # Indigo
-    ('DeepSeek-v4-pro', 'reports/benchmark_ark_deepseek-v4-pro_v1.0.json', '#34D399'),         # Emerald
-    ('DeepSeek-v4-flash', 'reports/benchmark_ark_deepseek-v4-flash_v1.0.json', '#60A5FA'),       # Sky Blue
-    ('GLM-5.3-flash', 'reports/benchmark_ark_glm-5.3-flash_v1.0.json', '#FBBF24'),             # Amber
+    ('DeepSeek-v4-pro', 'reports/benchmark_commandcode_deepseek-v4-pro_v1.0_fc.json', '#34D399'),  # Emerald
+    ('GLM-5.3-flash', 'reports/benchmark_commandcode_glm-5.3-flash_v1.0_fc.json', '#FBBF24'),      # Amber
+    ('MiMo-v2.6-flash', 'reports/benchmark_commandcode_mimo-v2.6-flash_v1.0_fc.json', '#F472B6'),  # Pink
+    ('DeepSeek-v4-flash', 'reports/benchmark_commandcode_deepseek-v4-flash_v1.0_fc.json', '#60A5FA'),# Sky Blue
+    ('DeepSeek-v4.1-flash', 'reports/benchmark_commandcode_deepseek-v4.1-flash_v1.0_fc.json', '#818CF8'),  # Indigo
 ]
 
 data = []
@@ -22,7 +23,7 @@ for name, p, color in models:
     data.append({
         'name': name,
         'color': color,
-        'overall': d['pass_rate_pct'],
+        'overall': 100.0 * d['passed_tasks'] / d['total_tasks'],
         'passed': d['passed_tasks'],
         'total': d['total_tasks'],
         'latency': d['overall_avg_time_seconds'],
@@ -55,7 +56,7 @@ for bar, m in zip(bars, bar_data):
 
 ax.set_yticks(y)
 ax.set_yticklabels([m['name'] for m in bar_data], color=text_white, fontsize=12, fontweight='bold')
-ax.set_xlim(0, 85)
+ax.set_xlim(0, 100)
 ax.set_xlabel('Benchmark Pass Rate (%)  [63 Tasks]', color=text_muted, fontsize=10.5, labelpad=8)
 
 ax.xaxis.grid(True, color=grid_color, linestyle='--', linewidth=0.8, zorder=0)
@@ -89,8 +90,9 @@ for m in data:
 offsets = {
     'DeepSeek-v4-flash': (12, 4, 'left'),
     'GLM-5.3-flash': (12, -12, 'left'),
-    'DeepSeek-v4-pro': (0, 14, 'center'),
-    'GLM-5.3 (Flagship)': (0, 14, 'center'),
+    'DeepSeek-v4-pro': (-12, 4, 'right'),
+    'MiMo-v2.6-flash': (12, -12, 'left'),
+    'DeepSeek-v4.1-flash': (12, 4, 'left'),
 }
 
 for m in data:
@@ -122,8 +124,7 @@ py = [p['overall'] for p in pareto_points]
 
 ax.plot(px, py, color='#38BDF8', linestyle='--', linewidth=1.8, alpha=0.85, zorder=4, label='Pareto Frontier')
 
-ax.set_xlim(25, 95)
-ax.set_ylim(55, 80)
+ax.set_xlim(min(m['tokens_k'] for m in data) - 15, max(m['tokens_k'] for m in data) + 25)
 ax.set_xlabel('Average Tokens per Task (k tokens)', color=text_muted, fontsize=11, labelpad=10)
 ax.set_ylabel('Benchmark Pass Rate (%)  [63 Tasks]', color=text_muted, fontsize=11, labelpad=10)
 
@@ -143,7 +144,7 @@ ax.annotate('Ideal Region (High Accuracy, Low Tokens)',
             color='#38BDF8', fontsize=9.5, fontweight='bold',
             bbox=dict(boxstyle="round,pad=0.35", fc=panel_bg, ec='#38BDF8', lw=1.2, alpha=0.9))
 
-ax.set_ylim(20, 88)
+ax.set_ylim(20, 100)
 
 plt.title('NutriEnv v1.0 Pareto Efficiency (Token Cost vs. Accuracy)', 
           color=text_white, fontsize=13.5, fontweight='bold', pad=16, loc='left')

@@ -31,6 +31,21 @@ class Harness:
         """Return the next Env action for this observation."""
         raise NotImplementedError
 
+    def set_step_budget(self, max_steps: int) -> None:
+        """Receive the episode's step budget. The Runner owns the bound, so it hands it over.
+
+        A harness that renders the budget into a prompt must render the number the loop will
+        actually use; a constructor default cannot express that, because the bound depends on
+        the Task's family. Override to store it (`ReActHarness`), to forward it
+        (`BuddyHarness`), or as an explicit no-op if this harness builds no prompt
+        (`ScriptHarness`). The default raises so a new harness cannot silently keep a budget
+        the exam is not running with.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement set_step_budget: store the budget, or opt "
+            "out explicitly if it builds no prompt"
+        )
+
     def clone(self) -> "Harness":
         """Episode-local copy. Override if this instance holds chat state."""
         return self

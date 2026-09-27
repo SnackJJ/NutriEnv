@@ -1,4 +1,4 @@
-"""Recommend / Update query shells. Frozen in this module.
+"""Agreed Rec/Update query shells (docs/mill-query-templates.md), verbatim.
 
 Difficulty lives in S0, not in wording. The mill fills these shells; it never
 invents Recommend or Update phrasing.

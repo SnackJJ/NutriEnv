@@ -14,7 +14,11 @@ from dataclasses import dataclass, replace
 
 from nutrienv.world.catalog import canonical_food_id
 from nutrienv.world.catalog_store import load_catalog
-from nutrienv.world.daily_windows import meal_slot_and_remainder, plan_windows_for_meal
+from nutrienv.world.daily_windows import (
+    judged_ceiling,
+    meal_slot_and_remainder,
+    plan_windows_for_meal,
+)
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import (
     LedgerRow,
@@ -400,7 +404,8 @@ def bind_evaluate_reasons(
         amount = totals.get(key, 0.0)
         if amount < lo:
             codes.append(f"{key}_lo")
-        if amount > hi:
+        # The Scorer's ceiling, so an authored reject never contradicts it.
+        if amount > judged_ceiling(key, hi):
             codes.append(f"{key}_hi")
     return normalize_reasons(codes)
 
@@ -422,10 +427,11 @@ def leftover_bound_labels(
     for key, (slot_lo, slot_hi) in slot.items():
         rem_lo, rem_hi = remainder[key]
         amount = totals.get(key, 0.0)
-        slot_ok = slot_lo <= amount <= slot_hi
+        # Ceilings as the Scorer judges them, so a label never names an overage it accepts.
+        slot_ok = slot_lo <= amount <= judged_ceiling(key, slot_hi)
         if not slot_ok:
             continue
-        if amount > rem_hi:
+        if amount > judged_ceiling(key, rem_hi):
             labels.add("leftover_over")
         if last_meal and amount < rem_lo:
             labels.add("leftover_under")

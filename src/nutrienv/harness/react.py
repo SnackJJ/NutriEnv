@@ -9,8 +9,9 @@ import re
 from nutrienv.actions.schemas import OPS
 from nutrienv.io.chat import (
     REACT_RETRY_ON,
+    _message_text,
     lookup_chat_model,
-    post_chat_completion,
+    post_chat_completion_raw,
 )
 from nutrienv.io.dotenv import load_dotenv_keys
 
@@ -18,17 +19,54 @@ from .protocol import Harness
 from .runner import DEFAULT_MAX_STEPS, FINISH_OPS
 
 __all__ = [
-    "ReActHarness",
+    "ABLATION_CONTEXT_LIMIT",
     "REACT_VERSIONS",
-    "load_dotenv_keys",
+    "ReActHarness",
+    "ReActInfraError",
     "context_messages",
+    "load_dotenv_keys",
     "oracle_hint",
     "react_manual",
 ]
 
 _OPS = frozenset(OPS) | FINISH_OPS
 
-_CONTEXT_LIMIT = 12
+# The 12-message slide is an ablation control, never a default: a caller that forgets to pass
+# `limit` used to get a truncated trajectory silently, which is indistinguishable in the result
+# from a model that never had the context.
+ABLATION_CONTEXT_LIMIT = 12
+
+
+class ReActInfraError(RuntimeError):
+    """A completion that failed after its request retries: infrastructure, not the model.
+
+    The ablation driver retries the whole episode on this, and only on this, the way the exam
+    loop retries on `EpisodeInfraError`; any other exception is a bug and must surface.
+    """
+
+
+def _usage(body: dict, messages: list, text: str) -> dict:
+    """One completion's token counts, with the exam loop's 4-chars/token fallback."""
+    usage = body.get("usage")
+    usage = usage if isinstance(usage, dict) else {}
+    details = usage.get("completion_tokens_details")
+    details = details if isinstance(details, dict) else {}
+    return {
+        "prompt_tokens": int(usage.get("prompt_tokens") or len(json.dumps(messages)) // 4),
+        "completion_tokens": int(usage.get("completion_tokens") or len(text) // 4),
+        "reasoning_tokens": int(
+            details.get("reasoning_tokens") or usage.get("reasoning_tokens") or 0
+        ),
+        "tokens_measured": bool(usage),
+    }
+
+
+def _checked_max_steps(max_steps: int) -> int:
+    """Validate once: the prompt renders this number, so a bad one must not reach an episode."""
+    if isinstance(max_steps, bool) or not isinstance(max_steps, int) or max_steps < 1:
+        raise ValueError("max_steps must be an int >= 1")
+    return max_steps
+
 
 _SYSTEM = """You are an agent in NutriEnv, a steppable nutrition world.
 Each turn emit exactly one JSON object, no markdown, no extra top-level keys:
@@ -80,36 +118,19 @@ _SYSTEM_V2 = """You are an agent in NutriEnv, a steppable nutrition world.
 Each turn emit exactly one JSON object, no markdown, no extra top-level keys:
 {"op": "<one of the ops>", ...args}
 
-Available ops:
-- search_foods {q}   (BM25 over local USDA catalog; do not use q="*")
-- get_food {food_id}
-- get_profile
-- get_ledger
-- get_dri
-- log_meal {food_id, grams, eaten_at?}
-- amend_meal {index, grams, food_id?, eaten_at?}   (overwrite ledger[index]; index is 0-based into the current ledger; grams > 0; omitted fields keep the existing row's value)
-- submit_plan {items: [{food_id, grams}, ...], verdict?, reasons?}
-- update_profile {patch}
+Ops, with their arguments:
+- search_foods {q}                  BM25 search over the local USDA catalog; returns food_id and name
+- get_food {food_id}                portions, nutrients and allergen tags for one food
+- get_profile                       allergies and daily target nutrient windows
+- get_ledger                        meals logged so far today, with cumulative nutrients
+- get_dri                           FDA daily reference values
+- log_meal {food_id, grams, eaten_at?}   record a consumed item; eaten_at e.g. today-lunch
+- amend_meal {index, grams, food_id?, eaten_at?}   index is 0-based into the current ledger
+- submit_plan {items: [{food_id, grams}], verdict?, reasons?}   hand in a plan; verdict and reasons belong to evaluation tasks, and a reject carries no items
+- update_profile {patch}            patch is a dict of profile fields, e.g. {"allergies": ["peanut"], "activity": "light"}
 - update_plan {patch}
-- finish  (hand-in: stop the episode; the current world is scored)
-
-How an episode is graded:
-- Writes apply immediately; the end state is scored on finish or step limit.
-- Multi-step queries need every step's write: allergy change then dinner ask is update_profile then submit_plan; never log_meal future recommendations.
-- Fields unmentioned by the user stay as the opening profile/ledger.
-- food_id comes from search/get_food (slugs like milk_whole also resolve); unknown ids change nothing.
-- Nutrient numbers come from observations, not prior knowledge. Catalog energy is per 100 g.
-- log_meal without eaten_at is stamped "now". If query names a meal, copy ledger style (today-breakfast, today-lunch, …).
-- Leftover questions: daily windows on get_profile are not meal budget. Subtract ledger nutrients and submit_plan for remainder.
-- After writes, emit finish. submit_plan is a hand-in: do not update_plan afterwards.
-- Profile allergies are catalog allergen_tags (shellfish, peanut), not food names.
-- Evaluate: submit_plan with verdict=accept and exact named meal, or verdict=reject, empty items, and reason codes that fire (allergy alone suffices for allergen meals; else {kcal,protein_g,carb_g,fat_g,fiber_g,sodium_mg}_hi/_lo). If the query also asks what to eat instead: a single submit_plan with verdict=reject, those reason codes, and items for the replacement. A second submit_plan without verdict drops the reject. Doing nothing fails.
-- Recommend: submit_plan a safe meal that fits windows; omit verdict.
-- Single meal planning targets meal energy share: breakfast 25-30%, lunch 30-40%, dinner 30-40% of daily energy. Snack has none.
-- Spoken cutting, a tiring deficit, or building muscle with no number: patch phase, or move daily energy below maintain, up toward maintain, or protein above 0.8 g/kg. There is no published step size. Unmentioned allergies and other window keys stay.
-- Body facts ("I weigh 70 kg now"): update_profile it; windows re-derive automatically. "Stop the cut" means phase maintain.
+- finish                            hand in the episode
 """
-
 REACT_VERSIONS = ("v0", "v1", "v2")
 _MANUALS = {
     "v0": _SYSTEM,
@@ -120,20 +141,25 @@ _MANUALS = {
 
 def react_manual(version: str) -> str:
     """Return the frozen ReAct system manual for a harness version."""
+    from nutrienv.harness.prompt_freeze import SHARED_TASK_SPEC
+
+    if version == "v2":
+        return _MANUALS[version] + SHARED_TASK_SPEC
     if version not in _MANUALS:
         raise ValueError(f"unknown react harness version: {version!r}")
     return _MANUALS[version]
 
 
 def context_messages(
-    messages: list[dict], *, limit: int | None = _CONTEXT_LIMIT
+    messages: list[dict], *, limit: int | None = None
 ) -> list[dict]:
     """Keep the system manual and the Task line when the window slides.
 
     A raw ``messages[-N:]`` drop drops both after a few steps, so the model
     forgets the ops and the query. Pin those two; slide only the trajectory.
-    ``limit=None`` sends the full log (published ReAct; the 12-message slide
-    is an ablation).
+    ``limit=None`` -- the default -- sends the full log, which is what the published ReAct
+    runs do. The 12-message slide is an ablation control and has to be asked for explicitly
+    (``ABLATION_CONTEXT_LIMIT``).
     """
     if limit is None:
         return list(messages)
@@ -227,6 +253,7 @@ class ReActHarness(Harness):
         extra_body: dict | None = None,
         version: str = "v0",
         context_limit: int | None = None,
+        temperature: float = 0.0,
     ) -> None:
         if version not in REACT_VERSIONS:
             raise ValueError(f"unknown react harness version: {version!r}")
@@ -243,17 +270,20 @@ class ReActHarness(Harness):
         self.api_model = spec.model_id
         self.timeout = timeout
         self.leak_oracle = leak_oracle
-        self.max_steps = max_steps
+        self.max_steps = _checked_max_steps(max_steps)
+        self.temperature = temperature
         self.extra_body = dict(extra_body or {})
         self.version = version
         self.context_limit = context_limit
         self.messages: list[dict] = [{"role": "system", "content": react_manual(version)}]
+        # One entry per completion (act and revise alike), for the ablation's token accounting.
+        self.usage_log: list[dict] = []
 
     @property
     def label(self) -> str:
         return f"react-{self.version}"
 
-    def clone(self) -> "ReActHarness":
+    def clone(self) -> ReActHarness:
         """Fresh message log, same endpoint settings."""
         return ReActHarness(
             api_key=self.api_key,
@@ -265,7 +295,12 @@ class ReActHarness(Harness):
             extra_body=self.extra_body,
             version=self.version,
             context_limit=self.context_limit,
+            temperature=self.temperature,
         )
+
+    def set_step_budget(self, max_steps: int) -> None:
+        """Store the loop bound the Runner will use, so the prompt cannot promise another one."""
+        self.max_steps = _checked_max_steps(max_steps)
 
     def reset(self, task: object | None = None) -> None:
         """Drop episode history so the next Task cannot see the last one."""
@@ -274,6 +309,7 @@ class ReActHarness(Harness):
         if self.leak_oracle and oracle is not None:
             system = system + "\n\n" + oracle_hint(oracle)
         self.messages = [{"role": "system", "content": system}]
+        self.usage_log = []
 
     def ensure_task(self, query: str) -> None:
         """Pin the Task line before the first observation. Idempotent."""
@@ -287,7 +323,7 @@ class ReActHarness(Harness):
             {
                 "role": "user",
                 "content": (
-                    f"Step budget: {remaining} action(s) remaining, including this turn.\n"
+                    f"Step budget: {remaining} action(s) remaining.\n"
                     "Observation:\n"
                     + json.dumps(observation, default=str)[:6000]
                 ),
@@ -303,33 +339,42 @@ class ReActHarness(Harness):
     def _emit(self) -> dict:
         text = self._complete()
         self.messages.append({"role": "assistant", "content": text})
-        action = _parse_action(text)
-        if action.get("op") not in _OPS:
-            return {"op": "get_profile"}
-        return action
+        # An object with an unknown op goes to Env as-is and is refused there, as in the exam
+        # loop; only a turn with no JSON object falls back to get_profile.
+        return _parse_action(text)
 
     def _complete(self) -> str:
         payload = {
             "model": self.api_model,
             "messages": context_messages(self.messages, limit=self.context_limit),
-            "temperature": 0.0,
+            "temperature": self.temperature,
             **self.extra_body,
         }
-        return post_chat_completion(
-            self.base_url,
-            payload,
-            self.api_key,
-            timeout=self.timeout,
-            retries=3,
-            retry_on=REACT_RETRY_ON,
-            error_prefix="DeepSeek request failed after retries",
-        )
+        try:
+            # Raw body and 5 request retries, as the exam loop's spec: the usage block is the
+            # cost axis, and `_message_text` keeps the reasoning_content fallback.
+            body = post_chat_completion_raw(
+                self.base_url,
+                payload,
+                self.api_key,
+                timeout=self.timeout,
+                retries=5,
+                retry_on=REACT_RETRY_ON,
+                error_prefix=f"{self.model} request failed",
+            )
+        except Exception as exc:
+            raise ReActInfraError(str(exc)) from exc
+        if not isinstance(body, dict):
+            body = {}
+        text = _message_text(body)
+        self.usage_log.append(_usage(body, payload["messages"], text))
+        return text
 
 
-def _parse_action(text: str) -> dict:
-    """Return the intended JSON Action object, tolerating CoT prose or code fences."""
+def _choose_action(text: str) -> dict | None:
+    """Return the JSON object the text carries, or None. Tolerates CoT prose and code fences."""
     stripped = text.strip()
-    fenced = re.search(r"```(?:json)?\s*(.*?)\s*```", stripped, re.S | re.I)
+    fenced = re.search(r"```(?:json)?\s*(.*?)\s*```", stripped, re.DOTALL | re.IGNORECASE)
     candidates = [fenced.group(1), stripped] if fenced else [stripped]
     decoder = json.JSONDecoder()
     valid_actions: list[dict] = []
@@ -363,20 +408,94 @@ def _parse_action(text: str) -> dict:
                     pass
 
     # Take the first valid action to prevent accepting hallucinated multi-turn rollouts
-    chosen = valid_actions[0] if valid_actions else (other_dicts[0] if other_dicts else None)
-    if chosen is None:
-        return {"op": "get_profile"}
+    return valid_actions[0] if valid_actions else (other_dicts[0] if other_dicts else None)
 
+
+def _sanitize_submit_plan(chosen: dict) -> dict:
+    """Keep only keys the Action carries, and coerce item grams to float."""
     if chosen.get("op") == "submit_plan":
         if chosen.get("verdict") == "accept" or "verdict" not in chosen:
             chosen.pop("reasons", None)
         valid_keys = {"op", "items", "verdict", "reasons"}
         chosen = {k: v for k, v in chosen.items() if k in valid_keys}
         if isinstance(chosen.get("items"), list):
-            chosen["items"] = [
-                {"food_id": str(it.get("food_id")), "grams": float(it.get("grams", 0.0))}
-                for it in chosen["items"]
-                if isinstance(it, dict) and "food_id" in it
-            ]
+            # A model-written item is a boundary, and this function must not raise on one: it
+            # runs inside the episode loop, where a `ValueError` from coercing `grams` would end
+            # the whole run rather than the turn. An unusable item is dropped, which leaves the
+            # plan the Scorer judges and the action in the transcript -- both visible -- instead
+            # of an infrastructure failure that hides what the model wrote.
+            items: list[dict] = []
+            for item in chosen["items"]:
+                if not isinstance(item, dict) or "food_id" not in item:
+                    continue
+                grams = item.get("grams", 0.0)
+                if isinstance(grams, bool) or not isinstance(grams, (int, float)):
+                    continue
+                items.append({"food_id": str(item["food_id"]), "grams": grams})
+            chosen["items"] = items
     return chosen
 
+
+# What a loop may do when a model turn is not a legal Action. These names are the vocabulary of
+# the measurement, not of the model: a run records which one it used, and two runs that used
+# different ones are not comparable on their pass rates.
+PARSE_ERROR_POLICIES = ("silent", "feedback", "resample")
+
+# `feedback`: tell the model its turn was not an Action, that nothing was executed, and what form
+# is expected. Nothing else is interpolated -- no numbers, no hints about the answer. The point
+# is that a failed attempt becomes information the model can act on, instead of a silent
+# substitution that it cannot distinguish from success.
+# `%`-interpolated, not `str.format`: the message quotes the JSON form, and braces in a format
+# template are field syntax.
+PARSE_ERROR_FEEDBACK = (
+    "Your previous message was not a legal action and nothing was executed; the world is "
+    'unchanged. Reply with exactly one JSON object of the form {"op": "<op>", ...args} and no '
+    "other text. Your message began: %(echo)r"
+)
+
+# `resample`: the control for `feedback`. It spends the same extra completion and diagnoses
+# nothing, so "telling the model what went wrong" is separable from "spending another call".
+PARSE_ERROR_RESAMPLE = "Continue. Reply with one JSON action."
+
+
+def violation_feedback(policy: str, text: str) -> str:
+    """The user turn a violated attempt earns under ``policy``.
+
+    `silent` never asks (it executes the fallback instead), so it is not accepted here: a caller
+    that wants no message should not be calling this at all.
+    """
+    if policy == "feedback":
+        return PARSE_ERROR_FEEDBACK % {"echo": text[:200]}
+    if policy == "resample":
+        return PARSE_ERROR_RESAMPLE
+    raise ValueError(f"no feedback for policy {policy!r}")
+
+
+def resolve_action(text: str) -> tuple[dict | None, str | None]:
+    """Return ``(action, None)`` for the Action in ``text``, else ``(None, why)``.
+
+    ``why`` is ``"no_action"`` when no JSON object was found at all, or ``"unknown_op"`` when the
+    object's ``op`` is not in the catalogue. A loop that wants to *count* protocol violations has
+    to call this rather than ``_parse_action``: the latter hides both behind a ``get_profile``
+    fallback, which in a transcript is indistinguishable from a model that asked to re-read the
+    profile.
+    """
+    chosen = _choose_action(text)
+    if chosen is None:
+        return None, "no_action"
+    if chosen.get("op") not in _OPS:
+        return chosen, "unknown_op"
+    return _sanitize_submit_plan(chosen), None
+
+
+def _parse_action(text: str) -> dict:
+    """Return the intended JSON Action object, tolerating CoT prose or code fences.
+
+    Anything unparseable becomes ``{"op": "get_profile"}``. That substitution is what the text
+    harness has always done and published reports depend on it, so it stays here; call
+    :func:`resolve_action` to see the violation itself.
+    """
+    action, _ = resolve_action(text)
+    if action is None:
+        return {"op": "get_profile"}
+    return action

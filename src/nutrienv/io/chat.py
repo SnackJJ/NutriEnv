@@ -6,10 +6,11 @@ import json
 import os
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from http.client import IncompleteRead, HTTPException
+from http.client import HTTPException, IncompleteRead
 from pathlib import Path
 
 from .dotenv import load_dotenv_keys
@@ -33,7 +34,19 @@ DASHSCOPE_CHAT_URL = (
     "https://llm-dhaosul25kqjxu10.cn-beijing.maas.aliyuncs.com"
     "/compatible-mode/v1/chat/completions"
 )
-ARK_PLAN_URL = "https://ark.cn-beijing.volces.com/api/plan/v3/chat/completions"
+# Command Code provider API (GOAT/Go plans). OpenAI-compatible surface; the plan
+# reaches snapshot ids that the vendors' own APIs have already retired (e.g.
+# deepseek-v4.1-flash). Override with COMMANDCODE_BASE_URL when the route moves.
+COMMANDCODE_CHAT_URL = "https://api.commandcode.ai/provider/v1/chat/completions"
+
+# Providers this tree used and no longer has. Kept as an explicit table so a stale model id
+# names its own cause instead of resolving to a different provider's endpoint.
+REMOVED_ROUTES = {
+    "ark/": "the ARK plan endpoint, removed 2026-09-21 when its quota ran out; use "
+            "commandcode/<vendor>/<model> (see https://api.commandcode.ai/provider/v1/models)",
+    "volc/": "the ARK plan endpoint, removed 2026-09-21; use commandcode/<vendor>/<model>",
+    "volcengine/": "the ARK plan endpoint, removed 2026-09-21; use commandcode/<vendor>/<model>",
+}
 # opencode-go gateway: the operator configures base URL / key in env
 # (OPENCODE_BASE_URL / OPENCODE_API_KEY). There is no built-in default URL;
 # an unset base URL makes the opencode route unavailable, fail-closed.
@@ -51,6 +64,236 @@ REACT_RETRY_ON: tuple[type[BaseException], ...] = (
 JUDGE_RETRY_ON: tuple[type[BaseException], ...] = (Exception,)
 
 
+def _open_http(request: urllib.request.Request, *, timeout: float):
+    """The one place this module opens a URL, scheme-checked first.
+
+    These URLs come from the environment (`COMMANDCODE_BASE_URL`, `OPENCODE_BASE_URL`,
+    `DASHSCOPE_BASE_URL`), and `urlopen` also speaks `file:` -- so a mistyped base URL would read
+    a local file instead of calling a provider.
+    """
+    scheme = urllib.parse.urlsplit(request.full_url).scheme
+    if scheme not in ("http", "https"):
+        raise ValueError(f"refusing to open a non-http(s) URL: {request.full_url!r}")
+    return urllib.request.urlopen(request, timeout=timeout)
+
+
+def _chat_request(url: str, body: dict, api_key: str, accept: str | None = None):
+    """One request builder, so the streaming and non-streaming paths cannot drift."""
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+        "User-Agent": (
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+        ),
+    }
+    if accept:
+        headers["Accept"] = accept
+    return urllib.request.Request(
+        url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST"
+    )
+
+
+def _should_retry_without_usage(exc: BaseException, stream: bool, include_usage: bool) -> bool:
+    """True when a 400 is plausibly the provider rejecting ``stream_options``.
+
+    ``stream_options`` is optional in the OpenAI-compatible surface but not universally
+    implemented, and it is now sent on every streaming call. A provider that answers 400 to
+    it would otherwise burn the whole retry budget and void the step. The usage block is a
+    nicety, so drop it and try once more instead.
+    """
+    return (
+        stream and include_usage and isinstance(exc, urllib.error.HTTPError) and exc.code == 400
+    )
+
+
+def _merge_tool_name(current: str, incoming: str, declared: set[str]) -> str:
+    """Fold one ``function.name`` fragment into the name accumulated so far.
+
+    Gateways disagree about how to stream a tool name, and every shape has to land on the
+    same string:
+
+    * sent once, then absent -- keep it
+    * repeated verbatim in every delta -- ignore the repeat
+    * split into fragments (``search``, ``_foods``) -- append
+    * re-sent cumulatively (``sea``, ``search_``, ``search_foods``) -- replace
+
+    A plain ``+=`` corrupts the repeat shape, and an ``endswith`` guard corrupts a fragment
+    that happens to be a suffix of what precedes it (``asses`` + ``s``). ``declared`` is the
+    set of tool names the request actually offered, which is what makes cumulative and
+    fragment shapes distinguishable.
+    """
+    if not current:
+        return incoming
+    if incoming == current:
+        return current
+    if current in declared:
+        return current
+    if incoming in declared or incoming.startswith(current):
+        return incoming
+    return current + incoming
+
+
+def _absorb_tool_call(call: dict, slots: dict, declared: set[str], current: int) -> int:
+    """Merge one ``tool_calls`` fragment into ``slots``; returns the slot fragments default to."""
+    index = call.get("index")
+    if index is None:
+        # A gateway that omits `index` on parallel calls would otherwise merge every call into
+        # slot 0 and hand back one concatenated name. A fresh `id` is the only new-call signal
+        # available there; a fragment without one belongs to the call already in progress.
+        cid = call.get("id")
+        if cid:
+            index = next((i for i, s in slots.items() if s.get("id") == cid), None)
+            if index is None:
+                index = max(slots) + 1 if slots else 0
+        else:
+            index = current
+    slot = slots.setdefault(
+        index, {"id": None, "type": "function", "function": {"name": "", "arguments": ""}}
+    )
+    if call.get("id"):
+        slot["id"] = call["id"]
+    fn = call.get("function") or {}
+    if fn.get("name"):
+        slot["function"]["name"] = _merge_tool_name(slot["function"]["name"], fn["name"], declared)
+    if fn.get("arguments"):
+        slot["function"]["arguments"] += fn["arguments"]
+    return index
+
+
+class StreamTruncated(IncompleteRead):
+    """An SSE stream that never terminated, or carried nothing usable.
+
+    Subclasses :class:`IncompleteRead` so the existing retry sets already own it, but keeps a
+    readable message: ``IncompleteRead.__str__`` is its ``__repr__``, which drops any
+    explanation and leaves only a byte count, and that byte count is what would otherwise
+    reach the report as the VOID reason.
+    """
+
+    def __init__(self, message: str):
+        super().__init__(b"", 0)
+        self.message = message
+
+    def __str__(self) -> str:
+        return self.message
+
+    def __repr__(self) -> str:
+        return self.message
+
+
+def _assemble_stream(
+    url: str,
+    payload: dict,
+    api_key: str,
+    timeout: float,
+    error_prefix: str,
+    include_usage: bool = True,
+) -> dict:
+    """POST with ``stream=True`` and return an OpenAI-shaped response body.
+
+    Non-streaming requests are the reason long agent steps looked like hangs: a reasoning
+    model can think for minutes before emitting anything, and with no bytes on the socket the
+    client's read timeout fires, drops the connection and resends from scratch, losing all
+    the work already done server-side. Streaming keeps bytes flowing (measured max gap
+    ~0.3 s), so a 300 s step completes in one call instead of 180+180+180+138.
+
+    An unterminated stream is a truncated response, not a short answer. The non-streaming
+    path raised on one (``json.loads`` over a cut body); accepting it would grade a
+    half-written action as the model's answer, which is the acceptance bug ADR 0028 §2.1
+    deleted the ``{"op": "finish"}`` forgery for. ``IncompleteRead`` is in ``REACT_RETRY_ON``,
+    so the retry loop and the VOID path own it.
+    """
+    body = dict(payload)
+    body["stream"] = True
+    # Ask for the usage block in the final chunk; some gateways only send it this way.
+    if include_usage:
+        body.setdefault("stream_options", {"include_usage": True})
+
+    declared = {
+        tool["function"]["name"]
+        for tool in (payload.get("tools") or [])
+        if isinstance(tool, dict)
+        and isinstance(tool.get("function"), dict)
+        and tool["function"].get("name")
+    }
+
+    content: list[str] = []
+    reasoning: list[str] = []
+    tool_slots: dict[int, dict] = {}
+    usage: dict = {}
+    finish: str | None = None
+    saw_frame = False
+    saw_done = False
+    current_slot = 0
+
+    with _open_http(
+        _chat_request(url, body, api_key, accept="text/event-stream"), timeout=timeout
+    ) as resp:
+        for raw in resp:
+            line = raw.decode("utf-8", "replace").strip()
+            if not line.startswith("data:"):
+                continue
+            data = line[5:].strip()
+            if data == "[DONE]":
+                saw_done = True
+                continue
+            try:
+                chunk = json.loads(data)
+            except json.JSONDecodeError:
+                continue
+            saw_frame = True
+            if isinstance(chunk.get("usage"), dict):
+                usage = chunk["usage"]
+            for choice in chunk.get("choices") or []:
+                # Some gateways answer a `stream: true` request with whole messages rather than
+                # deltas; assembling only `delta` returned an empty reply with no error.
+                whole = choice.get("message")
+                if isinstance(whole, dict):
+                    if isinstance(whole.get("content"), str):
+                        content.append(whole["content"])
+                    if isinstance(whole.get("reasoning_content"), str):
+                        reasoning.append(whole["reasoning_content"])
+                    for call in whole.get("tool_calls") or []:
+                        if isinstance(call, dict):
+                            current_slot = _absorb_tool_call(
+                                call, tool_slots, declared, current_slot
+                            )
+                delta = choice.get("delta")
+                if isinstance(delta, dict):
+                    if isinstance(delta.get("content"), str):
+                        content.append(delta["content"])
+                    if isinstance(delta.get("reasoning_content"), str):
+                        reasoning.append(delta["reasoning_content"])
+                    for call in delta.get("tool_calls") or []:
+                        if isinstance(call, dict):
+                            current_slot = _absorb_tool_call(
+                                call, tool_slots, declared, current_slot
+                            )
+                if choice.get("finish_reason"):
+                    finish = choice["finish_reason"]
+
+    content_text = "".join(content)
+    reasoning_text = "".join(reasoning)
+    # A lone `[DONE]` is a terminated-but-empty stream, not a provider that ignored
+    # `stream: true`, so the "not streaming at all" case needs both signals absent.
+    if not saw_frame and not saw_done:
+        raise StreamTruncated("no SSE frame arrived (provider may not honour stream:true)")
+    if not saw_done and finish is None:
+        raise StreamTruncated(
+            "stream ended without [DONE] or finish_reason; "
+            f"partial={content_text[:60]!r}"
+        )
+    if not content_text.strip() and not reasoning_text.strip() and not tool_slots:
+        raise StreamTruncated("stream carried no content, reasoning or tool calls")
+
+    message: dict = {"role": "assistant", "content": content_text}
+    if reasoning_text:
+        message["reasoning_content"] = reasoning_text
+    if tool_slots:
+        message["tool_calls"] = [tool_slots[k] for k in sorted(tool_slots)]
+    return {"choices": [{"message": message, "finish_reason": finish}], "usage": usage}
+
+
 def post_chat_completion(
     url: str,
     payload: dict,
@@ -59,30 +302,33 @@ def post_chat_completion(
     retries: int = 3,
     retry_on: tuple[type[BaseException], ...] = REACT_RETRY_ON,
     error_prefix: str = "request failed",
+    stream: bool = True,
+    include_usage: bool = True,
 ) -> str:
     """POST one chat completion and return ``choices[0].message.content``."""
     import socket
     socket.setdefaulttimeout(timeout)
-    last_error: Exception | None = None
+    # `retry_on` is a tuple of BaseException classes, so what it catches is not
+    # necessarily an Exception; the annotation has to match the except clause.
+    last_error: BaseException | None = None
     for attempt in range(retries):
         try:
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {api_key}",
-                    "User-Agent": (
-                        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                        "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
-                    ),
-                },
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if stream:
+                return _message_text(
+                    _assemble_stream(
+                        url, payload, api_key, timeout, error_prefix, include_usage=include_usage
+                    )
+                )
+            with _open_http(
+                _chat_request(url, payload, api_key), timeout=timeout
+            ) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
             return _message_text(body)
         except retry_on as exc:
+            if _should_retry_without_usage(exc, stream, include_usage):
+                include_usage = False
+                last_error = exc
+                continue
             last_error = exc
             sleep_time = float(2 ** attempt)
             if isinstance(exc, urllib.error.HTTPError) and exc.code == 429:
@@ -99,29 +345,30 @@ def post_chat_completion_raw(
     retries: int = 3,
     retry_on: tuple[type[BaseException], ...] = REACT_RETRY_ON,
     error_prefix: str = "request failed",
+    stream: bool = True,
+    include_usage: bool = True,
 ) -> dict:
     """POST one chat completion and return the full parsed body dict."""
     import socket
     socket.setdefaulttimeout(timeout)
-    last_error: Exception | None = None
+    # `retry_on` is a tuple of BaseException classes, so what it catches is not
+    # necessarily an Exception; the annotation has to match the except clause.
+    last_error: BaseException | None = None
     for attempt in range(retries):
         try:
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {api_key}",
-                    "User-Agent": (
-                        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                        "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
-                    ),
-                },
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if stream:
+                return _assemble_stream(
+                    url, payload, api_key, timeout, error_prefix, include_usage=include_usage
+                )
+            with _open_http(
+                _chat_request(url, payload, api_key), timeout=timeout
+            ) as resp:
                 return json.loads(resp.read().decode("utf-8"))
         except retry_on as exc:
+            if _should_retry_without_usage(exc, stream, include_usage):
+                include_usage = False
+                last_error = exc
+                continue
             last_error = exc
             sleep_time = float(2 ** attempt)
             if isinstance(exc, urllib.error.HTTPError) and exc.code == 429:
@@ -219,16 +466,21 @@ EXPANDER_MODELS: dict[str, ChatModel] = {
 def lookup_chat_model(model_id: str) -> ChatModel:
     """Registry hit, explicit provider prefix, else opencode gateway, else heuristics."""
     load_dotenv_keys(_ROOT / ".env", _ROOT / ".env.local")
-    if model_id.startswith("opencode/") or model_id.startswith("opencode-go/"):
+    for prefix, why in REMOVED_ROUTES.items():
+        if model_id.startswith(prefix):
+            # Falls through to the heuristics otherwise: `ark/glm-5.3` contains "glm", so it
+            # would be sent to DashScope and fail somewhere unrelated to the real cause.
+            raise ValueError(f"{model_id!r} routes to {why}")
+    if model_id.startswith(("opencode/", "opencode-go/")):
         real_id = model_id.split("/", 1)[1]
         route = _opencode_route()
         if route is not None:
             url, key_env = route
             return ChatModel(model_id=real_id, url=url, api_key_env=key_env)
-    if model_id.startswith("ark/") or model_id.startswith("volc/") or model_id.startswith("volcengine/"):
+    if model_id.startswith(("commandcode/", "cc/")):
         real_id = model_id.split("/", 1)[1]
-        url = os.environ.get("ARK_BASE_URL", ARK_PLAN_URL)
-        return ChatModel(model_id=real_id, url=url, api_key_env="ARK_API_KEY")
+        url = os.environ.get("COMMANDCODE_BASE_URL", COMMANDCODE_CHAT_URL)
+        return ChatModel(model_id=real_id, url=url, api_key_env="COMMANDCODE_API_KEY")
     if model_id.startswith("nvidia/"):
         real_id = model_id.split("/", 1)[1]
         return _nvidia(real_id)
@@ -249,8 +501,9 @@ def lookup_chat_model(model_id: str) -> ChatModel:
         # stable across environments. Use an opencode prefix (e.g.
         # opencode-go/glm-5.3) to force opencode gateway routing.
         return _dashscope(model_id)
-    if _opencode_route() is not None:
-        url, key_env = _opencode_route()
+    opencode = _opencode_route()
+    if opencode is not None:
+        url, key_env = opencode
         return ChatModel(model_id=model_id, url=url, api_key_env=key_env)
     return ChatModel(
         model_id=model_id,
@@ -309,7 +562,9 @@ def complete_chat(
         attempts = [primary] + ([fallback] if allow_fallback and fallback else [])
     else:
         raise ValueError(f"unknown complete_chat attempt {attempt!r}")
-    last_error: Exception | None = None
+    # `retry_on` is a tuple of BaseException classes, so what it catches is not
+    # necessarily an Exception; the annotation has to match the except clause.
+    last_error: BaseException | None = None
     for url, mid, key_env in attempts:
         api_key = os.environ.get(key_env)
         if not api_key:
