@@ -26,33 +26,35 @@ The official NutriEnv v1.0 benchmark consists of 63 curated tasks with audited c
 
 ### Main Results
 
-| Rank | Model | Total Pass Rate | Solved / Total | Avg Steps | Avg Latency | Update (2) | Log (6) | Evaluate (8) | Recommend (11) | Composite (36) | text-json |
-|:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 1 | **DeepSeek-v4-pro** | **84.1%** | **53 / 63** | 10.9 | 120.5s | 2/2 (100.0%) | 5/6 (83.3%) | 7/8 (87.5%) | 9/11 (81.8%) | 30/36 (83.3%) | 54 / 63 |
-| 2 | **GLM-5.3-flash** | **81.0%** | **51 / 63** | 12.2 | 235.4s | 2/2 (100.0%) | 4/6 (66.7%) | 6/8 (75.0%) | 9/11 (81.8%) | 30/36 (83.3%) | 53 / 63 |
-| 2 | **MiMo-v2.6-flash** | **81.0%** | **51 / 63** | 13.9 | 216.0s | 2/2 (100.0%) | 5/6 (83.3%) | 6/8 (75.0%) | 8/11 (72.7%) | 30/36 (83.3%) | 43 / 63 |
-| 4 | **DeepSeek-v4-flash** | **68.3%** | **43 / 63** | 11.5 | 37.1s | 2/2 (100.0%) | 2/6 (33.3%) | 5/8 (62.5%) | 9/11 (81.8%) | 25/36 (69.4%) | 44 / 63 |
-| 5 | **DeepSeek-v4.1-flash** | **58.7%** | **37 / 63** | 11.4 | 40.6s | 2/2 (100.0%) | 5/6 (83.3%) | 4/8 (50.0%) | 7/11 (63.6%) | 19/36 (52.8%) | 44 / 63 |
+| Rank | Model | Mean Pass Rate | Mean Solved / 63 | Runs | Avg Steps | Avg Latency | Update (2) | Log (6) | Evaluate (8) | Recommend (11) | Composite (36) | text-json (1 run) |
+|:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 1 | **MiMo-v2.6-flash** | **84.1%** | **53.0** | 51 / 55 | 13.9 | 329.6s | 100.0% | 75.0% | 87.5% | 81.8% | 84.7% | 43 / 63 |
+| 2 | **DeepSeek-v4-pro** | **81.7%** | **51.5** | 53 / 50 | 10.8 | 100.6s | 100.0% | 66.7% | 75.0% | 81.8% | 84.7% | 54 / 63 |
+| 3 | **GLM-5.3-flash** | **81.0%** | **51.0** | 51 | 12.2 | 235.4s | 100.0% | 66.7% | 75.0% | 81.8% | 83.3% | 53 / 63 |
+| 4 | **DeepSeek-v4-flash** | **74.6%** | **47.0** | 43 / 51 / 47 | 11.8 | 36.8s | 100.0% | 72.2% | 66.7% | 84.8% | 72.2% | 44 / 63 |
+| 5 | **DeepSeek-v4.1-flash** | **68.3%** | **43.0** | 37 / 49 / 43 | 11.7 | 42.6s | 100.0% | 77.8% | 70.8% | 75.8% | 62.0% | 44 / 63 |
 
-> **Protocol.** One run per model on `data/splits/nutrienv-v1.0.json` (63 tasks), native function
-> calling (`--contract native-tools`, the default), temperature 0, all models through the
-> Command Code provider plan. Every report records the ruler it was
-> measured with: `scorer_version = s6-free-recommend-windows`, `loop_version =
-> l2-refused-handin-continues`, `prompt_version = p5-fc-manual-lines`. The **text-json** column is
-> the same models on the ReAct text contract, re-judged offline with the same Scorer
-> (`scripts/rescore_report.py`). Full traces and token counts are in [`reports/`](./reports/)
-> (`benchmark_commandcode_<model>_v1.0_{fc,text}.json`); the Pass / Rate columns can be regenerated from
-> them with `scripts/render_leaderboard.py`.
+> **Protocol.** `data/splits/nutrienv-v1.0.json` (63 tasks), native function calling
+> (`--contract native-tools`, the default), temperature 0, all models through the Command Code
+> provider plan. The table reports the **mean over complete runs** (listed under *Runs*; family
+> columns pool those runs). Every report records the ruler it was measured with:
+> `scorer_version = s6-free-recommend-windows`, `loop_version = l2-refused-handin-continues`,
+> `prompt_version = p5-fc-manual-lines`. The **text-json** column is one run of the same model on
+> the ReAct text contract, re-judged offline with the same Scorer (`scripts/rescore_report.py`).
+> Full traces and token counts are in [`reports/`](./reports/)
+> (`benchmark_commandcode_<model>_v1.0_fc_r<k>.json`, `…_text.json`); per-run Pass / Rate rows can
+> be regenerated with `scripts/render_leaderboard.py`.
 >
-> **Single runs are noisy.** A second FC run of DeepSeek-v4.1-flash under the identical
-> configuration scored 49 / 63 (vs 37 above); differences of a few tasks between rows are not
-> meaningful.
+> **Runs are noisy, and the run counts differ.** At temperature 0 the same model and code moved
+> by up to 12 tasks between runs (DeepSeek-v4.1-flash: 37 / 49 / 43), so the top three rows are
+> within run-to-run noise of each other. Three runs were planned for every model; a further run of
+> DeepSeek-v4-pro, MiMo-v2.6-flash and two of GLM-5.3-flash hit the provider's usage limit
+> (HTTP 429) part-way, so those partial runs are excluded rather than averaged in.
 >
 > **Not comparable with the previous table.** The earlier leaderboard (GLM-5.3 flagship,
 > DeepSeek-v4-pro/flash and GLM-5.3-flash via the Volcano Engine ARK plan, since retired) was
 > measured before the scorer and episode-loop revisions listed in [CHANGELOG](./CHANGELOG.md);
-> it is kept in git history only. GLM-5.3 (flagship) is not offered on the current provider and
-> is not re-measured.
+> it is kept in git history only. GLM-5.3 (flagship) was not re-measured.
 
 ---
 
@@ -144,7 +146,7 @@ python scripts/eval_benchmark_suite.py \
   --split data/splits/nutrienv-v1.0.json \
   --model commandcode/deepseek/deepseek-v4-pro \
   --workers 6 \
-  --out reports/benchmark_commandcode_deepseek-v4-pro_v1.0_fc.json
+  --out reports/benchmark_commandcode_deepseek-v4-pro_v1.0_fc_r1.json
 # add --contract text-json for the ReAct text loop
 ```
 

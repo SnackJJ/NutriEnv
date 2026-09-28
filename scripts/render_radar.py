@@ -1,13 +1,14 @@
+import glob
 import json
 import numpy as np
 import matplotlib.pyplot as plt
 
 models = [
-    ('DeepSeek-v4-pro', 'reports/benchmark_commandcode_deepseek-v4-pro_v1.0_fc.json', '#34D399'),  # Emerald
-    ('GLM-5.3-flash', 'reports/benchmark_commandcode_glm-5.3-flash_v1.0_fc.json', '#FBBF24'),      # Amber
-    ('MiMo-v2.6-flash', 'reports/benchmark_commandcode_mimo-v2.6-flash_v1.0_fc.json', '#F472B6'),  # Pink
-    ('DeepSeek-v4-flash', 'reports/benchmark_commandcode_deepseek-v4-flash_v1.0_fc.json', '#60A5FA'),# Sky Blue
-    ('DeepSeek-v4.1-flash', 'reports/benchmark_commandcode_deepseek-v4.1-flash_v1.0_fc.json', '#818CF8'),  # Indigo
+    ('DeepSeek-v4-pro', 'reports/benchmark_commandcode_deepseek-v4-pro_v1.0_fc_r*.json', '#34D399'),  # Emerald
+    ('GLM-5.3-flash', 'reports/benchmark_commandcode_glm-5.3-flash_v1.0_fc_r*.json', '#FBBF24'),      # Amber
+    ('MiMo-v2.6-flash', 'reports/benchmark_commandcode_mimo-v2.6-flash_v1.0_fc_r*.json', '#F472B6'),  # Pink
+    ('DeepSeek-v4-flash', 'reports/benchmark_commandcode_deepseek-v4-flash_v1.0_fc_r*.json', '#60A5FA'),# Sky Blue
+    ('DeepSeek-v4.1-flash', 'reports/benchmark_commandcode_deepseek-v4.1-flash_v1.0_fc_r*.json', '#818CF8'),  # Indigo
 ]
 
 categories = [
@@ -41,19 +42,18 @@ ax.spines['polar'].set_color('#1E293B')
 ax.xaxis.grid(True, color='#1E293B', linestyle='--', linewidth=1.2)
 ax.yaxis.grid(True, color='#1E293B', linestyle='-', linewidth=0.8)
 
-for name, path, color in models:
-    data = json.load(open(path))
-    fb = data['family_breakdown']
+for name, pattern, color in models:
+    # Pooled over the model's complete runs (one report per run).
+    runs = [json.load(open(p)) for p in sorted(glob.glob(pattern))]
+    families = ['update', 'log', 'evaluate', 'recommend', 'composite']
     vals = [
-        (fb['update']['passed'] / fb['update']['total']) * 100,
-        (fb['log']['passed'] / fb['log']['total']) * 100,
-        (fb['evaluate']['passed'] / fb['evaluate']['total']) * 100,
-        (fb['recommend']['passed'] / fb['recommend']['total']) * 100,
-        (fb['composite']['passed'] / fb['composite']['total']) * 100,
+        100.0 * sum(d['family_breakdown'][f]['passed'] for d in runs)
+        / sum(d['family_breakdown'][f]['total'] for d in runs)
+        for f in families
     ]
     vals += vals[:1]
     
-    overall = 100.0 * data['passed_tasks'] / data['total_tasks']
+    overall = 100.0 * sum(d['passed_tasks'] for d in runs) / sum(d['total_tasks'] for d in runs)
     label = f"{name:19s} {overall:4.1f}%"
     
     ax.plot(angles, vals, color=color, linewidth=2.5, linestyle='solid', label=label)

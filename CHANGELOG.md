@@ -5,11 +5,12 @@ All notable changes to the NutriEnv project are documented in this file.
 ## [Unreleased]
 
 ### Changed
-- **Leaderboard re-measured (not comparable with the v1.0.0 table).** Five models, one run each,
-  native function calling, temperature 0, through the Command Code provider plan; reports are
-  `reports/benchmark_commandcode_<model>_v1.0_{fc,text}.json`. The Volcano Engine ARK plan behind
-  the v1.0.0 table is retired, so GLM-5.3 (flagship) is not re-measured; the old reports remain
-  in git history.
+- **Leaderboard re-measured (not comparable with the v1.0.0 table).** Five models, native
+  function calling, temperature 0, through the Command Code provider plan; the table is the mean
+  over each model's complete runs (1–3; runs voided part-way by the provider's usage limit are
+  excluded). Reports are `reports/benchmark_commandcode_<model>_v1.0_fc_r<k>.json` plus one
+  `…_text.json` per model. The Volcano Engine ARK plan behind the v1.0.0 table is retired and
+  GLM-5.3 (flagship) was not re-measured; the old reports remain in git history.
 - **Scorer** (`SCORER_VERSION = s6-free-recommend-windows`, recorded in every report): plan
   windows are derived from the gold ledger, a plan is matched by per-food gram totals, and the
   protein / carb / fat / fiber ceilings (reference intakes, not limits) are judged with 15% slack;

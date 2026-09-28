@@ -1,3 +1,4 @@
+import glob
 import json
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,26 +11,32 @@ text_white = '#F8FAFC'
 text_muted = '#94A3B8'
 
 models = [
-    ('DeepSeek-v4-pro', 'reports/benchmark_commandcode_deepseek-v4-pro_v1.0_fc.json', '#34D399'),  # Emerald
-    ('GLM-5.3-flash', 'reports/benchmark_commandcode_glm-5.3-flash_v1.0_fc.json', '#FBBF24'),      # Amber
-    ('MiMo-v2.6-flash', 'reports/benchmark_commandcode_mimo-v2.6-flash_v1.0_fc.json', '#F472B6'),  # Pink
-    ('DeepSeek-v4-flash', 'reports/benchmark_commandcode_deepseek-v4-flash_v1.0_fc.json', '#60A5FA'),# Sky Blue
-    ('DeepSeek-v4.1-flash', 'reports/benchmark_commandcode_deepseek-v4.1-flash_v1.0_fc.json', '#818CF8'),  # Indigo
+    ('DeepSeek-v4-pro', 'reports/benchmark_commandcode_deepseek-v4-pro_v1.0_fc_r*.json', '#34D399'),  # Emerald
+    ('GLM-5.3-flash', 'reports/benchmark_commandcode_glm-5.3-flash_v1.0_fc_r*.json', '#FBBF24'),      # Amber
+    ('MiMo-v2.6-flash', 'reports/benchmark_commandcode_mimo-v2.6-flash_v1.0_fc_r*.json', '#F472B6'),  # Pink
+    ('DeepSeek-v4-flash', 'reports/benchmark_commandcode_deepseek-v4-flash_v1.0_fc_r*.json', '#60A5FA'),# Sky Blue
+    ('DeepSeek-v4.1-flash', 'reports/benchmark_commandcode_deepseek-v4.1-flash_v1.0_fc_r*.json', '#818CF8'),  # Indigo
 ]
 
+def mean(xs):
+    return sum(xs) / len(xs)
+
+
+# Each model is the mean over its complete runs (one report per run).
 data = []
-for name, p, color in models:
-    d = json.load(open(p))
+for name, pattern, color in models:
+    runs = [json.load(open(p)) for p in sorted(glob.glob(pattern))]
     data.append({
         'name': name,
         'color': color,
-        'overall': 100.0 * d['passed_tasks'] / d['total_tasks'],
-        'passed': d['passed_tasks'],
-        'total': d['total_tasks'],
-        'latency': d['overall_avg_time_seconds'],
-        'tokens_k': d['overall_avg_tokens_per_task'] / 1000.0,
-        'total_tokens': d['overall_total_tokens'],
-        'avg_steps': d['overall_avg_steps'],
+        'overall': mean([100.0 * d['passed_tasks'] / d['total_tasks'] for d in runs]),
+        'passed': mean([d['passed_tasks'] for d in runs]),
+        'total': runs[0]['total_tasks'],
+        'runs': len(runs),
+        'latency': mean([d['overall_avg_time_seconds'] for d in runs]),
+        'tokens_k': mean([d['overall_avg_tokens_per_task'] for d in runs]) / 1000.0,
+        'total_tokens': mean([d['overall_total_tokens'] for d in runs]),
+        'avg_steps': mean([d['overall_avg_steps'] for d in runs]),
     })
 
 # ==========================================
@@ -51,12 +58,13 @@ bars = ax.barh(y, [m['overall'] for m in bar_data], height=height,
 for bar, m in zip(bars, bar_data):
     w = bar.get_width()
     ax.text(w + 1.2, bar.get_y() + bar.get_height() / 2, 
-            f"{w:.1f}%  ({m['passed']}/{m['total']})",
+            f"{w:.1f}%  ({m['passed']:.1f}/{m['total']}, n={m['runs']})",
             va='center', ha='left', color=text_white, fontsize=10.5, fontweight='bold')
 
 ax.set_yticks(y)
 ax.set_yticklabels([m['name'] for m in bar_data], color=text_white, fontsize=12, fontweight='bold')
-ax.set_xlim(0, 100)
+ax.set_xlim(0, 125)
+ax.set_xticks([0, 20, 40, 60, 80, 100])
 ax.set_xlabel('Benchmark Pass Rate (%)  [63 Tasks]', color=text_muted, fontsize=10.5, labelpad=8)
 
 ax.xaxis.grid(True, color=grid_color, linestyle='--', linewidth=0.8, zorder=0)
@@ -68,7 +76,7 @@ ax.spines['bottom'].set_color(grid_color)
 ax.tick_params(axis='x', colors=text_muted)
 ax.tick_params(axis='y', colors=text_white, length=0)
 
-plt.title('NutriEnv v1.0 Overall Benchmark Leaderboard (Pass@1)', 
+plt.title('NutriEnv v1.0 Leaderboard (mean Pass@1)', 
           color=text_white, fontsize=13.5, fontweight='bold', pad=16, loc='left')
 plt.tight_layout()
 plt.savefig('reports/assets/eval_leaderboard_bars.png', facecolor=fig_bg)
