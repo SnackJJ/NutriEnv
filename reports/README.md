@@ -37,3 +37,16 @@ Models: `deepseek-v4-pro`, `glm-5.3-flash`, `mimo-v2.6-flash`, `deepseek-v4-flas
 > only; GLM-5.3 (flagship) was not re-measured.
 
 Each benchmark JSON includes complete step-by-step tool actions, observations, latency, token usage, and final state validation tags.
+
+### Historical DeepSeek official API result (v1.0)
+
+| Model | Pass Rate | Solved / Total | Avg Steps | Avg Latency | Update (2) | Log (6) | Evaluate (8) | Recommend (11) | Composite (36) |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| DeepSeek-v4.1-flash | 84.13% | 53 / 63 | 12.37 | 33.52s | 2/2 (100.0%) | 6/6 (100.0%) | 7/8 (87.5%) | 8/11 (72.7%) | 30/36 (83.3%) |
+
+Measured through `https://api.deepseek.com/v1/chat/completions` with model
+`deepseek-v4.1-flash-expires-on-0910`, using serial function calling with parallel
+calls disabled. This is one historical run on the 63-task v1.0 split, not a v1.1
+result. The [full report](./benchmark_deepseek_deepseek-v4.1-flash_v1.0_toolcall_noparallel.json) predates the recorded prompt fingerprint,
+scorer version and loop version; its score is not directly comparable with the
+main leaderboard or current harness results.
