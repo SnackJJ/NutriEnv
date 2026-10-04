@@ -11,11 +11,12 @@ text_white = '#F8FAFC'
 text_muted = '#94A3B8'
 
 models = [
+    ('DeepSeek-v4.1-flash (official API)', 'reports/benchmark_deepseek_deepseek-flash_v1.0_fc_r*.json', '#2DD4BF'),
     ('DeepSeek-v4-pro', 'reports/benchmark_commandcode_deepseek-v4-pro_v1.0_fc_r*.json', '#34D399'),  # Emerald
     ('GLM-5.3-flash', 'reports/benchmark_commandcode_glm-5.3-flash_v1.0_fc_r*.json', '#FBBF24'),      # Amber
     ('MiMo-v2.6-flash', 'reports/benchmark_commandcode_mimo-v2.6-flash_v1.0_fc_r*.json', '#F472B6'),  # Pink
     ('DeepSeek-v4-flash', 'reports/benchmark_commandcode_deepseek-v4-flash_v1.0_fc_r*.json', '#60A5FA'),# Sky Blue
-    ('DeepSeek-v4.1-flash', 'reports/benchmark_commandcode_deepseek-v4.1-flash_v1.0_fc_r*.json', '#818CF8'),  # Indigo
+    ('DeepSeek-v4.1-flash (Command Code)', 'reports/benchmark_commandcode_deepseek-v4.1-flash_v1.0_fc_r*.json', '#818CF8'),  # Indigo
 ]
 
 def mean(xs):
@@ -26,6 +27,17 @@ def mean(xs):
 data = []
 for name, pattern, color in models:
     runs = [json.load(open(p)) for p in sorted(glob.glob(pattern))]
+    if not runs:
+        raise ValueError(f'No reports matched {pattern}')
+    for run in runs:
+        if run['total_tasks'] != 63 or len(run['tasks']) != 63 or run.get('void_count', 0):
+            raise ValueError(f'Incomplete run for {name}')
+        for key in ('split', 'contract', 'temperature', 'context_limit', 'parse_error_policy',
+                    'prompt_fingerprint', 'scorer_version', 'loop_version'):
+            if run[key] != runs[0][key] or (data and run[key] != reference[key]):
+                raise ValueError(f'Incompatible {key} for {name}')
+    if not data:
+        reference = runs[0]
     data.append({
         'name': name,
         'color': color,
@@ -44,20 +56,20 @@ for name, pattern, color in models:
 # ==========================================
 bar_data = sorted(data, key=lambda x: x['overall'], reverse=False) # bottom to top
 
-fig, ax = plt.subplots(figsize=(8.5, 3.8), dpi=300)
+fig, ax = plt.subplots(figsize=(11, 4.8), dpi=300)
 fig.patch.set_facecolor(fig_bg)
 ax.set_facecolor(fig_bg)
 
 y = np.arange(len(bar_data))
 height = 0.52
 
-bars = ax.barh(y, [m['overall'] for m in bar_data], height=height, 
+bars = ax.barh(y, [m['overall'] for m in bar_data], height=height,
                color=[m['color'] for m in bar_data], edgecolor='none', zorder=3)
 
 # Value annotations inside or outside the bar
 for bar, m in zip(bars, bar_data):
     w = bar.get_width()
-    ax.text(w + 1.2, bar.get_y() + bar.get_height() / 2, 
+    ax.text(w + 1.2, bar.get_y() + bar.get_height() / 2,
             f"{w:.1f}%  ({m['passed']:.1f}/{m['total']}, n={m['runs']})",
             va='center', ha='left', color=text_white, fontsize=10.5, fontweight='bold')
 
@@ -76,9 +88,11 @@ ax.spines['bottom'].set_color(grid_color)
 ax.tick_params(axis='x', colors=text_muted)
 ax.tick_params(axis='y', colors=text_white, length=0)
 
-plt.title('NutriEnv v1.0 Leaderboard (mean Pass@1)', 
+plt.title('NutriEnv v1.0 Leaderboard (mean Pass@1)',
           color=text_white, fontsize=13.5, fontweight='bold', pad=16, loc='left')
-plt.tight_layout()
+fig.text(0.5, 0.015, 'Official API: 1 run. Command Code: mean of 1–3 complete runs. n = run count.',
+         ha='center', color=text_muted, fontsize=9)
+plt.tight_layout(rect=(0, 0.04, 1, 1))
 plt.savefig('reports/assets/eval_leaderboard_bars.png', facecolor=fig_bg)
 plt.close()
 print('Pure model leaderboard bar chart saved to reports/assets/eval_leaderboard_bars.png')
@@ -86,7 +100,7 @@ print('Pure model leaderboard bar chart saved to reports/assets/eval_leaderboard
 # ==========================================
 # Chart 2: Pareto Efficiency Frontier (Tokens vs Pass Rate)
 # ==========================================
-fig, ax = plt.subplots(figsize=(9.0, 5.0), dpi=300)
+fig, ax = plt.subplots(figsize=(11, 5.8), dpi=300)
 fig.patch.set_facecolor(fig_bg)
 ax.set_facecolor(fig_bg)
 
@@ -100,7 +114,8 @@ offsets = {
     'GLM-5.3-flash': (12, -12, 'left'),
     'DeepSeek-v4-pro': (-12, 4, 'right'),
     'MiMo-v2.6-flash': (12, -12, 'left'),
-    'DeepSeek-v4.1-flash': (12, 4, 'left'),
+    'DeepSeek-v4.1-flash (Command Code)': (12, 4, 'left'),
+    'DeepSeek-v4.1-flash (official API)': (0, 22, 'center'),
 }
 
 for m in data:
@@ -132,7 +147,7 @@ py = [p['overall'] for p in pareto_points]
 
 ax.plot(px, py, color='#38BDF8', linestyle='--', linewidth=1.8, alpha=0.85, zorder=4, label='Pareto Frontier')
 
-ax.set_xlim(min(m['tokens_k'] for m in data) - 15, max(m['tokens_k'] for m in data) + 25)
+ax.set_xlim(min(m['tokens_k'] for m in data) - 15, max(m['tokens_k'] for m in data) + 40)
 ax.set_xlabel('Average Tokens per Task (k tokens)', color=text_muted, fontsize=11, labelpad=10)
 ax.set_ylabel('Benchmark Pass Rate (%)  [63 Tasks]', color=text_muted, fontsize=11, labelpad=10)
 
@@ -147,18 +162,19 @@ ax.tick_params(axis='x', colors=text_muted)
 ax.tick_params(axis='y', colors=text_muted)
 
 # Annotation for top-left ideal direction
-ax.annotate('Ideal Region (High Accuracy, Low Tokens)', 
+ax.annotate('Ideal Region (High Accuracy, Low Tokens)',
             xy=(0.04, 0.94), xycoords='axes fraction',
             color='#38BDF8', fontsize=9.5, fontweight='bold',
             bbox=dict(boxstyle="round,pad=0.35", fc=panel_bg, ec='#38BDF8', lw=1.2, alpha=0.9))
 
-ax.set_ylim(20, 100)
+ax.set_ylim(60, 100)
 
-plt.title('NutriEnv v1.0 Pareto Efficiency (Token Cost vs. Accuracy)', 
+plt.title('NutriEnv v1.0 Pareto Efficiency (Token Cost vs. Accuracy)',
           color=text_white, fontsize=13.5, fontweight='bold', pad=16, loc='left')
 plt.legend(loc='lower right', facecolor=panel_bg, edgecolor=grid_color, fontsize=10)
-plt.tight_layout()
+fig.text(0.5, 0.015, 'Official API: 1 run. Command Code: mean of 1–3 complete runs. n = run count.',
+         ha='center', color=text_muted, fontsize=9)
+plt.tight_layout(rect=(0, 0.04, 1, 1))
 plt.savefig('reports/assets/eval_pareto_efficiency.png', facecolor=fig_bg)
 plt.close()
 print('Pareto efficiency chart saved to reports/assets/eval_pareto_efficiency.png')
-

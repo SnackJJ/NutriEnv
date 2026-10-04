@@ -39,7 +39,7 @@ The official API row is one complete run through `https://api.deepseek.com/v1/ch
 using API model ID `deepseek-flash`, with the same split, prompt fingerprint, scorer,
 loop, temperature and serial native-tool protocol as the Command Code rows.
 [Full official API report](./reports/benchmark_deepseek_deepseek-flash_v1.0_fc_r1.json). Its 53/63 equals MiMo's two-run mean;
-run counts differ. Other rows use Command Code. The charts show the Command Code runs only.
+run counts differ. Other rows use Command Code. The charts include both API routes and use the same complete-run means as this table.
 
 > **Protocol.** `data/splits/nutrienv-v1.0.json` (63 tasks), native function calling
 > (`--contract native-tools`, the default), temperature 0; provider routes are distinguished above.
