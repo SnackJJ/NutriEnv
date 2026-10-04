@@ -21,13 +21,20 @@ Models: `deepseek-v4-pro`, `glm-5.3-flash`, `mimo-v2.6-flash`, `deepseek-v4-flas
 
 | Rank | Model | Mean Pass Rate | Mean Solved / 63 | Runs | Avg Steps | Avg Latency | Update (2) | Log (6) | Evaluate (8) | Recommend (11) | Composite (36) | text-json (1 run) |
 |:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 1 | **DeepSeek-v4.1-flash (official API: `deepseek-flash`)** | **84.1%** | **53.0** | 53 (1 run) | 11.6 | 40.1s | 100.0% | 83.3% | 87.5% | 81.8% | 83.3% | Not run |
 | 1 | **MiMo-v2.6-flash** | **84.1%** | **53.0** | 51 / 55 | 13.9 | 329.6s | 100.0% | 75.0% | 87.5% | 81.8% | 84.7% | 43 / 63 |
 | 2 | **DeepSeek-v4-pro** | **81.7%** | **51.5** | 53 / 50 | 10.8 | 100.6s | 100.0% | 66.7% | 75.0% | 81.8% | 84.7% | 54 / 63 |
 | 3 | **GLM-5.3-flash** | **81.0%** | **51.0** | 51 | 12.2 | 235.4s | 100.0% | 66.7% | 75.0% | 81.8% | 83.3% | 53 / 63 |
 | 4 | **DeepSeek-v4-flash** | **74.6%** | **47.0** | 43 / 51 / 47 | 11.8 | 36.8s | 100.0% | 72.2% | 66.7% | 84.8% | 72.2% | 44 / 63 |
 | 5 | **DeepSeek-v4.1-flash** | **68.3%** | **43.0** | 37 / 49 / 43 | 11.7 | 42.6s | 100.0% | 77.8% | 70.8% | 75.8% | 62.0% | 44 / 63 |
 
-> **Note**: temperature 0, through the **Command Code** provider plan. Family columns pool each
+The official API row is one complete run through `https://api.deepseek.com/v1/chat/completions`,
+using API model ID `deepseek-flash`, with the same split, prompt fingerprint, scorer,
+loop, temperature and serial native-tool protocol as the Command Code rows.
+[Full official API report](./benchmark_deepseek_deepseek-flash_v1.0_fc_r1.json). Its 53/63 equals MiMo's two-run mean;
+run counts differ. Other rows use Command Code. The charts show the Command Code runs only.
+
+> **Note**: temperature 0; provider routes are distinguished above. Family columns pool each
 > model's complete runs. Each report records the ruler it was measured with (`contract`,
 > `scorer_version`, `loop_version`, `prompt_version`, `prompt_fingerprint`); compare two reports
 > only when those agree. The text reports were re-judged offline with the same Scorer

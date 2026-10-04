@@ -28,15 +28,22 @@ The official NutriEnv v1.0 benchmark consists of 63 curated tasks with audited c
 
 | Rank | Model | Mean Pass Rate | Mean Solved / 63 | Runs | Avg Steps | Avg Latency | Update (2) | Log (6) | Evaluate (8) | Recommend (11) | Composite (36) | text-json (1 run) |
 |:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 1 | **DeepSeek-v4.1-flash (official API: `deepseek-flash`)** | **84.1%** | **53.0** | 53 (1 run) | 11.6 | 40.1s | 100.0% | 83.3% | 87.5% | 81.8% | 83.3% | Not run |
 | 1 | **MiMo-v2.6-flash** | **84.1%** | **53.0** | 51 / 55 | 13.9 | 329.6s | 100.0% | 75.0% | 87.5% | 81.8% | 84.7% | 43 / 63 |
 | 2 | **DeepSeek-v4-pro** | **81.7%** | **51.5** | 53 / 50 | 10.8 | 100.6s | 100.0% | 66.7% | 75.0% | 81.8% | 84.7% | 54 / 63 |
 | 3 | **GLM-5.3-flash** | **81.0%** | **51.0** | 51 | 12.2 | 235.4s | 100.0% | 66.7% | 75.0% | 81.8% | 83.3% | 53 / 63 |
 | 4 | **DeepSeek-v4-flash** | **74.6%** | **47.0** | 43 / 51 / 47 | 11.8 | 36.8s | 100.0% | 72.2% | 66.7% | 84.8% | 72.2% | 44 / 63 |
 | 5 | **DeepSeek-v4.1-flash** | **68.3%** | **43.0** | 37 / 49 / 43 | 11.7 | 42.6s | 100.0% | 77.8% | 70.8% | 75.8% | 62.0% | 44 / 63 |
 
+The official API row is one complete run through `https://api.deepseek.com/v1/chat/completions`,
+using API model ID `deepseek-flash`, with the same split, prompt fingerprint, scorer,
+loop, temperature and serial native-tool protocol as the Command Code rows.
+[Full official API report](./reports/benchmark_deepseek_deepseek-flash_v1.0_fc_r1.json). Its 53/63 equals MiMo's two-run mean;
+run counts differ. Other rows use Command Code. The charts show the Command Code runs only.
+
 > **Protocol.** `data/splits/nutrienv-v1.0.json` (63 tasks), native function calling
-> (`--contract native-tools`, the default), temperature 0, all models through the Command Code
-> provider plan. The table reports the **mean over complete runs** (listed under *Runs*; family
+> (`--contract native-tools`, the default), temperature 0; provider routes are distinguished above.
+> The table reports the **mean over complete runs** (listed under *Runs*; family
 > columns pool those runs). Every report records the ruler it was measured with:
 > `scorer_version = s6-free-recommend-windows`, `loop_version = l2-refused-handin-continues`,
 > `prompt_version = p5-fc-manual-lines`. The **text-json** column is one run of the same model on
