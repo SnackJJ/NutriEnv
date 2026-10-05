@@ -12,10 +12,13 @@ from __future__ import annotations
 import copy
 import math
 import re
+from collections.abc import Mapping
 from dataclasses import replace
 
 from ..world.catalog import canonical_food_id, iter_catalog_entries
 from ..world.daily_windows import ACTIVITY_PAL, derive_profile_windows
+from ..world.plan_limits import plan_limits_view, plan_mass_limit
+from ..world.profile_targets import validate_profile_targets
 from ..world.dri import BASIS, DRI_REFERENCE
 from ..world.types import (
     PHASES,
@@ -51,7 +54,7 @@ __all__ = [
 # per-item cap in normalize_grams is otherwise defeated by 35 items of 2000 g
 # (the zero-kcal coffee exploit on v0-rec-conflict-001). The largest
 # legitimate frozen-split plan is 670 g.
-MAX_PLAN_GRAMS = 4000.0
+MAX_PLAN_GRAMS = plan_mass_limit("day")
 
 #: Deterministic stand-in for a clock. A wall-clock default would make the
 #: ledger unpredictable, and Pass compares the end state to an Oracle.
@@ -131,7 +134,7 @@ def _search_foods(state: WorldState, args: dict, _default_eaten_at: str) -> dict
     return {"op": "search_foods", "q": needle, "results": results}
 
 
-def _search_mapping(catalog: dict, needle: str) -> list[dict]:
+def _search_mapping(catalog: Mapping[str, dict], needle: str) -> list[dict]:
     if needle == SEARCH_ALL or not needle:
         return []
     results = []
@@ -160,6 +163,7 @@ def _get_profile(state: WorldState, _args: dict, _default_eaten_at: str) -> dict
     return {
         "op": "get_profile",
         "profile": profile_view(state.profile),
+        "plan_limits": plan_limits_view(state.plan_scope),
         "last_plan": copy.deepcopy(state.last_plan),
         "last_verdict": state.last_verdict,
         "last_reasons": list(state.last_reasons),
@@ -229,10 +233,11 @@ def _submit_plan(state: WorldState, args: dict, _default_eaten_at: str) -> dict:
         normalized.append({"food_id": food_id, "grams": grams})
 
     total = sum(item["grams"] for item in normalized)
-    if total > MAX_PLAN_GRAMS:
+    limit = plan_mass_limit(state.plan_scope)
+    if total > limit:
         raise ActionError(
             "implausible_quantity",
-            f"plan total {total:g} g exceeds {MAX_PLAN_GRAMS:g} g",
+            f"{state.plan_scope} plan total {total:g} g exceeds {limit:g} g",
         )
 
     verdict = (
@@ -305,6 +310,15 @@ def _update_profile(state: WorldState, args: dict, _default_eaten_at: str) -> di
     if unknown:
         raise ActionError("bad_schema", f"patch has non-patchable keys {unknown}")
 
+    if "windows" in patch and _BODY_PATCH_KEYS & patch.keys():
+        raise ActionError(
+            "bad_schema",
+            "patch cannot combine body/phase facts with explicit windows: body facts "
+            "re-derive every window (ADR 0014) while a windows-only patch preserves the "
+            "other keys. Send the facts first, then a windows-only override; nothing is "
+            "silently dropped.",
+        )
+
     changes: dict = {}
     for field in ("allergies", "medications"):
         if field in patch:
@@ -371,13 +385,24 @@ def _update_profile(state: WorldState, args: dict, _default_eaten_at: str) -> di
         changes["version"] = version
 
     if _BODY_PATCH_KEYS & patch.keys():
+        # The guard above rejects explicit windows here, so the derivation owns the whole
+        # table rather than merging with user keys.
         preview = replace(state.profile, **changes)
-        derived = derive_profile_windows(preview)
+        try:
+            derived = derive_profile_windows(preview)
+        except ValueError as exc:
+            raise ActionError("invalid_profile", str(exc)) from exc
         if derived is not None:
             changes["windows"] = derived
 
+    preview = replace(state.profile, **changes)
+    try:
+        validate_profile_targets(preview)
+    except ValueError as exc:
+        raise ActionError("invalid_profile", str(exc)) from exc
     state.profile = replace(state.profile, **changes)
-    return {"op": "update_profile", "profile": profile_view(state.profile)}
+    return {"op": "update_profile", "profile": profile_view(state.profile),
+            "plan_limits": plan_limits_view(state.plan_scope)}
 
 
 def _as_finite_float(value: object, field: str) -> float:

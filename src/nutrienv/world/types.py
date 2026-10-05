@@ -12,8 +12,10 @@ Bench must mirror these rules when it builds an Oracle, because Pass is
   ``maintain``.
 - Only the keys a patch mentions change; everything else stays as S0.
   Exception: a body-fact or ``phase`` patch refreshes ``windows`` from the
-  world derivation when the body is complete, including when the same patch
-  also names ``windows``. A windows-only patch does not.
+  world derivation. A windows-only patch does not re-derive and preserves the
+  other keys. Naming both body facts and ``windows`` in one patch is
+  ``bad_schema``: the two modes disagree, and refusing is better than silently
+  dropping either the facts' derivation or the explicit override.
   ``version`` is never bumped by Env, only by an explicit patch.
 """
 
@@ -62,6 +64,7 @@ REASON_CODES = frozenset(
         "sodium_mg_hi",
         "sodium_mg_lo",
         "inventory_miss",
+        "implausible_quantity",
     }
 )
 
@@ -112,6 +115,8 @@ class WorldState:
     last_verdict: str | None = None
     last_reasons: tuple[str, ...] = ()
     allowed_food_ids: frozenset[str] | None = None
+    # Immutable action context: old/whole-day worlds explicitly use the day envelope.
+    plan_scope: str = "day"
 
 
 _ALLERGEN_CODES: frozenset[str] = frozenset(
@@ -229,7 +234,7 @@ def profile_view(profile: Profile) -> dict:
     return view
 
 
-def _row_nutrients(row: LedgerRow, catalog: dict) -> dict[str, float]:
+def _row_nutrients(row: LedgerRow, catalog: Mapping[str, dict]) -> dict[str, float]:
     entry = catalog.get(row.food_id)
     if not isinstance(entry, dict):
         return {}
@@ -246,7 +251,7 @@ def _row_nutrients(row: LedgerRow, catalog: dict) -> dict[str, float]:
     return out
 
 
-def ledger_view(rows: list[LedgerRow], catalog: dict | None = None) -> list[dict]:
+def ledger_view(rows: list[LedgerRow], catalog: Mapping[str, dict] | None = None) -> list[dict]:
     """Observation-shaped copy of the ledger.
 
     When ``catalog`` is given, each row includes ``nutrients`` already scaled
@@ -261,7 +266,7 @@ def ledger_view(rows: list[LedgerRow], catalog: dict | None = None) -> list[dict
     return view
 
 
-def ledger_totals(rows: list[LedgerRow], catalog: dict) -> dict[str, float]:
+def ledger_totals(rows: list[LedgerRow], catalog: Mapping[str, dict]) -> dict[str, float]:
     """Sum of scaled ledger nutrients. Missing foods contribute nothing."""
     totals: dict[str, float] = {}
     for row in rows:
@@ -279,12 +284,14 @@ def _mutable_copy(value: object) -> object:
     return value
 
 
-def food_view(catalog: dict, food_id: str) -> dict:
+def food_view(catalog: Mapping[str, dict], food_id: str) -> dict:
     """Observation-shaped copy of one catalog entry, id included.
 
     ``portions`` is always present, empty for a food that declares none, so the
     observation has one shape whatever the Generator's catalog carries.
     """
     entry = _mutable_copy(catalog[food_id])
+    if not isinstance(entry, dict):
+        raise TypeError(f"catalog entry {food_id!r} must be an object")
     entry.setdefault("portions", {})
     return {"food_id": food_id, **entry}

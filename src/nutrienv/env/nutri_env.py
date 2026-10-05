@@ -12,6 +12,7 @@ import copy
 
 from ..actions.dispatch import DEFAULT_EATEN_AT, dispatch
 from ..actions.schemas import ActionError
+from ..world.plan_limits import plan_limits_view
 from ..world.types import WorldState, ledger_totals, ledger_view, profile_view
 
 __all__ = ["NutriEnv"]
@@ -51,6 +52,7 @@ class NutriEnv:
             "last_verdict": self._state.last_verdict,
             "last_reasons": list(self._state.last_reasons),
             "catalog_size": len(self._state.catalog),
+            "plan_limits": plan_limits_view(self._state.plan_scope),
         }
 
     def step(self, action: dict) -> dict:
