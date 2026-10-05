@@ -1,0 +1,27 @@
+{
+  "identity": {
+    "split": "data/splits/nutrienv-v1.1.json",
+    "scorer_version": "s10-meal-mass-envelope",
+    "prompt_version": "p8-published-meal-mass-limits",
+    "prompt_fingerprint": "616dea69c32f9d469aac17b4ceafcadcf377d261934573ba9631c0f0cd75dfed",
+    "loop_version": "l2-refused-handin-continues",
+    "endpoint": "https://ark.cn-beijing.volces.com/api/plan/v3/chat/completions",
+    "contract": "native-tools",
+    "temperature": 0.0,
+    "context_limit": null,
+    "parse_error_policy": "silent",
+    "reasoning_effort": "default",
+    "extra_body": {}
+  },
+  "split_version": "nutrienv-v1.1-mass-envelopes-20261005",
+  "split_sha256": "f047f7b9215933d67a712a2e28710c2575f5b02ad349bed7badd346e90a825bb",
+  "catalog": "data/fdc/catalog-v3.sqlite",
+  "catalog_sha256": "63e5da2cbd33b5df376067be15a0897f70000be6494bd45e42647b0beab7cb5f",
+  "reports": {
+    "ab_ark_deepseek-v4.1-flash_v1.1-new_fc.json": "7f252afe2825af640bb198ededbca6f3bfddb4ce70b18bd09ada1022aab2ca9f",
+    "ab_ark_glm-5.3-flash_v1.1-new_fc.json": "195f845048549a1cce98abf667432b31543d4b84e94794f05b0eb1766a721aa6",
+    "ab_ark_doubao-seed-2.1-lite_v1.1-new_fc.json": "1964fa7be050016a1a9047f72b80d26c41c684a595aa6bc2830cce6fcd57c8ba"
+  },
+  "verification": "All 189 task queries match; action acceptance, pass and score tags replay unchanged.",
+  "hash_scope": "Current published artifacts verified by replay; original reports did not record run-time split/catalog hashes."
+}

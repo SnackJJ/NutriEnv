@@ -28,9 +28,9 @@ MANIFEST
 
 # Virtual environments & testing
 .venv/
-env/
-venv/
-ENV/
+/env/
+/venv/
+/ENV/
 .pytest_cache/
 .coverage
 .coverage.*
@@ -70,3 +70,38 @@ reports/review-sheet.json
 reports/review-sheet.html
 reports/review_sheet_preview.html
 reports/dry-run-drift.json
+
+# reports/ process output. Only the JSONs reports/README.md names as canonical are versioned;
+# everything else is a probe, an ablation screen or a superseded run, and regenerating it from
+# scripts/ is cheaper than carrying it. The allowlist is explicit so that a *new* canonical
+# report still shows up as untracked instead of disappearing quietly.
+reports/*.json
+!reports/benchmark_ark_glm-5.3_v1.0.json
+!reports/benchmark_ark_deepseek-v4-pro_v1.0.json
+!reports/benchmark_ark_deepseek-v4-flash_v1.0.json
+!reports/benchmark_ark_glm-5.3-flash_v1.0.json
+!reports/benchmark_deepseek_deepseek-v4.1-flash_v1.0_toolcall_noparallel.json
+!reports/benchmark_deepseek_deepseek-flash_v1.0_fc_r1.json
+!reports/pilot-parse-error-20260921_silent.json
+!reports/pilot-parse-error-20260921_feedback.json
+!reports/pilot-parse-error-20260921_resample.json
+!reports/pilot-parse-error-20260921_feedback_example.json
+reports/archive/*.json
+reports/pre_align_prompts/
+
+# Current leaderboard chart inputs and reproducible failure audit
+!reports/benchmark_commandcode_*_v1.0_fc_r*.json
+!reports/official-flash-failure-audit.md
+!reports/audit_official_flash_failures.json
+
+# Current v1.1 publication artifacts (explicitly selected, replay verified)
+!reports/ab_ark_deepseek-v4.1-flash_v1.1-new_fc.json
+!reports/ab_ark_glm-5.3-flash_v1.1-new_fc.json
+!reports/ab_ark_doubao-seed-2.1-lite_v1.1-new_fc.json
+!reports/v1.1-provenance.json
+
+# Local linter caches
+.ruff_cache/
+
+# Archived uncited local runs are not publication artifacts
+reports/archive/local-*/

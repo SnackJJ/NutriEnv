@@ -1,12 +1,13 @@
 [project]
 name = "nutrienv"
-version = "1.0.0"
+version = "1.1.0"
 description = "Interactive USDA-FNDDS environment and 63-task benchmark for LLM dietary agents"
 requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+plots = ["matplotlib>=3.9"]
 
 [build-system]
 requires = ["hatchling"]
@@ -19,3 +20,7 @@ packages = ["src/nutrienv"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 norecursedirs = ["archive"]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
