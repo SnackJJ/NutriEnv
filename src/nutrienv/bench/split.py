@@ -5,13 +5,17 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 import re
+from collections import Counter
+from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 
 from nutrienv.world.catalog import canonical_food_id
 from nutrienv.world.catalog_store import load_catalog
 from nutrienv.world.daily_windows import UPDATE_BANDS, derive_profile_windows
+from nutrienv.world.plan_limits import plan_mass_limit
 from nutrienv.world.types import (
     PHASES,
     LedgerRow,
@@ -24,14 +28,17 @@ from nutrienv.world.types import (
 
 from .quality_gates import EVALUATE_TIERS
 from .realize import FAMILIES, Oracle, Task
+from .scorer import Scorer
 from .situations import SITUATIONS
 
 __all__ = ["GOLD_SPLIT_PATH", "EXAM_SPLIT_PATH", "load_split", "load_exam"]
 
 _ROOT = Path(__file__).resolve().parents[3]
-# Published NutriEnv v1.0 exam (63 tasks).
-EXAM_SPLIT_PATH = _ROOT / "data" / "splits" / "nutrienv-v1.0.json"
-GOLD_SPLIT_PATH = EXAM_SPLIT_PATH
+# Archived v0 calibration set; kept for archaeology through load_split.
+GOLD_SPLIT_PATH = _ROOT / "data" / "splits" / "archive" / "v0-gold.json"
+# Published NutriEnv v1.1 exam (63 tasks; v1.0 re-derived under AMDR windows). Historical
+# freezes live in data/splits/archive/; nutrienv-v1.0.json stays beside it for its reports.
+EXAM_SPLIT_PATH = _ROOT / "data" / "splits" / "nutrienv-v1.1.json"
 _EXAM_VERSIONS = frozenset(
     {
         "v2.2-gold",
@@ -44,6 +51,10 @@ _EXAM_VERSIONS = frozenset(
         "v2.8-gold",
         "nutrienv-v1.0-gold",
         "nutrienv-v1.0-mini",
+        "nutrienv-v1.1-goal-windows-20261004",
+        "nutrienv-v1.1-mini-goal-windows-20261004",
+        "nutrienv-v1.1-mass-envelopes-20261005",
+        "nutrienv-v1.1-mini-mass-envelopes-20261005",
     }
 )
 _EXAM_VERSION_RE = re.compile(r"^(v[2-9]\.\d+|nutrienv-v\d+\.\d+)-(gold|mini)$")
@@ -73,6 +84,15 @@ def load_split(path: Path | str | None = None, *, catalog=None) -> list[Task]:
     items = payload.get("items")
     if not isinstance(items, list) or not items:
         raise ValueError("split must contain a non-empty items list")
+    policy = payload.get("plan_mass_policy")
+    if policy is not None and policy != "adult-meal-envelope-v1":
+        raise ValueError(f"unknown plan_mass_policy: {policy!r}")
+    if (policy == "adult-meal-envelope-v1" or payload.get("version") in {
+        "nutrienv-v1.1-mass-envelopes-20261005",
+        "nutrienv-v1.1-mini-mass-envelopes-20261005",
+    }) and any(not isinstance(item, dict) or not isinstance(item.get("s0"), dict)
+              or "plan_scope" not in item["s0"] for item in items):
+        raise ValueError("mass-envelope splits require an explicit plan_scope on every S0")
     if catalog is None:
         catalog_field = payload.get("catalog") if isinstance(payload, dict) else None
         if isinstance(catalog_field, str) and catalog_field:
@@ -132,7 +152,7 @@ def load_exam(path: Path | str | None = None) -> list[Task]:
     return load_split(target, catalog=catalog)
 
 
-def _item(entry: object, catalog: dict) -> Task:
+def _item(entry: object, catalog: Mapping[str, dict]) -> Task:
     if not isinstance(entry, dict):
         raise ValueError("split item must be an object")
     task_id = entry.get("id")
@@ -173,7 +193,7 @@ def _situations(value: object) -> tuple[str, ...]:
     return tuple(value)
 
 
-def _s0(value: object, catalog: dict) -> WorldState:
+def _s0(value: object, catalog: Mapping[str, dict]) -> WorldState:
     if not isinstance(value, dict):
         raise ValueError("item.s0 must be an object")
     profile = _profile(value.get("profile"), default_user="gold-user")
@@ -182,12 +202,15 @@ def _s0(value: object, catalog: dict) -> WorldState:
     if not isinstance(raw_plan, list):
         raise ValueError("s0.last_plan must be a list")
     last_plan = [_plan_item(item, catalog) for item in raw_plan]
+    scope = value.get("plan_scope", "day")
+    plan_mass_limit(scope)
     return WorldState(
         profile=profile,
         ledger=ledger,
         catalog=copy.deepcopy(catalog),
         last_plan=last_plan,
         allowed_food_ids=_allowed_food_ids(value.get("allowed_food_ids"), catalog),
+        plan_scope=scope,
     )
 
 
@@ -250,7 +273,7 @@ def _plan_item(value: object, catalog: object) -> dict:
 def _oracle(
     value: object,
     s0: WorldState,
-    catalog: object,
+    catalog: Mapping[str, dict],
     *,
     allow_subs: bool = True,
     inherit_allowed: bool = True,
@@ -335,6 +358,58 @@ def _oracle(
             raise ValueError("oracle.ledger must be omitted, 's0', 's0_plus_tail', or a list")
         ledger = tuple(_row(row, catalog) for row in ledger_spec)
 
+    ledger_variants = ()
+    if "ledger_variants" in value:
+        variants_raw = value["ledger_variants"]
+        if ledger is None:
+            raise ValueError("oracle.ledger_variants requires oracle.ledger")
+        if not isinstance(variants_raw, list) or not variants_raw:
+            raise ValueError("oracle.ledger_variants must be a non-empty list")
+        variants = []
+        seen = {frozenset(Counter(ledger).items())}
+        for raw in variants_raw:
+            if not isinstance(raw, list) or not raw or len(raw) != len(ledger):
+                raise ValueError("ledger variant must be a non-empty complete ledger of the same length")
+            rows = []
+            for row in raw:
+                if not isinstance(row, dict):
+                    raise TypeError("ledger variant row must be an object")
+                if not isinstance(row.get("food_id"), str) or not row["food_id"]:
+                    raise ValueError("ledger variant food_id must be a non-empty string")
+                if not isinstance(row.get("eaten_at"), str) or not row["eaten_at"]:
+                    raise ValueError("ledger variant eaten_at must be a non-empty string")
+                grams = row.get("grams")
+                if (
+                    isinstance(grams, bool)
+                    or not isinstance(grams, (int, float))
+                    or not math.isfinite(grams)
+                    or grams <= 0
+                ):
+                    raise ValueError("ledger variant grams must be positive and finite")
+                parsed = _row(row, catalog)
+                if parsed.food_id not in catalog:
+                    raise ValueError("ledger variant food must exist in the catalog")
+                rows.append(parsed)
+            variant = tuple(rows)
+            key = frozenset(Counter(variant).items())
+            if key in seen:
+                raise ValueError("duplicate ledger variant")
+            seen.add(key)
+            variants.append(variant)
+        ledger_variants = tuple(variants)
+        # Interpretations must not overlap inside ADR 0023's ±15 % tolerance, or one
+        # submission could match several and the budget would come from an arbitrary pick.
+        # ``Scorer._matched_ledger`` also refuses an ambiguous match at scoring time; this
+        # fails earlier, at authoring time.
+        interpretations = (ledger, *ledger_variants)
+        for index, left in enumerate(interpretations):
+            for right in interpretations[index + 1:]:
+                if Scorer._interpretations_overlap(left, right):
+                    raise ValueError(
+                        "ledger interpretations are not distinguishable beyond the "
+                        "portion tolerance"
+                    )
+
     last_plan = value["last_plan"] if "last_plan" in value else None
     if last_plan is not None and not isinstance(last_plan, list):
         raise ValueError("oracle.last_plan must be a list or omitted")
@@ -391,6 +466,11 @@ def _oracle(
         raise ValueError("oracle.last_reasons require last_verdict 'reject'")
     plan_must_be_safe = bool(value.get("plan_must_be_safe", False))
     plan_must_fit_windows = bool(value.get("plan_must_fit_windows", False))
+    plan_high_protein = value.get("plan_high_protein", False)
+    if not isinstance(plan_high_protein, bool):
+        raise TypeError("oracle.plan_high_protein must be a boolean")
+    if plan_high_protein and (last_plan != [] or last_verdict is not None):
+        raise ValueError("oracle.plan_high_protein requires a free recommendation")
     allow_empty_plan = bool(value.get("allow_empty_plan", False))
     if last_verdict == "reject":
         if plan_must_fit_windows:
@@ -403,8 +483,10 @@ def _oracle(
         last_plan=copy.deepcopy(last_plan) if last_plan is not None else None,
         ledger_tail=ledger_tail,
         ledger=ledger,
+        ledger_variants=ledger_variants,
         plan_must_be_safe=plan_must_be_safe,
         plan_must_fit_windows=plan_must_fit_windows,
+        plan_high_protein=plan_high_protein,
         allow_empty_plan=allow_empty_plan,
         plan_windows=plan_windows,
         last_verdict=last_verdict,

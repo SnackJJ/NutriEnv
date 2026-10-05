@@ -11,11 +11,14 @@ from nutrienv.world.daily_windows import (
     BAND_WINDOW_KEYS,
     MEAL_ENERGY_SHARE,
     SIX_WINDOW_KEYS,
+    derive_profile_windows,
     estimated_energy_requirement,
+    high_protein_pass,
     implicit_windows_pass,
     judged_ceiling,
     plan_windows_for_meal,
 )
+from nutrienv.world.plan_limits import plan_mass_pass
 from nutrienv.world.types import (
     LedgerRow,
     Profile,
@@ -32,7 +35,7 @@ __all__ = ["SCORER_VERSION", "Scorer"]
 # marks the boundary between two rulers: the same trajectory can score differently on each
 # side, and ``compare_harness_modes.py`` refuses a delta across it, as it does across splits
 # and prompt generations.
-SCORER_VERSION = "s6-free-recommend-windows"
+SCORER_VERSION = "s10-meal-mass-envelope"
 
 # plan_windows are computed at 2 dp (``meal_slot_and_remainder`` rounds, when authored and when
 # ``_meal_windows`` re-derives them), so a bound can sit up to half a hundredth inside the true
@@ -40,6 +43,20 @@ SCORER_VERSION = "s6-free-recommend-windows"
 # adr29-buy-04 (14.934 g against a true 14.9345 g stored as 14.93 g). Nothing wider: caps and
 # floors are otherwise exact.
 _PLAN_WINDOW_ROUNDING = 0.005
+
+# ADR 0023 portion tolerance: a logged or planned amount matches when it is within ±15 % of the
+# expected grams, plus an absolute float slack on each side. The ambiguity check uses the same
+# slack, so "two interpretations overlap" means exactly "some submission matches both".
+_PORTION_TOLERANCE = 0.15
+_PORTION_SLACK_G = 1e-5
+
+
+def _in_portion_band(got: float, exp: float) -> bool:
+    return (
+        (1 - _PORTION_TOLERANCE) * exp - _PORTION_SLACK_G
+        <= got
+        <= (1 + _PORTION_TOLERANCE) * exp + _PORTION_SLACK_G
+    )
 
 
 def _meal_occasion(
@@ -116,6 +133,7 @@ class Scorer:
         return _ScoreResult(passed=False, tag=first_fail, sub_tags=tuple(sub_tags))
 
     def _score_one(self, end_state: WorldState, oracle: Oracle) -> dict:
+        expected_ledger = self._matched_ledger(end_state, oracle)
         if oracle.last_verdict is not None:
             verdict_error = self._score_verdict(end_state, oracle)
             if verdict_error is not None:
@@ -124,6 +142,7 @@ class Scorer:
             oracle.last_plan is not None
             or oracle.plan_must_be_safe
             or oracle.plan_must_fit_windows
+            or oracle.plan_high_protein
         ):
             plan_error = self._score_plan(end_state, oracle)
             if plan_error is not None:
@@ -140,6 +159,8 @@ class Scorer:
 
         if oracle.ledger_tail is not None:
             expected = oracle.ledger_tail
+            if oracle.ledger_variants and expected_ledger is not None and expected:
+                expected = list(expected_ledger[-len(expected):])
             if not isinstance(expected, list) or not all(
                 isinstance(row, LedgerRow) for row in expected
             ):
@@ -152,12 +173,28 @@ class Scorer:
                 return self._fail("log_miss")
 
         if oracle.ledger is not None:
+            if oracle.ledger_variants and expected_ledger is None:
+                return self._fail("log_miss")
             if not self._match_ledger_multiset(
-                end_state.ledger, oracle.ledger, end_state.catalog
+                end_state.ledger, expected_ledger or oracle.ledger, end_state.catalog
             ):
                 return self._fail("log_miss")
 
         return _ScoreResult(passed=True, tag="pass")
+
+    @classmethod
+    def _matched_ledger(cls, state: WorldState, oracle: Oracle) -> tuple[LedgerRow, ...] | None:
+        if oracle.ledger is None:
+            return None
+        # Interpretations must be mutually distinguishable beyond ADR 0023's ±15 % tolerance.
+        # If one submission matches two gold ledgers, the interpretation is undetermined and
+        # the budget would come from an arbitrary pick; fail loudly instead of choosing the
+        # smaller-eaten ledger and granting the agent the difference.
+        matches = [
+            ledger for ledger in (oracle.ledger, *oracle.ledger_variants)
+            if cls._match_ledger_multiset(state.ledger, ledger, state.catalog)
+        ]
+        return matches[0] if len(matches) == 1 else None
 
     @staticmethod
     def _ledger_row_matches(
@@ -174,10 +211,7 @@ class Scorer:
             return False
         if math.isclose(got.grams, exp.grams, rel_tol=1e-5):
             return True
-        # ADR 0023 portion tolerance: within ±15% of expected grams
-        if 0.85 * exp.grams - 1e-5 <= got.grams <= 1.15 * exp.grams + 1e-5:
-            return True
-        return False
+        return _in_portion_band(got.grams, exp.grams)
 
     @classmethod
     def _match_ledger_multiset(
@@ -209,6 +243,52 @@ class Scorer:
         return dfs(0)
 
     @staticmethod
+    def _ledger_row_ambiguous(left: LedgerRow, right: LedgerRow) -> bool:
+        """Whether one submitted row can sit inside both rows' ±15 % tolerance bands.
+
+        Unlike :meth:`_ledger_row_matches`, this is symmetric: the bands may overlap
+        even when neither centre falls inside the other's band (100 g vs 130 g). Slot
+        is ignored: a submitted ``eaten_at="now"`` matches any expected slot, so two
+        interpretations that differ only by meal still admit one submission.
+        """
+        if left.food_id != right.food_id:
+            return False
+        # Bands [lo - slack, hi + slack] intersect iff max(lo) <= min(hi) + 2 * slack.
+        low = (1 - _PORTION_TOLERANCE) * max(left.grams, right.grams)
+        high = (1 + _PORTION_TOLERANCE) * min(left.grams, right.grams)
+        return low <= high + 2 * _PORTION_SLACK_G
+
+    @classmethod
+    def _interpretations_overlap(
+        cls,
+        left_rows: list[LedgerRow] | tuple[LedgerRow, ...],
+        right_rows: list[LedgerRow] | tuple[LedgerRow, ...],
+    ) -> bool:
+        """Whether one complete submission can match both interpretations.
+
+        There is one iff a perfect bijection pairs each left row with a right row of the
+        same food whose tolerance band overlaps; a value picked in each intersection
+        then matches both ledgers (a ``"now"`` submission covers any slot).
+        """
+        if len(left_rows) != len(right_rows):
+            return False
+        n = len(right_rows)
+        used = [False] * n
+
+        def dfs(i: int) -> bool:
+            if i == len(left_rows):
+                return True
+            for j in range(n):
+                if not used[j] and cls._ledger_row_ambiguous(left_rows[i], right_rows[j]):
+                    used[j] = True
+                    if dfs(i + 1):
+                        return True
+                    used[j] = False
+            return False
+
+        return dfs(0)
+
+    @staticmethod
     def _fail(tag: str) -> dict:
         return _ScoreResult(passed=False, tag=tag)
 
@@ -224,6 +304,10 @@ class Scorer:
         if replace(end, windows=expected.windows, phase=expected.phase) != expected:
             return False
         band_keys = BAND_WINDOW_KEYS.get(oracle.update_band or "", frozenset())
+        if oracle.update_band in {"cut", "fatigue"} and end.windows != derive_profile_windows(end):
+            # Explicit energy-only overrides keep unmentioned keys; phase/body updates
+            # instead carry the complete derived target-energy windows.
+            band_keys = frozenset({"kcal"})
         for key, bounds in expected.windows.items():
             if key in band_keys:
                 continue
@@ -269,10 +353,7 @@ class Scorer:
             return False
         if math.isclose(got_g, exp_g, rel_tol=1e-5):
             return True
-        # ADR 0023 portion tolerance: within ±15% of expected grams
-        if 0.85 * exp_g - 1e-5 <= got_g <= 1.15 * exp_g + 1e-5:
-            return True
-        return False
+        return _in_portion_band(got_g, exp_g)
 
     @classmethod
     def _match_plan_items(
@@ -410,6 +491,8 @@ class Scorer:
                     totals.get(key, 0.0) + float(amount) * float(grams) / 100.0
                 )
 
+        if not plan_mass_pass(items, state.plan_scope):
+            return "implausible_quantity"
         allowed = oracle.allowed_food_ids
         if allowed is None:
             allowed = state.allowed_food_ids
@@ -433,6 +516,8 @@ class Scorer:
                 tolerance = _PLAN_WINDOW_ROUNDING
             else:
                 windows = profile.windows
+            if windows is None:
+                return "window"
             for nutrient, window in windows.items():
                 try:
                     lo, hi = window
@@ -442,6 +527,9 @@ class Scorer:
                 if amount < lo - tolerance or amount > judged_ceiling(nutrient, hi) + tolerance:
                     return "window"
 
+        if oracle.plan_high_protein and not high_protein_pass(totals):
+            return "protein_share"
+
         # Empty is the free-recommendation sentinel. Evaluate tasks carry a
         # non-empty exact candidate so submitting a different plan is a miss.
         if oracle.last_plan and not self._match_plan_items(
@@ -450,16 +538,18 @@ class Scorer:
             return "wrong_goal"
         return None
 
-    @staticmethod
+    @classmethod
     def _meal_windows(
-        state: WorldState, oracle: Oracle, profile: Profile
-    ) -> Mapping[str, tuple[float, float]]:
+        cls, state: WorldState, oracle: Oracle, profile: Profile
+    ) -> Mapping[str, tuple[float, float]] | None:
         """The meal's windows, re-derived from the oracle's own ledger.
 
-        In ``nutrienv-v1.0.json`` this repairs the ``adr29-amend-*`` items, whose
+        In ``nutrienv-v1.0.json`` this repairs the ``adr29-amend-*`` items (v1.1 re-pins them), whose
         ``plan_windows`` were authored on the ledger before the correction the query asks for,
         and reproduces every other item's pinned windows. The windows follow the child's own
-        ledger and profile. The authoring gate checks items against this method
+        ledger and profile. Explicit alternatives use the matched gold ledger's amounts,
+        never the agent's tolerated amounts. A matched alternative with no feasible meal
+        window returns None. The authoring gate checks items against this method
         (``validator._ruler_window_issues``). It does *not* remove the 2 dp rounding: ``plan_windows_for_meal`` rounds
         too, so ``_PLAN_WINDOW_ROUNDING`` is what absorbs it (``adr29-buy-04``). The oracle's
         ledger is the gold day, so the agent has no lever here: deriving from the agent's
@@ -468,6 +558,8 @@ class Scorer:
         ledger, are judged as pinned, as is every child that is not a free recommendation.
         """
         pinned = oracle.plan_windows
+        if pinned is None:
+            return None
         # Only a free recommendation plans the *next* meal on the day its ledger holds. An
         # Evaluate child's windows were bound, with its verdict, on the day before the named
         # meal, and its ledger may already hold that meal (log it, then "is this lunch okay?"):
@@ -477,8 +569,14 @@ class Scorer:
         occasion = _meal_occasion(pinned, profile.windows)
         if occasion is None:
             return pinned
-        eaten = ledger_totals(list(oracle.ledger), state.catalog)
-        return plan_windows_for_meal(profile.windows, eaten, occasion) or pinned
+        # An ambiguous or unmatched submission fails the log check in ``_score_one``;
+        # this budget only needs a definite ledger, so it falls back to the canonical
+        # interpretation when no unique alternative matches.
+        matched = cls._matched_ledger(state, oracle) if oracle.ledger_variants else None
+        ledger = matched or oracle.ledger
+        eaten = ledger_totals(list(ledger), state.catalog)
+        derived = plan_windows_for_meal(profile.windows, eaten, occasion)
+        return derived
 
     @staticmethod
     def _positive_finite(value: object) -> bool:

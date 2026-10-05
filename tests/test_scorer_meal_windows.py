@@ -1,6 +1,6 @@
 """Plan windows: re-derived from the gold ledger, stored rounding absorbed, nothing wider.
 
-The recorded cases are the 2026-09-23 runs on the frozen exam; their end
+The recorded cases are the 2026-09-23 runs on the frozen exam (``.scratch/runs``); their end
 states are rebuilt here from the split so the tests do not depend on the run files.
 """
 
@@ -19,6 +19,12 @@ from nutrienv.world.types import LedgerRow, ledger_totals
 @pytest.fixture(scope="module")
 def exam() -> dict:
     return {task.id: task for task in load_split(EXAM_SPLIT_PATH)}
+
+
+@pytest.fixture(scope="module")
+def exam_v1_0() -> dict:
+    # v1.0's DV windows hold the recorded rounding case; v1.1's AMDR protein cap is far above it.
+    return {task.id: task for task in load_split(EXAM_SPLIT_PATH.with_name("nutrienv-v1.0.json"))}
 
 
 def _end_state(task, ledger, plan):
@@ -55,12 +61,13 @@ def test_stored_rounding_is_absorbed_but_a_real_overage_is_not() -> None:
     assert score(sodium * 0.99) == "window"
 
 
-def test_reference_intake_ceilings_carry_slack_and_limits_do_not() -> None:
-    # protein/carb/fat/fiber hi are scaled Daily Values, not limits: 15% over is inside, 16% is
-    # not. Sodium's hi and every floor stay exact (kcal's hi too: the meal-share band is its give).
+def test_only_the_fiber_ceiling_carries_slack() -> None:
+    # Fiber's hi is a scaled Daily Value, not a limit: 15% over is inside, 16% is not. The AMDR
+    # ceilings (protein, carb, fat) are the edge of a range and sodium's is a health limit, so
+    # they stay exact, as does kcal's (the meal-share band is its give) and every floor.
     state = demo_state()
-    state.last_plan = [{"food_id": "chicken_breast", "grams": 100.0}]
-    totals = ledger_totals([LedgerRow("chicken_breast", 100.0, "p")], state.catalog)
+    state.last_plan = [{"food_id": "oats", "grams": 100.0}]
+    totals = ledger_totals([LedgerRow("oats", 100.0, "p")], state.catalog)
 
     def score(key: str, lo: float, hi: float) -> str:
         oracle = Oracle(
@@ -71,18 +78,19 @@ def test_reference_intake_ceilings_carry_slack_and_limits_do_not() -> None:
         )
         return Scorer().score(state, oracle)["tag"]
 
-    protein = totals["protein_g"]
-    assert score("protein_g", 0.0, protein / 1.14) == "pass"
-    assert score("protein_g", 0.0, protein / 1.16) == "window"
-    assert score("sodium_mg", 0.0, totals["sodium_mg"] / 1.01) == "window"
-    assert score("kcal", 0.0, totals["kcal"] / 1.01) == "window"
-    assert score("protein_g", protein * 1.01, 1e6) == "window"
+    fiber = totals["fiber_g"]
+    assert score("fiber_g", 0.0, fiber / 1.14) == "pass"
+    assert score("fiber_g", 0.0, fiber / 1.16) == "window"
+    for key in ("protein_g", "carb_g", "fat_g", "sodium_mg", "kcal"):
+        assert score(key, 0.0, totals[key] / 1.01) == "window", key
+    assert score("protein_g", totals["protein_g"] * 1.01, 1e6) == "window"
 
 
-def test_rounded_ceiling_no_longer_fails_a_plan_inside_the_true_one(exam) -> None:
-    # adr29-buy-04, deepseek-v4-pro: protein 14.934 g against a ceiling stored as 14.93 g;
-    # the ceiling the gold lunch leaves is 48.8 - 33.8655 = 14.9345 g.
-    task = exam["adr29-buy-04"]
+def test_rounded_ceiling_no_longer_fails_a_plan_inside_the_true_one(exam_v1_0) -> None:
+    # adr29-buy-04 on v1.0, deepseek-v4-pro: protein 14.934 g against a ceiling stored as
+    # 14.93 g; the ceiling the gold lunch leaves is 48.8 - 33.8655 = 14.9345 g. Protein is judged
+    # exactly (AMDR), so only the 2 dp tolerance passes it.
+    task = exam_v1_0["adr29-buy-04"]
     state = _end_state(
         task,
         [
@@ -107,16 +115,17 @@ def _under_logged(task, factor: float) -> list[LedgerRow]:
 
 
 def test_an_in_band_under_log_does_not_widen_the_remainder(exam) -> None:
-    # adr24-comp-8241: the sodium remainder after lunch is ~202 mg. Logging both lunch rows at
-    # 0.85 x gold passes the log child, and deriving the windows from that ledger would raise
-    # the cap 2.28x; this 1213 g plan (461 mg sodium) must fail on either ledger.
     task = exam["adr24-comp-8241"]
-    plan = [{"food_id": "2705385", "grams": 1213.0}]
-    for factor in (1.0, 0.85):
-        state = _end_state(task, _under_logged(task, factor), plan)
-        result = Scorer().score(state, task.oracle)
-        assert result["tag"] == "window"
-        assert result["sub_tags"][0] == "pass"
+    child = _recommend_child(task)
+    canonical = Scorer._meal_windows(
+        _end_state(task, _under_logged(task, 1.0), []), child, task.s0.profile
+    )
+    underlogged = _under_logged(task, 0.85)
+    state = _end_state(task, underlogged, [])
+    # Tolerated logging errors must not buy extra dinner nutrients.
+    assert Scorer._meal_windows(state, child, task.s0.profile) == canonical
+    log_child = next(o for o in scored_oracles(task.oracle) if o.ledger_tail)
+    assert Scorer().score(state, log_child)["passed"]
 
 
 def test_amending_a_given_row_does_not_move_the_windows(exam) -> None:
@@ -135,13 +144,13 @@ def test_amending_a_given_row_does_not_move_the_windows(exam) -> None:
     assert windows[tuple(task.s0.ledger)] == windows[tuple(amended)]
 
 
-def test_a_slight_protein_overage_passes_and_a_large_one_does_not(exam) -> None:
-    # adr25-comp-1208, mimo-v2.6-flash: 47.69 g protein against the 46.05 g the gold lunch
-    # leaves, +3.6%: over a reference intake, inside its judged ceiling (s5). Doubling the fish
-    # takes it well past, and it fails.
+def test_a_high_protein_dinner_inside_the_amdr_passes_and_energy_still_binds(exam) -> None:
+    # adr25-comp-1208: v1.0 capped this dinner's protein at the 46.05 g the 0.8 g/kg RDA left
+    # after lunch, so 160 g of chicken (59.8 g) failed. v1.1's cap is 35% of energy (155 g left):
+    # it passes. 240 g takes energy past dinner's share and fails.
     task = exam["adr25-comp-1208"]
     plan = [
-        {"food_id": "2705956", "grams": 120.0},
+        {"food_id": "2705956", "grams": 160.0},
         {"food_id": "2708414", "grams": 300.0},
         {"food_id": "2709645", "grams": 155.0},
     ]
@@ -153,14 +162,15 @@ def test_a_slight_protein_overage_passes_and_a_large_one_does_not(exam) -> None:
 
 def test_an_amended_ledger_sets_the_remaining_budget(exam) -> None:
     # adr29-amend-01 asks for dinner "with the updated remaining budget" after whole milk
-    # is corrected to almond milk; its pinned windows were authored on the uncorrected row.
+    # is corrected to almond milk. v1.0 pinned windows authored on the uncorrected row; v1.1
+    # authors them on the corrected ledger, so the pin is what the Scorer re-derives.
     task = exam["adr29-amend-01"]
     child = _recommend_child(task)
     state = _end_state(task, list(child.ledger), [])
     windows = Scorer._meal_windows(state, child, task.s0.profile)
-    assert windows["protein_g"][1] == pytest.approx(126.66, abs=0.005)
     assert windows["sodium_mg"][1] == pytest.approx(2153.6, abs=0.005)
-    assert child.plan_windows["protein_g"][1] == pytest.approx(120.02)
+    for key, bounds in child.plan_windows.items():
+        assert windows[key] == pytest.approx(bounds, abs=0.005), key
 
 
 def test_validator_authors_amend_windows_from_the_corrected_ledger(exam) -> None:
@@ -192,11 +202,12 @@ def test_authored_reasons_use_the_judged_ceiling() -> None:
     from nutrienv.bench.realize import bind_evaluate_reasons
 
     state = demo_state()
-    meal = [{"food_id": "chicken_breast", "grams": 100.0}]
-    protein = ledger_totals([LedgerRow("chicken_breast", 100.0, "p")], state.catalog)["protein_g"]
-    reasons = lambda hi: bind_evaluate_reasons(meal, {"protein_g": (0.0, hi)}, state.catalog, ())
-    assert reasons(protein / 1.10) == ()
-    assert reasons(protein / 1.20) == ("protein_g_hi",)
+    meal = [{"food_id": "oats", "grams": 100.0}]
+    totals = ledger_totals([LedgerRow("oats", 100.0, "p")], state.catalog)
+    reasons = lambda key, hi: bind_evaluate_reasons(meal, {key: (0.0, hi)}, state.catalog, ())
+    assert reasons("fiber_g", totals["fiber_g"] / 1.10) == ()
+    assert reasons("fiber_g", totals["fiber_g"] / 1.20) == ("fiber_g_hi",)
+    assert reasons("protein_g", totals["protein_g"] / 1.01) == ("protein_g_hi",)
 
 
 def test_an_evaluated_meal_is_not_subtracted_from_its_own_budget() -> None:

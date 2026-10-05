@@ -23,6 +23,8 @@ FOODS = {
                               "fiber_g": 0.0, "sodium_mg": 74.0}, "allergen_tags": []},
     "rice": {"nutrients": {"kcal": 130.0, "protein_g": 2.7, "carb_g": 28.0, "fat_g": 0.3,
                            "fiber_g": 0.4, "sodium_mg": 1.0}, "allergen_tags": []},
+    "bran": {"nutrients": {"kcal": 216.0, "protein_g": 15.6, "carb_g": 64.5, "fat_g": 4.3,
+                           "fiber_g": 42.8, "sodium_mg": 2.0}, "allergen_tags": []},
 }
 DAILY = {"kcal": [2000.0, 2000.0], "protein_g": [60.0, 100.0], "carb_g": [250.0, 300.0],
          "fat_g": [60.0, 70.0], "fiber_g": [25.0, 30.0], "sodium_mg": [0.0, 2300.0]}
@@ -52,14 +54,16 @@ def test_track_ledger_follows_log_amend_and_ignores_refusals() -> None:
 
 
 def test_ceiling_uses_the_scorers_slack_not_the_raw_hi() -> None:
-    # Protein has no meal share, so its dinner cap is the daily remainder, 100 g. 330 g chicken
-    # is 102.3 g protein: over hi, under 1.15 * hi -> the Scorer passes it, so the gate must too.
-    near = verify_plan(_plan(("chicken", 330.0)), _cache(), query="what for dinner?")
-    assert all(not line.startswith("protein_g") for line in near.lines)
-    over = verify_plan(_plan(("chicken", 400.0)), _cache(), query="what for dinner?")
-    assert not over.ok
-    assert any(line.startswith("protein_g: plan 124.0 g exceeds the dinner ceiling 100.0 g")
+    # Fiber has no meal share, so its dinner cap is the daily remainder, 30 g. 72 g bran is
+    # 30.8 g fiber: over hi, under 1.15 * hi -> the Scorer passes it, so the gate must too.
+    near = verify_plan(_plan(("bran", 72.0)), _cache(), query="what for dinner?")
+    assert all(not line.startswith("fiber_g") for line in near.lines)
+    over = verify_plan(_plan(("bran", 84.0)), _cache(), query="what for dinner?")
+    assert any(line.startswith("fiber_g: plan 36.0 g exceeds the dinner ceiling 30.0 g")
                for line in over.lines)
+    # An AMDR ceiling is exact: 330 g chicken is 102.3 g protein against 100 g.
+    protein = verify_plan(_plan(("chicken", 330.0)), _cache(), query="what for dinner?")
+    assert any(line.startswith("protein_g: plan 102.3 g exceeds") for line in protein.lines)
 
 
 def test_amended_ledger_moves_the_remaining_window() -> None:
@@ -269,8 +273,10 @@ def test_preview_shows_numbers_and_the_graded_range_without_judging() -> None:
     shown = plan_preview(_plan(("chicken", 400.0)), _cache(), query="what for dinner?")
     text = preview_text(shown)
     assert "protein_g 124.0 g" in text
-    # The graded protein ceiling is 1.15 x the 100 g remainder: a passing plan never reads as over.
-    assert "protein_g <= 115.0 g" in text and "kcal 600.0-800.0" in text
+    # The graded fiber ceiling is 1.15 x the 30 g remainder: a passing plan never reads as over.
+    # The AMDR ceilings are shown exact.
+    assert "fiber_g <= 34.5 g" in text and "protein_g <= 100.0 g" in text
+    assert "kcal 600.0-800.0" in text
     lowered = text.lower().replace("not submitted", "")
     assert not any(word in lowered for word in _JUDGMENT)
 

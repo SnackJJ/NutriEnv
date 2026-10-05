@@ -19,6 +19,7 @@ from nutrienv.world.daily_windows import (
     meal_slot_and_remainder,
     plan_windows_for_meal,
 )
+from nutrienv.world.plan_limits import plan_mass_pass
 from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import (
     LedgerRow,
@@ -144,6 +145,8 @@ class Oracle:
     ``None`` means unrestricted; a frozenset fails off-list foods as
     ``inventory_miss``. Composite children inherit a missing value from the
     parent, then from S0.
+    ``plan_high_protein`` adds the explicit single-meal protein rubric from
+    ``world.daily_windows.high_protein_pass``; daily remaining caps still bind.
     """
 
     profile: Profile | None = None
@@ -154,6 +157,7 @@ class Oracle:
     ledger: tuple[LedgerRow, ...] | None = None
     plan_must_be_safe: bool = False
     plan_must_fit_windows: bool = False
+    plan_high_protein: bool = False
     allow_empty_plan: bool = False
     plan_windows: dict[str, tuple[float, float]] | None = None
     last_verdict: str | None = None
@@ -165,6 +169,8 @@ class Oracle:
     # tuple is a composite container: Scorer judges only the children.
     sub_oracles: tuple[Oracle, ...] | None = None
     allowed_food_ids: frozenset[str] | None = None
+    # Explicit alternatives for the complete ledger. One must match; sub_oracles all must pass.
+    ledger_variants: tuple[tuple[LedgerRow, ...], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -386,9 +392,13 @@ def bind_evaluate_reasons(
     windows: dict[str, tuple[float, float]],
     catalog: Mapping,
     allergies: tuple[str, ...],
+    *,
+    plan_scope: str = "day",
 ) -> tuple[str, ...]:
     """Closed reason codes that fire for a named meal against plan_windows."""
     codes: list[str] = []
+    if not plan_mass_pass(items, plan_scope):
+        codes.append("implausible_quantity")
     banned = set(normalize_tags(list(allergies)))
     for item in items:
         entry = catalog.get(item["food_id"]) or {}

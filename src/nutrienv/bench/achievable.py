@@ -27,6 +27,8 @@ __all__ = ["AchievabilityReport", "SCORED_FEATURES", "check_achievable"]
 SCORED_FEATURES = (
     "ledger_tail",
     "ledger",
+    "ledger_variants",
+    "plan_high_protein",
     "last_plan",
     "plan_must_be_safe",
     "plan_must_fit_windows",
@@ -59,13 +61,39 @@ def check_achievable(tasks: Sequence[Task]) -> AchievabilityReport:
         families[task.family] += 1
         for name in _features(task):
             features[name] += 1
-        if not _reachable(task, scorer):
+        if not all(_reachable(interpretation, scorer) for interpretation in _interpretations(task)):
             unreachable.append(task.id)
     return AchievabilityReport(
         unreachable=tuple(unreachable),
         by_family={name: families[name] for name in FAMILIES},
         by_feature={name: features[name] for name in SCORED_FEATURES},
     )
+
+
+def _interpretations(task: Task):
+    """Replay each complete alternative consistently across children sharing that ledger."""
+    yield task
+    children = tuple(scored_oracles(task.oracle))
+    seen = set()
+    for source in children:
+        for ledger in source.ledger_variants:
+            key = (source.ledger, ledger)
+            if key in seen:
+                continue
+            seen.add(key)
+            alternatives = []
+            for child in children:
+                if child.ledger != source.ledger:
+                    alternatives.append(child)
+                    continue
+                tail = child.ledger_tail
+                if tail:
+                    tail = list(ledger[-len(tail):])
+                alternatives.append(replace(child, ledger=ledger, ledger_tail=tail,
+                                            ledger_variants=()))
+            oracle = (replace(task.oracle, sub_oracles=tuple(alternatives))
+                      if task.oracle.sub_oracles else alternatives[0])
+            yield replace(task, oracle=oracle)
 
 
 def _reachable(task: Task, scorer: Scorer) -> bool:
@@ -117,15 +145,19 @@ def _replay_unfit_recommend(
             return False
     allergies = env.state().profile.allergies
     windows = (
-        rec.plan_windows
+        scorer._meal_windows(env.state(), rec, env.state().profile)
         if rec.plan_windows is not None
         else env.state().profile.windows
     )
+    if windows is None:
+        return False
     plan = fitting_plan(
         task.s0.catalog,
         windows,
         allergies,
         allowed_food_ids=_allowed_foods(task, rec),
+        high_protein=rec.plan_high_protein,
+        plan_scope=task.s0.plan_scope,
     )
     if plan is None:
         return False
@@ -179,15 +211,19 @@ def _replay_oracle(
         allergies = env.state().profile.allergies
         if oracle.plan_must_fit_windows or oracle.plan_windows is not None:
             windows = (
-                oracle.plan_windows
+                scorer._meal_windows(env.state(), oracle, env.state().profile)
                 if oracle.plan_windows is not None
                 else env.state().profile.windows
             )
+            if windows is None:
+                return False
             plan = fitting_plan(
                 task.s0.catalog,
                 windows,
                 allergies,
                 allowed_food_ids=_allowed_foods(task, oracle),
+                high_protein=oracle.plan_high_protein,
+                plan_scope=task.s0.plan_scope,
             )
         else:
             plan = _any_safe_plan(
@@ -310,8 +346,16 @@ def _replay_profile(env: NutriEnv, oracle: Oracle) -> bool:
     if not patch:
         return True
     body_patch = {key: patch[key] for key in _BODY_KEYS if key in patch}
-    if body_patch and derive_profile_windows(replace(current, **body_patch)) is not None:
-        patch.pop("windows", None)
+    if body_patch:
+        if derive_profile_windows(replace(current, **body_patch)) is not None:
+            patch.pop("windows", None)
+        elif "windows" in patch:
+            # Body facts stay incomplete, so ADR 0014 re-derives nothing: the explicit
+            # windows need a second, windows-only action. Env refuses the mixture.
+            stepped = env.step({"op": "update_profile", "patch": body_patch})
+            if not stepped.get("ok"):
+                return False
+            patch = {key: value for key, value in patch.items() if key not in body_patch}
     stepped = env.step({"op": "update_profile", "patch": patch})
     return bool(stepped.get("ok"))
 
@@ -347,6 +391,10 @@ def _features(task: Task) -> set[str]:
             names.add("ledger_tail")
         if oracle.ledger is not None:
             names.add("ledger")
+        if oracle.ledger_variants:
+            names.add("ledger_variants")
+        if oracle.plan_high_protein:
+            names.add("plan_high_protein")
         if oracle.last_plan is not None:
             names.add("last_plan")
         if oracle.plan_must_be_safe:

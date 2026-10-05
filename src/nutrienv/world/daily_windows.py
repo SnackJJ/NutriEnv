@@ -1,4 +1,4 @@
-"""Mifflin×PAL energy and FDA six-key daily windows (ADR 0014).
+"""Mifflin×PAL energy and six-key daily windows: AMDR macros, FDA DV fiber/sodium (ADR 0014).
 
 Bench imports this. The formula does not live in Bench.
 """
@@ -15,6 +15,7 @@ __all__ = [
     "UPDATE_BANDS",
     "BAND_WINDOW_KEYS",
     "MEAL_ENERGY_SHARE",
+    "AMDR_ENERGY_SHARE",
     "SIX_WINDOW_KEYS",
     "TARGET_CEILING_KEYS",
     "TARGET_CEILING_SLACK",
@@ -40,10 +41,25 @@ ACTIVITY_PAL: dict[str, float] = {
 CUT_KCAL_DELTA = 300.0
 # Hypertrophy protein floor: above the 0.8 g/kg maintain lo (ADR 0015).
 MUSCLE_PROTEIN_G_PER_KG = 1.6
+MUSCLE_PROTEIN_MAX_G_PER_KG = 2.2
+# Benchmark definition of a requested high-protein meal, not a medical safety limit.
+HIGH_PROTEIN_ENERGY_SHARE = 0.20
+HIGH_PROTEIN_MIN_GRAMS = 10.0
+
+
+def high_protein_pass(totals: dict[str, float]) -> bool:
+    """Explicit meal rubric; the gram floor excludes trace-protein low-energy items."""
+    energy = totals.get("kcal", 0.0)
+    protein = totals.get("protein_g", 0.0)
+    return (
+        energy > 0
+        and protein >= HIGH_PROTEIN_MIN_GRAMS - 1e-8
+        and 4.0 * protein >= HIGH_PROTEIN_ENERGY_SHARE * energy - 1e-8
+    )
 UPDATE_BANDS = frozenset({"cut", "fatigue", "muscle"})
 BAND_WINDOW_KEYS: dict[str, frozenset[str]] = {
-    "cut": frozenset({"kcal"}),
-    "fatigue": frozenset({"kcal"}),
+    "cut": frozenset({"kcal", "protein_g", "carb_g", "fat_g", "fiber_g"}),
+    "fatigue": frozenset({"kcal", "protein_g", "carb_g", "fat_g", "fiber_g"}),
     "muscle": frozenset({"kcal", "protein_g"}),
 }
 _PROTEIN_G_PER_KG = 0.8
@@ -67,12 +83,20 @@ SIX_WINDOW_KEYS: tuple[str, ...] = (
     "sodium_mg",
 )
 
-# The daily hi of protein, carb, fat and fiber is a scaled FDA Daily Value: a reference intake,
-# not a limit (the DV table marks only sodium with an upper_limit, and protein's lo and hi are
-# often the same 0.8 g/kg). Going slightly over one is not a nutrition error, so a plan's ceiling
-# on these keys is judged with this slack. Sodium's ceiling is a health limit and kcal's already
-# carries the meal-share band, so both stay exact; every floor stays exact.
-TARGET_CEILING_KEYS = frozenset({"protein_g", "carb_g", "fat_g", "fiber_g"})
+# Acceptable Macronutrient Distribution Ranges (IOM 2005, adults): each macro's share of the
+# target energy, as (lo, hi) share and kcal per gram. Ordinary protein also meets the RDA;
+# muscle uses a separate 1.6–2.2 g/kg target range, not a toxicity threshold.
+AMDR_ENERGY_SHARE: dict[str, tuple[float, float, float]] = {
+    "protein_g": (0.10, 0.35, 4.0),
+    "carb_g": (0.45, 0.65, 4.0),
+    "fat_g": (0.20, 0.35, 9.0),
+}
+
+# The daily fiber hi is a scaled FDA Daily Value: a reference intake, not a limit, so going
+# slightly over it is not a nutrition error and a plan's fiber ceiling is judged with this slack.
+# The AMDR ceilings are the edge of a range and sodium's is a health limit, so they stay exact, as
+# does kcal's (the meal-share band is its give) and every floor.
+TARGET_CEILING_KEYS = frozenset({"fiber_g"})
 TARGET_CEILING_SLACK = 0.15
 
 
@@ -81,7 +105,6 @@ def judged_ceiling(key: str, hi: float) -> float:
     if key in TARGET_CEILING_KEYS:
         return hi * (1.0 + TARGET_CEILING_SLACK)
     return hi
-
 
 
 def estimated_energy_requirement(
@@ -130,7 +153,7 @@ def derive_daily_windows(
     activity: str,
     phase: str = "maintain",
 ) -> dict[str, tuple[float, float]]:
-    """Daily (lo, hi) windows from body facts, PAL, and the FDA DV template."""
+    """Daily (lo, hi) windows from body facts, PAL, AMDR and the FDA DV template."""
     eer = estimated_energy_requirement(
         sex=sex,
         age_y=age_y,
@@ -138,10 +161,7 @@ def derive_daily_windows(
         weight_kg=weight_kg,
         activity=activity,
     )
-    scale = eer / _FDA_KCAL
     protein_lo = _PROTEIN_G_PER_KG * weight_kg
-    protein_dv = DRI_REFERENCE["protein_g"]["reference"] * scale
-    protein_hi = max(protein_dv, protein_lo)
     kcal_lo = eer
     kcal_hi = eer
     if phase == "cut":
@@ -149,18 +169,28 @@ def derive_daily_windows(
         kcal_hi = eer - CUT_KCAL_DELTA
     elif phase == "muscle":
         protein_lo = MUSCLE_PROTEIN_G_PER_KG * weight_kg
-        protein_hi = max(protein_hi, protein_lo)
+
+    if kcal_lo <= 0:
+        raise ValueError(f"target energy must be positive, got {kcal_lo} kcal/day")
+    scale = kcal_hi / _FDA_KCAL
+    def amdr(key: str) -> tuple[float, float]:
+        share_lo, share_hi, kcal_per_g = AMDR_ENERGY_SHARE[key]
+        return kcal_lo * share_lo / kcal_per_g, kcal_hi * share_hi / kcal_per_g
+
+    amdr_lo, protein_hi = amdr("protein_g")
+    protein_lo = max(amdr_lo, protein_lo)
+    if phase == "muscle":
+        protein_lo = MUSCLE_PROTEIN_G_PER_KG * weight_kg
+        protein_hi = MUSCLE_PROTEIN_MAX_G_PER_KG * weight_kg
+    if protein_lo > protein_hi:
+        raise ValueError(
+            f"protein requirement {protein_lo} g exceeds target ceiling {protein_hi} g"
+        )
     return {
         "kcal": (kcal_lo, kcal_hi),
         "protein_g": (protein_lo, protein_hi),
-        "carb_g": (
-            DRI_REFERENCE["carb_g"]["reference"] * scale,
-            DRI_REFERENCE["carb_g"]["reference"] * scale,
-        ),
-        "fat_g": (
-            DRI_REFERENCE["fat_g"]["reference"] * scale,
-            DRI_REFERENCE["fat_g"]["reference"] * scale,
-        ),
+        "carb_g": amdr("carb_g"),
+        "fat_g": amdr("fat_g"),
         "fiber_g": (
             DRI_REFERENCE["fiber_g"]["reference"] * scale,
             DRI_REFERENCE["fiber_g"]["reference"] * scale,

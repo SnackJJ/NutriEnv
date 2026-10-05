@@ -10,8 +10,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from nutrienv.bench.achievable import check_achievable
-from nutrienv.bench.pipeline.freezer import freeze_tasks
-from nutrienv.bench.pipeline.generate_one import generate_one
+from nutrienv.bench.pipeline.freezer import freeze_legacy_tasks
+from nutrienv.bench.pipeline.legacy_generate_one import generate_one
 from nutrienv.bench.pipeline.roster import ROSTER
 from nutrienv.bench.scorer import Scorer
 from nutrienv.bench.split import load_split
@@ -81,7 +81,7 @@ def test_implicit_band_items_survive_freeze_load_and_replay_to_pass(
         assert validate_draft(task) == []
 
     catalog = tasks[0].s0.catalog
-    _, target = freeze_tasks(tasks, catalog=catalog, output_path=tmp_path / "bands.json")
+    _, target = freeze_legacy_tasks(tasks, catalog=catalog, output_path=tmp_path / "bands.json")
 
     loaded = load_split(target, catalog=catalog)
     assert [task.id for task in loaded] == [task.id for task in tasks]

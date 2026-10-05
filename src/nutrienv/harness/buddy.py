@@ -24,9 +24,11 @@ from dataclasses import dataclass, field
 from nutrienv.world.daily_windows import (
     MEAL_ENERGY_SHARE,
     SIX_WINDOW_KEYS,
+    high_protein_pass,
     judged_ceiling,
     plan_windows_for_meal,
 )
+from nutrienv.world.plan_limits import plan_limits_view, plan_mass_pass
 from nutrienv.world.types import normalize_reasons, normalize_tags
 
 from .protocol import Harness
@@ -129,12 +131,14 @@ class ObservationCache:
     # The ledger as rows (food_id, grams), kept by `track_ledger` for the verify gate. None
     # until an observation carries the whole ledger (reset does).
     ledger_rows: list[dict] | None = None
+    plan_scope: str = "day"
 
     def clear(self) -> None:
         self.profile = {}
         self.foods = {}
         self.ledger_totals = {}
         self.ledger_rows = None
+        self.plan_scope = "day"
 
 
 @dataclass(frozen=True)
@@ -179,6 +183,10 @@ def ingest_observation(cache: ObservationCache, observation: object) -> None:
     if not isinstance(observation, dict):
         return
     profile = observation.get("profile")
+    if "plan_limits" in observation:
+        scope = observation["plan_limits"]["scope"]
+        plan_limits_view(scope)
+        cache.plan_scope = scope
     if isinstance(profile, dict):
         cache.profile = profile
     totals = _as_totals(observation.get("ledger_totals"))
@@ -381,14 +389,19 @@ def check_write(
         elif windows:
             for key, (lo, hi) in windows.items():
                 amount = totals.get(key, 0.0)
-                if amount > hi:
+                if amount > judged_ceiling(key, hi) + _VERIFY_ROUNDING:
                     reasons.append(
                         f"{key}_hi: plan {amount:.1f} exceeds {hi:.1f}"
                     )
-                elif amount < lo:
+                elif amount < lo - _VERIFY_ROUNDING:
                     reasons.append(
                         f"{key}_lo: plan {amount:.1f} below {lo:.1f}"
                     )
+    if (complete and "high-protein" in query.lower()
+            and action.get("verdict") != "accept" and not high_protein_pass(totals)):
+        reasons.append("protein_share: requires at least 20% protein energy and 10 g protein")
+    if items and complete and not plan_mass_pass(items, cache.plan_scope):
+        reasons.append("implausible_quantity: plan exceeds the published total mass limit")
     if reasons:
         return Verdict(ok=False, reasons=tuple(reasons), status="violation")
     if skipped:
@@ -493,6 +506,10 @@ def verify_plan(
             lines.append(f"{key}: plan {amount:.1f} {unit} exceeds the {label}ceiling {hi:.1f} {unit}")
         elif amount < lo - _VERIFY_ROUNDING:
             lines.append(f"{key}: plan {amount:.1f} {unit} is below the {label}floor {lo:.1f} {unit}")
+    if "high-protein" in query.lower() and not high_protein_pass(plan):
+        lines.append("protein_share: requires at least 20% protein energy and 10 g protein")
+    if not plan_mass_pass(action["items"], cache.plan_scope):
+        lines.append("implausible_quantity: plan exceeds the published total mass limit")
     status = "violation" if lines else "approved"
     return VerifyResult(
         ok=not lines,
@@ -537,6 +554,8 @@ def plan_preview(
         return None
     return {
         "occasion": occasion_from_query(query),
+        "mass": {"total_grams": sum(item["grams"] for item in items),
+                 **plan_limits_view(cache.plan_scope)},
         "totals": {key: round(totals.get(key, 0.0), 3) for key in windows},
         "range": {
             key: [round(lo, 3), round(judged_ceiling(key, hi), 3)]
@@ -551,6 +570,8 @@ def preview_text(preview: dict) -> str:
         return f"{value:.1f}" if unit == "kcal" else f"{value:.1f} {unit}"
 
     totals = ", ".join(f"{key} {amount(key, v)}" for key, v in preview["totals"].items())
+    mass = preview["mass"]
+    totals += f", total mass {mass['total_grams']:.1f} g / {mass['max_total_grams']:.1f} g maximum"
     bounds = []
     for key, (lo, hi) in preview["range"].items():
         bounds.append(
@@ -758,7 +779,8 @@ class BuddyHarness(Harness):
                 self.regen_used += 1
         return action
 
-    def _verify(self, action: dict, query: str, env_steps: int, revise) -> dict:
+    def _verify(self, action: dict, query: str, env_steps: int,
+                revise: Callable[[str], dict] | None) -> dict:
         """Bounce out-of-window recommendations at most ``max_regen`` times per episode.
 
         The cap is per episode, not per step: a model that keeps re-submitting would otherwise be
@@ -796,7 +818,8 @@ class BuddyHarness(Harness):
             if not (isinstance(action, dict) and action.get("op") == "submit_plan"):
                 self.verify_drift += 1
 
-    def _preview(self, action: dict, query: str, env_steps: int, revise) -> dict:
+    def _preview(self, action: dict, query: str, env_steps: int,
+                 revise: Callable[[str], dict] | None) -> dict:
         """Show each new non-empty hand-in's numbers before Env sees it; at most max_regen times.
 
         Repeating the previewed plan commits the stored plan. A different plan is previewed

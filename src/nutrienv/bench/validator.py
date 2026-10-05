@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import itertools
 import re
+from collections.abc import Mapping
 from dataclasses import replace
 
 from nutrienv.world.catalog import canonical_food_id, iter_catalog_entries
@@ -18,7 +19,7 @@ from nutrienv.world.types import LedgerRow, ledger_totals, normalize_tags
 from .generator import Task
 from .occasions import recommend_occasion
 from .portion_table import matches_portion_table
-from .realize import bind_evaluate_reasons
+from .realize import bind_evaluate_reasons, scored_oracles
 from .realizations import UPDATE_ROWS
 from .windows import any_pair_unsatisfiable
 
@@ -285,10 +286,38 @@ def validate_draft(task: Task) -> list[str]:
             windows,
             profile.allergies,
             allowed_food_ids=_allowed_foods(task),
+            high_protein=task.oracle.plan_high_protein,
+            plan_scope=task.s0.plan_scope,
         ) is None:
             issues.append(
                 "item is unpassable: no allergen-safe plan fits the judged windows"
             )
+    issues.extend(validate_ledger_variants(task))
+    return issues
+
+
+def validate_ledger_variants(task: Task) -> list[str]:
+    """Check every accepted interpretation, not just the canonical day's meal budget."""
+    from .scorer import Scorer
+
+    issues = []
+    for child in scored_oracles(task.oracle):
+        for index, ledger in enumerate(child.ledger_variants):
+            for row in ledger:
+                if not matches_portion_table(row.food_id, row.grams, task.s0.catalog):
+                    issues.append(f"ledger_variants[{index}] has ungrounded grams for {row.food_id}")
+            if child.last_plan != [] or child.plan_windows is None:
+                continue
+            profile = child.profile or task.s0.profile
+            state = replace(task.s0, ledger=list(ledger))
+            windows = Scorer._meal_windows(state, child, profile)
+            if windows is None or fitting_plan(
+                task.s0.catalog, windows, profile.allergies,
+                allowed_food_ids=_allowed_foods(task, child),
+                high_protein=child.plan_high_protein,
+                plan_scope=task.s0.plan_scope,
+            ) is None:
+                issues.append(f"ledger_variants[{index}] has no feasible recommendation")
     return issues
 
 
@@ -799,6 +828,8 @@ def _validate_composite(task: Task) -> list[str]:
             windows,
             profile.allergies,
             allowed_food_ids=_allowed_foods(task, child),
+            high_protein=child.plan_high_protein,
+            plan_scope=task.s0.plan_scope,
         ) is None:
             issues.append("composite recommend is unpassable")
     return issues
@@ -809,6 +840,8 @@ def _ruler_window_issues(task: Task, child) -> list[str]:
 
     profile = child.profile or task.s0.profile
     judged = Scorer._meal_windows(task.s0, child, profile)
+    if judged is None:
+        return ["plan_windows has no feasible meal-slot remainder"]
     return [
         f"plan_windows {key} {bounds} != the Scorer's {tuple(judged.get(key, ()))}"
         for key, bounds in child.plan_windows.items()
@@ -912,7 +945,8 @@ def _validate_evaluate_verdict(task: Task, query: str, named) -> list[str]:
         if any(lo > hi for lo, hi in windows.values()):
             issues.append("evaluate plan_windows intersection is empty")
         expected = bind_evaluate_reasons(
-            named, windows, task.s0.catalog, task.s0.profile.allergies
+            named, windows, task.s0.catalog, task.s0.profile.allergies,
+            plan_scope=task.s0.plan_scope,
         )
         if verdict == "reject" and set(task.oracle.last_reasons) != set(expected):
             issues.append("evaluate last_reasons != bind of evaluated_plan")
@@ -1008,9 +1042,12 @@ def _allowed_foods(task, oracle=None):
 
 def fitting_plan(
     catalog,
-    windows: dict,
+    windows: Mapping[str, tuple[float, float]],
     allergies,
     allowed_food_ids: frozenset[str] | None = None,
+    *,
+    high_protein: bool = False,
+    plan_scope: str = "day",
 ) -> list[dict] | None:
     """Search staples for any allergen-safe plan inside every judged window.
 
@@ -1019,6 +1056,13 @@ def fitting_plan(
     """
     banned = _tag_set(allergies)
     keys = list(windows)
+    from nutrienv.world.daily_windows import high_protein_pass
+    from nutrienv.world.plan_limits import plan_mass_limit
+
+    max_mass = plan_mass_limit(plan_scope)
+
+    if high_protein:
+        keys = list(dict.fromkeys([*keys, "kcal", "protein_g"]))
     per_gram: dict[str, dict[str, float]] = {}
     candidates = (
         tuple(food_id for food_id in sorted(allowed_food_ids) if food_id in catalog)
@@ -1041,12 +1085,16 @@ def fitting_plan(
         }
 
     def _fits(totals: dict[str, float]) -> bool:
+        if high_protein and not high_protein_pass(totals):
+            return False
         return all(
             lo <= totals.get(key, 0.0) <= hi for key, (lo, hi) in windows.items()
         )
 
     for food_id, vec in per_gram.items():
         for grams in _FIT_GRID:
+            if grams > max_mass:
+                continue
             totals = {key: vec.get(key, 0.0) * grams for key in keys}
             if _fits(totals):
                 return [{"food_id": food_id, "grams": grams}]
@@ -1056,6 +1104,8 @@ def fitting_plan(
         for g1 in _FIT_GRID:
             t1 = {key: v1.get(key, 0.0) * g1 for key in keys}
             for g2 in _FIT_GRID:
+                if g1 + g2 > max_mass:
+                    continue
                 totals = {key: t1[key] + v2.get(key, 0.0) * g2 for key in keys}
                 if _fits(totals):
                     return [

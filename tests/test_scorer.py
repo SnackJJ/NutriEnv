@@ -466,7 +466,7 @@ def test_implicit_muscle_band_requires_protein_above_rda() -> None:
     env.reset(s0)
     env.step({"op": "update_profile", "patch": {"phase": "muscle"}})
     env.step(
-        {"op": "update_profile", "patch": {"windows": {"carb_g": [0.0, 1.0]}}}
+        {"op": "update_profile", "patch": {"windows": {"carb_g": [0.0, 300.0]}}}
     )
     assert Scorer().score(env.state(), oracle)["tag"] == "update_miss"
 

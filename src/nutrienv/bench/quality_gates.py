@@ -370,6 +370,8 @@ def constrained_recommends(tasks: Sequence[Task]) -> tuple[str, ...]:
                 lens.oracle.plan_windows,
                 lens.profile.allergies,
                 allowed_food_ids=allowed,
+                high_protein=lens.oracle.plan_high_protein,
+                plan_scope=task.s0.plan_scope,
             ) is None:
                 hit = True
                 break
