@@ -38,7 +38,7 @@ NUTRIENV_TOOLS = [
         {"food_id": {"type": "string"}},
         ["food_id"],
     ),
-    _tool("get_profile", "allergies and daily target nutrient windows"),
+    _tool("get_profile", "allergies, daily target nutrient windows and published plan mass limits"),
     _tool("get_ledger", "meals logged so far today, with cumulative nutrients"),
     _tool("get_dri", "FDA daily reference values"),
     _tool(

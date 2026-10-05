@@ -139,15 +139,15 @@ def test_judge_snapshot_ids_route_to_dashscope() -> None:
         assert harness.model == model
 
 
-def test_react_v0_is_the_frozen_baseline_manual() -> None:
+def test_react_v0_receives_the_current_shared_contract() -> None:
     harness = ReActHarness(api_key="dummy")
     assert harness.version == "v0"
     assert harness.label == "react-v0"
     assert harness.messages[0]["content"] == react_manual("v0")
-    assert "portions" not in react_manual("v0")
+    assert "portions.qns" in react_manual("v0")
 
 
-def test_react_v1_extends_v0_with_catalog_portions_only() -> None:
+def test_react_v1_extends_the_shared_contract_with_portion_examples() -> None:
     v0 = react_manual("v0")
     v1 = react_manual("v1")
     assert v1.startswith(v0)
@@ -186,7 +186,7 @@ def test_react_manual_teaches_evaluate_verdict_not_empty_items_as_reject() -> No
             assert nutrient in text
         assert "_hi" in text
         assert "_lo" in text
-    assert len(react_manual("v0").split()) <= 400
+    assert len(react_manual("v0").split()) <= 560
 
 
 def test_react_manual_teaches_implicit_update_direction_without_step_sizes() -> None:
@@ -199,33 +199,22 @@ def test_react_manual_teaches_implicit_update_direction_without_step_sizes() -> 
         assert "allerg" in text
         lowered = text.lower()
         assert "step size" in lowered or "no published" in lowered
-        assert "500" not in text
-    assert len(react_manual("v0").split()) <= 400
+        assert "500 kcal" not in text
+    assert len(react_manual("v0").split()) <= 560
 
 
-def test_v2_leaning_examples_still_cover_a_fatigue_deficit() -> None:
-    """v0/v1 listed a "tiring deficit"; v2's leaning examples dropped the fatigue case.
-
-    The band oracle scores where the windows land (ADR 0015), not which word the model
-    recognised, so v2 is not wrong to shorten the list. But a task phrased as "I'm too tired
-    to keep this up" is no longer exemplified, so the gap is recorded here rather than
-    dropped: either restore the example in SHARED_TASK_SPEC (which bumps PROMPT_VERSION and
-    makes every earlier report a different generation) or delete this test deliberately.
-    """
-    import pytest
-
-    assert "tiring" in react_manual("v0").lower()
-    with pytest.raises(AssertionError):
-        assert "tiring" in react_manual("v2").lower()
+def test_all_manuals_cover_a_fatigue_deficit() -> None:
+    for version in REACT_VERSIONS:
+        assert "tiring deficit" in react_manual(version).lower()
 
 
 def test_react_manual_teaches_log_then_recommend_needs_both_writes() -> None:
     for version in ("v0", "v1"):
         text = react_manual(version).lower()
-        assert "what to eat next" in text
+        assert "consumed food" in text
         assert "log_meal" in text
         assert "submit_plan" in text
-    assert len(react_manual("v0").split()) <= 400
+    assert len(react_manual("v0").split()) <= 560
 
 
 def test_react_manual_teaches_composite_chains_need_every_write() -> None:
@@ -234,12 +223,12 @@ def test_react_manual_teaches_composite_chains_need_every_write() -> None:
         assert "multi-step" in text
         # update+recommend and log+evaluate chains, symmetric with the mill.
         assert "update_profile then submit_plan" in text
-        assert "log_meal then verdict=accept" in text
+        assert "logging and a verdict" in text
     for version in REACT_VERSIONS:
         text = react_manual(version).lower()
         assert "multi-step" in text
         assert "update_profile then submit_plan" in text
-    assert len(react_manual("v0").split()) <= 400
+    assert len(react_manual("v0").split()) <= 560
     # v2 is the transport-specific preamble plus SHARED_TASK_SPEC, so its budget covers both. The
     # shared contract gets its own budget next to the parity check in test_harness_modes.py,
     # because the contract growing moves BOTH harnesses and every earlier report.
@@ -249,7 +238,7 @@ def test_react_manual_teaches_composite_chains_need_every_write() -> None:
 def test_react_v2_lists_amend_meal_and_drops_ate_then_cheats() -> None:
     v0 = react_manual("v0")
     v2 = react_manual("v2")
-    assert "amend_meal" not in v0
+    assert "amend_meal" in v0
     assert "amend_meal" in v2
     assert "{index, grams, food_id?, eaten_at?}" in v2
     lowered = v2.lower()

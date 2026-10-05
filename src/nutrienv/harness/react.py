@@ -68,45 +68,12 @@ def _checked_max_steps(max_steps: int) -> int:
     return max_steps
 
 
-_SYSTEM = """You are an agent in NutriEnv, a steppable nutrition world.
-Each turn emit exactly one JSON object, no markdown, no extra top-level keys:
-{"op": "<one of the ops>", ...args}
-
-Available ops:
-- search_foods {q}   (BM25 over local USDA catalog; do not use q="*")
-- get_food {food_id}
-- get_profile
-- get_ledger
-- get_dri
-- log_meal {food_id, grams, eaten_at?}
-- submit_plan {items: [{food_id, grams}, ...], verdict?, reasons?}
-- update_profile {patch}
-- update_plan {patch}
-- finish  (hand-in: stop the episode; the current world is scored)
-
-How an episode is graded:
-- Writes apply immediately; the end state is scored on finish or step limit.
-- Multi-step queries need every step's write: ate then "what to eat next" is log_meal (past eaten meal) then submit_plan (future meal plan; never log_meal future recommendations); allergy change then dinner ask is update_profile then submit_plan; ate then "is this okay?" is log_meal then verdict=accept.
-- Fields unmentioned by the user stay as the opening profile/ledger.
-- food_id comes from search/get_food (slugs like milk_whole also resolve); unknown ids change nothing.
-- Nutrient numbers come from observations, not prior knowledge. Catalog energy is per 100 g.
-- log_meal without eaten_at is stamped "now". If query names a meal, copy ledger style (today-breakfast, today-lunch, …).
-- Leftover questions: daily windows on get_profile are not meal budget. Subtract ledger nutrients and submit_plan for remainder.
-- After writes, emit finish. submit_plan is a hand-in: do not update_plan afterwards.
-- Profile allergies are catalog allergen_tags (shellfish, peanut), not food names.
-- Evaluate: submit_plan with verdict=accept and exact named meal, or verdict=reject, empty items, and reason codes that fire (allergy alone suffices for allergen meals; else {kcal,protein_g,carb_g,fat_g,fiber_g,sodium_mg}_hi/_lo). If the query also asks what to eat instead: a single submit_plan with verdict=reject, those reason codes, and items for the replacement. A second submit_plan without verdict drops the reject. Doing nothing fails.
-- Recommend: submit_plan a safe meal that fits windows; omit verdict.
-- Single meal planning targets meal energy share: breakfast 25-30%, lunch 30-40%, dinner 30-40% of daily energy. Snack has none.
-- Spoken cutting, a tiring deficit, or building muscle with no number: patch phase, or move daily energy below maintain, up toward maintain, or protein above 0.8 g/kg. There is no published step size. Unmentioned allergies and other window keys stay.
-- Body facts ("I weigh 70 kg now"): update_profile it; windows re-derive automatically. "Stop the cut" means phase maintain.
-"""
-
 _SYSTEM_V1_TAIL = """
 - Spoken household measures and dining quantities must be grounded against get_food observations: the portions dictionary maps measure keys to grams for one unit of that food. Convert the spoken quantity from that table ("one-and-a-half" is 1.5, same as "one and a half"). Calculate grams = portion_unit_grams * multiplier. Do not invent grams from prior knowledge without table grounding.
 - Keys you may encounter: cup, tbsp (tablespoon), tsp (teaspoon), slice, piece (also "each"), can, fl_oz (fluid ounce), serving.
-- Common dining servings and packaged containers ("a pack", "a packet", "a package", "a pouch", "a bag", "a serving", "a portion", "a bowl", "a plate", "an order", or a dish named as its own unit like "a sandwich", "two burritos") represent standard single servings: read portions.qns (or piece, slice, cup fallback).
+- Dining servings ("a serving", "a portion", "a bowl", "a plate", "a glass", "an order", "a sandwich") use portions.qns. Explicit packet/pouch/bar and other count units use their own keys. Missing keys require clarification, not another unit.
 - Food-specific count units, when the food's portions table carries that key: wing ("two chicken wings" reads portions.wing), drummette, scoop, patty, pat ("a pat of butter"), packet, pouch, bar, stick. Each is grams for one unit multiplied by the spoken count.
-- A bare food noun with no unit ("one apple", "a banana", "two eggs") means that many pieces (portions.piece). A cut noun ("a chicken breast", "two drumsticks") means that many pieces only when the food's own name contains that cut and portions.piece exists; otherwise do not log it, finish without logging that food.
+- A bare food noun with no explicit unit ("one apple", "a banana", "two eggs") uses portions.qns times its count, not portions.piece. Only explicit piece/slice uses those keys.
 - "thick", "thin" and "regular" pick a different default serving of the same food: read portions.thick / portions.thin / portions.regular.
 - An ounce is always 28.35 g, whatever the table says. Grams ("150 g") are already grams.
 - Other portion keys you may see (oz_yield, cubic_inch) are reference data, not measures a user speaks. Do not convert with them.
@@ -121,7 +88,7 @@ Each turn emit exactly one JSON object, no markdown, no extra top-level keys:
 Ops, with their arguments:
 - search_foods {q}                  BM25 search over the local USDA catalog; returns food_id and name
 - get_food {food_id}                portions, nutrients and allergen tags for one food
-- get_profile                       allergies and daily target nutrient windows
+- get_profile                       allergies, daily target nutrient windows and published plan mass limits
 - get_ledger                        meals logged so far today, with cumulative nutrients
 - get_dri                           FDA daily reference values
 - log_meal {food_id, grams, eaten_at?}   record a consumed item; eaten_at e.g. today-lunch
@@ -132,22 +99,16 @@ Ops, with their arguments:
 - finish                            hand in the episode
 """
 REACT_VERSIONS = ("v0", "v1", "v2")
-_MANUALS = {
-    "v0": _SYSTEM,
-    "v1": _SYSTEM + _SYSTEM_V1_TAIL,
-    "v2": _SYSTEM_V2,
-}
 
 
 def react_manual(version: str) -> str:
     """Return the frozen ReAct system manual for a harness version."""
     from nutrienv.harness.prompt_freeze import SHARED_TASK_SPEC
 
-    if version == "v2":
-        return _MANUALS[version] + SHARED_TASK_SPEC
-    if version not in _MANUALS:
+    if version not in REACT_VERSIONS:
         raise ValueError(f"unknown react harness version: {version!r}")
-    return _MANUALS[version]
+    # v0 is an explicit compatibility alias of current v2, not a historical baseline.
+    return _SYSTEM_V2 + SHARED_TASK_SPEC + (_SYSTEM_V1_TAIL if version == "v1" else "")
 
 
 def context_messages(
