@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-CLI = ROOT / "scripts" / "generate_one_cli.py"
+CLI = ROOT / "scripts" / "archive" / "generate_one_cli.py"
 
 CATALOG = ROOT / "data" / "fdc" / "catalog.sqlite"
 

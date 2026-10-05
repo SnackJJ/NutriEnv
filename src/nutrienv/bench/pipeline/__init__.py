@@ -1,9 +1,7 @@
-"""ADR 0017 mill pipeline: Sampler → generate_one → Resolver → gates.
+"""Agent authoring -> structured evidence -> independent review -> reachable frozen task.
 
-The old v1.0 Sampler → Expander → Resolver surface (``run_batch`` /
-``LlmExpander``) is retired: its code lives in ``legacy_run_batch.py`` and
-``expander.py`` for reference, but it is no longer exported or wired into any
-live entry point.
+The parser/template mill in legacy_generate_one.py is legacy calibration code, not
+the public authoring entry point. It has no implicit fallback from this path.
 """
 
 from .generate_one import GenerateOneResult, generate_one

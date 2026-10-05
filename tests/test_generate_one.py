@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 import json
 
-from nutrienv.bench.pipeline.generate_one import (
+from nutrienv.bench.pipeline.legacy_generate_one import (
     build_log_system_prompt,
     generate_one,
     make_log_expander,

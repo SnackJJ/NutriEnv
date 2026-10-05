@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from nutrienv.bench.pipeline.generate_one import (
+from nutrienv.bench.pipeline.legacy_generate_one import (
     COMPOSITE_ADMISSION_SLOTS,
     generate_one,
 )
@@ -12,7 +12,7 @@ from dataclasses import replace
 from nutrienv.bench.realize import Oracle, Task, compose_oracles
 from nutrienv.bench.scorer import Scorer
 from nutrienv.bench.validator import fitting_plan, validate_draft
-from nutrienv.bench.pipeline.freezer import freeze_tasks
+from nutrienv.bench.pipeline.freezer import freeze_legacy_tasks
 from nutrienv.bench.split import load_split
 from nutrienv.env import NutriEnv
 from nutrienv.world.daily_windows import plan_windows_for_meal
@@ -306,7 +306,7 @@ def test_log_then_evaluate_fit_is_constructible(tmp_path) -> None:
     assert validate_draft(task) == []
 
     # The plate must also survive the freezer's grams gate and load back.
-    _, path = freeze_tasks(
+    _, path = freeze_legacy_tasks(
         [task],
         catalog=task.s0.catalog,
         catalog_field="fixture",
@@ -464,7 +464,7 @@ def test_log_then_recommend_freeze_round_trips(tmp_path) -> None:
     result = _run()
     assert result.rejected is None
     task = result.accepted
-    _, path = freeze_tasks(
+    _, path = freeze_legacy_tasks(
         [task],
         catalog=task.s0.catalog,
         catalog_field="fixture",
@@ -487,7 +487,7 @@ def test_update_then_recommend_freeze_round_trips(tmp_path) -> None:
     )
     assert result.rejected is None
     task = result.accepted
-    _, path = freeze_tasks(
+    _, path = freeze_legacy_tasks(
         [task],
         catalog=task.s0.catalog,
         catalog_field="fixture",

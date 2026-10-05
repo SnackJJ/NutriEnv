@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from nutrienv.bench.pipeline.generate_one import generate_one
+from nutrienv.bench.pipeline.legacy_generate_one import generate_one
 from nutrienv.bench.pipeline.roster import ROSTER
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from nutrienv.bench.pipeline.generate_one import (
+from nutrienv.bench.pipeline.legacy_generate_one import (
     drop_orphan_leftovers,
     generate_one,
     leftover_parent_ids,

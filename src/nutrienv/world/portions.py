@@ -8,17 +8,15 @@ Spoken serving and size words get a table lookup, because real users do not
 weigh food:
 
 * ``"a serving of X"`` (also bowl/plate/portion/order) reads as the food's
-  default FNDDS portion: FNDDS QNS (modifier 90000), else ``piece``, else
-  ``slice``, else ``cup``. Catalog does not write a ``serving`` key; no
-  per-food entry is needed, and a food that defines none of those has no
+  default FNDDS portion: FNDDS QNS (modifier 90000). No implicit piece,
+  slice or cup substitution is allowed. A food with no QNS has no default
   serving ("a serving of olive oil" stays ``None``).
 * ``"a sandwich"`` / ``"two burritos"`` treat the dish noun itself as the
   unit, one default serving each, but only when the food's own name contains
   that noun, so the grammar cannot invent a unit out of thin air.
 * A bare food noun with no unit (``"one apple"``, ``"a banana"``,
-  ``"two eggs"``) is that many ``piece`` rows of the named food. A cut or
-  body-part noun with no portion key (``"a chicken breast"``) stays
-  ``None``; the grammar does not guess cup or QNS.
+  ``"two eggs"``) is that many QNS servings of the named food. Explicit
+  piece/slice and food-specific count units use their own table keys.
 * ``"thick"`` / ``"thin"`` / ``"regular"`` pick a different default serving
   of the same food (``portions.thick`` etc.). They are not household
   measures: a modifier next to slice/cup/piece/… is refused.
@@ -57,9 +55,8 @@ OUNCE_GRAMS = 28.35
 OUNCE_UNITS = frozenset({"oz", "ounce", "ounces"})
 
 #: Spoken unit -> the key a food's ``portions`` table uses. A missing
-#: ``serving`` key falls back to the food's default FNDDS portion, so dishes
-#: need no per-food entry to be ordered "a serving of ...". Catalog does
-#: not write a ``serving`` key by construction; the lookup is a hatch.
+#: ``serving`` means QNS. Explicit count/household units never borrow a
+#: different table key when missing.
 UNIT_SYNONYMS: dict[str, str] = {
     "cup": "cup", "cups": "cup", "c": "cup",
     "tbsp": "tbsp", "tbsps": "tbsp", "tbs": "tbsp", "tb": "tbsp",
@@ -151,8 +148,7 @@ DISH_NOUNS = frozenset({
     "steak",
 })
 
-#: Cuts and body-part nouns. Without a matching portion key they are not a
-#: countable piece; "a chicken breast" must not fall through to cup/QNS.
+#: Cut/body-part identity tokens excluded from generic name crumbs.
 _CUT_NOUNS = frozenset({
     "breast", "breasts", "thigh", "thighs", "wing", "wings", "drumstick",
     "drumsticks", "chop", "chops", "loin", "tenderloin", "rib", "ribs",
@@ -226,7 +222,7 @@ def _load_colloquial_unit_specs() -> None:
         COLLOQUIAL_UNIT_SPECS = {}
 
 
-def resolve_portion(food_id: str, phrase: str, catalog: dict) -> float | None:
+def resolve_portion(food_id: str, phrase: str, catalog: Mapping) -> float | None:
 
     """Grams meant by ``phrase`` for ``food_id``, or ``None`` if unresolvable.
 
@@ -284,15 +280,10 @@ def resolve_portion(food_id: str, phrase: str, catalog: dict) -> float | None:
                 if isinstance(base_value, bool) or not isinstance(base_value, (int, float)):
                     continue
                 grams_per_unit = multiplier * float(base_value)
-            elif key not in portions:
-                # "a serving of X" is the spoken form of the food's default
-                # portion; it needs no per-food table entry. Catalog does not
-                # write a serving key by construction.
-                if key != "serving":
-                    continue
+            elif key == "serving":
                 grams_per_unit = _serving_default(portions)
-                if grams_per_unit is None:
-                    continue
+            elif key not in portions:
+                return None
             else:
                 grams_per_unit = portions[key]
 
@@ -327,8 +318,8 @@ def resolve_portion(food_id: str, phrase: str, catalog: dict) -> float | None:
 
 
 def _serving_default(portions: Mapping[str, object]) -> float | None:
-    """The default portion of a food, in grams: FNDDS QNS, else piece/slice/cup."""
-    for key in ("qns", "piece", "slice", "cup"):
+    """The unspecified portion: QNS only; missing QNS requires an explicit measure."""
+    for key in ("qns",):
         value = portions.get(key)
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             continue
@@ -372,26 +363,12 @@ def _dish_noun_grams(
 def _bare_food_noun_grams(
     tokens: list[str], food_id: str, entry: dict, portions: Mapping[str, object]
 ) -> float | None:
-    """``"one apple"`` -> ``portions.piece``; a cut without a key stays None.
-
-    Countable bare nouns are pieces, not QNS/cup. QNS is "quantity not
-    specified" (already ``"a serving"``); cup is a measure word. A breast /
-    chop / fillet in the phrase with no matching portion key refuses so the
-    grammar cannot invent grams for a cut.
-    """
-    name_nouns = _raw_name_nouns(food_id, entry)
-    for token in tokens:
-        if token in _CUT_NOUNS and token not in portions:
-            # A cut noun may be a bare countable unit only when the food's
-            # own name carries that cut and a piece row exists ("a chicken
-            # breast", "two drumsticks"). Otherwise fail closed so the
-            # grammar never guesses grams for a cut.
-            if "piece" not in portions or not (_noun_candidates(token) & name_nouns):
-                return None
+    """A named food without an explicit unit uses its QNS, never an inferred piece."""
+    modifier = _span_modifier(tokens)
     identity = _food_identity_nouns(food_id, entry)
     if not identity:
         return None
-    grams_per_unit = portions.get("piece")
+    grams_per_unit = portions.get(modifier or "qns")
     if isinstance(grams_per_unit, bool) or not isinstance(grams_per_unit, (int, float)):
         return None
     if not math.isfinite(grams_per_unit) or grams_per_unit <= 0:
@@ -420,7 +397,8 @@ def _food_identity_nouns(food_id: str, entry: dict) -> set[str]:
     """Countable name tokens for this food: head name, slug parts, aliases."""
     nouns: set[str] = set()
     head = str(entry.get("name") or "").split(",")[0]
-    nouns.update(_SPLIT.split(head.lower()))
+    for token in _SPLIT.split(head.lower()):
+        nouns.update(_noun_candidates(token))
     nouns.update(_SPLIT.split(food_id.replace("_", " ").lower()))
     for alias in entry.get("aliases") or []:
         nouns.update(_SPLIT.split(str(alias).lower()))

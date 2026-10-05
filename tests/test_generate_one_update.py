@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from nutrienv.bench.pipeline.generate_one import generate_one
+from nutrienv.bench.pipeline.legacy_generate_one import generate_one
 from nutrienv.bench.pipeline.roster import ROSTER
 from nutrienv.bench.scorer import Scorer
 from nutrienv.env import NutriEnv

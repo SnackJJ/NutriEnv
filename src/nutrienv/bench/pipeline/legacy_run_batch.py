@@ -21,7 +21,7 @@ from nutrienv.world.portions import resolve_portion
 from nutrienv.world.types import normalize_tags
 
 from .expander import LlmExpander, coerce_candidates, make_llm_expander, synthetic_expander
-from .freezer import freeze_tasks
+from .freezer import freeze_legacy_tasks
 from .knives import KNIVES
 from .models import assign_model
 from .resolver import (
@@ -231,7 +231,7 @@ def run_batch(
             n_candidates=stats["n_candidates"],
         )
 
-    payload, path = freeze_tasks(
+    payload, path = freeze_legacy_tasks(
         accepted,
         catalog=catalog,
         catalog_field=spec["catalog_field"],

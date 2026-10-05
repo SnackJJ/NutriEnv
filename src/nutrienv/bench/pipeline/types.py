@@ -145,6 +145,8 @@ def catalog_digest(catalog) -> str:
         payload[food_id] = {
             "name": entry.get("name"),
             "portions": entry.get("portions"),
+            "nutrients": entry.get("nutrients"),
+            "allergen_tags": list(entry.get("allergen_tags") or []),
             "aliases": list(entry.get("aliases") or []),
         }
     blob = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()

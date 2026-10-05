@@ -1,0 +1,1903 @@
+"""Legacy parser/template mill: sample a roster world, expand Log as {query, foods}.
+
+Not the active authoring entry point. New questions are admitted through
+``nutrienv.bench.pipeline.generate_one`` (agent author -> structured evidence ->
+independent review). Historical callers and tests import this module by name; nothing
+falls back to it.
+"""
+
+from __future__ import annotations
+
+import copy
+import itertools
+import json
+import random
+import re
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
+from typing import TypedDict
+
+from nutrienv.bench.quality_gates import EVALUATE_TIERS
+from nutrienv.bench.realize import (
+    Oracle,
+    Task,
+    bind_evaluate_reasons,
+    compose_oracles,
+    realize_evaluate,
+)
+from nutrienv.world.daily_windows import (
+    derive_profile_windows,
+    estimated_energy_requirement,
+    plan_windows_for_meal,
+)
+from nutrienv.world.portions import GRAM_UNITS, OUNCE_UNITS, UNIT_SYNONYMS, resolve_portion
+from nutrienv.world.types import (
+    MAX_ITEM_GRAMS,
+    LedgerRow,
+    Profile,
+    WorldState,
+    ledger_totals,
+    normalize_tags,
+)
+
+from .knives import KNIVES, apply_knife
+from .resolver import GramAnchor, spoken_grams_from_query
+from .roster import RosterPerson, profile_for, sample_roster_person
+from .sampler import sample_pools, unit_naturalness_rank
+from .semantic_vote import GRAM_TOLERANCE
+from .templates import recommend_query, update_query
+from .types import (
+    COMPOSITE_ADMISSION_SLOTS,
+    DEFAULT_GENERATE_POOL_SIZE,
+    FoodPool,
+    PoolFood,
+    Rejected,
+)
+
+__all__ = [
+    "AMOUNT_PATHS",
+    "COMPOSITE_ADMISSION_SLOTS",
+    "KNIVES",
+    "GenerateOneResult",
+    "LogExpander",
+    "build_log_system_prompt",
+    "build_log_user_prompt",
+    "build_stage_a_prompt",
+    "build_unfit_rewrite_prompt",
+    "drop_orphan_leftovers",
+    "generate_one",
+    "leftover_parent_ids",
+    "make_log_expander",
+    "make_unfit_rewriter",
+    "parse_query_foods_payload",
+    "search_fit_plate",
+]
+
+AMOUNT_EXPLICIT_GRAMS = "explicit_grams"
+AMOUNT_NAMED_MEASURE = "named_measure"
+AMOUNT_UNSPECIFIED = "unspecified"
+AMOUNT_PATHS: tuple[str, ...] = (
+    AMOUNT_EXPLICIT_GRAMS,
+    AMOUNT_NAMED_MEASURE,
+    AMOUNT_UNSPECIFIED,
+)
+
+_OCCASIONS: tuple[str, ...] = ("breakfast", "lunch", "dinner")
+_SCENES: tuple[str, ...] = ("empty", "leftover")
+_RECOMMEND_SHELLS_BY_OCCASION: dict[str, str] = {
+    "breakfast": "rec-breakfast",
+    "lunch": "rec-lunch",
+    "dinner": "rec-dinner",
+    "snack": "rec-snack",
+}
+# Recommend additionally accepts the thin snack occasion (no energy share).
+_RECOMMEND_OCCASIONS: frozenset[str] = frozenset(_OCCASIONS) | {"snack"}
+_NEXT_OCCASION: dict[str, str] = {
+    "breakfast": "lunch",
+    "lunch": "dinner",
+    "dinner": "dinner",
+}
+_LEGAL_COMPOSITE_PAIRS: frozenset[tuple[str, ...]] = frozenset(
+    {
+        ("log", "recommend"),
+        ("log", "evaluate"),
+        ("update", "recommend"),
+    }
+)
+_NAMED_PORTION_KEYS = frozenset(
+    {"cup", "tbsp", "tsp", "slice", "piece", "can", "fl_oz"}
+)
+_WORD = re.compile(r"[a-z0-9.]+")
+_THOUSANDS_COMMA = re.compile(r"(?<=\d),(?=\d)")
+_QUANTITY_AND = re.compile(
+    r"(?i)\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+    r"\d+(?:\.\d+)?)\s+and\s+(?:a\s+)?(?:half|quarter|third|halves|quarters|thirds)\b"
+)
+_HYPHEN_QUANTITY_AND = re.compile(
+    r"(?i)\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+    r"\d+(?:\.\d+)?)-and-(?:a-)?(half|quarter|third|halves|quarters|thirds)\b"
+)
+_FOOD_SPLIT = re.compile(r",|\band\b|\bwith\b|\bplus\b|&", re.I)
+_LOG_SAY = re.compile(r"\b(?:log|ate|eaten|had)\b", re.I)
+_REC_ASK = re.compile(
+    r"what(?:'s| is) for|what should i (?:eat|have)|should i have|recommend",
+    re.I,
+)
+_EVAL_ASK = re.compile(r"\b(?:evaluate|okay|ok)\b", re.I)
+_PROTECT_SLOT = re.compile(r"\x00(\d+)\x00")
+_MENTION_STOP = frozenset(
+    {
+        "and",
+        "the",
+        "for",
+        "with",
+        "plus",
+        "please",
+        "log",
+        "lunch",
+        "dinner",
+        "breakfast",
+        "today",
+        "another",
+        "cup",
+        "cups",
+        "bowl",
+        "bowls",
+        "piece",
+        "pieces",
+        "slice",
+        "slices",
+    }
+)
+
+
+@dataclass(frozen=True)
+class GenerateOneResult:
+    accepted: Task | None
+    rejected: Rejected | None
+
+
+class QueryFoodsPayload(TypedDict):
+    query: str
+    foods: list[str]
+
+
+def generate_one(
+    *,
+    catalog: Mapping,
+    expander: Callable[..., object] | None = None,
+    family: str = "log",
+    seed: int = 0,
+    person: RosterPerson | None = None,
+    amount_path: str | None = None,
+    occasion: str = "lunch",
+    pool_size: int = DEFAULT_GENERATE_POOL_SIZE,
+    knife: str | None = None,
+    rewriter: Callable[..., object] | None = None,
+    scene: str = "empty",
+    prior_ledger: Sequence[LedgerRow] | None = None,
+    prior_logs: Sequence[Task] | None = None,
+    last_meal: bool = False,
+    shell: str | None = None,
+    slots: Mapping[str, str] | None = None,
+    steps: Sequence[str] | None = None,
+    tier: str = "",
+    gram_anchor: GramAnchor | None = None,
+    items: Sequence[Mapping[str, object]] | None = None,
+    enable_semantic_vote: bool = False,
+) -> GenerateOneResult:
+    """One mill item: roster person → world windows → pool → expander → speech bind.
+
+    Recommend items are template-filled (``shell``/``slots``) with no expander.
+    Composite log-then-recommend remainder is computed after the log tail.
+
+    ``items`` is evaluate-only authoring data: a code-chosen plate
+    (``[{"food_id": ..., "grams": ...}, ...]``). When given, the pool expander
+    is skipped and speech comes from ``rewriter`` (required, even when ``knife``
+    is None: the fit plate is spoken by the same speech writer).
+
+    ``tier`` is evaluate-only authoring data (ADR 0016 difficulty tiers): it
+    must be empty for every other family and a declared ``EVALUATE_TIERS``
+    value for evaluate, so nobody can invent a tier or tier a log. It must be
+    a string: falsey non-string values (None, 0, ...) are rejected too.
+    """
+    if family not in {"log", "evaluate", "recommend", "update", "composite"}:
+        raise ValueError(f"generate_one does not implement {family!r}")
+    if not isinstance(tier, str):
+        raise ValueError(f"tier must be a string, got {type(tier).__name__}")
+    if tier and (family != "evaluate" or tier not in EVALUATE_TIERS):
+        raise ValueError(f"unknown evaluate tier {tier!r} for family {family!r}")
+    if amount_path is not None and amount_path not in AMOUNT_PATHS:
+        raise ValueError(f"unknown amount_path {amount_path!r}")
+    if occasion not in _OCCASIONS and not (
+        family == "recommend" and occasion in _RECOMMEND_OCCASIONS
+    ):
+        raise ValueError(f"unknown occasion {occasion!r}")
+    if knife is not None and knife not in KNIVES:
+        raise ValueError(f"unknown knife {knife!r}")
+    if scene not in _SCENES:
+        raise ValueError(f"unknown scene {scene!r}")
+
+    pair = tuple(steps) if steps is not None else ("log", "recommend")
+    if family == "composite":
+        if pair == ("evaluate", "recommend"):
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected("", "unfit_substitute", "composite")
+            )
+        if pair not in _LEGAL_COMPOSITE_PAIRS:
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected("", "illegal_pair", "composite")
+            )
+
+    rng = random.Random(seed)
+    chosen = person if person is not None else sample_roster_person(seed)
+    profile = profile_for(chosen)
+
+    if items is not None:
+        if family != "evaluate":
+            raise ValueError("items are evaluate-only authoring data")
+        if scene != "empty":
+            raise ValueError("items take no leftover scene")
+        return _evaluate_from_items(
+            catalog,
+            chosen=chosen,
+            profile=profile,
+            seed=seed,
+            occasion=occasion,
+            knife=knife,
+            rewriter=rewriter,
+            amount_path=amount_path,
+            tier=tier,
+            items=items,
+            pool_size=pool_size,
+        )
+
+    if family == "recommend":
+        return _recommend_from_template(
+            catalog,
+            chosen=chosen,
+            profile=profile,
+            seed=seed,
+            occasion=occasion,
+            scene=scene,
+            prior_logs=prior_logs,
+            shell=shell,
+            slots=dict(slots or {}),
+            tier=tier,
+        )
+
+    if family == "update":
+        if knife is not None or scene != "empty" or prior_ledger:
+            raise ValueError("knives, scenes, and prior ledgers apply only to evaluate")
+        return _update_from_template(
+            catalog,
+            chosen=chosen,
+            profile=profile,
+            seed=seed,
+            shell=shell,
+            slots=dict(slots or {}),
+            tier=tier,
+        )
+
+    if family == "composite" and pair == ("update", "recommend"):
+        return _update_then_recommend(
+            catalog,
+            chosen=chosen,
+            profile=profile,
+            seed=seed,
+            shell=shell,
+            slots=dict(slots or {}),
+            occasion=occasion,
+            tier=tier,
+        )
+
+    if family == "log" and (knife is not None or scene != "empty"):
+        raise ValueError("knives and leftover scenes apply only to evaluate")
+    path = amount_path if amount_path is not None else rng.choice(AMOUNT_PATHS)
+    pools = sample_pools(
+        catalog,
+        seed=seed,
+        family=family,
+        n_pools=1,
+        pool_size=pool_size,
+    )
+    if not pools:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "empty_pool", family)
+        )
+    pool = _without_small_gram_foods(pools[0])
+    if not pool.foods:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "empty_pool", family)
+        )
+    if expander is None:
+        raise ValueError(f"family {family!r} requires an injected expander")
+    raw = expander(
+        pool, persona=chosen.persona, family=family, amount_path=path
+    )
+    payload = parse_query_foods_payload(raw)
+    if payload is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "schema", family)
+        )
+    query = str(payload["query"])
+    foods = list(payload["foods"])
+    bind_query = query
+    if family == "composite" and pair == ("log", "recommend"):
+        log_span, rec_span, speech_reason = _composite_speech_spans(query)
+        if speech_reason is not None:
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected(query, speech_reason, family)
+            )
+        if _mentioned_pool_ids(rec_span, pool, catalog):
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected(query, "rec_foods", family)
+            )
+        bind_query = log_span
+    elif family == "composite" and pair == ("log", "evaluate"):
+        if not _LOG_SAY.search(query) or not _EVAL_ASK.search(query):
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected(query, "steps", family)
+            )
+    bound, reason = _bind_log_foods(
+        bind_query,
+        foods,
+        pool,
+        catalog,
+        occasion,
+        amount_path=path,
+        gram_anchor=gram_anchor,
+        enable_semantic_vote=enable_semantic_vote,
+    )
+    if reason is not None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, reason, family)
+        )
+    assert bound is not None
+    ledger: list[LedgerRow] = []
+    if scene == "leftover":
+        if not prior_ledger:
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected(query, "no_ledger", family)
+            )
+        ledger = list(prior_ledger)
+    s0 = WorldState(profile=profile, ledger=ledger, catalog=catalog)
+    if family == "evaluate":
+        return _evaluate_from_bound(
+            query,
+            bound,
+            s0,
+            seed=seed,
+            occasion=occasion,
+            persona=chosen.persona,
+            knife=knife,
+            rewriter=rewriter,
+            pool=pool,
+            amount_path=path,
+            last_meal=last_meal,
+            tier=tier,
+        )
+    if family == "composite" and pair == ("log", "recommend"):
+        rec_occasion = _NEXT_OCCASION.get(occasion, "dinner")
+        return _log_then_recommend(
+            query,
+            bound,
+            s0,
+            seed=seed,
+            rec_occasion=rec_occasion,
+            persona=chosen.persona,
+            tier=tier,
+        )
+    if family == "composite" and pair == ("log", "evaluate"):
+        return _log_then_evaluate_fit(
+            query,
+            bound,
+            s0,
+            seed=seed,
+            occasion=occasion,
+            persona=chosen.persona,
+            last_meal=last_meal,
+            tier=tier,
+        )
+    oracle = Oracle(
+        profile=copy.deepcopy(profile),
+        ledger_tail=bound,
+        ledger=tuple(bound),
+    )
+    task = Task(
+        f"one-log-{seed:04d}",
+        "log",
+        query,
+        s0,
+        oracle,
+        ("multi_item_log",),
+        chosen.persona,
+        tier=tier,
+    )
+    return GenerateOneResult(accepted=task, rejected=None)
+
+
+def _log_then_recommend(
+    query: str,
+    bound: Sequence,
+    s0: WorldState,
+    *,
+    seed: int,
+    rec_occasion: str,
+    persona: str,
+    tier: str = "",
+) -> GenerateOneResult:
+    """Log sub-oracle plus recommend remainder after that log tail."""
+    tail = list(bound)
+    final_ledger = (*s0.ledger, *tail)
+    log_oracle = Oracle(
+        profile=copy.deepcopy(s0.profile),
+        ledger_tail=tail,
+        ledger=final_ledger,
+    )
+    eaten = ledger_totals(list(final_ledger), s0.catalog)
+    plan_windows = plan_windows_for_meal(s0.profile.windows, eaten, rec_occasion)
+    if plan_windows is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "empty_windows", "composite")
+        )
+    rec_oracle = Oracle(
+        profile=copy.deepcopy(s0.profile),
+        last_plan=[],
+        ledger_tail=list(tail),
+        ledger=final_ledger,
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=plan_windows,
+    )
+    task = Task(
+        f"one-comp-{seed:04d}",
+        "log",
+        query,
+        s0,
+        compose_oracles(log_oracle, rec_oracle),
+        ("multi_item_log",),
+        persona,
+        tier=tier,
+    )
+    return GenerateOneResult(accepted=task, rejected=None)
+
+
+def _log_then_evaluate_fit(
+    query: str,
+    bound: Sequence,
+    s0: WorldState,
+    *,
+    seed: int,
+    occasion: str,
+    persona: str,
+    last_meal: bool,
+    tier: str = "",
+) -> GenerateOneResult:
+    """Log the named meal and accept it as the Evaluate plate."""
+    items = [{"food_id": row.food_id, "grams": float(row.grams)} for row in bound]
+    draft = _realize_eval(
+        f"one-comp-{seed:04d}",
+        query,
+        items,
+        s0,
+        occasion,
+        # Reload-valid situations: fit geometry lives in the oracle
+        # (accept + exact evaluated meal).
+        (),
+        persona,
+        last_meal=last_meal,
+        tier=tier,
+    )
+    if isinstance(draft, GenerateOneResult):
+        return draft
+    if draft.oracle.last_verdict != "accept":
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "not_fit", "composite")
+        )
+    tail = list(bound)
+    final_ledger = (*s0.ledger, *tail)
+    log_oracle = Oracle(
+        profile=copy.deepcopy(s0.profile),
+        ledger_tail=tail,
+        ledger=final_ledger,
+    )
+    eval_oracle = replace(draft.oracle, ledger=final_ledger)
+    task = Task(
+        f"one-comp-{seed:04d}",
+        "log",
+        query,
+        s0,
+        compose_oracles(log_oracle, eval_oracle),
+        # Split-vocabulary tag, same as log+recommend composites: the
+        # evaluate-fit shape lives in the child oracle's accept verdict.
+        ("multi_item_log",),
+        persona,
+        tier=tier,
+    )
+    return GenerateOneResult(accepted=task, rejected=None)
+
+
+def _update_then_recommend(
+    catalog: Mapping,
+    *,
+    chosen: RosterPerson,
+    profile: Profile,
+    seed: int,
+    shell: str | None,
+    slots: dict[str, str],
+    occasion: str,
+    tier: str = "",
+) -> GenerateOneResult:
+    """Update the profile, then recommend against the final windows and allergies."""
+    upd = _update_from_template(
+        catalog,
+        chosen=chosen,
+        profile=profile,
+        seed=seed,
+        shell=shell,
+        slots=slots,
+    )
+    if upd.accepted is None:
+        rejected = upd.rejected
+        reason = rejected.reason if rejected is not None else "template"
+        query = rejected.query if rejected is not None else ""
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, reason, "composite")
+        )
+    update_task = upd.accepted
+    expected = update_task.oracle.profile
+    assert expected is not None
+    rec_shell = _RECOMMEND_SHELLS_BY_OCCASION.get(occasion)
+    rec_text = (
+        recommend_query(rec_shell, {"occasion": occasion}) if rec_shell else None
+    )
+    if rec_text is None:
+        return GenerateOneResult(
+            accepted=None,
+            rejected=Rejected(update_task.query, "template", "composite"),
+        )
+    query = f"{update_task.query} {rec_text}"
+    s0 = update_task.s0
+    eaten = ledger_totals(list(s0.ledger), s0.catalog)
+    plan_windows = plan_windows_for_meal(expected.windows, eaten, occasion)
+    if plan_windows is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "empty_windows", "composite")
+        )
+    rec_oracle = Oracle(
+        profile=copy.deepcopy(expected),
+        last_plan=[],
+        ledger=tuple(s0.ledger),
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=plan_windows,
+    )
+    task = Task(
+        f"one-comp-{seed:04d}",
+        "update",
+        query,
+        s0,
+        compose_oracles(update_task.oracle, rec_oracle),
+        (),
+        chosen.persona,
+        tier=tier,
+    )
+    return GenerateOneResult(accepted=task, rejected=None)
+
+
+def _composite_speech_spans(query: str) -> tuple[str, str, str | None]:
+    """Split a composite query into the log span and the recommend ask."""
+    if not _LOG_SAY.search(query):
+        return "", "", "steps"
+    rec = _REC_ASK.search(query)
+    if rec is None:
+        return "", "", "steps"
+    return query[: rec.start()], query[rec.start() :], None
+
+
+def _recommend_from_template(
+    catalog: Mapping,
+    *,
+    chosen: RosterPerson,
+    profile: Profile,
+    seed: int,
+    occasion: str,
+    scene: str,
+    prior_logs: Sequence[Task] | None,
+    shell: str | None,
+    slots: dict[str, str],
+    tier: str = "",
+) -> GenerateOneResult:
+    """Template-filled Recommend: query from the agreed shells, work in S0."""
+    default_shell = _RECOMMEND_SHELLS_BY_OCCASION[occasion]
+    shell_id = shell if shell is not None else default_shell
+    if (
+        shell_id in _RECOMMEND_SHELLS_BY_OCCASION.values()
+        and shell_id != default_shell
+    ):
+        # Shell text names an occasion; it must be the sampled one so the
+        # query and the judged windows agree.
+        return GenerateOneResult(
+            accepted=None,
+            rejected=Rejected("", "template_occasion", "recommend"),
+        )
+    fill = dict(slots)
+    # The sampled occasion is the single source of truth: shell selection,
+    # spoken wording, and windows all derive from it. A caller slot dict
+    # may agree, but never contradict.
+    supplied_occasion = fill.get("occasion")
+    if supplied_occasion is not None and supplied_occasion != occasion:
+        return GenerateOneResult(
+            accepted=None,
+            rejected=Rejected("", "slot_conflict", "recommend"),
+        )
+    fill["occasion"] = occasion
+    if shell_id == "rec-named-dish":
+        # The shell says "tonight": dinner wording, so dinner windows only.
+        if occasion != "dinner":
+            return GenerateOneResult(
+                accepted=None,
+                rejected=Rejected("", "template_occasion", "recommend"),
+            )
+        dish = _allergen_dish(catalog, chosen, fill.get("dish"))
+        if dish is None:
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected("", "no_allergen_dish", "recommend")
+            )
+        fill["dish"] = dish
+    elif shell_id == "rec-post-gym" and chosen.persona != "gym":
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "not_gym_persona", "recommend")
+        )
+    query = recommend_query(shell_id, fill)
+    if query is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "template", "recommend")
+        )
+    parents = tuple(prior_logs or ())
+    ledger: list[LedgerRow] = []
+    if scene == "leftover":
+        # Leftover copies earlier Log tails for THIS roster person only;
+        # a dropped parent Log means there is nothing to copy and the
+        # draft is dropped with it. No shadow meals.
+        if not parents:
+            return GenerateOneResult(
+                accepted=None,
+                rejected=Rejected(query, "no_ledger", "recommend"),
+            )
+        for parent in parents:
+            tail = _provenanced_tail(parent, chosen)
+            if tail is None:
+                return GenerateOneResult(
+                    accepted=None,
+                    rejected=Rejected(query, "foreign_log", "recommend"),
+                )
+            ledger.extend(tail)
+    s0 = WorldState(profile=profile, ledger=ledger, catalog=catalog)
+    eaten = ledger_totals(ledger, catalog)
+    plan_windows = plan_windows_for_meal(profile.windows, eaten, occasion)
+    if plan_windows is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "empty_windows", "recommend")
+        )
+    oracle = Oracle(
+        profile=copy.deepcopy(profile),
+        last_plan=[],
+        plan_must_be_safe=True,
+        plan_must_fit_windows=True,
+        plan_windows=plan_windows,
+        ledger=tuple(ledger),
+    )
+    task_id = f"one-rec-{seed:04d}"
+    if scene == "leftover":
+        task_id += "-dep+" + "+".join(parent.id for parent in parents)
+    task = Task(
+        task_id,
+        "recommend",
+        query,
+        s0,
+        oracle,
+        (),
+        chosen.persona,
+        tier=tier,
+    )
+    return GenerateOneResult(accepted=task, rejected=None)
+
+
+_DEP_MARKER = "-dep+"
+
+
+def _provenanced_tail(parent: Task, chosen: RosterPerson) -> list[LedgerRow] | None:
+    """The parent's new rows when it is a Log Task for this roster person."""
+    if not isinstance(parent, Task) or parent.family != "log":
+        return None
+    if parent.s0.profile.user_id != chosen.user_id:
+        return None
+    tail = parent.oracle.ledger_tail
+    if not tail:
+        return None
+    return list(tail)
+
+
+def leftover_parent_ids(task: Task) -> tuple[str, ...]:
+    """Parent Log ids a leftover Recommend draft depends on; else ()."""
+    _head, marker, deps = task.id.partition(_DEP_MARKER)
+    if not marker:
+        return ()
+    return tuple(part for part in deps.split("+") if part)
+
+
+def drop_orphan_leftovers(
+    tasks: Sequence[Task], *, live_log_ids: frozenset[str] | set[str]
+) -> tuple[Task, ...]:
+    """Drop leftover drafts whose parent Logs are no longer live."""
+    live = set(live_log_ids)
+    kept: list[Task] = []
+    for task in tasks:
+        parents = leftover_parent_ids(task)
+        if parents and not set(parents) <= live:
+            continue
+        kept.append(task)
+    return tuple(kept)
+
+
+def _update_from_template(
+    catalog: Mapping,
+    *,
+    chosen: RosterPerson,
+    profile: Profile,
+    seed: int,
+    shell: str | None,
+    slots: dict[str, str],
+    tier: str = "",
+) -> GenerateOneResult:
+    """Template-filled Update: the query states the profile change."""
+    if shell is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "template", "update")
+        )
+    query = update_query(shell, slots)
+    if query is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "template", "update")
+        )
+
+    def reject(reason: str) -> GenerateOneResult:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, reason, "update")
+        )
+
+    band: str | None = None
+    expected = profile
+    if shell in {"upd-add-allergy", "upd-add-allergy-short"}:
+        spoken = slots.get("food") if shell == "upd-add-allergy" else slots.get("allergen")
+        tags = _resolve_allergen_tags(catalog, spoken or "")
+        if not tags:
+            return reject("no_allergen_food")
+        merged = normalize_tags(list(profile.allergies) + list(tags))
+        if merged == tuple(profile.allergies):
+            return reject("no_op_update")
+        expected = replace(profile, allergies=merged)
+    elif shell == "upd-rm-allergy":
+        tags = _resolve_allergen_tags(catalog, slots.get("allergen") or "")
+        if not tags:
+            return reject("no_allergen_food")
+        if not set(tags) & set(profile.allergies):
+            return reject("not_allergic")
+        remaining = tuple(
+            item for item in profile.allergies if item not in tags
+        )
+        expected = replace(profile, allergies=remaining)
+    elif shell == "upd-weight":
+        n = _slot_number(slots)
+        if n is None or n <= 0:
+            return reject("bad_slot")
+        candidate = replace(profile, weight_kg=n)
+        derived = derive_profile_windows(candidate)
+        if derived is None:
+            return reject("bad_slot")
+        expected = replace(candidate, windows=derived)
+    elif shell == "upd-kcal-explicit":
+        n = _slot_number(slots)
+        if n is None or n == 0.0:
+            return reject("bad_slot")
+        lo, hi = profile.windows["kcal"]
+        windows = {**profile.windows, "kcal": (lo + n, hi + n)}
+        expected = replace(profile, windows=windows)
+    elif shell == "upd-phase-cut":
+        if profile.phase == "cut":
+            return reject("already_cut")
+        band = "cut"
+        expected = replace(profile, phase="cut")
+    elif shell == "upd-phase-muscle":
+        if profile.phase == "muscle":
+            return reject("already_muscle")
+        band = "muscle"
+        expected = replace(profile, phase="muscle")
+    elif shell == "upd-fatigue":
+        # Easing a deficit needs a deficit: S0 kcal-hi must sit below EER.
+        eer = estimated_energy_requirement(
+            sex=profile.sex,
+            age_y=profile.age_y,
+            height_cm=profile.height_cm,
+            weight_kg=profile.weight_kg,
+            activity=profile.activity,
+        )
+        if profile.phase != "cut" or profile.windows["kcal"][1] >= eer:
+            return reject("no_deficit")
+        band = "fatigue"
+        expected = profile
+    elif shell == "upd-phase-maintain":
+        if profile.phase != "cut":
+            return reject("not_cutting")
+        candidate = replace(profile, phase="maintain")
+        derived = derive_profile_windows(candidate)
+        if derived is None:
+            return reject("bad_slot")
+        expected = replace(candidate, windows=derived)
+    else:
+        return reject("template")
+
+    oracle = Oracle(
+        profile=copy.deepcopy(expected),
+        ledger=(),
+        update_band=band,
+    )
+    s0 = WorldState(profile=profile, ledger=[], catalog=catalog)
+    task = Task(
+        f"one-upd-{seed:04d}",
+        "update",
+        query,
+        s0,
+        oracle,
+        (),
+        chosen.persona,
+        tier=tier,
+    )
+    return GenerateOneResult(accepted=task, rejected=None)
+
+
+def _slot_number(slots: dict[str, str]) -> float | None:
+    try:
+        value = float(slots["n"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return value
+
+
+def _resolve_allergen_tags(catalog: Mapping, spoken: str) -> tuple[str, ...]:
+    """Spoken name → catalog allergen tags (Oracle stores tags, never speech)."""
+    token = spoken.strip().lower()
+    if not token:
+        return ()
+    for food_id in sorted(catalog):
+        entry = catalog[food_id]
+        if not isinstance(entry, dict):
+            continue
+        name = str(entry.get("name") or "")
+        names = {food_id.replace("_", " ").lower(), name.lower()}
+        if "," in name:
+            names.add(name.split(",", 1)[0].lower())
+        names.update(str(alias).lower() for alias in entry.get("aliases") or [])
+        if token in names:
+            tags = tuple(sorted(set(entry.get("allergen_tags") or [])))
+            if tags:
+                return tags
+    for food_id in sorted(catalog):
+        entry = catalog[food_id]
+        if not isinstance(entry, dict):
+            continue
+        if token in {str(tag).lower() for tag in entry.get("allergen_tags") or []}:
+            return (token,)
+    return ()
+
+
+def _allergen_dish(
+    catalog: Mapping, chosen: RosterPerson, requested: str | None
+) -> str | None:
+    """A catalog food carrying one of the person's allergen tags.
+
+    The spoken name fills {dish}; the query never says allergic.
+    """
+    banned = set(chosen.allergies)
+    if not banned:
+        return None
+    if requested is not None:
+        entry = catalog.get(requested)
+        tags = set((entry or {}).get("allergen_tags") or [])
+        if entry is None or not tags & banned:
+            return None
+        return _spoken_name(requested, entry)
+    for food_id in sorted(catalog):
+        entry = catalog[food_id]
+        if not isinstance(entry, dict):
+            continue
+        if set(entry.get("allergen_tags") or []) & banned:
+            return _spoken_name(food_id, entry)
+    return None
+
+
+def _spoken_name(food_id: str, entry: Mapping) -> str:
+    aliases = entry.get("aliases") or []
+    if aliases:
+        return str(aliases[0])
+    name = str(entry.get("name") or "")
+    return name.split(",", 1)[0] if "," in name else name or food_id
+
+
+def search_fit_plate(
+    pool: FoodPool,
+    *,
+    profile: Profile,
+    catalog: Mapping,
+    occasion: str,
+    last_meal: bool = False,
+    max_foods: int = 3,
+) -> list[dict[str, object]] | None:
+    """Search a pool for an allergen-safe plate that fits the meal windows.
+
+    Code-only authoring helper for Evaluate: grams are the pool's own
+    quantity-1.0 PortionFacts (QNS included as a gram fact), and all six
+    windows must bind with an empty ``bind_evaluate_reasons`` set. Speech for
+    the returned plate is written later by the unfit/speech rewriter; this
+    function never invents grams or disallowed combinations.
+
+    ``profile`` must carry the derived daily windows for the S0 person.
+    """
+    eaten: dict[str, float] = {}
+    windows = plan_windows_for_meal(
+        profile.windows, eaten, occasion, last_meal=last_meal
+    )
+    if windows is None:
+        return None
+    # Deterministic candidate list: (food_id, grams) from quantity-1.0
+    # alternatives. Candidate grams are table values, never interpolations.
+    options: list[tuple[str, float]] = []
+    for food in pool.foods:
+        entry = catalog.get(food.food_id) or {}
+        tags = set(normalize_tags(list(entry.get("allergen_tags") or [])))
+        if tags & set(normalize_tags(list(profile.allergies))):
+            continue
+        for alt in sorted(
+            food.alternatives,
+            key=lambda row: (
+                unit_naturalness_rank(row.key),
+                row.grams,
+                row.key,
+            ),
+        ):
+            if alt.quantity != 1.0:
+                continue
+            grams = float(alt.grams)
+            if grams <= GRAM_TOLERANCE or grams > MAX_ITEM_GRAMS:
+                continue
+            pair = (food.food_id, grams)
+            if pair not in options:
+                options.append(pair)
+
+    def _fits(items: Sequence[tuple[str, float]]) -> bool:
+        plate = [{"food_id": fid, "grams": grams} for fid, grams in items]
+        return not bind_evaluate_reasons(plate, dict(windows), catalog, profile.allergies)
+
+    for size in range(1, max_foods + 1):
+        for combo in itertools.combinations(options, size):
+            fids = [fid for fid, _grams in combo]
+            if len(set(fids)) != len(fids):
+                continue
+            if _fits(combo):
+                return [{"food_id": fid, "grams": grams} for fid, grams in combo]
+    return None
+
+
+def _evaluate_from_items(
+    catalog: Mapping,
+    *,
+    chosen: RosterPerson,
+    profile: Profile,
+    seed: int,
+    occasion: str,
+    knife: str | None,
+    rewriter: Callable[..., object] | None,
+    amount_path: str | None,
+    tier: str,
+    items: Sequence[Mapping[str, object]],
+    pool_size: int = DEFAULT_GENERATE_POOL_SIZE,
+) -> GenerateOneResult:
+    """Author an Evaluate item from a code-chosen plate (fit, then knife)."""
+    plate: list[dict[str, object]] = []
+    for item in items:
+        if not isinstance(item, Mapping):
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected("", "bad_items", "evaluate")
+            )
+        food_id = str(item.get("food_id") or "")
+        grams = item.get("grams")
+        if not food_id or food_id not in catalog:
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected("", "bad_items", "evaluate")
+            )
+        if isinstance(grams, bool) or not isinstance(grams, (int, float)):
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected("", "bad_items", "evaluate")
+            )
+        grams = round(float(grams), 2)
+        if grams <= GRAM_TOLERANCE or grams > MAX_ITEM_GRAMS:
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected("", "bad_items", "evaluate")
+            )
+        plate.append({"food_id": food_id, "grams": grams})
+    if not plate:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "empty_pool", "evaluate")
+        )
+    eaten_at = f"today-{occasion}"
+    bound = [LedgerRow(row["food_id"], float(row["grams"]), eaten_at) for row in plate]
+    s0 = WorldState(profile=profile, ledger=[], catalog=catalog)
+
+    # The pool is reseeded the same way the caller authored the plate, so the
+    # knife's neighbor search sees the full pool (allergy knife needs more than
+    # the plate's foods). Plate membership is enforced instead of re-sampling
+    # risks: same seed + pool_size reproduce the caller's pool.
+    pools = sample_pools(
+        catalog,
+        seed=seed,
+        family="evaluate",
+        n_pools=1,
+        pool_size=pool_size,
+    )
+    pool = pools[0] if pools else None
+    if pool is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "empty_pool", "evaluate")
+        )
+    pool_ids = {food.food_id for food in pool.foods}
+    if any(row.food_id not in pool_ids for row in bound):
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "not_in_pool", "evaluate")
+        )
+
+    spoken_list = [
+        {"food_id": row.food_id, "grams": float(row.grams)} for row in bound
+    ]
+    query = _rewrite_unfit(
+        spoken_list,
+        rewriter,
+        intent="evaluate the meal",
+        occasion=occasion,
+        amount_path=amount_path or AMOUNT_NAMED_MEASURE,
+    )
+    if query is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected("", "rewrite", "evaluate")
+        )
+    return _evaluate_from_bound(
+        query,
+        bound,
+        s0,
+        seed=seed,
+        occasion=occasion,
+        persona=chosen.persona,
+        knife=knife,
+        rewriter=rewriter,
+        pool=pool,
+        amount_path=amount_path or AMOUNT_NAMED_MEASURE,
+        last_meal=False,
+        tier=tier,
+    )
+
+
+def _evaluate_from_bound(
+    query: str,
+    bound: Sequence,
+    s0: WorldState,
+    *,
+    seed: int,
+    occasion: str,
+    persona: str,
+    knife: str | None,
+    rewriter: Callable[..., object] | None,
+    pool: FoodPool,
+    amount_path: str,
+    last_meal: bool,
+    tier: str = "",
+) -> GenerateOneResult:
+    items = [{"food_id": row.food_id, "grams": float(row.grams)} for row in bound]
+    draft = _realize_eval(
+        f"one-eval-{seed:04d}",
+        query,
+        items,
+        s0,
+        occasion,
+        (),
+        persona,
+        last_meal=last_meal,
+        tier=tier,
+    )
+    if isinstance(draft, GenerateOneResult):
+        return draft
+    labels = draft.oracle.bound_labels
+    if "leftover_under" in labels:
+        if not last_meal:
+            return GenerateOneResult(
+                accepted=None, rejected=Rejected(query, "leftover_under", "evaluate")
+            )
+        return GenerateOneResult(
+            accepted=_retag(
+                draft,
+                # Reload-valid situations: the unfit/leftover geometry lives
+                # in the oracle (reject + empty plan, bound_labels).
+                (),
+                persona,
+                tier=tier,
+            ),
+            rejected=None,
+        )
+    if "leftover_over" in labels and knife in (None, "over_slot"):
+        return GenerateOneResult(
+            accepted=_retag(draft, (), persona, tier=tier),
+            rejected=None,
+        )
+    if draft.oracle.last_verdict != "accept":
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "not_fit", "evaluate")
+        )
+    if knife is None:
+        return GenerateOneResult(accepted=draft, rejected=None)
+    eaten = ledger_totals(list(s0.ledger), s0.catalog)
+    windows = plan_windows_for_meal(
+        s0.profile.windows, eaten, occasion, last_meal=last_meal
+    )
+    if windows is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "empty_windows", "evaluate")
+        )
+    knifed = apply_knife(
+        knife,
+        items,
+        profile=s0.profile,
+        catalog=s0.catalog,
+        pool=pool,
+        windows=windows,
+    )
+    if knifed is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "knife", "evaluate")
+        )
+    spoken = _rewrite_unfit(
+        knifed,
+        rewriter,
+        intent=_knife_intent(knife),
+        occasion=occasion,
+        amount_path=amount_path,
+    )
+    if spoken is None:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "rewrite", "evaluate")
+        )
+    unfit = _realize_eval(
+        f"one-eval-{seed:04d}",
+        spoken,
+        knifed,
+        s0,
+        occasion,
+        # Reload-valid situations: the unfit geometry lives in the oracle
+        # (reject + empty plan + evaluated meal + bound reasons).
+        (),
+        persona,
+        last_meal=last_meal,
+        tier=tier,
+    )
+    if isinstance(unfit, GenerateOneResult):
+        return unfit
+    if unfit.oracle.last_verdict != "reject":
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(spoken, "knife", "evaluate")
+        )
+    return GenerateOneResult(accepted=unfit, rejected=None)
+
+
+def _retag(
+    task: Task, situations: tuple[str, ...], persona: str, tier: str = ""
+) -> Task:
+    return Task(
+        task.id,
+        task.family,
+        task.query,
+        task.s0,
+        task.oracle,
+        situations,
+        persona,
+        tier=tier or task.tier,
+    )
+
+
+def _realize_eval(
+    task_id: str,
+    query: str,
+    items: Sequence[Mapping[str, object]],
+    s0: WorldState,
+    occasion: str,
+    situations: tuple[str, ...],
+    persona: str,
+    *,
+    last_meal: bool,
+    tier: str = "",
+) -> Task | GenerateOneResult:
+    meal = [
+        {"food_id": str(item["food_id"]), "grams": float(item["grams"])}
+        for item in items
+    ]
+    try:
+        task = realize_evaluate(
+            task_id=task_id,
+            query=query,
+            items=meal,
+            s0=s0,
+            occasion=occasion,
+            last_meal=last_meal,
+            tier=tier,
+        )
+    except ValueError:
+        return GenerateOneResult(
+            accepted=None, rejected=Rejected(query, "empty_windows", "evaluate")
+        )
+    return Task(
+        task.id,
+        task.family,
+        task.query,
+        task.s0,
+        task.oracle,
+        situations,
+        persona,
+        tier=tier or task.tier,
+    )
+
+
+def _knife_intent(knife: str) -> str:
+    return {
+        "allergy": "include the allergen",
+        "over_slot": "bigger",
+        "under_slot": "smaller",
+        "swap": "swap",
+    }.get(knife, knife)
+
+
+def _rewrite_unfit(
+    items: Sequence[Mapping[str, object]],
+    rewriter: Callable[..., object] | None,
+    *,
+    intent: str,
+    occasion: str,
+    amount_path: str,
+) -> str | None:
+    if rewriter is None:
+        return None
+    raw = rewriter(
+        items, intent=intent, occasion=occasion, amount_path=amount_path
+    )
+    payload = parse_query_foods_payload(raw)
+    if payload is None:
+        return None
+    expected = [str(item["food_id"]) for item in items]
+    if list(payload["foods"]) != expected:
+        return None
+    return str(payload["query"])
+
+
+def build_unfit_rewrite_prompt(
+    items: Sequence[Mapping[str, object]],
+    *,
+    intent: str,
+    occasion: str,
+    catalog: Mapping | None = None,
+) -> str:
+    """Second-pass speech only: code-chosen foods and amounts, no window numbers."""
+    foods = catalog or {}
+    lines = [
+        "Rewrite one user query that names this exact plate as a meal to evaluate.",
+        f"Intent: {intent}. Occasion: {occasion}.",
+        "Speak the code-chosen foods and amounts. JSON foods must match this id list.",
+        "Use natural colloquial portion phrasing (e.g. 'a piece of...', 'a slice of...', 'a patty', 'a plate of...', 'a tablespoon of...').",
+        "Use 'a cup of' ONLY for volume items (soup, rice, beans, cereal, beverages). Never use 'a cup' for patties, burgers, or sandwiches.",
+        "Do not mention remaining budget, nutrient targets, or allergy codes.",
+        "Return exactly {\"query\":\"...\",\"foods\":[\"<id>\", ...]} and nothing else.",
+        "Plate:",
+    ]
+    ids: list[str] = []
+    from nutrienv.bench.pipeline.sampler import (
+        portion_alternatives,
+        unit_naturalness_rank,
+        _unspecified_phrase,
+    )
+    from nutrienv.bench.pipeline.types import PoolFood
+
+    for item in items:
+        food_id = str(item["food_id"])
+        grams = float(item["grams"])
+        ids.append(food_id)
+        spoken = _spoken_names(food_id, foods)
+        name = spoken[1] if len(spoken) > 1 else spoken[0]
+        entry = foods.get(food_id) or {}
+        matching_phrase = None
+        for alt in sorted(
+            portion_alternatives(entry),
+            key=lambda a: (unit_naturalness_rank(a.key), a.grams),
+        ):
+            if alt.quantity == 1.0 and abs(alt.grams - grams) < 1e-9:
+                matching_phrase = alt.phrase
+                break
+        if matching_phrase in ("a cup", "a serving"):
+            dummy_food = PoolFood(
+                food_id=food_id,
+                name=str(entry.get("name") or ""),
+                alternatives=(),
+                aliases=(),
+            )
+            natural_unit = _unspecified_phrase(dummy_food)
+            if natural_unit in ("a bowl", "a plate", "an order"):
+                matching_phrase = natural_unit
+        amount_desc = f"{matching_phrase} ({grams:g} g)" if matching_phrase else f"{grams:g} g"
+        lines.append(f"- id={food_id} spoken={name} amount={amount_desc}")
+    lines.append("foods: " + ", ".join(ids))
+    return "\n".join(lines)
+
+
+def build_stage_a_prompt(
+    items: Sequence[Mapping[str, object]], catalog: Mapping | None = None
+) -> str:
+    """Stage A voter: food+grams only. Eatable plate, not wisdom."""
+    foods = catalog or {}
+    lines = [
+        "Here is a plate listed as food and grams.",
+        "Could one person eat this at one meal? Large plates are allowed.",
+        "Vote whether the plate is eatable, not whether it is wise or healthy.",
+        "Do not judge whether the gram amounts are the table-correct portion fact.",
+        "Do not see a user query. Do not see nutrient windows.",
+        "Plate:",
+    ]
+    for item in items:
+        food_id = str(item["food_id"])
+        grams = float(item["grams"])
+        spoken = _spoken_names(food_id, foods)
+        name = spoken[1] if len(spoken) > 1 else spoken[0]
+        lines.append(f"- {name}: {grams:g} g")
+    return "\n".join(lines)
+
+
+def parse_query_foods_payload(payload: object) -> QueryFoodsPayload | None:
+    """Accept {query, foods: [pool id, …]}. Grams and items/expression are not a schema."""
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(payload, Mapping):
+        return None
+    if set(payload) != {"query", "foods"}:
+        return None
+    query = payload.get("query")
+    foods_raw = payload.get("foods")
+    if not isinstance(query, str) or not query.strip():
+        return None
+    if not isinstance(foods_raw, Sequence) or isinstance(foods_raw, (str, bytes)):
+        return None
+    foods: list[str] = []
+    for item in foods_raw:
+        if isinstance(item, Mapping):
+            return None
+        if not isinstance(item, str) or not item.strip():
+            return None
+        foods.append(item.strip())
+    if not foods:
+        return None
+    return {"query": query.strip(), "foods": foods}
+
+
+def build_log_system_prompt(
+    *, amount_path: str, persona: str = "everyday", family: str = "log"
+) -> str:
+    """Amount-path instructions for the Log expander. Unspecified does not teach serving-of."""
+    if amount_path not in AMOUNT_PATHS:
+        raise ValueError(f"unknown amount_path {amount_path!r}")
+    if family == "composite":
+        lines = [
+            "Compose one plausible meal the user already ate, then ask what to eat next.",
+            "Return exactly one JSON object and nothing else:",
+            '{"query":"<log the meal, then ask for the next meal>","foods":["<pool food_id>", ...]}',
+            "foods are pool ids for the logged meal only. Do not put grams in the JSON.",
+            "The query names each logged food in natural speech, then asks what to eat next.",
+            "Do not name foods for the next meal. The recommend step is a free request.",
+            "Do not leak window numbers or food_id slugs in the query.",
+        ]
+    else:
+        lines = [
+            "Compose one plausible meal from the food pool and write one user query.",
+            "Return exactly one JSON object and nothing else:",
+            '{"query":"<one sentence>","foods":["<pool food_id>", ...]}',
+            "foods are pool ids. Do not put grams in the JSON.",
+            "The query names each chosen food in natural speech.",
+            "Do not leak window numbers or food_id slugs in the query.",
+        ]
+    if amount_path == AMOUNT_EXPLICIT_GRAMS:
+        lines.append(
+            'Amount path is explicit grams: you may write household grams such as "150 g".'
+        )
+    elif amount_path == AMOUNT_NAMED_MEASURE:
+        lines.append(
+            "Amount path is named measures: piece, slice, patty, can, packet, pouch, bar, "
+            "stick, wing, drummette, tbsp, tsp, scoop, bowl, plate, cup, fl_oz."
+        )
+        lines.append(
+            "Colloquial units you may also use: handful, fist(-sized), "
+            "palm(-sized), deck of cards, dollop, splash, drizzle."
+        )
+        lines.append("Do not write grams next to a named measure.")
+    else:
+        lines.append(
+            "Amount path is unspecified quantity: bind will use FNDDS QNS "
+            "(bowl / plate / order), never cup."
+        )
+        lines.append("Do not use serving-of wording.")
+    lines.append(f"Persona flavor: {persona}.")
+    lines.extend(
+        [
+            "",
+            "Portion and Colloquial Style Rules:",
+            "- Write a single sentence a real person would type when logging food.",
+            '- Use a natural meal frame: "For lunch I had...", "Breakfast was...", '
+            'or just "Had a...".',
+            '- ALWAYS choose colloquial, human-natural portion units that fit the food:',
+            '  * For solid/discrete items (burgers, patties, sandwiches, burritos, rolls, pastries, snacks) -> use "a piece of", "a slice of", "a patty", "a bar of", "a packet of", or dish nouns.',
+            '  * For plated mixed dishes, stir fries, pastas -> use "a plate of" or "a bowl of".',
+            '  * For soups, cereals, oatmeal, salads, yogurt -> use "a bowl of" or "a cup of".',
+            '  * For condiments, dressings, sauces, dips, oils -> use "a tablespoon of", "a teaspoon of", or "a pat of".',
+            '  * "a cup of" is ONLY for items truly measured by cup volume (soup, rice, beans, grains, yogurt, cereal, beverages).',
+            '  * NEVER use "a cup of" for burger patties, sandwiches, burritos, bread rolls, or sliced meats.',
+            '- Join foods naturally: "topped with", "along with", "with a side of".',
+            "- Do not title-case foods or leak window numbers.",
+            "",
+            "Binding rules (fail-closed; the meal is rejected when violated):",
+            "- Speak every chosen food's amount with exactly one phrase from the "
+            "pool's own \u201cspeakable portions\u201d list, verbatim, no kitchen gloss.",
+            "- Do not rename the food (no dish suffixes like \"with gravy\" or "
+            "\"on a pancake\") and do not double an amount (no \"a cup, 195 g\").",
+            "- When two foods share a name, use the more specific \"spoken\" alias.",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def build_log_user_prompt(pool: FoodPool, *, family: str = "log") -> str:
+    """Pool table for the Log expander. foods in JSON must be these ids.
+
+    Each food shows its spoken forms AND the table phrases it can actually
+    say (``phrase = grams``); the LLM composes speech only from these, so the
+    code-side ``resolve_portion`` can always bind grams. Grams never pass
+    through the LLM.
+    """
+    lines = [
+        f"Food pool {pool.pool_id} (pick 1-3 foods; JSON foods must be pool ids):",
+    ]
+    for food in pool.foods:
+        spoken = food.aliases[0] if food.aliases else food.name.split(",", 1)[0]
+        also = [a for a in food.aliases if a.strip().lower() != spoken.lower()]
+        header = f'id={food.food_id} spoken="{spoken}" — {food.name}'
+        if also:
+            header += f" (also: {', '.join(also)})"
+        lines.append(header)
+        phrases = []
+        for alt in sorted(
+            food.alternatives,
+            key=lambda a: (unit_naturalness_rank(a.key), a.grams, a.phrase),
+        ):
+            phrase = f"{alt.phrase} = {alt.grams:g}g"
+            if phrase not in phrases:
+                phrases.append(phrase)
+        if phrases:
+            lines.append("  speakable portions: " + "; ".join(phrases))
+    lines.append("")
+    if family == "composite":
+        lines.append("The user already ate this meal and now asks what to eat next.")
+        lines.append("foods JSON covers the logged meal only. Output the JSON object only.")
+    else:
+        lines.append(
+            "The user already ate this meal. Write a log request speaking only "
+            "the portions shown above."
+        )
+        lines.append(
+            "Use each chosen food's exact speakable portions verbatim. "
+            "Compose one meal. Output the JSON object only."
+        )
+    return "\n".join(lines)
+
+
+class LogExpander:
+    """Mill expander: {query, foods} JSON, amount path in the system prompt."""
+
+    def __init__(
+        self,
+        *,
+        complete: Callable[[str, Sequence[Mapping[str, str]]], str],
+        parse_retries: int = 1,
+        model_id: str | None = None,
+    ) -> None:
+        self._complete = complete
+        self._parse_retries = max(0, int(parse_retries))
+        self._model_id = model_id or "log-expander"
+
+    def __call__(
+        self,
+        pool: FoodPool,
+        *,
+        persona: str,
+        family: str,
+        amount_path: str,
+    ) -> dict[str, object]:
+        messages = (
+            {
+                "role": "system",
+                "content": build_log_system_prompt(
+                    amount_path=amount_path, persona=persona, family=family
+                ),
+            },
+            {"role": "user", "content": build_log_user_prompt(pool, family=family)},
+        )
+        last: dict[str, object] = {"query": "", "foods": []}
+        for _attempt in range(1 + self._parse_retries):
+            parsed = parse_query_foods_payload(self._complete(self._model_id, messages))
+            if parsed is not None:
+                return parsed
+        return last
+
+
+def make_log_expander(
+    *,
+    complete: Callable[[str, Sequence[Mapping[str, str]]], str],
+    parse_retries: int = 1,
+    model_id: str | None = None,
+) -> LogExpander:
+    """Build the Log mill expander. complete is injected; no live API required.
+
+    ``model_id`` is forwarded to ``complete`` so a live CLI can route the
+    request to a specific model; the default keeps the historical label.
+    """
+    return LogExpander(
+        complete=complete, parse_retries=parse_retries, model_id=model_id
+    )
+
+
+class UnfitRewriter:
+    """Second Evaluate speech pass. Prompt has foods and amounts, not windows."""
+
+    def __init__(
+        self,
+        *,
+        complete: Callable[[str, Sequence[Mapping[str, str]]], str],
+        catalog: Mapping,
+        model_id: str = "qwen3.8-max",
+        parse_retries: int = 1,
+    ) -> None:
+        self._complete = complete
+        self._catalog = catalog
+        self._model_id = model_id
+        self._parse_retries = max(0, int(parse_retries))
+
+    def __call__(
+        self,
+        items: Sequence[Mapping[str, object]],
+        *,
+        intent: str,
+        occasion: str,
+        amount_path: str | None = None,
+    ) -> dict[str, object]:
+        messages = (
+            {
+                "role": "system",
+                "content": build_unfit_rewrite_prompt(
+                    items, intent=intent, occasion=occasion, catalog=self._catalog
+                ),
+            },
+            {
+                "role": "user",
+                "content": "Write the evaluate query for this plate. JSON only.",
+            },
+        )
+        last: dict[str, object] = {"query": "", "foods": []}
+        for _attempt in range(1 + self._parse_retries):
+            parsed = parse_query_foods_payload(
+                self._complete(self._model_id, messages)
+            )
+            if parsed is not None:
+                return parsed
+        return last
+
+
+def make_unfit_rewriter(
+    *,
+    complete: Callable[[str, Sequence[Mapping[str, str]]], str],
+    catalog: Mapping,
+    model_id: str = "qwen3.8-max",
+    parse_retries: int = 1,
+) -> UnfitRewriter:
+    """Build the unfit speech rewriter. complete is injected; no live API required."""
+    return UnfitRewriter(
+        complete=complete,
+        catalog=catalog,
+        model_id=model_id,
+        parse_retries=parse_retries,
+    )
+
+
+def _bind_log_foods(
+    query: str,
+    foods: Sequence[str],
+    pool: FoodPool,
+    catalog: Mapping,
+    occasion: str,
+    *,
+    amount_path: str,
+    gram_anchor: GramAnchor | None = None,
+    enable_semantic_vote: bool = False,
+) -> tuple[list[LedgerRow] | None, str | None]:
+    pool_ids = {food.food_id for food in pool.foods}
+    eaten_at = f"today-{occasion}"
+    query = _normalize_quantity_english(query)
+    if len(foods) != len(set(foods)):
+        return None, "duplicate"
+    for food_id in foods:
+        if food_id not in pool_ids or food_id not in catalog:
+            return None, "not_in_pool"
+    if _ambiguous_mention(query, pool, catalog):
+        return None, "ambiguous"
+    mentioned = _mentioned_pool_ids(query, pool, catalog)
+    if mentioned - set(foods):
+        return None, "omitted_food"
+    if _repeated_speech(query, foods, catalog):
+        return None, "repeat"
+    rows: list[LedgerRow] = []
+    for food_id in foods:
+        clause = _local_clause(query, food_id, catalog)
+        if clause is None:
+            return None, "unresolvable"
+        spoken = _speech_amount_path(clause)
+        if spoken != amount_path:
+            return None, "unresolvable" if spoken is None else "amount_path"
+        if amount_path == AMOUNT_UNSPECIFIED:
+            grams = _qns_grams(food_id, clause, catalog)
+        else:
+            grams = spoken_grams_from_query(clause, food_id, catalog)
+            if grams is None:
+                grams = resolve_portion(food_id, clause, catalog)
+            if grams is None and gram_anchor is not None:
+                grams = _anchored_bind_grams(
+                    gram_anchor, food_id, clause, query, catalog
+                )
+            if grams is None and enable_semantic_vote and gram_anchor is None:
+                from nutrienv.bench.pipeline.semantic_vote import vote_fndds_portion
+
+                voted = vote_fndds_portion(clause, food_id, catalog)
+                if (
+                    voted.status == "estimated_by_vote"
+                    and voted.recommended_grams is not None
+                ):
+                    grams = voted.recommended_grams
+        if grams is None:
+            return None, "unresolvable"
+        if float(grams) <= GRAM_TOLERANCE:
+            return None, "small_grams"
+        if float(grams) > MAX_ITEM_GRAMS:
+            return None, "over_cap"
+        rows.append(LedgerRow(food_id, float(grams), eaten_at))
+
+    if not rows:
+        return None, "unresolvable"
+    return rows, None
+
+
+def _anchored_bind_grams(
+    anchor: GramAnchor,
+    food_id: str,
+    expression: str,
+    query: str,
+    catalog: Mapping,
+) -> float | None:
+    """One authoring-time LLM grams proposal, accepted only on-table.
+
+    ``resolve_portion`` could not parse the clause; the anchor proposes grams
+    and the portion-table whitelist is the deterministic veto. Any anchor
+    failure or off-table proposal degrades to ``unresolvable`` (fail-closed);
+    the natural spoken wording stays on the query.
+    """
+    from nutrienv.bench.portion_table import matches_portion_table
+
+    try:
+        proposed = anchor(food_id, expression, query)
+    except Exception:
+        return None
+    if isinstance(proposed, bool) or not isinstance(proposed, (int, float)):
+        return None
+    grams = round(float(proposed), 2)
+    if not grams > 0:
+        return None
+    if not matches_portion_table(food_id, grams, catalog):
+        return None
+    return grams
+
+
+def _normalize_quantity_english(query: str) -> str:
+    """Keep 1,500 and one-and-a-half as one quantity before clause splitting."""
+    query = _THOUSANDS_COMMA.sub("", query)
+
+    def _spaced(match: re.Match[str]) -> str:
+        number, frac = match.group(1), match.group(2)
+        if frac in {"half", "quarter", "third"}:
+            return f"{number} and a {frac}"
+        return f"{number} and {frac}"
+
+    return _HYPHEN_QUANTITY_AND.sub(_spaced, query)
+
+
+def _food_clauses(query: str) -> list[str]:
+    """Split a meal into per-food spans, keeping quantity English intact."""
+    held: list[str] = []
+
+    def _hold(match: re.Match[str]) -> str:
+        held.append(match.group(0))
+        return f"\x00{len(held) - 1}\x00"
+
+    protected = _QUANTITY_AND.sub(_hold, query)
+    parts = _FOOD_SPLIT.split(protected)
+    clauses: list[str] = []
+    for part in parts:
+        restored = _PROTECT_SLOT.sub(lambda match: held[int(match.group(1))], part)
+        text = restored.strip()
+        if text:
+            clauses.append(text)
+    return clauses
+
+
+def _repeated_speech(
+    query: str, food_ids: Sequence[str], catalog: Mapping
+) -> bool:
+    """True when the query reports the same food in more than one clause."""
+    clauses = _food_clauses(query)
+    for food_id in food_ids:
+        hits = sum(
+            1 for clause in clauses if _clause_mentions(clause, food_id, catalog)
+        )
+        if hits > 1:
+            return True
+    return False
+
+
+def _clause_mentions(clause: str, food_id: str, catalog: Mapping) -> bool:
+    lowered = clause.lower()
+    for name in _spoken_names(food_id, catalog):
+        needle = name.strip().lower()
+        if len(needle) < 3 or needle in _MENTION_STOP:
+            continue
+        if re.search(rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered):
+            return True
+    return False
+
+
+def _local_clause(query: str, food_id: str, catalog: Mapping) -> str | None:
+    """Speech span for one food: a neighbor's unit cannot leak across coordinators."""
+    best: tuple[int, str] | None = None
+    for clause in _food_clauses(query):
+        lowered = clause.lower()
+        for name in _spoken_names(food_id, catalog):
+            needle = name.strip().lower()
+            if len(needle) < 3:
+                continue
+            if re.search(rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered):
+                if best is None or len(needle) > best[0]:
+                    best = (len(needle), clause)
+    return None if best is None else best[1]
+
+
+def _ambiguous_mention(query: str, pool: FoodPool, catalog: Mapping) -> bool:
+    """True when two pool ids claim overlapping spoken spans (rice / white rice)."""
+    spans = _mention_spans(query, [food.food_id for food in pool.foods], catalog)
+    for index, (start, end, food_id) in enumerate(spans):
+        for other_start, other_end, other_id in spans[index + 1 :]:
+            if food_id != other_id and start < other_end and other_start < end:
+                return True
+    return False
+
+
+def _mention_spans(
+    query: str, food_ids: Sequence[str], catalog: Mapping
+) -> list[tuple[int, int, str]]:
+    lowered = query.lower()
+    spans: list[tuple[int, int, str]] = []
+    for food_id in food_ids:
+        for name in _spoken_names(food_id, catalog):
+            needle = name.strip().lower()
+            if len(needle) < 3 or needle in _MENTION_STOP:
+                continue
+            for match in re.finditer(
+                rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered
+            ):
+                spans.append((match.start(), match.end(), food_id))
+    return spans
+
+
+def _mentioned_pool_ids(query: str, pool: FoodPool, catalog: Mapping) -> set[str]:
+    """Pool ids whose name or alias appears anywhere in the query."""
+    mentioned: set[str] = set()
+    lowered = query.lower()
+    for food in pool.foods:
+        for name in _spoken_names(food.food_id, catalog):
+            needle = name.strip().lower()
+            if len(needle) < 3 or needle in _MENTION_STOP:
+                continue
+            if re.search(rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered):
+                mentioned.add(food.food_id)
+                break
+    return mentioned
+
+
+def _spoken_names(food_id: str, catalog: Mapping) -> list[str]:
+    entry = catalog.get(food_id) or {}
+    names = [food_id.replace("_", " ")]
+    name = str(entry.get("name") or "")
+    if name.strip():
+        names.append(name)
+        if "," in name:
+            names.append(name.split(",", 1)[0])
+    names.extend(str(alias) for alias in (entry.get("aliases") or []))
+    return names
+
+
+def _qns_grams(food_id: str, clause: str, catalog: Mapping) -> float | None:
+    """Unspecified bowl/plate/order binds FNDDS QNS only, never cup fallback."""
+    entry = catalog.get(food_id) or {}
+    portions = entry.get("portions") or {}
+    qns = portions.get("qns")
+    if isinstance(qns, bool) or not isinstance(qns, (int, float)) or qns <= 0:
+        return None
+    probe = {
+        food_id: {
+            "name": entry.get("name") or food_id,
+            "aliases": list(entry.get("aliases") or []),
+            "portions": {"qns": float(qns)},
+        }
+    }
+    grams = spoken_grams_from_query(clause, food_id, probe)
+    if grams is None:
+        grams = resolve_portion(food_id, clause, probe)
+    return grams
+
+
+def _speech_amount_path(text: str) -> str | None:
+    """Which amount path the spoken units belong to, or None if mixed/absent."""
+    classes: set[str] = set()
+    for token in _WORD.findall(text.lower()):
+        if token in GRAM_UNITS:
+            classes.add(AMOUNT_EXPLICIT_GRAMS)
+            continue
+        if token in OUNCE_UNITS:
+            classes.add(AMOUNT_NAMED_MEASURE)
+            continue
+        key = UNIT_SYNONYMS.get(token)
+        if key is not None and key != "serving":
+            classes.add(AMOUNT_NAMED_MEASURE)
+        elif key == "serving":
+            classes.add(AMOUNT_UNSPECIFIED)
+    if len(classes) != 1:
+        return None
+    return next(iter(classes))
+
+
+def _without_small_gram_foods(pool: FoodPool) -> FoodPool:
+    """Drop foods whose 1.0 portions all sit inside the ±10 g phrasing band."""
+    foods = tuple(food for food in pool.foods if _has_portion_outside_band(food))
+    return FoodPool(pool_id=pool.pool_id, family=pool.family, foods=foods)
+
+
+def _has_portion_outside_band(food: PoolFood) -> bool:
+    return any(
+        alt.quantity == 1.0 and alt.grams > GRAM_TOLERANCE for alt in food.alternatives
+    )

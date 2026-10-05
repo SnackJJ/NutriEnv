@@ -26,7 +26,7 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
-from nutrienv.bench.pipeline.generate_one import build_stage_a_prompt
+from nutrienv.bench.pipeline.legacy_generate_one import build_stage_a_prompt
 from nutrienv.bench.pipeline.types import QUANTITY_MULTIPLES, Reviewer
 from nutrienv.bench.realize import Task
 from nutrienv.io.chat import (

@@ -1,4 +1,10 @@
-"""Serialize surviving Tasks to a frozen split after oracle-gram validation."""
+"""Serialize surviving Tasks to a frozen split after oracle-gram validation.
+
+``freeze_legacy_tasks`` is the legacy mill freezer: its gate parses English gram phrases in
+the query (``validate_oracle_grams`` -> ``resolve_portion``). Agent-authored items are admitted
+by ``generate_one`` review from portion-key evidence and serialized with ``task_to_item``; they
+must not pass through this parser gate.
+"""
 
 from __future__ import annotations
 
@@ -20,10 +26,10 @@ from .types import (
     repo_root,
 )
 
-__all__ = ["freeze_tasks", "task_to_item"]
+__all__ = ["freeze_legacy_tasks", "task_to_item"]
 
 
-def freeze_tasks(
+def freeze_legacy_tasks(
     tasks: Sequence[Task],
     *,
     catalog,
@@ -33,7 +39,10 @@ def freeze_tasks(
     extra: Mapping[str, object] | None = None,
     overwrite: bool = False,
 ) -> tuple[dict, Path]:
-    """Validate oracle grams, then write a deterministic frozen payload."""
+    """Legacy mill only: gate oracle grams with the English gram-phrase parser, then write.
+
+    Not an admission path for agent-authored items (see the module docstring).
+    """
     if not tasks:
         raise ValueError("freeze requires a non-empty task list")
     issues = [
@@ -42,7 +51,7 @@ def freeze_tasks(
         for issue in _oracle_gram_issues(task)
     ]
     if issues:
-        raise ValueError("oracle grams gate failed:\n" + "\n".join(issues))
+        raise ValueError("legacy oracle grams parser gate failed:\n" + "\n".join(issues))
 
     digest = catalog_sha if catalog_sha is not None else catalog_digest(catalog)
     payload: dict[str, object] = {
@@ -91,6 +100,7 @@ def task_to_item(task: Task) -> dict:
             {"food_id": row.food_id, "grams": row.grams, "eaten_at": row.eaten_at}
             for row in task.s0.ledger
         ],
+        "plan_scope": task.s0.plan_scope,
     }
     if task.s0.last_plan:
         s0["last_plan"] = [
@@ -207,6 +217,13 @@ def _attach_plan_flags(payload: dict[str, object], oracle: Oracle) -> None:
         payload["plan_must_fit_windows"] = True
     if oracle.allow_empty_plan:
         payload["allow_empty_plan"] = True
+    if oracle.plan_high_protein:
+        payload["plan_high_protein"] = True
+    if oracle.ledger_variants:
+        payload["ledger_variants"] = [
+            [{"food_id": r.food_id, "grams": r.grams, "eaten_at": r.eaten_at} for r in ledger]
+            for ledger in oracle.ledger_variants
+        ]
 
 
 def _attach_verdict(payload: dict[str, object], oracle: Oracle) -> None:

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from nutrienv.bench.pipeline.generate_one import generate_one, search_fit_plate
+from nutrienv.bench.pipeline.legacy_generate_one import generate_one, search_fit_plate
 from nutrienv.bench.pipeline.roster import profile_for, sample_roster_person
 from nutrienv.bench.pipeline.sampler import sample_pools
 from nutrienv.world.catalog_store import load_catalog

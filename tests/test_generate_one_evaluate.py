@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from nutrienv.bench.pipeline.generate_one import (
+from nutrienv.bench.pipeline.legacy_generate_one import (
     build_stage_a_prompt,
     build_unfit_rewrite_prompt,
     generate_one,
@@ -524,14 +524,14 @@ def test_generate_one_log_rejects_tier() -> None:
 
 
 def test_evaluate_tier_survives_freeze_load_round_trip(tmp_path) -> None:
-    from nutrienv.bench.pipeline.freezer import freeze_tasks, task_to_item
+    from nutrienv.bench.pipeline.freezer import freeze_legacy_tasks, task_to_item
     from nutrienv.bench.split import load_split
 
     result = _run_eval(tier="pair")
     task = result.accepted
     assert task_to_item(task)["tier"] == "pair"
     assert task.situations == ()
-    _, target = freeze_tasks(
+    _, target = freeze_legacy_tasks(
         [task],
         catalog=task.s0.catalog,
         output_path=tmp_path / "tier.json",
@@ -543,7 +543,7 @@ def test_evaluate_tier_survives_freeze_load_round_trip(tmp_path) -> None:
 def test_generate_one_fit_items_survive_freeze_load_round_trip(tmp_path) -> None:
     """F-1: mill fit evaluate items emit reload-valid situations -- no
     authoring tags left on the producer path."""
-    from nutrienv.bench.pipeline.freezer import freeze_tasks
+    from nutrienv.bench.pipeline.freezer import freeze_legacy_tasks
     from nutrienv.bench.split import load_split
 
     result = _run_eval(tier="pair")
@@ -553,7 +553,7 @@ def test_generate_one_fit_items_survive_freeze_load_round_trip(tmp_path) -> None
     assert task.oracle.evaluated_plan
     assert task.situations == ()
 
-    _, target = freeze_tasks(
+    _, target = freeze_legacy_tasks(
         [task],
         catalog=task.s0.catalog,
         output_path=tmp_path / "fit.json",
@@ -576,7 +576,7 @@ def test_generate_one_rejects_falsey_non_string_tiers() -> None:
 def test_mill_unfit_items_survive_freeze_load_round_trip(tmp_path) -> None:
     """Producers agree with the batch channel: a knife-unfit and a
     leftover-unfit evaluate item freeze and reload cleanly."""
-    from nutrienv.bench.pipeline.freezer import freeze_tasks
+    from nutrienv.bench.pipeline.freezer import freeze_legacy_tasks
     from nutrienv.bench.split import load_split
 
     knife = _run_eval(
@@ -601,7 +601,7 @@ def test_mill_unfit_items_survive_freeze_load_round_trip(tmp_path) -> None:
 
     # The allergy catalog is a superset of the fit fixture, so one catalog
     # serves both items.
-    _, target = freeze_tasks(
+    _, target = freeze_legacy_tasks(
         tasks,
         catalog=tasks[0].s0.catalog,
         output_path=tmp_path / "unfit.json",

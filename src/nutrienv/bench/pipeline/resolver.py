@@ -26,7 +26,7 @@ from nutrienv.bench.realize import (
 from nutrienv.bench.realizations import EvaluateRow, MultiItemLogRow
 from nutrienv.world.catalog import canonical_food_id
 from nutrienv.world.daily_windows import plan_windows_for_meal
-from nutrienv.world.portions import resolve_portion
+from nutrienv.world.portions import GRAM_UNITS, OUNCE_UNITS, UNIT_SYNONYMS, resolve_portion
 from nutrienv.world.types import WorldState, ledger_totals, normalize_tags
 
 from .expander import match_pool_food
@@ -252,9 +252,19 @@ def _query_portion_phrases(
             seen.add(text.lower())
             found.append(text)
 
+    def _last_unit(tokens: list[str]) -> int | None:
+        last_break = max((i for i, token in enumerate(tokens)
+                          if token in _PHRASE_BREAK_TOKENS and token != "and"), default=-1)
+        units = {*UNIT_SYNONYMS, *GRAM_UNITS, *OUNCE_UNITS}
+        hits = [i for i, token in enumerate(tokens) if i > last_break and token in units]
+        return hits[-1] if hits else None
+
     def _add_heads(tokens: list[str], needle: str) -> None:
         for width in range(1, min(6, len(tokens)) + 1):
             start = len(tokens) - width
+            unit = _last_unit(tokens)
+            if unit is not None and start > unit:
+                continue
             span = tokens[start:]
             split = False
             for offset, token in enumerate(span):
@@ -289,7 +299,9 @@ def _query_portion_phrases(
             continue
         for match in re.finditer(rf"(?<![\w]){re.escape(needle)}(?![\w])", lowered):
             tokens = re.findall(r"[a-z0-9.]+", lowered[: match.start()])
-            _add(needle)
+            # Do not erase an unsupported explicit measure and reinterpret it as QNS.
+            if _last_unit(tokens) is None:
+                _add(needle)
             _add_heads(tokens, needle)
             trimmed = list(tokens)
             while trimmed and trimmed[-1] in {"of", "in", "the", "a", "an"}:
