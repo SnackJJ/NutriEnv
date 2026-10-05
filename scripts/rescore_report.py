@@ -121,7 +121,7 @@ def rescore_report(report: dict, tasks: dict) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description="Re-judge an exam report's trajectories with the current Scorer.")
     parser.add_argument("report", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
