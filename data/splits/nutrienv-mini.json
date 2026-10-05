@@ -1,8 +1,8 @@
 {
-  "version": "nutrienv-v1.0-mini",
-  "parent": "nutrienv-v1.0-gold",
-  "catalog": "data/fdc/catalog.sqlite",
-  "catalog_sha256": "57184b2bbce4519076b4238a8d64861950db46fdc793d0e43055f07f43c28b5f",
+  "version": "nutrienv-v1.1-mini-mass-envelopes-20261005",
+  "parent": "nutrienv-v1.1-mass-envelopes-20261005",
+  "catalog": "data/fdc/catalog-v3.sqlite",
+  "catalog_sha256": "63e5da2cbd33b5df376067be15a0897f70000be6494bd45e42647b0beab7cb5f",
   "items": [
     {
       "family": "update",
@@ -27,12 +27,12 @@
           "weight_kg": 59.0,
           "windows": {
             "carb_g": [
-              308.10656250000005,
-              308.10656250000005
+              252.08718750000003,
+              364.1259375
             ],
             "fat_g": [
-              87.390225,
-              87.390225
+              49.795,
+              87.14125
             ],
             "fiber_g": [
               31.370850000000004,
@@ -43,15 +43,16 @@
               2240.775
             ],
             "protein_g": [
-              47.2,
-              56.019375000000004
+              56.019375000000004,
+              196.0678125
             ],
             "sodium_mg": [
               0.0,
               2300.0
             ]
           }
-        }
+        },
+        "plan_scope": "day"
       },
       "situations": [
         "idempotent_update"
@@ -71,13 +72,13 @@
           {
             "eaten_at": "today-lunch",
             "food_id": "2707814",
-            "grams": 66.0
+            "grams": 113
           }
         ],
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "I had a plate of sliced tongue with a homemade cornbread muffin.",
+      "query": "For lunch today, I had a plate of sliced tongue with a homemade cornbread muffin.",
       "s0": {
         "ledger": [],
         "profile": {
@@ -90,12 +91,12 @@
           "weight_kg": 60.0,
           "windows": {
             "carb_g": [
-              170.40374999999997,
-              170.40374999999997
+              139.42125,
+              201.38625
             ],
             "fat_g": [
-              48.332699999999996,
-              48.332699999999996
+              27.540000000000003,
+              48.19499999999999
             ],
             "fiber_g": [
               17.350199999999997,
@@ -107,14 +108,15 @@
             ],
             "protein_g": [
               48.0,
-              48.0
+              108.43874999999998
             ],
             "sodium_mg": [
               0.0,
               2300.0
             ]
           }
-        }
+        },
+        "plan_scope": "day"
       },
       "situations": []
     },
@@ -147,15 +149,15 @@
         "plan_windows": {
           "carb_g": [
             0.0,
-            237.56
+            232.0
           ],
           "fat_g": [
             0.0,
-            67.38
+            55.52
           ],
           "fiber_g": [
             0.0,
-            24.19
+            19.99
           ],
           "kcal": [
             428.31,
@@ -163,7 +165,7 @@
           ],
           "protein_g": [
             0.0,
-            54.4
+            124.92
           ],
           "sodium_mg": [
             0.0,
@@ -173,7 +175,7 @@
         "profile": "s0"
       },
       "persona": "everyday",
-      "query": "Can you evaluate my planned lunch: a bowl of chicken burrito with rice and a glass of wine spritzer?",
+      "query": "Can you evaluate my planned lunch: a chicken burrito bowl with rice and a glass of wine spritzer?",
       "s0": {
         "ledger": [],
         "profile": {
@@ -189,16 +191,16 @@
           "weight_kg": 68.0,
           "windows": {
             "carb_g": [
-              237.55703125,
-              237.55703125
+              160.61484375,
+              231.99921875
             ],
             "fat_g": [
-              67.3798125,
-              67.3798125
+              31.72638888888889,
+              55.52118055555555
             ],
             "fiber_g": [
-              24.187625,
-              24.187625
+              19.987625,
+              19.987625
             ],
             "kcal": [
               1427.6875,
@@ -206,14 +208,15 @@
             ],
             "protein_g": [
               54.400000000000006,
-              54.400000000000006
+              124.92265624999999
             ],
             "sodium_mg": [
               0.0,
               2300.0
             ]
           }
-        }
+        },
+        "plan_scope": "meal"
       },
       "situations": []
     },
@@ -237,11 +240,11 @@
         "plan_windows": {
           "carb_g": [
             0.0,
-            266.73
+            315.22
           ],
           "fat_g": [
             0.0,
-            75.65
+            75.44
           ],
           "fiber_g": [
             0.0,
@@ -253,7 +256,7 @@
           ],
           "protein_g": [
             0.0,
-            48.8
+            169.73
           ],
           "sodium_mg": [
             0.0,
@@ -278,12 +281,12 @@
           "weight_kg": 61.0,
           "windows": {
             "carb_g": [
-              266.72593750000004,
-              266.72593750000004
+              218.2303125,
+              315.2215625
             ],
             "fat_g": [
-              75.653175,
-              75.653175
+              43.10722222222223,
+              75.4376388888889
             ],
             "fiber_g": [
               27.15755,
@@ -295,14 +298,15 @@
             ],
             "protein_g": [
               48.800000000000004,
-              48.800000000000004
+              169.7346875
             ],
             "sodium_mg": [
               0.0,
               2300.0
             ]
           }
-        }
+        },
+        "plan_scope": "meal"
       },
       "situations": []
     },
@@ -317,11 +321,11 @@
         "plan_windows": {
           "carb_g": [
             0.0,
-            321.81
+            390.1
           ],
           "fat_g": [
             0.0,
-            85.61
+            85.3
           ],
           "fiber_g": [
             0.0,
@@ -333,7 +337,7 @@
           ],
           "protein_g": [
             0.0,
-            45.91
+            214.55
           ],
           "sodium_mg": [
             0.0,
@@ -362,12 +366,12 @@
           "weight_kg": 88.0,
           "windows": {
             "carb_g": [
-              375.6328125,
-              375.6328125
+              307.3359375,
+              443.9296875
             ],
             "fat_g": [
-              106.543125,
-              106.543125
+              60.708333333333336,
+              106.23958333333331
             ],
             "fiber_g": [
               38.24625,
@@ -379,14 +383,15 @@
             ],
             "protein_g": [
               70.4,
-              70.4
+              239.03906249999997
             ],
             "sodium_mg": [
               0.0,
               2300.0
             ]
           }
-        }
+        },
+        "plan_scope": "meal"
       },
       "situations": []
     },
@@ -401,15 +406,15 @@
         "plan_windows": {
           "carb_g": [
             0.0,
-            356.72
+            372.83
           ],
           "fat_g": [
             0.0,
-            101.18
+            89.22
           ],
           "fiber_g": [
             0.0,
-            36.32
+            32.12
           ],
           "kcal": [
             573.58,
@@ -417,7 +422,7 @@
           ],
           "protein_g": [
             0.0,
-            64.86
+            200.75
           ],
           "sodium_mg": [
             0.0,
@@ -441,16 +446,16 @@
           "weight_kg": 76.0,
           "windows": {
             "carb_g": [
-              356.71796875,
-              356.71796875
+              258.11015625,
+              372.82578125000003
             ],
             "fat_g": [
-              101.1781875,
-              101.1781875
+              50.984722222222224,
+              89.22326388888888
             ],
             "fiber_g": [
-              36.320375,
-              36.320375
+              32.120375,
+              32.120375
             ],
             "kcal": [
               2294.3125,
@@ -458,14 +463,15 @@
             ],
             "protein_g": [
               60.800000000000004,
-              64.8578125
+              200.75234375
             ],
             "sodium_mg": [
               0.0,
               2300.0
             ]
           }
-        }
+        },
+        "plan_scope": "meal"
       },
       "situations": []
     },
@@ -488,7 +494,81 @@
                 "grams": 35.0
               }
             ],
-            "profile": "s0"
+            "profile": "s0",
+            "ledger_variants": [
+              [
+                {
+                  "food_id": "2708082",
+                  "grams": 40.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709879",
+                  "grams": 35.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2708088",
+                  "grams": 78.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709879",
+                  "grams": 35.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2708091",
+                  "grams": 35.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709879",
+                  "grams": 35.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2708096",
+                  "grams": 24.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709879",
+                  "grams": 35.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2708097",
+                  "grams": 24.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709879",
+                  "grams": 35.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2708101",
+                  "grams": 43.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709879",
+                  "grams": 35.0,
+                  "eaten_at": "today-lunch"
+                }
+              ]
+            ]
           },
           {
             "last_plan": [],
@@ -513,15 +593,15 @@
               ],
               "protein_g": [
                 0.0,
-                41.48
+                149.0
               ],
               "carb_g": [
                 0.0,
-                210.81
+                253.87
               ],
               "fat_g": [
                 0.0,
-                62.23
+                62.04
               ],
               "fiber_g": [
                 0.0,
@@ -532,7 +612,81 @@
                 2187.11
               ]
             },
-            "profile": "s0"
+            "profile": "s0",
+            "ledger_variants": [
+              [
+                {
+                  "food_id": "2708082",
+                  "grams": 40.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709879",
+                  "grams": 35.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2708088",
+                  "grams": 78.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709879",
+                  "grams": 35.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2708091",
+                  "grams": 35.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709879",
+                  "grams": 35.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2708096",
+                  "grams": 24.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709879",
+                  "grams": 35.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2708097",
+                  "grams": 24.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709879",
+                  "grams": 35.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2708101",
+                  "grams": 43.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709879",
+                  "grams": 35.0,
+                  "eaten_at": "today-lunch"
+                }
+              ]
+            ]
           }
         ]
       },
@@ -550,12 +704,12 @@
           "weight_kg": 54.0,
           "windows": {
             "carb_g": [
-              236.84804687500002,
-              236.84804687500002
+              193.784765625,
+              279.911328125
             ],
             "fat_g": [
-              67.17871875,
-              67.17871875
+              38.27847222222223,
+              66.98732638888889
             ],
             "fiber_g": [
               24.115437500000002,
@@ -567,14 +721,15 @@
             ],
             "protein_g": [
               43.2,
-              43.2
+              150.721484375
             ],
             "sodium_mg": [
               0.0,
               2300.0
             ]
           }
-        }
+        },
+        "plan_scope": "meal"
       },
       "situations": [],
       "tier": "tier1"
@@ -599,12 +754,12 @@
               "activity": "light",
               "windows": {
                 "carb_g": [
-                  295.41015625,
-                  295.41015625
+                  241.69921875,
+                  349.12109375
                 ],
                 "fat_g": [
-                  83.7890625,
-                  83.7890625
+                  47.74305555555556,
+                  83.55034722222223
                 ],
                 "fiber_g": [
                   30.078125,
@@ -613,6 +768,10 @@
                 "kcal": [
                   2148.4375,
                   2148.4375
+                ],
+                "protein_g": [
+                  57.6,
+                  187.98828125
                 ]
               }
             }
@@ -636,12 +795,12 @@
           "weight_kg": 72.0,
           "windows": {
             "carb_g": [
-              257.8125,
-              257.8125
+              210.9375,
+              304.6875
             ],
             "fat_g": [
-              73.125,
-              73.125
+              41.666666666666664,
+              72.91666666666667
             ],
             "fiber_g": [
               26.25,
@@ -653,14 +812,15 @@
             ],
             "protein_g": [
               57.6,
-              57.6
+              164.0625
             ],
             "sodium_mg": [
               0.0,
               2300.0
             ]
           }
-        }
+        },
+        "plan_scope": "day"
       },
       "situations": [],
       "tier": "tier1"
@@ -686,11 +846,11 @@
             "plan_windows": {
               "carb_g": [
                 0.0,
-                249.61
+                294.99
               ],
               "fat_g": [
                 0.0,
-                70.8
+                70.6
               ],
               "fiber_g": [
                 0.0,
@@ -702,7 +862,7 @@
               ],
               "protein_g": [
                 0.0,
-                49.6
+                158.84
               ],
               "sodium_mg": [
                 0.0,
@@ -734,12 +894,12 @@
           "weight_kg": 62.0,
           "windows": {
             "carb_g": [
-              249.609765625,
-              249.609765625
+              204.226171875,
+              294.993359375
             ],
             "fat_g": [
-              70.79840625,
-              70.79840625
+              40.34097222222223,
+              70.59670138888889
             ],
             "fiber_g": [
               25.4148125,
@@ -751,14 +911,15 @@
             ],
             "protein_g": [
               49.6,
-              49.6
+              158.842578125
             ],
             "sodium_mg": [
               0.0,
               2300.0
             ]
           }
-        }
+        },
+        "plan_scope": "meal"
       },
       "situations": [],
       "tier": "tier1"
@@ -806,11 +967,11 @@
             "plan_windows": {
               "carb_g": [
                 0.0,
-                252.67
+                301.17
               ],
               "fat_g": [
                 0.0,
-                74.97
+                74.75
               ],
               "fiber_g": [
                 0.0,
@@ -822,7 +983,7 @@
               ],
               "protein_g": [
                 0.0,
-                45.39
+                166.32
               ],
               "sodium_mg": [
                 0.0,
@@ -854,12 +1015,12 @@
           "weight_kg": 61.0,
           "windows": {
             "carb_g": [
-              266.72593750000004,
-              266.72593750000004
+              218.2303125,
+              315.2215625
             ],
             "fat_g": [
-              75.653175,
-              75.653175
+              43.10722222222223,
+              75.4376388888889
             ],
             "fiber_g": [
               27.15755,
@@ -871,17 +1032,19 @@
             ],
             "protein_g": [
               48.800000000000004,
-              48.800000000000004
+              169.7346875
             ],
             "sodium_mg": [
               0.0,
               2300.0
             ]
           }
-        }
+        },
+        "plan_scope": "meal"
       },
       "situations": [],
       "tier": "tier2"
     }
-  ]
+  ],
+  "plan_mass_policy": "adult-meal-envelope-v1"
 }

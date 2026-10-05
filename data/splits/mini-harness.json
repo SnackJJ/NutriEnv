@@ -1,0 +1,2829 @@
+{
+  "version": "mini-harness-probe",
+  "parent": "nutrienv-v1.1-mass-envelopes-20261005",
+  "catalog": "data/fdc/catalog-v3.sqlite",
+  "catalog_sha256": "63e5da2cbd33b5df376067be15a0897f70000be6494bd45e42647b0beab7cb5f",
+  "items": [
+    {
+      "family": "update",
+      "id": "adr20-upd-5026",
+      "oracle": {
+        "ledger": "s0",
+        "profile": "s0"
+      },
+      "persona": "everyday",
+      "query": "Add peanut to my allergies.",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "activity": "active",
+          "age_y": 31,
+          "allergies": [
+            "peanut"
+          ],
+          "height_cm": 164.0,
+          "sex": "female",
+          "user_id": "roster-tess",
+          "weight_kg": 59.0,
+          "windows": {
+            "carb_g": [
+              252.08718750000003,
+              364.1259375
+            ],
+            "fat_g": [
+              49.795,
+              87.14125
+            ],
+            "fiber_g": [
+              31.370850000000004,
+              31.370850000000004
+            ],
+            "kcal": [
+              2240.775,
+              2240.775
+            ],
+            "protein_g": [
+              56.019375000000004,
+              196.0678125
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          }
+        },
+        "plan_scope": "day"
+      },
+      "situations": [
+        "idempotent_update"
+      ]
+    },
+    {
+      "family": "update",
+      "id": "adr20-upd-5027",
+      "oracle": {
+        "ledger": "s0",
+        "profile": {
+          "allergies": [
+            "egg"
+          ]
+        }
+      },
+      "persona": "gym",
+      "query": "I was recently diagnosed with an egg allergy. Add egg to my allergy list.",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "activity": "very_active",
+          "age_y": 19,
+          "allergies": [],
+          "height_cm": 168.0,
+          "sex": "female",
+          "user_id": "roster-eve",
+          "weight_kg": 58.0,
+          "windows": {
+            "carb_g": [
+              293.6925,
+              424.2225
+            ],
+            "fat_g": [
+              58.013333333333335,
+              101.52333333333333
+            ],
+            "fiber_g": [
+              36.5484,
+              36.5484
+            ],
+            "kcal": [
+              2610.6,
+              2610.6
+            ],
+            "protein_g": [
+              65.265,
+              228.42749999999998
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          }
+        },
+        "plan_scope": "day"
+      },
+      "situations": []
+    },
+    {
+      "family": "log",
+      "id": "adr20-log-5005",
+      "oracle": {
+        "ledger": "s0_plus_tail",
+        "ledger_tail": [
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2706716",
+            "grams": 305.0
+          }
+        ],
+        "profile": "s0"
+      },
+      "persona": "cut",
+      "query": "For lunch today, I had a plate of fish and noodles in cheese sauce with some vegetables mixed in, but no carrots, broccoli, or leafy greens.",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "activity": "moderate",
+          "age_y": 37,
+          "allergies": [],
+          "height_cm": 175.0,
+          "phase": "cut",
+          "sex": "male",
+          "user_id": "roster-gus",
+          "weight_kg": 76.0,
+          "windows": {
+            "carb_g": [
+              258.11015625,
+              372.82578125000003
+            ],
+            "fat_g": [
+              50.984722222222224,
+              89.22326388888888
+            ],
+            "fiber_g": [
+              32.120375,
+              32.120375
+            ],
+            "kcal": [
+              2294.3125,
+              2294.3125
+            ],
+            "protein_g": [
+              60.800000000000004,
+              200.75234375
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          }
+        },
+        "plan_scope": "day"
+      },
+      "situations": []
+    },
+    {
+      "family": "log",
+      "id": "adr20-log-5006",
+      "oracle": {
+        "ledger": "s0_plus_tail",
+        "ledger_tail": [
+          {
+            "eaten_at": "today-lunch",
+            "food_id": "2709725",
+            "grams": 90.0
+          }
+        ],
+        "profile": "s0"
+      },
+      "persona": "everyday",
+      "query": "I had a mini side order of fried green tomatoes (about a half-cup basket) for lunch.",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "activity": "light",
+          "age_y": 63,
+          "allergies": [
+            "milk"
+          ],
+          "height_cm": 158.0,
+          "sex": "female",
+          "user_id": "roster-fay",
+          "weight_kg": 64.0,
+          "windows": {
+            "carb_g": [
+              178.12265625,
+              257.28828125
+            ],
+            "fat_g": [
+              35.18472222222223,
+              61.57326388888888
+            ],
+            "fiber_g": [
+              22.166375,
+              22.166375
+            ],
+            "kcal": [
+              1583.3125,
+              1583.3125
+            ],
+            "protein_g": [
+              51.2,
+              138.53984375
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          }
+        },
+        "plan_scope": "day"
+      },
+      "situations": []
+    },
+    {
+      "family": "evaluate",
+      "id": "adr20-eval-5015",
+      "oracle": {
+        "evaluated_plan": [
+          {
+            "food_id": "2706949",
+            "grams": 135.0
+          },
+          {
+            "food_id": "2706990",
+            "grams": 180.0
+          }
+        ],
+        "last_plan": [
+          {
+            "food_id": "2706949",
+            "grams": 135.0
+          },
+          {
+            "food_id": "2706990",
+            "grams": 180.0
+          }
+        ],
+        "last_verdict": "accept",
+        "ledger": "s0",
+        "plan_windows": {
+          "carb_g": [
+            0.0,
+            400.57
+          ],
+          "fat_g": [
+            0.0,
+            95.86
+          ],
+          "fiber_g": [
+            0.0,
+            34.51
+          ],
+          "kcal": [
+            739.51,
+            986.01
+          ],
+          "protein_g": [
+            0.0,
+            145.2
+          ],
+          "sodium_mg": [
+            0.0,
+            2300.0
+          ]
+        },
+        "profile": "s0"
+      },
+      "persona": "everyday",
+      "query": "Evaluate this lunch: a corned beef sandwich on white bread with cheese and a chicken salad sandwich on white bread.",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "activity": "active",
+          "age_y": 29,
+          "allergies": [],
+          "height_cm": 172.0,
+          "phase": "muscle",
+          "sex": "female",
+          "user_id": "roster-ina",
+          "weight_kg": 66.0,
+          "windows": {
+            "carb_g": [
+              277.3153125,
+              400.56656250000003
+            ],
+            "fat_g": [
+              54.778333333333336,
+              95.86208333333333
+            ],
+            "fiber_g": [
+              34.51035,
+              34.51035
+            ],
+            "kcal": [
+              2465.025,
+              2465.025
+            ],
+            "protein_g": [
+              105.60000000000001,
+              145.20000000000002
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          }
+        },
+        "plan_scope": "meal"
+      },
+      "situations": []
+    },
+    {
+      "family": "evaluate",
+      "id": "adr20-eval-5009",
+      "oracle": {
+        "evaluated_plan": [
+          {
+            "food_id": "2707564",
+            "grams": 112.0
+          }
+        ],
+        "last_plan": [],
+        "last_reasons": [
+          "allergy",
+          "kcal_lo"
+        ],
+        "last_verdict": "reject",
+        "ledger": "s0",
+        "plan_windows": {
+          "carb_g": [
+            0.0,
+            315.22
+          ],
+          "fat_g": [
+            0.0,
+            75.44
+          ],
+          "fiber_g": [
+            0.0,
+            27.16
+          ],
+          "kcal": [
+            581.95,
+            775.93
+          ],
+          "protein_g": [
+            0.0,
+            169.73
+          ],
+          "sodium_mg": [
+            0.0,
+            2300.0
+          ]
+        },
+        "profile": "s0"
+      },
+      "persona": "everyday",
+      "query": "Can you evaluate my planned lunch: an almond butter and jelly sandwich on white bread?",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "activity": "moderate",
+          "age_y": 47,
+          "allergies": [
+            "tree_nut"
+          ],
+          "height_cm": 166.0,
+          "sex": "female",
+          "user_id": "roster-mia",
+          "weight_kg": 61.0,
+          "windows": {
+            "carb_g": [
+              218.2303125,
+              315.2215625
+            ],
+            "fat_g": [
+              43.10722222222223,
+              75.4376388888889
+            ],
+            "fiber_g": [
+              27.15755,
+              27.15755
+            ],
+            "kcal": [
+              1939.825,
+              1939.825
+            ],
+            "protein_g": [
+              48.800000000000004,
+              169.7346875
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          }
+        },
+        "plan_scope": "meal"
+      },
+      "situations": []
+    },
+    {
+      "family": "composite",
+      "id": "adr20-comp-5044",
+      "oracle": {
+        "sub_oracles": [
+          {
+            "ledger": "s0_plus_tail",
+            "ledger_tail": [
+              {
+                "eaten_at": "today-lunch",
+                "food_id": "2708598",
+                "grams": 70.0
+              }
+            ],
+            "profile": "s0"
+          },
+          {
+            "last_plan": [],
+            "ledger": [
+              {
+                "eaten_at": "today-lunch",
+                "food_id": "2708598",
+                "grams": 70.0
+              }
+            ],
+            "plan_must_be_safe": true,
+            "plan_must_fit_windows": true,
+            "plan_windows": {
+              "carb_g": [
+                0.0,
+                291.32
+              ],
+              "fat_g": [
+                0.0,
+                63.17
+              ],
+              "fiber_g": [
+                0.0,
+                25.34
+              ],
+              "kcal": [
+                562.5,
+                750.0
+              ],
+              "protein_g": [
+                0.0,
+                156.06
+              ],
+              "sodium_mg": [
+                0.0,
+                1947.2
+              ]
+            },
+            "profile": "s0"
+          }
+        ]
+      },
+      "persona": "everyday",
+      "query": "I had a small cafeteria portion of egg and meat quesadilla (two small cut pieces) for lunch, so what should I eat for dinner?",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "activity": "sedentary",
+          "age_y": 45,
+          "allergies": [
+            "peanut",
+            "shellfish"
+          ],
+          "height_cm": 170.0,
+          "sex": "male",
+          "user_id": "roster-hao",
+          "weight_kg": 72.0,
+          "windows": {
+            "carb_g": [
+              210.9375,
+              304.6875
+            ],
+            "fat_g": [
+              41.666666666666664,
+              72.91666666666667
+            ],
+            "fiber_g": [
+              26.25,
+              26.25
+            ],
+            "kcal": [
+              1875.0,
+              1875.0
+            ],
+            "protein_g": [
+              57.6,
+              164.0625
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          }
+        },
+        "plan_scope": "meal"
+      },
+      "situations": [],
+      "tier": "tier1"
+    },
+    {
+      "family": "composite",
+      "id": "adr24-comp-8303",
+      "oracle": {
+        "sub_oracles": [
+          {
+            "ledger": "s0_plus_tail",
+            "ledger_tail": [
+              {
+                "eaten_at": "today-lunch",
+                "food_id": "2709664",
+                "grams": 78.0
+              }
+            ],
+            "ledger_variants": [
+              [
+                {
+                  "food_id": "2709667",
+                  "grams": 80.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2709668",
+                  "grams": 80.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2709670",
+                  "grams": 80.0,
+                  "eaten_at": "today-lunch"
+                }
+              ]
+            ]
+          },
+          {
+            "profile": {
+              "activity": "light",
+              "windows": {
+                "carb_g": [
+                  225.158203125,
+                  325.228515625
+                ],
+                "fat_g": [
+                  44.47569444444444,
+                  77.83246527777777
+                ],
+                "fiber_g": [
+                  28.0196875,
+                  28.0196875
+                ],
+                "kcal": [
+                  2001.40625,
+                  2001.40625
+                ],
+                "protein_g": [
+                  60.800000000000004,
+                  175.123046875
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "persona": "cut",
+      "query": "For lunch, I had a small half-cup side of cooked fresh carrots. Please update my activity level to light.",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "activity": "moderate",
+          "age_y": 37,
+          "allergies": [],
+          "height_cm": 175.0,
+          "phase": "cut",
+          "sex": "male",
+          "user_id": "roster-gus",
+          "weight_kg": 76.0,
+          "windows": {
+            "carb_g": [
+              258.11015625,
+              372.82578125000003
+            ],
+            "fat_g": [
+              50.984722222222224,
+              89.22326388888888
+            ],
+            "fiber_g": [
+              32.120375,
+              32.120375
+            ],
+            "kcal": [
+              2294.3125,
+              2294.3125
+            ],
+            "protein_g": [
+              60.800000000000004,
+              200.75234375
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          }
+        },
+        "plan_scope": "day"
+      },
+      "situations": [],
+      "tier": "tier1"
+    },
+    {
+      "family": "composite",
+      "id": "adr24-comp-8256",
+      "oracle": {
+        "sub_oracles": [
+          {
+            "profile": {
+              "allergies": [
+                "egg"
+              ]
+            }
+          },
+          {
+            "ledger": "s0_plus_tail",
+            "ledger_tail": [
+              {
+                "eaten_at": "today-lunch",
+                "food_id": "2708171",
+                "grams": 18.0
+              }
+            ],
+            "profile": {
+              "allergies": [
+                "egg"
+              ]
+            }
+          },
+          {
+            "last_plan": [],
+            "ledger": [
+              {
+                "eaten_at": "today-lunch",
+                "food_id": "2708171",
+                "grams": 18.0
+              }
+            ],
+            "plan_must_be_safe": true,
+            "plan_must_fit_windows": true,
+            "plan_windows": {
+              "carb_g": [
+                0.0,
+                269.4
+              ],
+              "fat_g": [
+                0.0,
+                62.57
+              ],
+              "fiber_g": [
+                0.0,
+                23.7
+              ],
+              "kcal": [
+                516.76,
+                689.01
+              ],
+              "protein_g": [
+                0.0,
+                148.66
+              ],
+              "sodium_mg": [
+                0.0,
+                2155.82
+              ]
+            },
+            "profile": {
+              "allergies": [
+                "egg"
+              ]
+            }
+          }
+        ]
+      },
+      "persona": "everyday",
+      "query": "Please add egg to my allergy profile. I grabbed a serving of sandwich crackers for lunch. What should I eat for dinner that is egg-free?",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "activity": "light",
+          "age_y": 24,
+          "allergies": [],
+          "height_cm": 159.0,
+          "sex": "female",
+          "user_id": "roster-ola",
+          "weight_kg": 54.0,
+          "windows": {
+            "carb_g": [
+              193.784765625,
+              279.911328125
+            ],
+            "fat_g": [
+              38.27847222222223,
+              66.98732638888889
+            ],
+            "fiber_g": [
+              24.115437500000002,
+              24.115437500000002
+            ],
+            "kcal": [
+              1722.53125,
+              1722.53125
+            ],
+            "protein_g": [
+              43.2,
+              150.721484375
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          }
+        },
+        "plan_scope": "meal"
+      },
+      "situations": [],
+      "tier": "tier2"
+    },
+    {
+      "family": "composite",
+      "id": "adr24-comp-8257",
+      "oracle": {
+        "sub_oracles": [
+          {
+            "profile": {
+              "allergies": [
+                "milk",
+                "tree_nut"
+              ]
+            }
+          },
+          {
+            "ledger": "s0_plus_tail",
+            "ledger_tail": [
+              {
+                "eaten_at": "today-lunch",
+                "food_id": "2708296",
+                "grams": 160.0
+              }
+            ],
+            "profile": {
+              "allergies": [
+                "milk",
+                "tree_nut"
+              ]
+            }
+          },
+          {
+            "last_plan": [],
+            "ledger": [
+              {
+                "eaten_at": "today-lunch",
+                "food_id": "2708296",
+                "grams": 160.0
+              }
+            ],
+            "plan_must_be_safe": true,
+            "plan_must_fit_windows": true,
+            "plan_windows": {
+              "carb_g": [
+                0.0,
+                198.94
+              ],
+              "fat_g": [
+                0.0,
+                51.14
+              ],
+              "fiber_g": [
+                0.0,
+                20.41
+              ],
+              "kcal": [
+                474.99,
+                633.33
+              ],
+              "protein_g": [
+                0.0,
+                130.56
+              ],
+              "sodium_mg": [
+                0.0,
+                1599.2
+              ]
+            },
+            "profile": {
+              "allergies": [
+                "milk",
+                "tree_nut"
+              ]
+            }
+          }
+        ]
+      },
+      "persona": "everyday",
+      "query": "Please add tree nut to my allergy profile. For lunch, I heated up two pouches of frozen fruit pancakes from the freezer. What should I eat for dinner that is tree-nut free?",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "activity": "light",
+          "age_y": 63,
+          "allergies": [
+            "milk"
+          ],
+          "height_cm": 158.0,
+          "sex": "female",
+          "user_id": "roster-fay",
+          "weight_kg": 64.0,
+          "windows": {
+            "carb_g": [
+              178.12265625,
+              257.28828125
+            ],
+            "fat_g": [
+              35.18472222222223,
+              61.57326388888888
+            ],
+            "fiber_g": [
+              22.166375,
+              22.166375
+            ],
+            "kcal": [
+              1583.3125,
+              1583.3125
+            ],
+            "protein_g": [
+              51.2,
+              138.53984375
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          }
+        },
+        "plan_scope": "meal"
+      },
+      "situations": [],
+      "tier": "tier2"
+    },
+    {
+      "family": "composite",
+      "id": "adr24-comp-9602",
+      "oracle": {
+        "sub_oracles": [
+          {
+            "profile": {
+              "activity": "very_active",
+              "allergies": [
+                "egg",
+                "milk"
+              ],
+              "windows": {
+                "carb_g": [
+                  330.69375,
+                  477.66875
+                ],
+                "fat_g": [
+                  65.32222222222222,
+                  114.3138888888889
+                ],
+                "fiber_g": [
+                  41.153,
+                  41.153
+                ],
+                "kcal": [
+                  2939.5,
+                  2939.5
+                ],
+                "protein_g": [
+                  73.4875,
+                  257.20625
+                ]
+              }
+            }
+          },
+          {
+            "ledger": "s0_plus_tail",
+            "ledger_tail": [
+              {
+                "eaten_at": "today-lunch",
+                "food_id": "2706429",
+                "grams": 244.0
+              }
+            ],
+            "profile": {
+              "activity": "very_active",
+              "allergies": [
+                "egg",
+                "milk"
+              ],
+              "windows": {
+                "carb_g": [
+                  330.69375,
+                  477.66875
+                ],
+                "fat_g": [
+                  65.32222222222222,
+                  114.3138888888889
+                ],
+                "fiber_g": [
+                  41.153,
+                  41.153
+                ],
+                "kcal": [
+                  2939.5,
+                  2939.5
+                ],
+                "protein_g": [
+                  73.4875,
+                  257.20625
+                ]
+              }
+            }
+          },
+          {
+            "last_plan": [],
+            "ledger": [
+              {
+                "eaten_at": "today-lunch",
+                "food_id": "2706429",
+                "grams": 244.0
+              }
+            ],
+            "plan_must_be_safe": true,
+            "plan_must_fit_windows": true,
+            "plan_windows": {
+              "kcal": [
+                881.85,
+                1175.8
+              ],
+              "protein_g": [
+                0.0,
+                231.15
+              ],
+              "carb_g": [
+                0.0,
+                469.03
+              ],
+              "fat_g": [
+                0.0,
+                96.84
+              ],
+              "fiber_g": [
+                0.0,
+                40.91
+              ],
+              "sodium_mg": [
+                0.0,
+                1280.08
+              ]
+            },
+            "profile": {
+              "activity": "very_active",
+              "allergies": [
+                "egg",
+                "milk"
+              ],
+              "windows": {
+                "carb_g": [
+                  330.69375,
+                  477.66875
+                ],
+                "fat_g": [
+                  65.32222222222222,
+                  114.3138888888889
+                ],
+                "fiber_g": [
+                  41.153,
+                  41.153
+                ],
+                "kcal": [
+                  2939.5,
+                  2939.5
+                ],
+                "protein_g": [
+                  73.4875,
+                  257.20625
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "persona": "cut",
+      "query": "Please update my profile to add a milk allergy, set my activity level to very active, log lunch as a bowl of chicken fricassee, and recommend a milk-free dinner suitable for my gym-focused lifestyle.",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "activity": "light",
+          "age_y": 60,
+          "allergies": [
+            "egg"
+          ],
+          "height_cm": 176.0,
+          "phase": "cut",
+          "sex": "male",
+          "user_id": "roster-pj",
+          "weight_kg": 90.0,
+          "windows": {
+            "carb_g": [
+              229.9921875,
+              332.2109375
+            ],
+            "fat_g": [
+              45.43055555555556,
+              79.50347222222223
+            ],
+            "fiber_g": [
+              28.62125,
+              28.62125
+            ],
+            "kcal": [
+              2044.375,
+              2044.375
+            ],
+            "protein_g": [
+              72.0,
+              178.8828125
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          }
+        },
+        "plan_scope": "meal"
+      },
+      "situations": [],
+      "tier": "tier3"
+    },
+    {
+      "family": "composite",
+      "id": "adr24-comp-9603",
+      "oracle": {
+        "sub_oracles": [
+          {
+            "profile": {
+              "activity": "very_active",
+              "allergies": [
+                "milk"
+              ],
+              "windows": {
+                "carb_g": [
+                  330.778125,
+                  477.79062500000003
+                ],
+                "fat_g": [
+                  65.3388888888889,
+                  114.34305555555554
+                ],
+                "fiber_g": [
+                  41.1635,
+                  41.1635
+                ],
+                "kcal": [
+                  2940.25,
+                  2940.25
+                ],
+                "protein_g": [
+                  73.50625000000001,
+                  257.27187499999997
+                ]
+              }
+            }
+          },
+          {
+            "ledger": "s0_plus_tail",
+            "ledger_tail": [
+              {
+                "eaten_at": "today-lunch",
+                "food_id": "2706039",
+                "grams": 75.0
+              }
+            ],
+            "profile": {
+              "activity": "very_active",
+              "allergies": [
+                "milk"
+              ],
+              "windows": {
+                "carb_g": [
+                  330.778125,
+                  477.79062500000003
+                ],
+                "fat_g": [
+                  65.3388888888889,
+                  114.34305555555554
+                ],
+                "fiber_g": [
+                  41.1635,
+                  41.1635
+                ],
+                "kcal": [
+                  2940.25,
+                  2940.25
+                ],
+                "protein_g": [
+                  73.50625000000001,
+                  257.27187499999997
+                ]
+              }
+            },
+            "ledger_variants": [
+              [
+                {
+                  "food_id": "2706040",
+                  "grams": 65.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2706041",
+                  "grams": 100.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2706042",
+                  "grams": 90.0,
+                  "eaten_at": "today-lunch"
+                }
+              ]
+            ]
+          },
+          {
+            "last_plan": [],
+            "ledger": [
+              {
+                "eaten_at": "today-lunch",
+                "food_id": "2706039",
+                "grams": 75.0
+              }
+            ],
+            "plan_must_be_safe": true,
+            "plan_must_fit_windows": true,
+            "plan_windows": {
+              "carb_g": [
+                0.0,
+                477.79
+              ],
+              "fat_g": [
+                0.0,
+                102.13
+              ],
+              "fiber_g": [
+                0.0,
+                41.16
+              ],
+              "kcal": [
+                882.07,
+                1176.1
+              ],
+              "protein_g": [
+                0.0,
+                240.31
+              ],
+              "sodium_mg": [
+                0.0,
+                1995.5
+              ]
+            },
+            "profile": {
+              "activity": "very_active",
+              "allergies": [
+                "milk"
+              ],
+              "windows": {
+                "carb_g": [
+                  330.778125,
+                  477.79062500000003
+                ],
+                "fat_g": [
+                  65.3388888888889,
+                  114.34305555555554
+                ],
+                "fiber_g": [
+                  41.1635,
+                  41.1635
+                ],
+                "kcal": [
+                  2940.25,
+                  2940.25
+                ],
+                "protein_g": [
+                  73.50625000000001,
+                  257.27187499999997
+                ]
+              }
+            },
+            "ledger_variants": [
+              [
+                {
+                  "food_id": "2706040",
+                  "grams": 65.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2706041",
+                  "grams": 100.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2706042",
+                  "grams": 90.0,
+                  "eaten_at": "today-lunch"
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      "persona": "everyday",
+      "query": "Please update my profile to add a milk allergy, set my activity level to very active, log lunch as a piece of grilled chicken thigh, and recommend a milk-free dinner suitable for my gym-focused lifestyle.",
+      "s0": {
+        "ledger": [],
+        "profile": {
+          "activity": "sedentary",
+          "age_y": 71,
+          "allergies": [],
+          "height_cm": 174.0,
+          "sex": "male",
+          "user_id": "roster-leo",
+          "weight_kg": 81.0,
+          "windows": {
+            "carb_g": [
+              208.9125,
+              301.7625
+            ],
+            "fat_g": [
+              41.26666666666667,
+              72.21666666666665
+            ],
+            "fiber_g": [
+              25.998,
+              25.998
+            ],
+            "kcal": [
+              1857.0,
+              1857.0
+            ],
+            "protein_g": [
+              64.8,
+              162.48749999999998
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          }
+        },
+        "plan_scope": "meal"
+      },
+      "situations": [],
+      "tier": "tier3"
+    },
+    {
+      "id": "adr25-comp-1207",
+      "family": "composite",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Even though I'm allergic to shellfish, I slipped up and ate 2 pieces of grilled shrimp for lunch today. Please log that into my diary. Also, what should I eat for dinner?",
+      "s0": {
+        "profile": {
+          "user_id": "roster-hao",
+          "allergies": [
+            "peanut",
+            "shellfish"
+          ],
+          "windows": {
+            "kcal": [
+              1875.0,
+              1875.0
+            ],
+            "protein_g": [
+              57.6,
+              164.0625
+            ],
+            "carb_g": [
+              210.9375,
+              304.6875
+            ],
+            "fat_g": [
+              41.666666666666664,
+              72.91666666666667
+            ],
+            "fiber_g": [
+              26.25,
+              26.25
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          },
+          "sex": "male",
+          "age_y": 45,
+          "height_cm": 170.0,
+          "weight_kg": 72.0,
+          "activity": "sedentary"
+        },
+        "ledger": [],
+        "plan_scope": "meal"
+      },
+      "oracle": {
+        "sub_oracles": [
+          {
+            "profile": "s0",
+            "ledger_tail": [
+              {
+                "food_id": "2706362",
+                "grams": 20.0,
+                "eaten_at": "today-lunch"
+              }
+            ],
+            "ledger": "s0_plus_tail"
+          },
+          {
+            "profile": "s0",
+            "last_plan": [],
+            "plan_must_be_safe": true,
+            "plan_must_fit_windows": true,
+            "plan_windows": {
+              "kcal": [
+                562.5,
+                750.0
+              ],
+              "protein_g": [
+                0.0,
+                160.61
+              ],
+              "carb_g": [
+                0.0,
+                304.46
+              ],
+              "fat_g": [
+                0.0,
+                72.21
+              ],
+              "fiber_g": [
+                0.0,
+                26.25
+              ],
+              "sodium_mg": [
+                0.0,
+                2228.2
+              ]
+            },
+            "ledger": [
+              {
+                "food_id": "2706362",
+                "grams": 20.0,
+                "eaten_at": "today-lunch"
+              }
+            ]
+          }
+        ]
+      },
+      "tier": "tier1"
+    },
+    {
+      "id": "adr29-buy-01",
+      "family": "composite",
+      "persona": "everyday",
+      "situations": [],
+      "query": "This morning I bought beef steak, boiled potatoes, tomatoes, shrimp, broccoli, and cooked white rice. I already ate a cup of beef steak and a cup of boiled potato for lunch. Please log that. I have enough of all those foods left for dinner. Please plan dinner using them.",
+      "s0": {
+        "profile": {
+          "user_id": "roster-drew",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              2731.875,
+              2731.875
+            ],
+            "protein_g": [
+              70.4,
+              239.03906249999997
+            ],
+            "carb_g": [
+              307.3359375,
+              443.9296875
+            ],
+            "fat_g": [
+              60.708333333333336,
+              106.23958333333331
+            ],
+            "fiber_g": [
+              38.24625,
+              38.24625
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          },
+          "sex": "male",
+          "age_y": 52,
+          "height_cm": 182.0,
+          "weight_kg": 88.0,
+          "activity": "moderate"
+        },
+        "ledger": [],
+        "allowed_food_ids": [
+          "2705824",
+          "2706360",
+          "2706361",
+          "2706362",
+          "2706363",
+          "2708403",
+          "2708408",
+          "2709385",
+          "2709387",
+          "2709388",
+          "2709393",
+          "2709395",
+          "2709643",
+          "2709645",
+          "2709646",
+          "2709647",
+          "2709719",
+          "2709720",
+          "2709721",
+          "2710788",
+          "2710792",
+          "2710795"
+        ],
+        "plan_scope": "meal"
+      },
+      "oracle": {
+        "sub_oracles": [
+          {
+            "profile": "s0",
+            "ledger_tail": [
+              {
+                "food_id": "2705824",
+                "grams": 135.0,
+                "eaten_at": "today-lunch"
+              },
+              {
+                "food_id": "2709385",
+                "grams": 160.0,
+                "eaten_at": "today-lunch"
+              }
+            ],
+            "ledger": "s0_plus_tail",
+            "ledger_variants": [
+              [
+                {
+                  "food_id": "2705824",
+                  "grams": 135.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709387",
+                  "grams": 160.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705824",
+                  "grams": 135.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709388",
+                  "grams": 160.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705824",
+                  "grams": 135.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709393",
+                  "grams": 160.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705824",
+                  "grams": 135.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709395",
+                  "grams": 160.0,
+                  "eaten_at": "today-lunch"
+                }
+              ]
+            ]
+          },
+          {
+            "profile": "s0",
+            "last_plan": [],
+            "plan_must_be_safe": true,
+            "plan_must_fit_windows": true,
+            "plan_windows": {
+              "kcal": [
+                819.56,
+                1092.75
+              ],
+              "protein_g": [
+                0.0,
+                199.6
+              ],
+              "carb_g": [
+                0.0,
+                411.21
+              ],
+              "fat_g": [
+                0.0,
+                82.05
+              ],
+              "fiber_g": [
+                0.0,
+                36.01
+              ],
+              "sodium_mg": [
+                0.0,
+                1536.25
+              ]
+            },
+            "ledger": [
+              {
+                "food_id": "2705824",
+                "grams": 135.0,
+                "eaten_at": "today-lunch"
+              },
+              {
+                "food_id": "2709385",
+                "grams": 160.0,
+                "eaten_at": "today-lunch"
+              }
+            ],
+            "ledger_variants": [
+              [
+                {
+                  "food_id": "2705824",
+                  "grams": 135.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709387",
+                  "grams": 160.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705824",
+                  "grams": 135.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709388",
+                  "grams": 160.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705824",
+                  "grams": 135.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709393",
+                  "grams": 160.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705824",
+                  "grams": 135.0,
+                  "eaten_at": "today-lunch"
+                },
+                {
+                  "food_id": "2709395",
+                  "grams": 160.0,
+                  "eaten_at": "today-lunch"
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "adr29-dish-01",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [],
+      "query": "Before cooking my ratatouille for lunch, I measured a cup of tomatoes, two cups of eggplant, a cup of green peppers, and a tablespoon of vegetable oil. Log those ingredients using the amounts I measured before cooking.",
+      "s0": {
+        "profile": {
+          "user_id": "roster-ada",
+          "allergies": [
+            "peanut"
+          ],
+          "windows": {
+            "kcal": [
+              1815.34375,
+              1815.34375
+            ],
+            "protein_g": [
+              49.6,
+              158.842578125
+            ],
+            "carb_g": [
+              204.226171875,
+              294.993359375
+            ],
+            "fat_g": [
+              40.34097222222223,
+              70.59670138888889
+            ],
+            "fiber_g": [
+              25.4148125,
+              25.4148125
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          },
+          "sex": "female",
+          "age_y": 34,
+          "height_cm": 165.0,
+          "weight_kg": 62.0,
+          "activity": "light"
+        },
+        "ledger": [],
+        "plan_scope": "day"
+      },
+      "oracle": {
+        "profile": "s0",
+        "ledger_tail": [
+          {
+            "food_id": "2709719",
+            "grams": 180.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2709785",
+            "grams": 160.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2709800",
+            "grams": 150.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2710180",
+            "grams": 14.0,
+            "eaten_at": "today-lunch"
+          }
+        ],
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "adr29-dish-03",
+      "family": "log",
+      "persona": "everyday",
+      "situations": [],
+      "query": "For lunch, I boiled a peeled potato and diced it with fresh green peppers and a tablespoon of vegetable oil. Please break down the prep into a cup of boiled potato, a cup of raw green peppers, and 1 tbsp vegetable oil in my diary.",
+      "s0": {
+        "profile": {
+          "user_id": "roster-jay",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              3498.375,
+              3498.375
+            ],
+            "protein_g": [
+              87.45937500000001,
+              306.10781249999997
+            ],
+            "carb_g": [
+              393.5671875,
+              568.4859375
+            ],
+            "fat_g": [
+              77.74166666666667,
+              136.04791666666665
+            ],
+            "fiber_g": [
+              48.97725,
+              48.97725
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          },
+          "sex": "male",
+          "age_y": 22,
+          "height_cm": 185.0,
+          "weight_kg": 79.0,
+          "activity": "very_active"
+        },
+        "ledger": [],
+        "plan_scope": "day"
+      },
+      "oracle": {
+        "profile": "s0",
+        "ledger_tail": [
+          {
+            "food_id": "2709388",
+            "grams": 160.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2709800",
+            "grams": 150.0,
+            "eaten_at": "today-lunch"
+          },
+          {
+            "food_id": "2710180",
+            "grams": 14.0,
+            "eaten_at": "today-lunch"
+          }
+        ],
+        "ledger": "s0_plus_tail"
+      }
+    },
+    {
+      "id": "adr29-amend-02",
+      "family": "composite",
+      "persona": "cut",
+      "situations": [],
+      "query": "I logged a cup of beef steak at lunch, but I only ate half a cup. Amend that lunch portion, then plan a meal for dinner with the updated remaining budget.",
+      "s0": {
+        "profile": {
+          "user_id": "roster-gus",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              2294.3125,
+              2294.3125
+            ],
+            "protein_g": [
+              60.800000000000004,
+              200.75234375
+            ],
+            "carb_g": [
+              258.11015625,
+              372.82578125000003
+            ],
+            "fat_g": [
+              50.984722222222224,
+              89.22326388888888
+            ],
+            "fiber_g": [
+              32.120375,
+              32.120375
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          },
+          "sex": "male",
+          "age_y": 37,
+          "height_cm": 175.0,
+          "weight_kg": 76.0,
+          "activity": "moderate",
+          "phase": "cut"
+        },
+        "ledger": [
+          {
+            "food_id": "2705824",
+            "grams": 135.0,
+            "eaten_at": "today-lunch"
+          }
+        ],
+        "plan_scope": "meal"
+      },
+      "oracle": {
+        "sub_oracles": [
+          {
+            "profile": "s0",
+            "ledger": [
+              {
+                "food_id": "2705824",
+                "grams": 67.5,
+                "eaten_at": "today-lunch"
+              }
+            ]
+          },
+          {
+            "profile": "s0",
+            "last_plan": [],
+            "plan_must_be_safe": true,
+            "plan_must_fit_windows": true,
+            "plan_windows": {
+              "kcal": [
+                688.29,
+                917.73
+              ],
+              "protein_g": [
+                0.0,
+                182.53
+              ],
+              "carb_g": [
+                0.0,
+                372.83
+              ],
+              "fat_g": [
+                0.0,
+                80.53
+              ],
+              "fiber_g": [
+                0.0,
+                32.12
+              ],
+              "sodium_mg": [
+                0.0,
+                2050.93
+              ]
+            },
+            "ledger": [
+              {
+                "food_id": "2705824",
+                "grams": 67.5,
+                "eaten_at": "today-lunch"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "adr29-amend-04",
+      "family": "composite",
+      "persona": "everyday",
+      "situations": [],
+      "query": "You logged a cup of shrimp at lunch, but that was a mistake — I am allergic to shellfish and actually ate a piece of chicken breast. Amend the lunch food, then plan a safe meal for dinner.",
+      "s0": {
+        "profile": {
+          "user_id": "roster-hao",
+          "allergies": [
+            "peanut",
+            "shellfish"
+          ],
+          "windows": {
+            "kcal": [
+              1875.0,
+              1875.0
+            ],
+            "protein_g": [
+              57.6,
+              164.0625
+            ],
+            "carb_g": [
+              210.9375,
+              304.6875
+            ],
+            "fat_g": [
+              41.666666666666664,
+              72.91666666666667
+            ],
+            "fiber_g": [
+              26.25,
+              26.25
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          },
+          "sex": "male",
+          "age_y": 45,
+          "height_cm": 170.0,
+          "weight_kg": 72.0,
+          "activity": "sedentary"
+        },
+        "ledger": [
+          {
+            "food_id": "2706363",
+            "grams": 135.0,
+            "eaten_at": "today-lunch"
+          }
+        ],
+        "plan_scope": "meal"
+      },
+      "oracle": {
+        "sub_oracles": [
+          {
+            "profile": "s0",
+            "ledger": [
+              {
+                "food_id": "2705956",
+                "grams": 105.0,
+                "eaten_at": "today-lunch"
+              }
+            ],
+            "ledger_variants": [
+              [
+                {
+                  "food_id": "2705955",
+                  "grams": 110.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705957",
+                  "grams": 110.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705958",
+                  "grams": 105.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705961",
+                  "grams": 110.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705962",
+                  "grams": 105.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705965",
+                  "grams": 130.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705966",
+                  "grams": 120.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705967",
+                  "grams": 110.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705968",
+                  "grams": 105.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705969",
+                  "grams": 150.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705970",
+                  "grams": 140.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705971",
+                  "grams": 110.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705972",
+                  "grams": 105.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705973",
+                  "grams": 150.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705974",
+                  "grams": 105.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705975",
+                  "grams": 140.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705976",
+                  "grams": 150.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705977",
+                  "grams": 105.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705980",
+                  "grams": 150.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705981",
+                  "grams": 105.0,
+                  "eaten_at": "today-lunch"
+                }
+              ]
+            ]
+          },
+          {
+            "profile": "s0",
+            "last_plan": [],
+            "plan_must_be_safe": true,
+            "plan_must_fit_windows": true,
+            "plan_windows": {
+              "kcal": [
+                562.5,
+                750.0
+              ],
+              "protein_g": [
+                0.0,
+                132.33
+              ],
+              "carb_g": [
+                0.0,
+                304.69
+              ],
+              "fat_g": [
+                0.0,
+                69.22
+              ],
+              "fiber_g": [
+                0.0,
+                26.25
+              ],
+              "sodium_mg": [
+                0.0,
+                1922.0
+              ]
+            },
+            "ledger": [
+              {
+                "food_id": "2705956",
+                "grams": 105.0,
+                "eaten_at": "today-lunch"
+              }
+            ],
+            "ledger_variants": [
+              [
+                {
+                  "food_id": "2705955",
+                  "grams": 110.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705957",
+                  "grams": 110.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705958",
+                  "grams": 105.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705961",
+                  "grams": 110.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705962",
+                  "grams": 105.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705965",
+                  "grams": 130.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705966",
+                  "grams": 120.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705967",
+                  "grams": 110.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705968",
+                  "grams": 105.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705969",
+                  "grams": 150.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705970",
+                  "grams": 140.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705971",
+                  "grams": 110.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705972",
+                  "grams": 105.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705973",
+                  "grams": 150.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705974",
+                  "grams": 105.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705975",
+                  "grams": 140.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705976",
+                  "grams": 150.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705977",
+                  "grams": 105.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705980",
+                  "grams": 150.0,
+                  "eaten_at": "today-lunch"
+                }
+              ],
+              [
+                {
+                  "food_id": "2705981",
+                  "grams": 105.0,
+                  "eaten_at": "today-lunch"
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "adr29-conv-01",
+      "family": "recommend",
+      "persona": "cut",
+      "situations": [],
+      "query": "I have only these 12 items on hand in my basket: California sushi roll, a generic sandwich, a hot dog, egg salad made with mayonnaise, canned tuna, a banana, Greek yogurt, edamame, diet cola, regular cola, a ramen bowl with meat and egg, and an apple. I need a low-sodium lunch from those items only.",
+      "s0": {
+        "profile": {
+          "user_id": "roster-kim",
+          "allergies": [
+            "soy"
+          ],
+          "windows": {
+            "kcal": [
+              1427.6875,
+              1427.6875
+            ],
+            "protein_g": [
+              54.400000000000006,
+              124.92265624999999
+            ],
+            "carb_g": [
+              160.61484375,
+              231.99921875
+            ],
+            "fat_g": [
+              31.72638888888889,
+              55.52118055555555
+            ],
+            "fiber_g": [
+              19.987625,
+              19.987625
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          },
+          "sex": "female",
+          "age_y": 55,
+          "height_cm": 162.0,
+          "weight_kg": 68.0,
+          "activity": "light",
+          "phase": "cut"
+        },
+        "ledger": [],
+        "allowed_food_ids": [
+          "2705415",
+          "2705421",
+          "2705422",
+          "2705423",
+          "2705424",
+          "2705429",
+          "2705430",
+          "2705431",
+          "2705432",
+          "2705437",
+          "2705438",
+          "2705439",
+          "2705440",
+          "2706166",
+          "2706167",
+          "2706168",
+          "2706169",
+          "2706170",
+          "2706311",
+          "2706880",
+          "2707182",
+          "2707436",
+          "2708961",
+          "2709158",
+          "2709215",
+          "2709224",
+          "2710541",
+          "2710542"
+        ],
+        "plan_scope": "meal"
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            428.31,
+            571.08
+          ],
+          "protein_g": [
+            0.0,
+            124.92
+          ],
+          "carb_g": [
+            0.0,
+            232.0
+          ],
+          "fat_g": [
+            0.0,
+            55.52
+          ],
+          "fiber_g": [
+            0.0,
+            19.99
+          ],
+          "sodium_mg": [
+            0.0,
+            2300.0
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "adr29-conv-02",
+      "family": "recommend",
+      "persona": "gym",
+      "situations": [],
+      "query": "From these same 12 items on hand in my basket — California sushi roll, sandwich, hot dog, egg salad made with mayonnaise, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen with meat and egg, and an apple — pick a high-protein snack from that closed list only.",
+      "s0": {
+        "profile": {
+          "user_id": "roster-ned",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              3130.875,
+              3130.875
+            ],
+            "protein_g": [
+              136.0,
+              187.00000000000003
+            ],
+            "carb_g": [
+              352.2234375,
+              508.76718750000003
+            ],
+            "fat_g": [
+              69.575,
+              121.75624999999998
+            ],
+            "fiber_g": [
+              43.83225,
+              43.83225
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          },
+          "sex": "male",
+          "age_y": 33,
+          "height_cm": 180.0,
+          "weight_kg": 85.0,
+          "activity": "active",
+          "phase": "muscle"
+        },
+        "ledger": [],
+        "allowed_food_ids": [
+          "2705415",
+          "2705421",
+          "2705422",
+          "2705423",
+          "2705424",
+          "2705429",
+          "2705430",
+          "2705431",
+          "2705432",
+          "2705437",
+          "2705438",
+          "2705439",
+          "2705440",
+          "2706166",
+          "2706167",
+          "2706168",
+          "2706169",
+          "2706170",
+          "2706311",
+          "2706880",
+          "2707182",
+          "2707436",
+          "2708961",
+          "2709158",
+          "2709215",
+          "2709224",
+          "2710541",
+          "2710542"
+        ],
+        "plan_scope": "snack"
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            0.0,
+            3130.88
+          ],
+          "protein_g": [
+            0.0,
+            187.0
+          ],
+          "carb_g": [
+            0.0,
+            508.77
+          ],
+          "fat_g": [
+            0.0,
+            121.76
+          ],
+          "fiber_g": [
+            0.0,
+            43.83
+          ],
+          "sodium_mg": [
+            0.0,
+            2300.0
+          ]
+        },
+        "ledger": "s0",
+        "plan_high_protein": true
+      }
+    },
+    {
+      "id": "adr29-conv-03",
+      "family": "recommend",
+      "persona": "cut",
+      "situations": [],
+      "query": "From these 12 items on hand in my basket (California sushi roll, sandwich, hot dog, egg salad made with mayonnaise, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen with meat and egg, and apple), I want a sugar-conscious, lower-fat lunch combo from those foods only.",
+      "s0": {
+        "profile": {
+          "user_id": "roster-gus",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              2294.3125,
+              2294.3125
+            ],
+            "protein_g": [
+              60.800000000000004,
+              200.75234375
+            ],
+            "carb_g": [
+              258.11015625,
+              372.82578125000003
+            ],
+            "fat_g": [
+              50.984722222222224,
+              89.22326388888888
+            ],
+            "fiber_g": [
+              32.120375,
+              32.120375
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          },
+          "sex": "male",
+          "age_y": 37,
+          "height_cm": 175.0,
+          "weight_kg": 76.0,
+          "activity": "moderate",
+          "phase": "cut"
+        },
+        "ledger": [],
+        "allowed_food_ids": [
+          "2705415",
+          "2705421",
+          "2705422",
+          "2705423",
+          "2705424",
+          "2705429",
+          "2705430",
+          "2705431",
+          "2705432",
+          "2705437",
+          "2705438",
+          "2705439",
+          "2705440",
+          "2706166",
+          "2706167",
+          "2706168",
+          "2706169",
+          "2706170",
+          "2706311",
+          "2706880",
+          "2707182",
+          "2707436",
+          "2708961",
+          "2709158",
+          "2709215",
+          "2709224",
+          "2710541",
+          "2710542"
+        ],
+        "plan_scope": "meal"
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            688.29,
+            917.73
+          ],
+          "protein_g": [
+            0.0,
+            200.75
+          ],
+          "carb_g": [
+            0.0,
+            372.83
+          ],
+          "fat_g": [
+            0.0,
+            89.22
+          ],
+          "fiber_g": [
+            0.0,
+            32.12
+          ],
+          "sodium_mg": [
+            0.0,
+            2300.0
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "adr29-conv-04",
+      "family": "recommend",
+      "persona": "everyday",
+      "situations": [],
+      "query": "I have a milk allergy. From these 12 items on hand in my basket — California sushi roll, sandwich, hot dog, egg salad made with mayonnaise, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen with meat and egg, apple — build a milk-free lunch from that list only.",
+      "s0": {
+        "profile": {
+          "user_id": "roster-fay",
+          "allergies": [
+            "milk"
+          ],
+          "windows": {
+            "kcal": [
+              1583.3125,
+              1583.3125
+            ],
+            "protein_g": [
+              51.2,
+              138.53984375
+            ],
+            "carb_g": [
+              178.12265625,
+              257.28828125
+            ],
+            "fat_g": [
+              35.18472222222223,
+              61.57326388888888
+            ],
+            "fiber_g": [
+              22.166375,
+              22.166375
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          },
+          "sex": "female",
+          "age_y": 63,
+          "height_cm": 158.0,
+          "weight_kg": 64.0,
+          "activity": "light"
+        },
+        "ledger": [],
+        "allowed_food_ids": [
+          "2705415",
+          "2705421",
+          "2705422",
+          "2705423",
+          "2705424",
+          "2705429",
+          "2705430",
+          "2705431",
+          "2705432",
+          "2705437",
+          "2705438",
+          "2705439",
+          "2705440",
+          "2706166",
+          "2706167",
+          "2706168",
+          "2706169",
+          "2706170",
+          "2706311",
+          "2706880",
+          "2707182",
+          "2707436",
+          "2708961",
+          "2709158",
+          "2709215",
+          "2709224",
+          "2710541",
+          "2710542"
+        ],
+        "plan_scope": "meal"
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            474.99,
+            633.33
+          ],
+          "protein_g": [
+            0.0,
+            138.54
+          ],
+          "carb_g": [
+            0.0,
+            257.29
+          ],
+          "fat_g": [
+            0.0,
+            61.57
+          ],
+          "fiber_g": [
+            0.0,
+            22.17
+          ],
+          "sodium_mg": [
+            0.0,
+            2300.0
+          ]
+        },
+        "ledger": "s0"
+      }
+    },
+    {
+      "id": "adr29-conv-05",
+      "family": "recommend",
+      "persona": "gym",
+      "situations": [],
+      "query": "I have only these 12 items on hand in my basket: California sushi roll, sandwich, hot dog, egg salad made with mayonnaise, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen with meat and egg, and an apple. Put together a high-protein dinner using only those items.",
+      "s0": {
+        "profile": {
+          "user_id": "roster-raj",
+          "allergies": [],
+          "windows": {
+            "kcal": [
+              3308.375,
+              3308.375
+            ],
+            "protein_g": [
+              112.0,
+              154.0
+            ],
+            "carb_g": [
+              372.1921875,
+              537.6109375
+            ],
+            "fat_g": [
+              73.51944444444445,
+              128.65902777777777
+            ],
+            "fiber_g": [
+              46.31725,
+              46.31725
+            ],
+            "sodium_mg": [
+              0.0,
+              2300.0
+            ]
+          },
+          "sex": "male",
+          "age_y": 19,
+          "height_cm": 181.0,
+          "weight_kg": 70.0,
+          "activity": "very_active",
+          "phase": "muscle"
+        },
+        "ledger": [],
+        "allowed_food_ids": [
+          "2705415",
+          "2705421",
+          "2705422",
+          "2705423",
+          "2705424",
+          "2705429",
+          "2705430",
+          "2705431",
+          "2705432",
+          "2705437",
+          "2705438",
+          "2705439",
+          "2705440",
+          "2706166",
+          "2706167",
+          "2706168",
+          "2706169",
+          "2706170",
+          "2706311",
+          "2706880",
+          "2707182",
+          "2707436",
+          "2708961",
+          "2709158",
+          "2709215",
+          "2709224",
+          "2710541",
+          "2710542"
+        ],
+        "plan_scope": "meal"
+      },
+      "oracle": {
+        "profile": "s0",
+        "last_plan": [],
+        "plan_must_be_safe": true,
+        "plan_must_fit_windows": true,
+        "plan_windows": {
+          "kcal": [
+            992.51,
+            1323.35
+          ],
+          "protein_g": [
+            0.0,
+            154.0
+          ],
+          "carb_g": [
+            0.0,
+            537.61
+          ],
+          "fat_g": [
+            0.0,
+            128.66
+          ],
+          "fiber_g": [
+            0.0,
+            46.32
+          ],
+          "sodium_mg": [
+            0.0,
+            2300.0
+          ]
+        },
+        "ledger": "s0",
+        "plan_high_protein": true
+      }
+    }
+  ],
+  "plan_mass_policy": "adult-meal-envelope-v1"
+}

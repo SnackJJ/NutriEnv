@@ -47,7 +47,7 @@ from nutrienv.io.dotenv import load_dotenv_keys  # noqa: E402
 _PROMPT_FINGERPRINT = assert_frozen()
 
 DEFAULT_MODEL = "commandcode/inclusionai/ling-3.0-flash-sante:free"
-DEFAULT_SPLIT = _ROOT / "data/splits/nutrienv-v1.0.json"
+DEFAULT_SPLIT = _ROOT / "data/splits/nutrienv-v1.1.json"
 
 
 def build_parser() -> argparse.ArgumentParser:

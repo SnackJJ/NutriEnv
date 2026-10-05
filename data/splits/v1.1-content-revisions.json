@@ -1,0 +1,1007 @@
+{
+  "version": "nutrienv-v1.1-content-review-20261004",
+  "changes": [
+    {
+      "task_id": "adr20-log-5001",
+      "old_query": "I had a plate of sliced tongue with a homemade cornbread muffin.",
+      "new_query": "For lunch today, I had a plate of sliced tongue with a homemade cornbread muffin.",
+      "reason": "Name lunch naturally and use QNS for the muffin without an explicit count unit.",
+      "ledger_portion_fixes": [
+        {"food_id": "2707814", "portion": {"key": "qns", "count": 1}, "grams": 113}
+      ]
+    },
+    {
+      "task_id": "adr20-log-5005",
+      "old_query": "I had a standard plate of fish with noodles and mixed vegetables covered in cheese sauce — no broccoli or extra greens, just the fish and noodles.",
+      "new_query": "For lunch today, I had a plate of fish and noodles in cheese sauce with some vegetables mixed in, but no carrots, broccoli, or leafy greens.",
+      "reason": "Describe the vegetable exclusions and lunch naturally so the catalog can represent the meal."
+    },
+    {
+      "task_id": "adr20-log-5007",
+      "old_query": "For breakfast I had an omelet with cheese, diced ham, onions, and bell peppers.",
+      "new_query": "For breakfast I had an omelet with cheese, diced ham, onions, and bell peppers, cooked in a little oil.",
+      "reason": "Describe added cooking fat naturally; use the dish's QNS without revealing grams.",
+      "ledger_food_swaps": {"2707276": "2707274"},
+      "ledger_portion_fixes": [
+        {
+          "food_id": "2707274",
+          "portion": {"key": "qns", "count": 1},
+          "grams": 210
+        }
+      ]
+    },
+    {
+      "task_id": "adr20-comp-5034",
+      "old_query": "I had a chewy plain granola bar and a piece of cooked breadfruit for lunch, so what should I eat for dinner?",
+      "new_query": "I had a chewy plain granola bar and a piece of cooked breadfruit for lunch, so what should I eat for dinner?",
+      "reason": "Preserve natural food wording and accept explicit complete ledger interpretations with each food's own portion and nutrient budget.",
+      "ledger_food_options": {
+        "2708095": {
+          "portion": {"key": "bar", "count": 1},
+          "options": [
+            {
+              "food_id": "2708082",
+              "catalog_name": "Cereal or granola bar (General Mills Fiber One Chewy Bar)"
+            },
+            {
+              "food_id": "2708088",
+              "catalog_name": "Cereal or granola bar (Kashi Chewy)"
+            },
+            {
+              "food_id": "2708091",
+              "catalog_name": "Cereal or granola bar (General Mills Nature Valley Chewy Trail Mix)"
+            },
+            {
+              "food_id": "2708096",
+              "catalog_name": "Cereal or granola bar (Quaker Chewy 90 Calorie Granola Bar)"
+            },
+            {
+              "food_id": "2708097",
+              "catalog_name": "Cereal or granola bar (Quaker Chewy 25% Less Sugar Granola Bar)"
+            },
+            {
+              "food_id": "2708101",
+              "catalog_name": "Cereal or Granola bar, NFS"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "task_id": "adr24-comp-8303",
+      "old_query": "For lunch, I had a small half-cup side of cooked fresh carrots. Please update my activity level to light.",
+      "new_query": "For lunch, I had a small half-cup side of cooked fresh carrots. Please update my activity level to light.",
+      "reason": "Preserve natural food wording and accept explicit complete ledger interpretations with each food's own portion and nutrient budget.",
+      "ledger_food_options": {
+        "2709664": {
+          "portion": {"key": "cup", "count": 0.5},
+          "options": [
+            {
+              "food_id": "2709667",
+              "catalog_name": "Carrots, fresh, cooked with oil"
+            },
+            {
+              "food_id": "2709668",
+              "catalog_name": "Carrots, fresh, cooked with butter or margarine"
+            },
+            {
+              "food_id": "2709670",
+              "catalog_name": "Carrots, fresh, cooked, fat added, NS as to fat type"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "task_id": "adr24-comp-9200",
+      "old_query": "I had a piece of grilled chicken thigh for lunch. Also, please update my activity level to light.",
+      "new_query": "I had a piece of grilled chicken thigh for lunch. Also, please update my activity level to light.",
+      "reason": "Preserve natural food wording and accept explicit complete ledger interpretations with each food's own portion and nutrient budget.",
+      "ledger_food_options": {
+        "2706039": {
+          "portion": {"key": "piece", "count": 1},
+          "options": [
+            {
+              "food_id": "2706040",
+              "catalog_name": "Chicken thigh, grilled without sauce, skin not eaten"
+            },
+            {
+              "food_id": "2706041",
+              "catalog_name": "Chicken thigh, grilled with sauce, skin eaten"
+            },
+            {
+              "food_id": "2706042",
+              "catalog_name": "Chicken thigh, grilled with sauce, skin not eaten"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "task_id": "adr24-comp-9603",
+      "old_query": "Please update my profile to add a milk allergy, set my activity level to very active, log lunch as a piece of grilled chicken thigh, and recommend a milk-free dinner suitable for my gym-focused lifestyle.",
+      "new_query": "Please update my profile to add a milk allergy, set my activity level to very active, log lunch as a piece of grilled chicken thigh, and recommend a milk-free dinner suitable for my gym-focused lifestyle.",
+      "reason": "Preserve natural food wording and accept explicit complete ledger interpretations with each food's own portion and nutrient budget.",
+      "ledger_food_options": {
+        "2706039": {
+          "portion": {"key": "piece", "count": 1},
+          "options": [
+            {
+              "food_id": "2706040",
+              "catalog_name": "Chicken thigh, grilled without sauce, skin not eaten"
+            },
+            {
+              "food_id": "2706041",
+              "catalog_name": "Chicken thigh, grilled with sauce, skin eaten"
+            },
+            {
+              "food_id": "2706042",
+              "catalog_name": "Chicken thigh, grilled with sauce, skin not eaten"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "task_id": "adr24-comp-8267",
+      "old_query": "I need to add a milk allergy to my profile. Please also update my activity level to light. For lunch, I had a piece of Melba toast. Can you recommend a dinner that is compliant with my milk allergy?",
+      "new_query": "I need to add a milk allergy to my profile. Please also update my activity level to light. For lunch, I had a serving of Melba toast. Can you recommend a dinner that is compliant with my milk allergy?",
+      "reason": "Use a natural serving unit because the catalog has no piece measure for Melba toast."
+    },
+    {
+      "task_id": "adr24-comp-8239",
+      "old_query": "I had a wheat bagel and a glass of vegetable smoothie for lunch, so what high-protein dinner should I eat tonight?",
+      "new_query": "For lunch I had a regular wheat bagel and a glass of homemade vegetable smoothie, just vegetables and water with no fruit, dairy, or protein powder. What high-protein dinner should I eat tonight?",
+      "reason": "Use a natural bagel size and clarify smoothie ingredients; score the requested high-protein dinner.",
+      "high_protein": true,
+      "ledger_portion_fixes": [
+        {
+          "food_id": "2707732",
+          "portion": {"key": "regular", "count": 1},
+          "grams": 105
+        },
+        {
+          "food_id": "2710152",
+          "portion": {"key": "qns", "count": 1},
+          "grams": 324
+        }
+      ]
+    },
+    {
+      "task_id": "adr24-comp-8241",
+      "old_query": "I had a bowl of beef soup and a chicken deli sandwich for lunch, so what should I eat for dinner?",
+      "new_query": "For lunch I had a bowl of beef soup I made at home and a chicken deli sandwich from a restaurant. What should I eat for dinner?",
+      "reason": "Repair the gold to follow the documented portion default; do not insert gold grams into the query.",
+      "ledger_portion_fixes": [
+        {
+          "food_id": "2706988",
+          "portion": {"key": "qns", "count": 1},
+          "grams": 130
+        }
+      ]
+    },
+    {
+      "task_id": "adr29-dish-01",
+      "old_query": "I cooked vegetable ratatouille for lunch: a cup of tomatoes, two cups of eggplant, a cup of green peppers, and 1 tablespoon of vegetable oil. Log those recipe items directly into my tracker.",
+      "new_query": "Before cooking my ratatouille for lunch, I measured a cup of tomatoes, two cups of eggplant, a cup of green peppers, and a tablespoon of vegetable oil. Log those ingredients using the amounts I measured before cooking.",
+      "reason": "Make the recipe measurement stage clear in everyday language instead of guessing cooked ingredient weights."
+    },
+    {
+      "task_id": "adr20-eval-5012",
+      "old_query": "Can you evaluate my planned lunch: a bowl of pasta, a handful of raw pecans, and a slice of thick-crust whole wheat cheese pizza?",
+      "new_query": "Can you evaluate my planned lunch: a bowl of pasta, a handful of raw pecans, and a slice of thick-crust whole wheat cheese pizza?",
+      "reason": "Generic pasta uses the ordinary cooked pasta entry, not an unstated gluten-free preparation.",
+      "evaluated_food_swaps": {
+        "2708359": "2708357"
+      }
+    },
+    {
+      "task_id": "adr29-amend-02",
+      "old_query": "I logged a cup of beef steak at lunch, but I only ate half a cup. Amend that lunch portion, then plan a meal for dinner with the extra carb space that opens up.",
+      "new_query": "I logged a cup of beef steak at lunch, but I only ate half a cup. Amend that lunch portion, then plan a meal for dinner with the updated remaining budget.",
+      "reason": "Correct the factual claim: this steak has zero carbohydrate."
+    },
+    {
+      "task_id": "adr29-amend-04",
+      "old_query": "You logged a cup of shrimp at lunch, but that was a mistake — I am allergic to shellfish and actually ate a piece of chicken breast. Amend the lunch food, then plan a safe meal for dinner.",
+      "new_query": "You logged a cup of shrimp at lunch, but that was a mistake — I am allergic to shellfish and actually ate a piece of chicken breast. Amend the lunch food, then plan a safe meal for dinner.",
+      "reason": "Preserve natural food wording and accept explicit complete ledger interpretations with each food's own portion and nutrient budget.",
+      "ledger_food_options": {
+        "2705956": {
+          "portion": {"key": "piece", "count": 1},
+          "options": [
+            {
+              "food_id": "2705955",
+              "catalog_name": "Chicken breast, baked, broiled, or roasted, skin eaten, from raw"
+            },
+            {
+              "food_id": "2705957",
+              "catalog_name": "Chicken breast, baked or broiled, skin eaten, from pre-cooked"
+            },
+            {
+              "food_id": "2705958",
+              "catalog_name": "Chicken breast, baked or broiled, skin not eaten, from pre-cooked"
+            },
+            {
+              "food_id": "2705961",
+              "catalog_name": "Chicken breast, baked, broiled, or roasted with marinade, skin eaten, from raw"
+            },
+            {
+              "food_id": "2705962",
+              "catalog_name": "Chicken breast, baked, broiled, or roasted with marinade, skin not eaten, from raw"
+            },
+            {
+              "food_id": "2705965",
+              "catalog_name": "Chicken breast, stewed, skin eaten"
+            },
+            {
+              "food_id": "2705966",
+              "catalog_name": "Chicken breast, stewed, skin not eaten"
+            },
+            {
+              "food_id": "2705967",
+              "catalog_name": "Chicken breast, grilled without sauce, skin eaten"
+            },
+            {
+              "food_id": "2705968",
+              "catalog_name": "Chicken breast, grilled without sauce, skin not eaten"
+            },
+            {
+              "food_id": "2705969",
+              "catalog_name": "Chicken breast, grilled with sauce, skin eaten"
+            },
+            {
+              "food_id": "2705970",
+              "catalog_name": "Chicken breast, grilled with sauce, skin not eaten"
+            },
+            {
+              "food_id": "2705971",
+              "catalog_name": "Chicken breast, sauteed, skin eaten"
+            },
+            {
+              "food_id": "2705972",
+              "catalog_name": "Chicken breast, sauteed, skin not eaten"
+            },
+            {
+              "food_id": "2705973",
+              "catalog_name": "Chicken breast, fried, coated, skin / coating eaten, from raw"
+            },
+            {
+              "food_id": "2705974",
+              "catalog_name": "Chicken breast, fried, coated, skin / coating not eaten, from raw"
+            },
+            {
+              "food_id": "2705975",
+              "catalog_name": "Chicken breast, fried, coated, prepared skinless, coating eaten, from raw"
+            },
+            {
+              "food_id": "2705976",
+              "catalog_name": "Chicken breast, fried, coated, skin / coating eaten, from pre-cooked"
+            },
+            {
+              "food_id": "2705977",
+              "catalog_name": "Chicken breast, fried, coated, skin / coating not eaten, from pre-cooked"
+            },
+            {
+              "food_id": "2705980",
+              "catalog_name": "Chicken breast, baked, coated, skin / coating eaten"
+            },
+            {
+              "food_id": "2705981",
+              "catalog_name": "Chicken breast, baked, coated, skin / coating not eaten"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "task_id": "adr29-fridge-03",
+      "high_protein": true,
+      "old_query": "I am trying to hit a high-protein dinner. The fridge has baked salmon, raw spinach, boiled eggs, cooked corn, and plain nonfat Greek yogurt. Assemble a plate from those foods only.",
+      "new_query": "I am trying to hit a high-protein dinner. The fridge has baked salmon, raw spinach, boiled eggs, cooked corn, and plain nonfat Greek yogurt. Assemble a plate from those foods only.",
+      "reason": "Accept reviewed catalog interpretations of the natural inventory names; check actual chosen-food nutrients and allergies.",
+      "inventory_options": {
+        "2709910": [
+          {
+            "food_id": "2709911",
+            "catalog_name": "Corn, frozen, cooked, no added fat"
+          },
+          {
+            "food_id": "2709912",
+            "catalog_name": "Corn, canned, cooked, no added fat"
+          },
+          {
+            "food_id": "2709913",
+            "catalog_name": "Corn, NS as to form, cooked"
+          },
+          {
+            "food_id": "2709924",
+            "catalog_name": "Corn, canned, reduced sodium, cooked, no added fat"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "adr29-fridge-04",
+      "old_query": "No red meat tonight. I have steamed shrimp, tofu, cooked broccoli, raw mushrooms, and oats in the kitchen. Please plan a light low-sodium dinner using only that inventory.",
+      "new_query": "No red meat tonight. I have steamed shrimp, tofu, cooked broccoli, raw mushrooms, and oats in the kitchen. Please plan a light low-sodium dinner using only that inventory.",
+      "reason": "Accept reviewed catalog interpretations of the natural inventory names; check actual chosen-food nutrients and allergies.",
+      "inventory_options": {
+        "2709645": [
+          {
+            "food_id": "2709646",
+            "catalog_name": "Broccoli, frozen, cooked, no added fat"
+          },
+          {
+            "food_id": "2709647",
+            "catalog_name": "Broccoli, NS as to form, cooked"
+          },
+          {
+            "food_id": "2710792",
+            "catalog_name": "Broccoli, cooked, as ingredient"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "adr29-buy-01",
+      "old_query": "This morning I bought beef steak, boiled potatoes, tomatoes, shrimp, broccoli, and cooked white rice. I already ate a cup of beef steak and a cup of boiled potato for lunch — please log that. Then plan dinner from whatever is left in the grocery bag.",
+      "new_query": "This morning I bought beef steak, boiled potatoes, tomatoes, shrimp, broccoli, and cooked white rice. I already ate a cup of beef steak and a cup of boiled potato for lunch. Please log that. I have enough of all those foods left for dinner. Please plan dinner using them.",
+      "reason": "Preserve natural food wording and accept explicit complete ledger interpretations with each food's own portion and nutrient budget.",
+      "inventory_options": {
+        "2709645": [
+          {
+            "food_id": "2709643",
+            "catalog_name": "Broccoli, raw"
+          },
+          {
+            "food_id": "2709646",
+            "catalog_name": "Broccoli, frozen, cooked, no added fat"
+          },
+          {
+            "food_id": "2709647",
+            "catalog_name": "Broccoli, NS as to form, cooked"
+          },
+          {
+            "food_id": "2710792",
+            "catalog_name": "Broccoli, cooked, as ingredient"
+          }
+        ],
+        "2706363": [
+          {
+            "food_id": "2706360",
+            "catalog_name": "Shrimp, NFS"
+          },
+          {
+            "food_id": "2706361",
+            "catalog_name": "Shrimp, baked or broiled"
+          },
+          {
+            "food_id": "2706362",
+            "catalog_name": "Shrimp, grilled"
+          }
+        ],
+        "2709719": [
+          {
+            "food_id": "2709720",
+            "catalog_name": "Tomatoes, NS as to form, cooked"
+          },
+          {
+            "food_id": "2709721",
+            "catalog_name": "Tomatoes, fresh, cooked"
+          },
+          {
+            "food_id": "2710795",
+            "catalog_name": "Tomatoes, cooked, as ingredient"
+          }
+        ],
+        "2708408": [
+          {
+            "food_id": "2708403",
+            "catalog_name": "Rice, white, cooked, NS as to fat"
+          },
+          {
+            "food_id": "2710788",
+            "catalog_name": "Rice, white, cooked, as ingredient"
+          }
+        ],
+        "2709385": [
+          {
+            "food_id": "2709387",
+            "catalog_name": "Potato, boiled, from fresh, peel not eaten, NS as to fat"
+          },
+          {
+            "food_id": "2709388",
+            "catalog_name": "Potato, boiled, from fresh, peel not eaten, no added fat"
+          },
+          {
+            "food_id": "2709393",
+            "catalog_name": "Potato, boiled, from fresh, peel eaten, NS as to fat"
+          },
+          {
+            "food_id": "2709395",
+            "catalog_name": "Potato, boiled, from fresh,  peel eaten, no added fat"
+          }
+        ]
+      },
+      "ledger_food_options": {
+        "2709385": {
+          "portion": {"key": "cup", "count": 1},
+          "options": [
+            {
+              "food_id": "2709387",
+              "catalog_name": "Potato, boiled, from fresh, peel not eaten, NS as to fat"
+            },
+            {
+              "food_id": "2709388",
+              "catalog_name": "Potato, boiled, from fresh, peel not eaten, no added fat"
+            },
+            {
+              "food_id": "2709393",
+              "catalog_name": "Potato, boiled, from fresh, peel eaten, NS as to fat"
+            },
+            {
+              "food_id": "2709395",
+              "catalog_name": "Potato, boiled, from fresh,  peel eaten, no added fat"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "task_id": "adr29-buy-03",
+      "old_query": "Grocery run this morning: baked salmon, lettuce, chicken breast, boiled potato, and tomatoes. I had a piece of salmon and two cups of lettuce for lunch — log it. Then plan dinner from the rest of the bag.",
+      "new_query": "Grocery run this morning: baked salmon, lettuce, chicken breast, boiled potato, and tomatoes. I had a piece of salmon and two cups of lettuce for lunch. Please log it. I have enough of all those foods left for dinner. Please plan dinner using them.",
+      "reason": "Preserve natural food wording and accept explicit complete ledger interpretations with each food's own portion and nutrient budget.",
+      "inventory_options": {
+        "2709789": [
+          {
+            "food_id": "2709790",
+            "catalog_name": "Lettuce, Boston, raw"
+          }
+        ],
+        "2705956": [
+          {
+            "food_id": "2705953",
+            "catalog_name": "Chicken breast, NS as to cooking method, skin eaten"
+          },
+          {
+            "food_id": "2705954",
+            "catalog_name": "Chicken breast, NS as to cooking method, skin not eaten"
+          },
+          {
+            "food_id": "2705955",
+            "catalog_name": "Chicken breast, baked, broiled, or roasted, skin eaten, from raw"
+          },
+          {
+            "food_id": "2705965",
+            "catalog_name": "Chicken breast, stewed, skin eaten"
+          },
+          {
+            "food_id": "2705966",
+            "catalog_name": "Chicken breast, stewed, skin not eaten"
+          },
+          {
+            "food_id": "2705967",
+            "catalog_name": "Chicken breast, grilled without sauce, skin eaten"
+          },
+          {
+            "food_id": "2705968",
+            "catalog_name": "Chicken breast, grilled without sauce, skin not eaten"
+          }
+        ],
+        "2709719": [
+          {
+            "food_id": "2709720",
+            "catalog_name": "Tomatoes, NS as to form, cooked"
+          },
+          {
+            "food_id": "2709721",
+            "catalog_name": "Tomatoes, fresh, cooked"
+          },
+          {
+            "food_id": "2710795",
+            "catalog_name": "Tomatoes, cooked, as ingredient"
+          }
+        ],
+        "2709385": [
+          {
+            "food_id": "2709387",
+            "catalog_name": "Potato, boiled, from fresh, peel not eaten, NS as to fat"
+          },
+          {
+            "food_id": "2709388",
+            "catalog_name": "Potato, boiled, from fresh, peel not eaten, no added fat"
+          },
+          {
+            "food_id": "2709393",
+            "catalog_name": "Potato, boiled, from fresh, peel eaten, NS as to fat"
+          },
+          {
+            "food_id": "2709395",
+            "catalog_name": "Potato, boiled, from fresh,  peel eaten, no added fat"
+          }
+        ]
+      },
+      "ledger_food_options": {
+        "2709789": {
+          "portion": {"key": "cup", "count": 2},
+          "options": [
+            {
+              "food_id": "2709790",
+              "catalog_name": "Lettuce, Boston, raw"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "task_id": "adr29-buy-04",
+      "old_query": "I bought pork tenderloin, celery, tofu, lettuce, cooked white rice, and tomatoes. Please log lunch as a cup of pork tenderloin with a cup of celery, then build dinner from the remaining groceries.",
+      "new_query": "I bought pork tenderloin, celery, tofu, lettuce, cooked white rice, and tomatoes. For lunch I had a cup of pork tenderloin with a cup of raw celery. Please log that, then plan dinner from those groceries; I have plenty left.",
+      "reason": "Accept reviewed catalog interpretations of the natural inventory names; check actual chosen-food nutrients and allergies.",
+      "inventory_options": {
+        "2709778": [
+          {
+            "food_id": "2709906",
+            "catalog_name": "Celery, cooked"
+          },
+          {
+            "food_id": "2710805",
+            "catalog_name": "Celery, cooked, as ingredient"
+          }
+        ],
+        "2709789": [
+          {
+            "food_id": "2709790",
+            "catalog_name": "Lettuce, Boston, raw"
+          }
+        ],
+        "2709719": [
+          {
+            "food_id": "2709720",
+            "catalog_name": "Tomatoes, NS as to form, cooked"
+          },
+          {
+            "food_id": "2709721",
+            "catalog_name": "Tomatoes, fresh, cooked"
+          },
+          {
+            "food_id": "2710795",
+            "catalog_name": "Tomatoes, cooked, as ingredient"
+          }
+        ],
+        "2708408": [
+          {
+            "food_id": "2708403",
+            "catalog_name": "Rice, white, cooked, NS as to fat"
+          },
+          {
+            "food_id": "2710788",
+            "catalog_name": "Rice, white, cooked, as ingredient"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "adr29-conv-01",
+      "old_query": "I have only these 12 items on hand in my basket: California sushi roll, a generic sandwich, a hot dog, egg salad made with mayonnaise, canned tuna, a banana, Greek yogurt, edamame, diet cola, regular cola, a ramen bowl with meat and egg, and an apple. I need a low-sodium lunch from those items only.",
+      "new_query": "I have only these 12 items on hand in my basket: California sushi roll, a generic sandwich, a hot dog, egg salad made with mayonnaise, canned tuna, a banana, Greek yogurt, edamame, diet cola, regular cola, a ramen bowl with meat and egg, and an apple. I need a low-sodium lunch from those items only.",
+      "reason": "Accept reviewed catalog interpretations of the natural inventory names; check actual chosen-food nutrients and allergies.",
+      "inventory_options": {
+        "2705424": [
+          {
+            "food_id": "2705415",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk or flavor"
+          },
+          {
+            "food_id": "2705421",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk, plain"
+          },
+          {
+            "food_id": "2705422",
+            "catalog_name": "Yogurt, Greek, whole milk, plain"
+          },
+          {
+            "food_id": "2705423",
+            "catalog_name": "Yogurt, Greek, low fat milk, plain"
+          },
+          {
+            "food_id": "2705429",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk, fruit"
+          },
+          {
+            "food_id": "2705430",
+            "catalog_name": "Yogurt, Greek, whole milk, fruit"
+          },
+          {
+            "food_id": "2705431",
+            "catalog_name": "Yogurt, Greek, low fat milk, fruit"
+          },
+          {
+            "food_id": "2705432",
+            "catalog_name": "Yogurt, Greek, nonfat milk, fruit"
+          },
+          {
+            "food_id": "2705437",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk, flavors other than fruit"
+          },
+          {
+            "food_id": "2705438",
+            "catalog_name": "Yogurt, Greek, whole milk, flavors other than fruit"
+          },
+          {
+            "food_id": "2705439",
+            "catalog_name": "Yogurt, Greek, low fat milk, flavors other than fruit"
+          },
+          {
+            "food_id": "2705440",
+            "catalog_name": "Yogurt, Greek, nonfat milk, flavors other than fruit"
+          }
+        ],
+        "2706166": [
+          {
+            "food_id": "2706167",
+            "catalog_name": "Hot dog, beef"
+          },
+          {
+            "food_id": "2706168",
+            "catalog_name": "Hot dog, meat and poultry"
+          },
+          {
+            "food_id": "2706169",
+            "catalog_name": "Hot dog, reduced fat"
+          },
+          {
+            "food_id": "2706170",
+            "catalog_name": "Hot dog, turkey"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "adr29-conv-02",
+      "high_protein": true,
+      "old_query": "From these same 12 items on hand in my basket — California sushi roll, sandwich, hot dog, egg salad made with mayonnaise, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen with meat and egg, and an apple — pick a high-protein snack from that closed list only.",
+      "new_query": "From these same 12 items on hand in my basket — California sushi roll, sandwich, hot dog, egg salad made with mayonnaise, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen with meat and egg, and an apple — pick a high-protein snack from that closed list only.",
+      "reason": "Accept reviewed catalog interpretations of the natural inventory names; check actual chosen-food nutrients and allergies.",
+      "inventory_options": {
+        "2705424": [
+          {
+            "food_id": "2705415",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk or flavor"
+          },
+          {
+            "food_id": "2705421",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk, plain"
+          },
+          {
+            "food_id": "2705422",
+            "catalog_name": "Yogurt, Greek, whole milk, plain"
+          },
+          {
+            "food_id": "2705423",
+            "catalog_name": "Yogurt, Greek, low fat milk, plain"
+          },
+          {
+            "food_id": "2705429",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk, fruit"
+          },
+          {
+            "food_id": "2705430",
+            "catalog_name": "Yogurt, Greek, whole milk, fruit"
+          },
+          {
+            "food_id": "2705431",
+            "catalog_name": "Yogurt, Greek, low fat milk, fruit"
+          },
+          {
+            "food_id": "2705432",
+            "catalog_name": "Yogurt, Greek, nonfat milk, fruit"
+          },
+          {
+            "food_id": "2705437",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk, flavors other than fruit"
+          },
+          {
+            "food_id": "2705438",
+            "catalog_name": "Yogurt, Greek, whole milk, flavors other than fruit"
+          },
+          {
+            "food_id": "2705439",
+            "catalog_name": "Yogurt, Greek, low fat milk, flavors other than fruit"
+          },
+          {
+            "food_id": "2705440",
+            "catalog_name": "Yogurt, Greek, nonfat milk, flavors other than fruit"
+          }
+        ],
+        "2706166": [
+          {
+            "food_id": "2706167",
+            "catalog_name": "Hot dog, beef"
+          },
+          {
+            "food_id": "2706168",
+            "catalog_name": "Hot dog, meat and poultry"
+          },
+          {
+            "food_id": "2706169",
+            "catalog_name": "Hot dog, reduced fat"
+          },
+          {
+            "food_id": "2706170",
+            "catalog_name": "Hot dog, turkey"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "adr29-conv-03",
+      "old_query": "From these 12 items on hand in my basket (California sushi roll, sandwich, hot dog, egg salad made with mayonnaise, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen with meat and egg, and apple), I want a sugar-conscious, lower-fat combo from those foods only.",
+      "new_query": "From these 12 items on hand in my basket (California sushi roll, sandwich, hot dog, egg salad made with mayonnaise, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen with meat and egg, and apple), I want a sugar-conscious, lower-fat lunch combo from those foods only.",
+      "reason": "Accept reviewed catalog interpretations of the natural inventory names; check actual chosen-food nutrients and allergies.",
+      "inventory_options": {
+        "2705424": [
+          {
+            "food_id": "2705415",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk or flavor"
+          },
+          {
+            "food_id": "2705421",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk, plain"
+          },
+          {
+            "food_id": "2705422",
+            "catalog_name": "Yogurt, Greek, whole milk, plain"
+          },
+          {
+            "food_id": "2705423",
+            "catalog_name": "Yogurt, Greek, low fat milk, plain"
+          },
+          {
+            "food_id": "2705429",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk, fruit"
+          },
+          {
+            "food_id": "2705430",
+            "catalog_name": "Yogurt, Greek, whole milk, fruit"
+          },
+          {
+            "food_id": "2705431",
+            "catalog_name": "Yogurt, Greek, low fat milk, fruit"
+          },
+          {
+            "food_id": "2705432",
+            "catalog_name": "Yogurt, Greek, nonfat milk, fruit"
+          },
+          {
+            "food_id": "2705437",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk, flavors other than fruit"
+          },
+          {
+            "food_id": "2705438",
+            "catalog_name": "Yogurt, Greek, whole milk, flavors other than fruit"
+          },
+          {
+            "food_id": "2705439",
+            "catalog_name": "Yogurt, Greek, low fat milk, flavors other than fruit"
+          },
+          {
+            "food_id": "2705440",
+            "catalog_name": "Yogurt, Greek, nonfat milk, flavors other than fruit"
+          }
+        ],
+        "2706166": [
+          {
+            "food_id": "2706167",
+            "catalog_name": "Hot dog, beef"
+          },
+          {
+            "food_id": "2706168",
+            "catalog_name": "Hot dog, meat and poultry"
+          },
+          {
+            "food_id": "2706169",
+            "catalog_name": "Hot dog, reduced fat"
+          },
+          {
+            "food_id": "2706170",
+            "catalog_name": "Hot dog, turkey"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "adr29-conv-04",
+      "old_query": "I cannot do dairy. From these 12 items on hand in my basket — California sushi roll, sandwich, hot dog, egg salad made with mayonnaise, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen with meat and egg, apple — build a lactose-safe lunch from that list only.",
+      "new_query": "I have a milk allergy. From these 12 items on hand in my basket — California sushi roll, sandwich, hot dog, egg salad made with mayonnaise, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen with meat and egg, apple — build a milk-free lunch from that list only.",
+      "reason": "Accept reviewed catalog interpretations of the natural inventory names; check actual chosen-food nutrients and allergies.",
+      "inventory_options": {
+        "2705424": [
+          {
+            "food_id": "2705415",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk or flavor"
+          },
+          {
+            "food_id": "2705421",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk, plain"
+          },
+          {
+            "food_id": "2705422",
+            "catalog_name": "Yogurt, Greek, whole milk, plain"
+          },
+          {
+            "food_id": "2705423",
+            "catalog_name": "Yogurt, Greek, low fat milk, plain"
+          },
+          {
+            "food_id": "2705429",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk, fruit"
+          },
+          {
+            "food_id": "2705430",
+            "catalog_name": "Yogurt, Greek, whole milk, fruit"
+          },
+          {
+            "food_id": "2705431",
+            "catalog_name": "Yogurt, Greek, low fat milk, fruit"
+          },
+          {
+            "food_id": "2705432",
+            "catalog_name": "Yogurt, Greek, nonfat milk, fruit"
+          },
+          {
+            "food_id": "2705437",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk, flavors other than fruit"
+          },
+          {
+            "food_id": "2705438",
+            "catalog_name": "Yogurt, Greek, whole milk, flavors other than fruit"
+          },
+          {
+            "food_id": "2705439",
+            "catalog_name": "Yogurt, Greek, low fat milk, flavors other than fruit"
+          },
+          {
+            "food_id": "2705440",
+            "catalog_name": "Yogurt, Greek, nonfat milk, flavors other than fruit"
+          }
+        ],
+        "2706166": [
+          {
+            "food_id": "2706167",
+            "catalog_name": "Hot dog, beef"
+          },
+          {
+            "food_id": "2706168",
+            "catalog_name": "Hot dog, meat and poultry"
+          },
+          {
+            "food_id": "2706169",
+            "catalog_name": "Hot dog, reduced fat"
+          },
+          {
+            "food_id": "2706170",
+            "catalog_name": "Hot dog, turkey"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "adr29-conv-05",
+      "high_protein": true,
+      "old_query": "I have only these 12 items on hand in my basket: California sushi roll, sandwich, hot dog, egg salad made with mayonnaise, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen with meat and egg, and an apple. Put together a high-protein dinner using only those items.",
+      "new_query": "I have only these 12 items on hand in my basket: California sushi roll, sandwich, hot dog, egg salad made with mayonnaise, canned tuna, banana, Greek yogurt, edamame, diet cola, cola, ramen with meat and egg, and an apple. Put together a high-protein dinner using only those items.",
+      "reason": "Accept reviewed catalog interpretations of the natural inventory names; check actual chosen-food nutrients and allergies.",
+      "inventory_options": {
+        "2705424": [
+          {
+            "food_id": "2705415",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk or flavor"
+          },
+          {
+            "food_id": "2705421",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk, plain"
+          },
+          {
+            "food_id": "2705422",
+            "catalog_name": "Yogurt, Greek, whole milk, plain"
+          },
+          {
+            "food_id": "2705423",
+            "catalog_name": "Yogurt, Greek, low fat milk, plain"
+          },
+          {
+            "food_id": "2705429",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk, fruit"
+          },
+          {
+            "food_id": "2705430",
+            "catalog_name": "Yogurt, Greek, whole milk, fruit"
+          },
+          {
+            "food_id": "2705431",
+            "catalog_name": "Yogurt, Greek, low fat milk, fruit"
+          },
+          {
+            "food_id": "2705432",
+            "catalog_name": "Yogurt, Greek, nonfat milk, fruit"
+          },
+          {
+            "food_id": "2705437",
+            "catalog_name": "Yogurt, Greek, NS as to type of milk, flavors other than fruit"
+          },
+          {
+            "food_id": "2705438",
+            "catalog_name": "Yogurt, Greek, whole milk, flavors other than fruit"
+          },
+          {
+            "food_id": "2705439",
+            "catalog_name": "Yogurt, Greek, low fat milk, flavors other than fruit"
+          },
+          {
+            "food_id": "2705440",
+            "catalog_name": "Yogurt, Greek, nonfat milk, flavors other than fruit"
+          }
+        ],
+        "2706166": [
+          {
+            "food_id": "2706167",
+            "catalog_name": "Hot dog, beef"
+          },
+          {
+            "food_id": "2706168",
+            "catalog_name": "Hot dog, meat and poultry"
+          },
+          {
+            "food_id": "2706169",
+            "catalog_name": "Hot dog, reduced fat"
+          },
+          {
+            "food_id": "2706170",
+            "catalog_name": "Hot dog, turkey"
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "adr24-comp-8266",
+      "old_query": "Please update my profile to add a peanut allergy, set my activity level to very active. For lunch, I went to an Italian restaurant and had a warm soft breadstick. Please recommend a peanut-free dinner suitable for my gym-focused lifestyle.",
+      "new_query": "Please add a peanut allergy to my profile and set my activity level to very active. At lunch I had a warm soft breadstick at an Italian restaurant. What peanut-free dinner would suit my gym-focused lifestyle?",
+      "reason": "Use QNS for a breadstick without an explicit piece unit.",
+      "ledger_portion_fixes": [
+        {"food_id": "2707693", "portion": {"key": "qns", "count": 1}, "grams": 50}
+      ]
+    },
+    {
+      "task_id": "adr20-eval-5010",
+      "old_query": "Can you evaluate my planned lunch: a bowl of chicken burrito with rice and a glass of wine spritzer?",
+      "new_query": "Can you evaluate my planned lunch: a chicken burrito bowl with rice and a glass of wine spritzer?",
+      "reason": "Correct the dish name without specifying hidden preparation or quantities."
+    },
+    {
+      "task_id": "adr29-hypo-01",
+      "old_query": "Hypothetically, if I had two doughnut servings this afternoon, would that fit? I have not eaten them — do not log anything.",
+      "new_query": "Hypothetically, if I had two doughnut servings as an afternoon snack, would that fit? I have not eaten them — do not log anything.",
+      "reason": "Make the meal occasion clear in ordinary language."
+    }
+  ],
+  "review_notes": {
+    "unscored_requirements": [
+      "low-sodium",
+      "sugar-conscious",
+      "lower-fat",
+      "light"
+    ],
+    "policy": "Retain substantive user requirements. Existing scoring does not prove they are satisfied; these dimensions require a separate rubric, not word deletion or invented thresholds.",
+    "remaining_ambiguities": [
+      "Reviewed food options are finite authoring choices, not a claim of exhaustive natural-language equivalence.",
+      "Degenerate ordinary snack portions and unscored qualitative requests other than high-protein still need a separate rubric."
+    ],
+    "retracted_findings": [
+      "Only the default now timestamp acts as a wildcard; the revised questions explicitly name lunch.",
+      "Recipe quantities are now explicitly measured before cooking to distinguish raw from cooked entries."
+    ]
+  }
+}
