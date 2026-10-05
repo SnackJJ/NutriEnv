@@ -1,59 +1,47 @@
-# NutriEnv Evaluation Reports
+# Evaluation reports
 
-This directory contains the official evaluation trajectories, metrics, and visualization assets for **NutriEnv v1.0**.
+## v1.1: internal ARK single runs
 
-## Directory Structure
+The three `ab_ark_*_v1.1-new_fc.json` files are the cited 63-task runs:
 
-```text
-reports/
-|-- assets/
-|   |-- eval_leaderboard_bars.png               # Official Pass@1 leaderboard horizontal bar chart
-|   |-- eval_pareto_efficiency.png              # Official Token-Efficiency vs Pass Rate Pareto Frontier
-|   +-- radar_v1.0_family.png                   # Official 5-axis capability radar chart
-|-- benchmark_commandcode_<model>_v1.0_fc_r<k>.json # Leaderboard runs (one file per complete run): native function calling
-+-- benchmark_commandcode_<model>_v1.0_text.json    # Same models, one run on the ReAct text loop
+- `ab_ark_deepseek-v4.1-flash_v1.1-new_fc.json`: 60/63.
+- `ab_ark_glm-5.3-flash_v1.1-new_fc.json`: 56/63.
+- `ab_ark_doubao-seed-2.1-lite_v1.1-new_fc.json`: 37/63.
+
+**Internal ARK, single run per model, not the official leaderboard.** The [README table](../README.md#v11-results)
+and `assets/v1.1_internal_ark_*.png` use those exact reports. Temperature 0, full context,
+serial native tools, no voids. Scorer `s10-meal-mass-envelope`, prompt
+`p8-published-meal-mass-limits`, loop `l2-refused-handin-continues`.
+
+`v1.1-provenance.json` records SHA-256 identities of the current split, catalog and original
+report bytes. All 189 queries match the split; replay checks recorded action acceptance/refusal
+and unchanged Pass/score tags. The original reports did not record split/catalog hashes at
+run time; this manifest is explicitly a **current-artifact replay verification**, not invented
+run-time provenance. It does not rerun a model or prove repeated-run stability.
+
+```sh
+uv run --extra plots python scripts/render_v1_1.py
 ```
 
-Models: `deepseek-v4-pro`, `glm-5.3-flash`, `mimo-v2.6-flash`, `deepseek-v4-flash`,
-`deepseek-v4.1-flash`.
+## v1.0: historical
 
-## Summary of Results (v1.0, 63 Tasks, native function calling, mean over complete runs)
+[Preserved published results](../README.md#v10-historical) use the original table and image
+assets. `benchmark_commandcode_*_v1.0_fc_r*.json`, their text-json controls, the official
+DeepSeek API result and the earlier nonparallel DeepSeek run remain unchanged. Additional
+lab ARK and ablation traces are historical evidence, not interchangeable leaderboard runs.
+Reproduce the released v1.0 protocol at revision `94c211a`; today's scorer does not reproduce
+that ruler. Do not run the historical renderers over new reports and overwrite the old images.
 
-| Rank | Model | Mean Pass Rate | Mean Solved / 63 | Runs | Avg Steps | Avg Latency | Update (2) | Log (6) | Evaluate (8) | Recommend (11) | Composite (36) | text-json (1 run) |
-|:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 1 | **DeepSeek-v4.1-flash (official API: `deepseek-flash`)** | **84.1%** | **53.0** | 53 (1 run) | 11.6 | 40.1s | 100.0% | 83.3% | 87.5% | 81.8% | 83.3% | Not run |
-| 1 | **MiMo-v2.6-flash** | **84.1%** | **53.0** | 51 / 55 | 13.9 | 329.6s | 100.0% | 75.0% | 87.5% | 81.8% | 84.7% | 43 / 63 |
-| 2 | **DeepSeek-v4-pro** | **81.7%** | **51.5** | 53 / 50 | 10.8 | 100.6s | 100.0% | 66.7% | 75.0% | 81.8% | 84.7% | 54 / 63 |
-| 3 | **GLM-5.3-flash** | **81.0%** | **51.0** | 51 | 12.2 | 235.4s | 100.0% | 66.7% | 75.0% | 81.8% | 83.3% | 53 / 63 |
-| 4 | **DeepSeek-v4-flash** | **74.6%** | **47.0** | 43 / 51 / 47 | 11.8 | 36.8s | 100.0% | 72.2% | 66.7% | 84.8% | 72.2% | 44 / 63 |
-| 5 | **DeepSeek-v4.1-flash** | **68.3%** | **43.0** | 37 / 49 / 43 | 11.7 | 42.6s | 100.0% | 77.8% | 70.8% | 75.8% | 62.0% | 44 / 63 |
+## Provenance and retention
 
-The official API row is one complete run through `https://api.deepseek.com/v1/chat/completions`,
-using API model ID `deepseek-flash`, with the same split, prompt fingerprint, scorer,
-loop, temperature and serial native-tool protocol as the Command Code rows.
-[Full official API report](./benchmark_deepseek_deepseek-flash_v1.0_fc_r1.json). Its 53/63 equals MiMo's two-run mean;
-run counts differ. Other rows use Command Code. The charts include both API routes and use the same complete-run means as this table.
+Only compare results with matching split contents/catalog, scorer, prompt fingerprint, loop,
+transport, provider endpoint and sampling settings. Matching filenames or model names are
+insufficient. Missing identity fields make historical comparisons unverified, not implicitly
+compatible. `--resume` / reuse reject stale protocol identities. `rescore_report.py` requires a
+compatible prompt/loop and faithful action replay; it cannot simulate different instructions.
 
-> **Note**: temperature 0; provider routes are distinguished above. Family columns pool each
-> model's complete runs. Each report records the ruler it was measured with (`contract`,
-> `scorer_version`, `loop_version`, `prompt_version`, `prompt_fingerprint`); compare two reports
-> only when those agree. The text reports were re-judged offline with the same Scorer
-> (`scripts/rescore_report.py`). Runs are noisy (DeepSeek-v4.1-flash: 37 / 49 / 43), and run counts
-> differ: further runs that hit the provider's usage limit part-way (HTTP 429 voids) are excluded.
-> The previous table (Volcano Engine ARK plan, earlier scorer and loop) is kept in git history
-> only; GLM-5.3 (flagship) was not re-measured.
-
-Each benchmark JSON includes complete step-by-step tool actions, observations, latency, token usage, and final state validation tags.
-
-### Historical DeepSeek official API result (v1.0)
-
-| Model | Pass Rate | Solved / Total | Avg Steps | Avg Latency | Update (2) | Log (6) | Evaluate (8) | Recommend (11) | Composite (36) |
-|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| DeepSeek-v4.1-flash | 84.13% | 53 / 63 | 12.37 | 33.52s | 2/2 (100.0%) | 6/6 (100.0%) | 7/8 (87.5%) | 8/11 (72.7%) | 30/36 (83.3%) |
-
-Measured through `https://api.deepseek.com/v1/chat/completions` with model
-`deepseek-v4.1-flash-expires-on-0910`, using serial function calling with parallel
-calls disabled. This is one historical run on the 63-task v1.0 split, not a v1.1
-result. The [full report](./benchmark_deepseek_deepseek-v4.1-flash_v1.0_toolcall_noparallel.json) predates the recorded prompt fingerprint,
-scorer version and loop version; its score is not directly comparable with the
-main leaderboard or current harness results.
+`reports/archive/audit_and_probes/agent-behavior-*` are recorded inputs to compatibility tests.
+Local, uncited process runs belong under `archive/local-*/`, not in the publication table.
+The explicit `.gitignore` allowlist admits the three v1.1 traces and manifest; local runs do
+not become publication evidence merely by appearing here. Tracked ablation write-ups and the
+artifacts they cite remain available in lab.

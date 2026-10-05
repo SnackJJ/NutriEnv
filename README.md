@@ -1,30 +1,140 @@
-# NutriEnv: An Interactive Nutrition Benchmark & Environment for LLM Agents
+# NutriEnv v1.1: An Interactive Nutrition Benchmark for LLM Agents
 
 <p align="center">
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python 3.11+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"></a>
-  <a href="https://github.com/SnackJJ/NutriEnv"><img src="https://img.shields.io/badge/benchmark-NutriEnv--v1.0%20(63%20tasks)-orange.svg" alt="NutriEnv v1.0"></a>
+  <a href="data/splits/nutrienv-v1.1.json"><img src="https://img.shields.io/badge/benchmark-NutriEnv--v1.1%20(63%20tasks)-orange.svg" alt="NutriEnv v1.1: 63 tasks"></a>
 </p>
 
-NutriEnv is an interactive, steppable environment and benchmark suite designed to evaluate the multi-turn tool interaction, dietary state tracking, high-dimensional inequality planning, and nutrition grounding capabilities of Large Language Models (LLMs) and Agentic AI.
+NutriEnv evaluates multi-turn tool use, dietary state tracking, portion grounding and nutrient
+planning in a deterministic, stateful environment grounded in USDA FNDDS catalog facts.
+An agent searches foods, inspects portions, edits a profile or meal ledger and submits a plan;
+a deterministic scorer checks the resulting state against the task contract, not an LLM judge.
 
-Unlike traditional static QA datasets, NutriEnv evaluates agents in a stateful, interactive environment grounded in the USDA Food and Nutrient Database for Dietary Studies (FNDDS).
+## v1.1 results
 
----
+**Internal ARK, single run per model, not the official leaderboard.** These three complete
+63-task runs use the Volcano Engine ARK Agent Plan endpoint, serial native function calling,
+temperature 0 and full context. No voids are included. A single run does not establish a stable
+model ranking; endpoint latency and token accounting are provider-specific.
 
-## Evaluation Leaderboard (NutriEnv v1.0)
-
-The official NutriEnv v1.0 benchmark consists of 63 curated tasks with audited construct validity.
+| Model (ARK) | Pass | Rate | Avg steps | Avg latency | Update (2) | Log (6) | Evaluate (8) | Recommend (11) | Composite (36) |
+|:--|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| [DeepSeek-v4.1-flash](reports/ab_ark_deepseek-v4.1-flash_v1.1-new_fc.json) | 60/63 | 95.24% | 11.84 | 60.81s | 2/2 | 4/6 | 7/8 | 11/11 | 36/36 |
+| [GLM-5.3-flash](reports/ab_ark_glm-5.3-flash_v1.1-new_fc.json) | 56/63 | 88.89% | 11.29 | 171.55s | 2/2 | 3/6 | 6/8 | 11/11 | 34/36 |
+| [Doubao-seed-2.1-lite](reports/ab_ark_doubao-seed-2.1-lite_v1.1-new_fc.json) | 37/63 | 58.73% | 11.79 | 465.32s | 2/2 | 3/6 | 6/8 | 6/11 | 20/36 |
 
 <p align="center">
-  <img src="reports/assets/eval_leaderboard_bars.png" width="760" alt="NutriEnv v1.0 Leaderboard Pass@1" />
+  <img src="reports/assets/v1.1_internal_ark_pass.png" width="760" alt="Internal ARK v1.1 single-run passes: DeepSeek 60/63, GLM 56/63, Doubao 37/63; not the official leaderboard">
+  <img src="reports/assets/v1.1_internal_ark_efficiency.png" width="760" alt="Internal ARK v1.1 token cost versus pass rate; single runs, no cross-version comparison">
+  <img src="reports/assets/v1.1_internal_ark_family.png" width="760" alt="Internal ARK v1.1 family pass rates; exact counts are in the results table">
 </p>
+
+> **New ruler, not a v1.0 improvement claim.** The split is
+> `nutrienv-v1.1-mass-envelopes-20261005`, scorer `s10-meal-mass-envelope`, prompt
+> `p8-published-meal-mass-limits`, loop `l2-refused-handin-continues`.
+> Questions, gold portions, nutrient windows, inventory interpretations, catalog and scoring
+> differ from v1.0 and earlier v1.1 generations. Their pass rates are **not directly comparable**.
+> All 189 task queries and recorded action acceptance/pass tags replay unchanged against the
+> published artifacts. [`reports/v1.1-provenance.json`](reports/v1.1-provenance.json) binds those
+> artifacts by SHA-256; these are current replay-verified hashes, not hashes recorded at run time.
+
+Regenerate the charts and table from the reports, with replay verification:
+
+```sh
+uv run --extra plots python scripts/render_v1_1.py
+```
+
+## Current contract
+
+The [v1.1 contract](docs/review-v1.1-query-contracts.md) defines scoring and its limitations.
+
+- **Portions:** explicit household units use that food's own portion key and count. A named
+  food without a unit uses QNS; missing or unsupported units require clarification, not guessed grams.
+- **Daily targets:** Mifflin–St Jeor EER and goal-specific windows. Maintenance/cut use adult
+  AMDR macro ranges; muscle uses a benchmark protein target of 1.6–2.2 g/kg/day. Cut subtracts
+  300 kcal. Sodium stays at most 2300 mg; only the fiber ceiling retains 15% reference slack.
+- **Planning:** main-meal mass at most 1500 g, snack 500 g, whole day 4000 g, including drinks.
+  Scope is immutable episode context, visible in reset/get_profile. Logging eaten foods remains descriptive.
+- **Explicit high protein:** a requested high-protein plan needs at least 10 g protein and
+  20% of catalog energy from protein. A muscle persona alone does not impose this meal rule.
+- **Profile edits:** invalid facts or incompatible target ranges fail atomically. Body-fact
+  edits re-derive windows; explicit window overrides preserve other keys. Combining both modes is rejected.
+- **Interpretations:** complete reviewed ledger variants are matched as whole ledgers; remaining
+  budgets use the matched gold ledger, not tolerance-undercounted submitted grams.
+- **Authoring:** [agent-authored admission](docs/agent-authored-tasks.md) requires structured catalog
+  evidence, legal witnesses and separate exact-hash semantic review. Parser/template generation is explicitly legacy.
+
+Pass is binary: required profile/ledger/plan conditions must hold in the final state. Ledger
+amounts allow ±15% tolerance; identity and other task conditions still apply. Food allergy
+violations fail scoring. Action errors return explicit observations rather than mutate invalid state.
+
+### Action space
+
+| Action | Purpose |
+|:--|:--|
+| `search_foods`, `get_food` | Search the FNDDS catalog and inspect food/portion/nutrient facts |
+| `get_profile`, `get_ledger` | Read episode context and consumed meals |
+| `update_profile` | Change profile facts or explicit nutrient targets |
+| `log_meal`, `amend_meal` | Record or correct consumed food |
+| `submit_plan` | Hand in an accepted or rejected candidate with structured reasons |
+| `update_plan` | Inspect the existing plan's totals and fit without mutating it |
+| `finish` | End a non-plan task |
+
+### Limitations
+
+Search uses exact-token AND matching with FTS5 BM25 ranking, without stemming; rephrasing may
+be needed for singular/plural names. Broader search recall and prompt wording changes are deferred
+to another protocol version. Reviewed interpretations are finite, edamame soy-tag repair is not a
+complete allergen audit, and ordinary caps do not prove qualitative claims such as “light” or
+“sugar-conscious”. Some safety tasks judge only state, not verbal advice. Mass envelopes are
+conservative adult benchmark limits, not medical or physiological maxima. See the contract for
+known task-specific gaps and historical replay incompatibilities.
+
+## Quick start
+
+```sh
+git clone https://github.com/SnackJJ/NutriEnv.git
+cd NutriEnv
+uv sync --extra dev
+cp .env.example .env.local
+# Set the API key for your chosen provider; do not commit .env.local.
+
+uv run pytest -q tests/test_profile_and_plan_mass.py tests/test_goal_nutrition_contract.py tests/test_split_v1_1.py
+uv run python scripts/build_split_v1_1.py --check
+uv run python scripts/check_achievable.py --split data/splits/nutrienv-v1.1.json
+
+# Explicit provider route; running this spends API quota.
+uv run python scripts/eval_benchmark_suite.py \
+  --split data/splits/nutrienv-v1.1.json \
+  --model commandcode/inclusionai/ling-3.0-flash-sante:free \
+  --workers 5 --out reports/my_v1.1_run.json
+```
+
+The exam binds `data/fdc/catalog-v3.sqlite`. Required catalogs/configuration must exist;
+missing inputs fail loudly. The reductions in [`data/splits/`](data/splits/README.md) are smoke
+or paired-harness instruments, not substitutes for the 63-task result.
+
+## Repository layout
+
+- `src/nutrienv/`: world, actions, steppable environment, scorer, authoring pipeline and harnesses.
+- `data/fdc/`: active v3 and historical catalog fixtures; raw USDA downloads are ignored.
+- `data/splits/`: current exam, three reductions, reviewed content manifest and historical fixtures.
+- `reports/`: cited result traces, provenance and charts; local probes are archived separately.
+- [`docs/`](docs/README.md): current contracts and historical decisions.
+- [`scripts/`](scripts/README.md): evaluation, verification, catalog build and visualization.
+- `tests/`: current and compatibility regressions; `archive/` is excluded from default collection.
+
+## v1.0 (historical)
+
+The following published table and chart assets retain the v1.0 results. **They are not measured
+under the current v1.1 ruler.** Reproduce the original protocol from revision `94c211a` rather
+than replay v1.0 through today's scorer and call the result comparable.
 
 <p align="center">
-  <img src="reports/assets/eval_pareto_efficiency.png" width="760" alt="NutriEnv v1.0 Pareto Frontier" />
+  <img src="reports/assets/eval_leaderboard_bars.png" width="760" alt="Preserved historical NutriEnv v1.0 leaderboard">
+  <img src="reports/assets/eval_pareto_efficiency.png" width="760" alt="Preserved historical NutriEnv v1.0 token-efficiency frontier">
 </p>
-
-### Main Results
 
 | Rank | Model | Mean Pass Rate | Mean Solved / 63 | Runs | Avg Steps | Avg Latency | Update (2) | Log (6) | Evaluate (8) | Recommend (11) | Composite (36) | text-json (1 run) |
 |:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
@@ -36,172 +146,31 @@ The official NutriEnv v1.0 benchmark consists of 63 curated tasks with audited c
 | 5 | **DeepSeek-v4.1-flash** | **68.3%** | **43.0** | 37 / 49 / 43 | 11.7 | 42.6s | 100.0% | 77.8% | 70.8% | 75.8% | 62.0% | 44 / 63 |
 
 The official API row is one complete run through `https://api.deepseek.com/v1/chat/completions`,
-using API model ID `deepseek-flash`, with the same split, prompt fingerprint, scorer,
-loop, temperature and serial native-tool protocol as the Command Code rows.
-[Full official API report](./reports/benchmark_deepseek_deepseek-flash_v1.0_fc_r1.json). Its 53/63 equals MiMo's two-run mean;
-run counts differ. Other rows use Command Code. The charts include both API routes and use the same complete-run means as this table.
+using API model ID `deepseek-flash`; other rows use Command Code. The table reports means over
+complete runs, family columns pool those runs, and *Runs* lists solved counts. Partial HTTP 429
+runs were excluded. At temperature 0 DeepSeek-v4.1-flash varied by 12 tasks (37 / 49 / 43);
+run counts differ, and nearby means do not establish distinct capability ranks.
 
-> **Protocol.** `data/splits/nutrienv-v1.0.json` (63 tasks), native function calling
-> (`--contract native-tools`, the default), temperature 0; provider routes are distinguished above.
-> The table reports the **mean over complete runs** (listed under *Runs*; family
-> columns pool those runs). Every report records the ruler it was measured with:
-> `scorer_version = s6-free-recommend-windows`, `loop_version = l2-refused-handin-continues`,
-> `prompt_version = p5-fc-manual-lines`. The **text-json** column is one run of the same model on
-> the ReAct text contract, re-judged offline with the same Scorer (`scripts/rescore_report.py`).
-> Full traces and token counts are in [`reports/`](./reports/)
-> (`benchmark_commandcode_<model>_v1.0_fc_r<k>.json`, `…_text.json`); per-run Pass / Rate rows can
-> be regenerated with `scripts/render_leaderboard.py`.
->
-> **Runs are noisy, and the run counts differ.** At temperature 0 the same model and code moved
-> by up to 12 tasks between runs (DeepSeek-v4.1-flash: 37 / 49 / 43), so the top three rows are
-> within run-to-run noise of each other. Three runs were planned for every model; a further run of
-> DeepSeek-v4-pro, MiMo-v2.6-flash and two of GLM-5.3-flash hit the provider's usage limit
-> (HTTP 429) part-way, so those partial runs are excluded rather than averaged in.
->
-> **Not comparable with the previous table.** The earlier leaderboard (GLM-5.3 flagship,
-> DeepSeek-v4-pro/flash and GLM-5.3-flash via the Volcano Engine ARK plan, since retired) was
-> measured before the scorer and episode-loop revisions listed in [CHANGELOG](./CHANGELOG.md);
-> it is kept in git history only. GLM-5.3 (flagship) was not re-measured.
+Protocol: `nutrienv-v1.0.json`, scorer `s6-free-recommend-windows`, prompt
+`p5-fc-manual-lines`, loop `l2-refused-handin-continues`, full context, serial native function
+calling, temperature 0. The text-json column is one run re-judged offline with that same scorer.
+[Official API report](reports/benchmark_deepseek_deepseek-flash_v1.0_fc_r1.json);
+Command Code traces remain in `reports/benchmark_commandcode_<model>_v1.0_fc_r<k>.json` and `…_text.json`.
+The earlier four-model ARK table predates this protocol and is kept in git history, not compared here.
 
-### Historical DeepSeek official API result (v1.0)
+### Earlier DeepSeek official API result
 
 | Model | Pass Rate | Solved / Total | Avg Steps | Avg Latency | Update (2) | Log (6) | Evaluate (8) | Recommend (11) | Composite (36) |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | DeepSeek-v4.1-flash | 84.13% | 53 / 63 | 12.37 | 33.52s | 2/2 (100.0%) | 6/6 (100.0%) | 7/8 (87.5%) | 8/11 (72.7%) | 30/36 (83.3%) |
 
-Measured through `https://api.deepseek.com/v1/chat/completions` with model
-`deepseek-v4.1-flash-expires-on-0910`, using serial function calling with parallel
-calls disabled. This is one historical run on the 63-task v1.0 split, not a v1.1
-result. The [full report](./reports/benchmark_deepseek_deepseek-v4.1-flash_v1.0_toolcall_noparallel.json) predates the recorded prompt fingerprint,
-scorer version and loop version; its score is not directly comparable with the
-main leaderboard or current harness results.
+[Historical report](reports/benchmark_deepseek_deepseek-v4.1-flash_v1.0_toolcall_noparallel.json),
+API model `deepseek-v4.1-flash-expires-on-0910`, serial function calling with parallel calls disabled.
+It predates recorded prompt/scorer/loop identity and is not directly comparable with either table.
 
----
+## Citation & license
 
-## Environment Architecture & Tool Protocol
-
-NutriEnv models an interactive dialogue between a user and an AI dietary assistant. The world state mutates deterministically based on agent actions:
-
-```
-                  +-----------------------------------------+
-                  |          NutriEnv WorldState            |
-                  |  |- User Profile (allergies, DRI bands) |
-                  |  |- Meal Ledger  (history & timestamps) |
-                  |  +- Food Catalog (USDA FNDDS SQLite)    |
-                  +--------------------+--------------------+
-                                       |
-                Actions (JSON)         | Observations (Dict)
-                      |                |
-                      v                v
-             +-----------------------------------+
-             |       LLM Agent (ReAct Loop)      |
-             +-----------------------------------+
-```
-
-### Action Space
-
-| Action | Parameters | Description |
-|:---|:---|:---|
-| `search_foods` | `q: str` | BM25 full-text search against the USDA FNDDS catalog |
-| `get_food` | `food_id: str` | Inspect food portions, measures, calories, and micronutrients |
-| `log_meal` | `food_id, grams, eaten_at` | Record an intake item to the user's meal ledger |
-| `amend_meal`| `index, grams?, food_id?` | Modify or substitute an existing ledger entry |
-| `update_profile` | `patch: dict` | Update dietary targets, DRI windows, or allergies |
-| `submit_plan`| `items: list[dict]` | Propose a planned meal satisfying target nutrition windows |
-| `evaluate_diet`| `verdict, reasons` | Accept/reject candidate foods based on clinical guidelines & myths |
-| `finish` | `message: str` | Finalize task turn |
-
----
-
-## Evaluation Philosophy: Ground-Truth Oracle Matching
-
-NutriEnv abides by an objective axiomatic evaluation rule:
-$$\text{Pass} \iff \text{End State} == \text{Oracle}$$
-
-1. **Deterministic Verification over LLM-as-a-Judge**: Scoring inspects deterministic environment state mutations rather than subjective LLM judges:
-   - Profile equality (allergies, health targets).
-   - Ledger set equality with $\pm 15\%$ physical measure tolerance.
-   - Satisfaction of multi-dimensional nutrient windows:
-     $$\text{Nutrient}_k = \sum \text{grams}_i \times \frac{\text{Nutrient}_{i,k}}{100} \in [\text{Lower}_k, \text{Upper}_k]$$
-     Every floor, the energy ceiling and the sodium ceiling are exact. The protein, carb, fat and
-     fiber ceilings are reference intakes (scaled FDA Daily Values), not limits, and are judged with
-     15% slack (`TARGET_CEILING_SLACK`).
-2. **Zero Cheat-Sheets**: Handbooks provide tool specs and action schemas. Agents must reason and ground colloquial portions autonomously via `search_foods` + `get_food`.
-3. **Safety Redlines**: Proposing or logging foods containing user allergens triggers an immediate `allergy_violation` failure.
-
----
-
-## Quick Start
-
-### 1. Installation
-
-```bash
-git clone https://github.com/SnackJJ/NutriEnv.git
-cd NutriEnv
-
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-```
-
-### 2. Configure API Keys
-
-```bash
-cp .env.example .env.local
-# Add your COMMANDCODE_API_KEY (DASHSCOPE_API_KEY / DEEPSEEK_API_KEY for the other routes)
-```
-
-### 3. Run Unit & Regression Tests
-
-```bash
-pytest
-# smoke: Env, Pass scoring, published exam load
-```
-
-### 4. Run Benchmark Suite
-
-```bash
-# Evaluate DeepSeek-v4-pro on the official v1.0 benchmark (63 tasks, native function calling)
-python scripts/eval_benchmark_suite.py \
-  --split data/splits/nutrienv-v1.0.json \
-  --model commandcode/deepseek/deepseek-v4-pro \
-  --workers 6 \
-  --out reports/benchmark_commandcode_deepseek-v4-pro_v1.0_fc_r1.json
-# add --contract text-json for the ReAct text loop
-```
-
----
-
-## Repository Structure
-
-NutriEnv maintains a clean, industry-standard layout:
-
-```text
-nutri-env/
-|-- src/nutrienv/              # Core environment package
-|   |-- env/                   # Interactive Gym-style step/reset loop
-|   |-- world/                 # Food catalog (SQLite), Profile, Ledger state
-|   |-- actions/               # Action schemas, validators, and execution dispatch
-|   |-- bench/                 # Task generator, Oracle, Scorer, mill pipeline
-|   |-- harness/               # Agent harnesses (ReAct, Script, Telemetry)
-|   +-- io/                    # Network clients & environment loaders
-|-- data/
-|   |-- fdc/                   # USDA FNDDS catalog (`catalog.sqlite`)
-|   |-- portion/               # Colloquial portion overlay
-|   +-- splits/
-|       |-- nutrienv-v1.0.json # Official v1.0 exam (63 tasks)
-|       +-- nutrienv-mini.json # Smoke subset (10 tasks from v1.0)
-|-- reports/                   # Official leaderboard reports & charts
-|-- docs/                      # Glossary
-|-- scripts/                   # Evaluation runner and visualization tools
-+-- tests/                     # Unit and integration tests
-```
-
----
-
-## Citation & License
-
-This project is licensed under the [MIT License](LICENSE).
+[MIT License](LICENSE).
 
 ```bibtex
 @misc{snackjj2026nutrienv,

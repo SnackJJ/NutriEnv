@@ -2,7 +2,21 @@
 
 All notable changes to the NutriEnv project are documented in this file.
 
-## [Unreleased]
+## [v1.1.0] - 2026-10-05
+
+- Published `nutrienv-v1.1-mass-envelopes-20261005` and all three reductions with reviewed
+  natural questions, QNS/explicit-unit evidence, complete ledger alternatives and inventory choices.
+- Active catalog is `catalog-v3.sqlite`, with repaired edamame soy tags. Historical catalogs remain immutable.
+- Scorer `s10-meal-mass-envelope`: goal-specific AMDR/muscle targets, exact macro ceilings,
+  gold-ledger budgets, explicit high-protein requirements and immutable meal/snack/day mass envelopes.
+- Prompt `p8-published-meal-mass-limits` exposes episode limits; invalid profile changes fail atomically.
+- Active task admission requires agent-authored structured evidence, legal witnesses and independent
+  exact-hash review. Parser/template generation is explicitly legacy.
+- Three internal ARK single-run reports, separate charts and replay-verified artifact hashes are published.
+  These results are not the official leaderboard and are not directly comparable with v1.0 or earlier v1.1.
+- Preserved the published v1.0 table, report bytes and image assets. Search/p9 changes remain deferred.
+
+## [v1.0 protocol refresh] - 2026-09-29
 
 ### Changed
 - **Leaderboard re-measured (not comparable with the v1.0.0 table).** Five models, native

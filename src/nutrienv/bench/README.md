@@ -1,5 +1,10 @@
 # Bench public API
 
+The current exam contract is [v1.1](../../../docs/review-v1.1-query-contracts.md).
+New tasks enter through [agent-authored admission](../../../docs/agent-authored-tasks.md),
+not `realize` or its legacy natural-language parser. The realization tables below are
+historical/calibration interfaces retained for compatibility tests.
+
 `nutrienv.bench` exports `realize`, `Material`, `Task`, `Oracle`, `Scorer`,
 and `check_achievable`.
 
@@ -29,9 +34,10 @@ Draft oracles follow the gold contract: log pins `profile` to S0 and `ledger`
 to S0+tail; update / recommend / evaluate pin `ledger` to S0.
 
 Oracle fields are query-scoped. `None` means that portion of state is not
-judged. A ledger oracle contains only rows appended after S0. For plans,
-`last_plan=[]` requests any non-empty allergen-safe plan satisfying every
-profile window; a non-empty oracle list requests those exact evaluation items.
+judged. `ledger_tail` matches appended rows; `ledger` matches the complete final ledger.
+For plans, `last_plan=[]` requests any non-empty allergen-safe plan satisfying the
+oracle's applicable meal/remaining windows and mass envelope; a non-empty oracle list
+requests those exact evaluation items.
 `last_verdict` is `None` (today's plan scoring, so old splits load), `"accept"`,
 or `"reject"`. Accept requires the exact adopted plan, accept, and empty
 reasons. Reject requires reject, an empty adopted plan, and the exact
@@ -57,16 +63,20 @@ returns unreachable ids plus coverage per family and per Scorer-judged Oracle
 field. It does not assert. `validate_draft` remains the static draft-time
 gate. Ledger replay is append-only (duplicate S0/tail rows still log). A mill
 draft is checked with `load_split` then this function, or
-`python scripts/check_achievable.py --split data/splits/nutrienv-v1.0.json`.
-`load_exam()` loads the published v1.0 split and stays fail-closed on catalog identity.
+`python scripts/check_achievable.py --split data/splits/nutrienv-v1.1.json`.
+`load_exam()` loads the published v1.1 split and stays fail-closed on catalog identity.
 
 ## Situations
 
-Situations use the published USDA FNDDS catalog (`data/fdc/catalog.sqlite`,
-built by `scripts/download_fdc.py` and
-`scripts/build_fdc_catalog.py --fndds-only --out data/fdc/catalog.sqlite`).
+The default catalog is `data/fdc/catalog-v3.sqlite`,
+FNDDS-only, built by `scripts/download_fdc.py` and
+`scripts/build_fdc_catalog.py --fndds-only --out data/fdc/catalog-v3.sqlite`.
+Historical splits bind their own immutable snapshots.
 
-The published exam is `data/splits/nutrienv-v1.0.json` (63 tasks).
+The published exam is `data/splits/nutrienv-v1.1.json` (63 tasks; v1.0 beside it). Historical
+v0.x and v2.x freezes live in `data/splits/archive/`. v0.x is bound to
+`data/fdc/archive/catalog.sqlite` and loads only through `load_split()`;
+`load_exam()` rejects those versions.
 
 Diversity comes from `realizations.py` tables. Every family the exam scores is table-backed: `FUZZY_ROWS` (24), `LEFTOVER_ROWS` (27), `UPDATE_ROWS` (22), `CONSTRAIN_ROWS` (22, split into `kind="condition"` and `kind="conflict"`), `EVALUATE_ROWS` (55). Gold-shaped rows come first in each table so the factory still covers the calibration shapes.
 
