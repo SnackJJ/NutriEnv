@@ -449,6 +449,8 @@ def _build_summary(
     endpoint: str | None = None,
     temperature: float | None = None,
     prompt_fp: str | None = None,
+    reasoning_effort: str | None = None,
+    extra_body: dict | None = None,
 ) -> dict:
     results = [results_map[tid] for tid in ordered_ids if tid in results_map]
     total_tasks = len(results)
@@ -512,6 +514,12 @@ def _build_summary(
         # the same model at a different temperature is a different measurement.
         "endpoint": endpoint,
         "temperature": temperature,
+        # "default" = not sent, so the provider's own default applies (and may differ per
+        # provider); otherwise the `reasoning_effort` value sent with every request.
+        "reasoning_effort": reasoning_effort or "default",
+        # Other request fields sent with every call (e.g. top_p / top_k / presence_penalty and
+        # chat_template_kwargs for a vLLM-served model); {} = none.
+        "extra_body": dict(extra_body or {}),
         # Which prompt generation produced this file (see harness/prompt_freeze.py).
         "prompt_version": PROMPT_VERSION,
         "prompt_fingerprint": prompt_fp or prompt_fingerprint(),
@@ -602,6 +610,8 @@ def run_benchmark_suite(
     contract: str = "native-tools",
     temperature: float = 0.0,
     parse_error_policy: str = "silent",
+    reasoning_effort: str | None = None,
+    extra_body: dict | None = None,
 ) -> dict:
     if contract not in CONTRACTS:
         raise ValueError(f"unknown contract {contract!r}; choose from {CONTRACTS}")
@@ -651,6 +661,14 @@ def run_benchmark_suite(
         "contract": contract,
         "parse_error_policy": parse_error_policy,
     }
+    request_extra = dict(extra_body or {})
+    for reserved in ("model", "messages", "temperature", "reasoning_effort"):
+        if reserved in request_extra:
+            raise ValueError(f"--extra-body may not set {reserved!r}; use its own flag")
+    if reasoning_effort:
+        request_extra["reasoning_effort"] = reasoning_effort
+    if request_extra:
+        harness_spec["extra_body"] = request_extra
 
     split_stem = Path(split_path).stem
     out_path = Path(out) if out else Path(
@@ -761,6 +779,7 @@ def run_benchmark_suite(
             model_id, split_path, context_limit, ordered_ids, task_results_map,
             contract=contract, parse_error_policy=parse_error_policy,
             endpoint=url, temperature=temperature, prompt_fp=prompt_fp,
+            reasoning_effort=reasoning_effort, extra_body=extra_body,
         )
         _write_report(out_path, summary)
         return summary
@@ -840,6 +859,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="sampling temperature (0.0 = published protocol; >0 for the noise floor)",
     )
     parser.add_argument(
+        "--reasoning-effort",
+        default=None,
+        help=(
+            "sent as `reasoning_effort` with every request (e.g. low / high / max) and "
+            "recorded in the report; omitted = not sent, recorded as \"default\""
+        ),
+    )
+    parser.add_argument(
+        "--extra-body",
+        type=json.loads,
+        default=None,
+        help=(
+            "JSON object merged into every request and recorded in the report, e.g. "
+            "'{\"top_p\": 0.95, \"top_k\": 20, \"chat_template_kwargs\": "
+            "{\"enable_thinking\": true}}' for a vLLM-served model"
+        ),
+    )
+    parser.add_argument(
         "--contract",
         default="native-tools",
         choices=list(CONTRACTS),
@@ -880,6 +917,8 @@ def main(argv: list[str] | None = None) -> int:
         contract=args.contract,
         temperature=args.temperature,
         parse_error_policy=args.parse_error_policy,
+        reasoning_effort=args.reasoning_effort,
+        extra_body=args.extra_body,
     )
     return 0
 
