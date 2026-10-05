@@ -1,9 +1,19 @@
 #!/usr/bin/env python3
 """Build the local FDC sqlite catalog from official CSV zips.
 
-Published FNDDS-only snapshot:
+Default path is the archived v0.x safe-overlay freeze
+(``data/fdc/archive/catalog.sqlite``).
+Full FNDDS strategy (seq_num first-wins) writes a *new* file:
 
-    python scripts/build_fdc_catalog.py --fndds-only --out data/fdc/catalog.sqlite
+    .venv/bin/python scripts/build_fdc_catalog.py --out data/fdc/archive/catalog-v1.sqlite
+
+FNDDS-only (no SR Legacy; catalog-v2) is a *new* file after dry-run approval:
+
+    .venv/bin/python scripts/build_fdc_catalog.py --fndds-only --dry-run
+    .venv/bin/python scripts/build_fdc_catalog.py --fndds-only --out data/fdc/catalog.sqlite
+
+``--full`` / ``--fndds-only`` without ``--out``, or targeting
+``data/fdc/archive/catalog.sqlite`` / ``data/fdc/archive/catalog-v1.sqlite``, is refused.
 """
 
 from __future__ import annotations
@@ -20,7 +30,7 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
 _RAW = _ROOT / "data" / "fdc" / "raw"
-_DB = _ROOT / "data" / "fdc" / "catalog.sqlite"
+_DB = _ROOT / "data" / "fdc" / "archive" / "catalog.sqlite"
 
 _NUTRIENT_BY_ID = {
     "1008": "kcal",
@@ -151,7 +161,7 @@ _ALLERGEN_RULES: list[tuple[tuple[str, ...], str]] = [
     (("shrimp", "prawn", "crab", "lobster", "shellfish", "crayfish"), "shellfish"),
     (("salmon", "tuna", "cod", "tilapia", "fish, "), "fish"),
     (("almond", "walnut", "cashew", "pecan", "hazelnut", "pistachio"), "tree_nut"),
-    (("soy milk", "soymilk", "tofu", "soybean", "soy sauce"), "soy"),
+    (("soy milk", "soymilk", "tofu", "soybean", "soy sauce", "edamame"), "soy"),
     (("yogurt", "cheddar", "cheese", "milk, ", "milk whole", "whey"), "milk"),
     (("egg, ", "egg whole", "eggs,"), "egg"),
     (("wheat", "flour", "pasta", "bread, ", "noodle"), "wheat"),
@@ -869,9 +879,9 @@ def _survey_scan(survey_zip: Path) -> tuple:
 def _rebuild_delta_vs_catalog(
     reference_catalog: Path, proposed: dict[str, dict[str, float]]
 ) -> dict:
-    """Diff the planned rebuild against an existing catalog-v2.sqlite.
+    """Diff the planned rebuild against an existing catalog.sqlite.
 
-    The current catalog-v2.sqlite was built with base keys only. This round
+    The current catalog.sqlite was built with base keys only. This round
     appends food-specific count units (wing/drummette/scoop/patty/pat/
     packet/pouch/bar/stick) after serving, so every existing key must stay
     byte-identical and only the new keys may be added. The report states
@@ -934,7 +944,7 @@ def plan_fndds_only_rebuild(
 ) -> dict:
     """Read-only catalog-v2 plan. Count and FNDDS portions come from survey.zip.
 
-    Does not write ``catalog-v2.sqlite``. ``sqlite_pair`` is two catalog
+    Does not write ``catalog.sqlite``. ``sqlite_pair`` is two catalog
     sqlite files whose ``foods`` JSON cells are compared as TEXT. When
     omitted, the planner builds ``survey_zip`` once into a temp file and
     checks those cells against independently sorted JSON.
@@ -1107,7 +1117,7 @@ def _fmt_macros(nutrients: dict) -> str:
 
 
 def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
-    """Write the STEP 1 dry-run report. Does not write catalog-v2.sqlite."""
+    """Write the STEP 1 dry-run report. Does not write catalog.sqlite."""
     counts = plan["counts"]
     swaps = plan["staple_swaps"]
     gold_rows = plan.get("gold_rows") or []
@@ -1118,7 +1128,7 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
     lines: list[str] = [
         "# catalog-v2 dry-run：FNDDS-only + staple 重钉",
         "",
-        "只读对照：**不写** `data/fdc/catalog-v2.sqlite`，不改 `data/fdc/archive/catalog.sqlite`、",
+        "只读对照：**不写** `data/fdc/catalog.sqlite`，不改 `data/fdc/archive/catalog.sqlite`、",
         "`data/fdc/archive/catalog-v1.sqlite`、任何 `data/splits/*.json`。本文件是 AGENTS.md 纪律 2",
         "要求的落地前清单，供 codex 审查 + 主 agent 裁决后再重建。",
         "",
@@ -1130,7 +1140,7 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
         "",
         "## 框定",
         "",
-        "- catalog-v2 是新文件（`data/fdc/catalog-v2.sqlite`），不覆盖",
+        "- catalog-v2 是新文件（`data/fdc/catalog.sqlite`），不覆盖",
         "  `data/fdc/archive/catalog.sqlite` 与 `data/fdc/archive/catalog-v1.sqlite`。",
         "- FNDDS 食物数与份量图来自 `survey.zip`（food.csv / food_nutrient /",
         "  food_portion），不是现成 sqlite 的 COUNT / portions 拷贝。",
@@ -1165,9 +1175,9 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
         "- 列：`nutrients` / `portions` / `allergen_tags` / `aliases`",
         "",
         "零漂移要求取值与 sqlite TEXT 都一致。仅键序或 JSON 空白不同也会记入 "
-        "`key_order_only`。不写 `catalog-v2.sqlite`；对照用临时库或调用方传入的一对 sqlite。",
+        "`key_order_only`。不写 `catalog.sqlite`；对照用临时库或调用方传入的一对 sqlite。",
         "",
-        "## 本轮重建：相对现有 catalog-v2.sqlite 的差异",
+        "## 本轮重建：相对现有 catalog.sqlite 的差异",
         "",
         "本轮在 `_FULL_NEW_UNITS` 尾部追加食物专属计数单位（wing / drummette / "
         "scoop / patty / pat / packet / pouch / bar / stick），全部排在 serving "
@@ -1193,7 +1203,7 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
         ]
     else:
         lines += [
-            "- 当前无 `data/fdc/catalog-v2.sqlite` 可对照，跳过本轮差异统计。",
+            "- 当前无 `data/fdc/catalog.sqlite` 可对照，跳过本轮差异统计。",
             "",
         ]
     lines += [
@@ -1301,7 +1311,7 @@ def write_catalog_v2_dryrun(plan: dict, dest: Path) -> None:
         "",
         "请 codex 独立审查本清单（尤其「本轮重建差异」的 removed/changed 均为 0），",
         "主 agent 裁决 APPROVE 后再允许：",
-        "`build_fdc_catalog.py --fndds-only --out data/fdc/catalog-v2.sqlite`。",
+        "`build_fdc_catalog.py --fndds-only --out data/fdc/catalog.sqlite`。",
         "",
     ]
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -1561,7 +1571,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--fndds-only",
         action="store_true",
-        help="Skip SR Legacy. Requires --out or --dry-run.",
+        help="Skip SR Legacy. Requires --out (catalog-v2) or --dry-run.",
     )
     parser.add_argument(
         "--dry-run",
@@ -1576,9 +1586,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     dest = args.out
-    fndds_only = args.fndds_only or (
-        dest is not None and dest.name == "catalog.sqlite"
+    # The live catalog is data/fdc/catalog.sqlite. data/fdc/archive/catalog.sqlite is the
+    # pinned v0.x mill fixture, so once the -v2 suffix is gone the file NAME alone no longer
+    # identifies the target -- the directory has to be checked as well, or `--out
+    # data/fdc/archive/catalog.sqlite` would silently be planned as an FNDDS-only rebuild.
+    dest_is_live_catalog = (
+        dest is not None
+        and dest.name == "catalog.sqlite"
+        and dest.parent.resolve() == (_ROOT / "data" / "fdc").resolve()
     )
+    fndds_only = args.fndds_only or dest_is_live_catalog
     full = (
         args.full
         or fndds_only
@@ -1589,14 +1606,14 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--dry-run currently supports --fndds-only only")
         plan = plan_fndds_only_rebuild(
             live_catalog=_DB,
-            split_path=_ROOT / "data" / "splits" / "nutrienv-v1.0.json",
+            split_path=_ROOT / "data" / "splits" / "archive" / "v0.5-gold.json",
             reference_catalog=_ROOT / "data" / "fdc" / "catalog.sqlite",
         )
         write_catalog_v2_dryrun(plan, args.report)
         print(f"wrote {args.report}")
         return 0
     if full and dest is None:
-        parser.error("full strategy requires --out PATH")
+        parser.error("full strategy requires --out PATH (refusing to overwrite data/fdc/archive/catalog.sqlite)")
     if fndds_only and dest is None:
         parser.error("fndds-only requires --out PATH or --dry-run")
     build(

@@ -1,6 +1,7 @@
-"""Load the published USDA FNDDS catalog.
+"""Load the active USDA FDC catalog (FNDDS-only catalog-v3 by default).
 
-Runtime never calls the USDA API.
+Runtime never calls the USDA API. Frozen v0.x splits keep their own
+recorded ``catalog.sqlite`` binding through ``load_exam`` / ``load_split``.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from .catalog_fixture import demo_catalog
 __all__ = ["GOLD_CATALOG_PATH", "load_catalog"]
 
 _ROOT = Path(__file__).resolve().parents[3]
-GOLD_CATALOG_PATH = _ROOT / "data" / "fdc" / "catalog.sqlite"
+GOLD_CATALOG_PATH = _ROOT / "data" / "fdc" / "catalog-v3.sqlite"
 
 
 def load_catalog(path: Path | str | None = None, *, demo: bool = False) -> FoodCatalog:
